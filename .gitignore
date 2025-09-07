@@ -1,0 +1,12 @@
+# dependências
+node_modules/
+
+# builds
+dist/
+Master/Dist/
+Admin/Dist/
+
+# caches/logs
+*.log
+.DS_Store
+.env
