@@ -58,7 +58,6 @@
                 </div>
 
                 <div class="p-2 mt-4">
-                  <!-- Sem action: o JS intercepta o submit -->
                   <form id="loginForm" novalidate>
                     <div class="mb-3">
                       <label for="email" class="form-label">Email</label>
@@ -100,7 +99,6 @@
                     </div>
                   </form>
 
-                  <!-- feedback -->
                   <div class="alert alert-danger d-none mt-3" role="alert" id="loginError"></div>
                 </div>
               </div>
@@ -146,12 +144,19 @@
 
   <!-- Auth JS -->
   <script>
+    // Sua API (FastAPI) no Render
     const API_BASE = 'https://track-saidas-api.onrender.com/api/auth';
 
     function showError(msg) {
       const el = document.getElementById('loginError');
       el.textContent = msg || 'Falha no login.';
       el.classList.remove('d-none');
+    }
+
+    // Se a URL tiver ?next=, respeitamos
+    function getNextParam() {
+      const u = new URL(location.href);
+      return u.searchParams.get('next');
     }
 
     const form = document.getElementById('loginForm');
@@ -172,6 +177,7 @@
       btn.disabled = true;
 
       try {
+        // 1) Login -> seta cookie HttpOnly
         const resp = await fetch(`${API_BASE}/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -186,15 +192,22 @@
           return;
         }
 
-        const me = await fetch(`${API_BASE}/me`, { credentials: 'include' });
+        // 2) Confirma a sessão (cookie presente)
+        const me = await fetch(`${API_BASE}/me`, { credentials: 'include', cache: 'no-store' });
         if (!me.ok) {
           showError('Sessão não criada. Verifique as flags do cookie.');
           btn.disabled = false;
           return;
         }
 
-        // 🔴 AQUI ALTEREI: vai direto pro dashboard
-        window.location.href = 'dist/dashboard-tracking-saidas.html';
+        // 3) Redireciona
+        const next = getNextParam();
+        if (next) {
+          location.assign(next);
+        } else {
+          // Public Directory = Master/dist -> raiz serve os arquivos de "dist"
+          location.assign('/dashboard-tracking-saidas.html');
+        }
 
       } catch (err) {
         console.error('[signin] erro no fetch', err);
