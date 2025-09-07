@@ -22,7 +22,6 @@
 
 <body>
   <div class="auth-page-wrapper pt-5">
-    <!-- auth page bg -->
     <div class="auth-one-bg-position auth-one-bg" id="auth-particles">
       <div class="bg-overlay"></div>
       <div class="shape">
@@ -32,7 +31,6 @@
       </div>
     </div>
 
-    <!-- auth page content -->
     <div class="auth-page-content">
       <div class="container">
         <div class="row">
@@ -58,6 +56,7 @@
                 </div>
 
                 <div class="p-2 mt-4">
+                  <!-- Removemos action; bloqueamos SUBMIT por JS -->
                   <form id="loginForm" novalidate>
                     <div class="mb-3">
                       <label for="email" class="form-label">Email</label>
@@ -83,7 +82,8 @@
                     </div>
 
                     <div class="mt-4">
-                      <button class="btn btn-success w-100" type="submit" id="signinBtn">Sign In</button>
+                      <!-- botão NÃO é submit -->
+                      <button class="btn btn-success w-100" type="button" id="signinBtn">Sign In</button>
                     </div>
 
                     <div class="mt-4 text-center">
@@ -113,7 +113,6 @@
       </div>
     </div>
 
-    <!-- footer -->
     <footer class="footer">
       <div class="container">
         <div class="row">
@@ -144,30 +143,39 @@
 
   <!-- Auth JS -->
   <script>
-    // Sua API (FastAPI) no Render
     const API_BASE = 'https://track-saidas-api.onrender.com/api/auth';
-
-    function showError(msg) {
-      const el = document.getElementById('loginError');
-      el.textContent = msg || 'Falha no login.';
-      el.classList.remove('d-none');
-    }
-
-    // Se a URL tiver ?next=, respeitamos
-    function getNextParam() {
-      const u = new URL(location.href);
-      return u.searchParams.get('next');
-    }
+    const DASHBOARD_URL = '/dashboard-tracking-saidas.html'; // Master/dist -> servido na raiz
 
     const form = document.getElementById('loginForm');
-    form.addEventListener('submit', async (e) => {
+    const btn  = document.getElementById('signinBtn');
+    const errBox = document.getElementById('loginError');
+
+    function showError(msg) {
+      errBox.textContent = msg || 'Falha no login.';
+      errBox.classList.remove('d-none');
+    }
+
+    // Bloqueia QUALQUER submit que outro script tente disparar
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      doLogin();
+      return false;
+    });
 
+    // Clicar no botão executa o login
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      doLogin();
+      return false;
+    });
+
+    async function doLogin() {
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password-input').value;
       const remember = document.getElementById('auth-remember-check')?.checked || false;
-      const btn = document.getElementById('signinBtn');
 
       if (!email || !password) {
         showError('Preencha email e senha.');
@@ -175,6 +183,7 @@
       }
 
       btn.disabled = true;
+      errBox.classList.add('d-none');
 
       try {
         // 1) Login -> seta cookie HttpOnly
@@ -182,7 +191,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ email, password, remember })
+          body: JSON.stringify({ email, password, remember }),
         });
 
         if (!resp.ok) {
@@ -192,29 +201,27 @@
           return;
         }
 
-        // 2) Confirma a sessão (cookie presente)
-        const me = await fetch(`${API_BASE}/me`, { credentials: 'include', cache: 'no-store' });
+        // 2) Confirma sessão
+        const me = await fetch(`${API_BASE}/me`, {
+          credentials: 'include',
+          cache: 'no-store'
+        });
+
         if (!me.ok) {
           showError('Sessão não criada. Verifique as flags do cookie.');
           btn.disabled = false;
           return;
         }
 
-        // 3) Redireciona
-        const next = getNextParam();
-        if (next) {
-          location.assign(next);
-        } else {
-          // Public Directory = Master/dist -> raiz serve os arquivos de "dist"
-          location.assign('/dashboard-tracking-saidas.html');
-        }
+        // 3) Redireciona SEM passar pelo index
+        window.location.replace(DASHBOARD_URL);
 
       } catch (err) {
         console.error('[signin] erro no fetch', err);
         showError('Falha ao conectar. Tente novamente.');
         btn.disabled = false;
       }
-    });
+    }
   </script>
 </body>
 </html>
