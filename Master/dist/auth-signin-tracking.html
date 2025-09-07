@@ -144,6 +144,64 @@
   <script src="assets/js/pages/particles.app.js"></script>
   <script src="assets/js/pages/password-addon.init.js"></script>
 
- 
+  <!-- Auth JS -->
+  <script>
+    const API_BASE = 'https://track-saidas-api.onrender.com/api/auth';
+
+    function showError(msg) {
+      const el = document.getElementById('loginError');
+      el.textContent = msg || 'Falha no login.';
+      el.classList.remove('d-none');
+    }
+
+    const form = document.getElementById('loginForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password-input').value;
+      const remember = document.getElementById('auth-remember-check')?.checked || false;
+      const btn = document.getElementById('signinBtn');
+
+      if (!email || !password) {
+        showError('Preencha email e senha.');
+        return;
+      }
+
+      btn.disabled = true;
+
+      try {
+        const resp = await fetch(`${API_BASE}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email, password, remember })
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          showError(err.detail || 'Usuário ou senha inválidos.');
+          btn.disabled = false;
+          return;
+        }
+
+        const me = await fetch(`${API_BASE}/me`, { credentials: 'include' });
+        if (!me.ok) {
+          showError('Sessão não criada. Verifique as flags do cookie.');
+          btn.disabled = false;
+          return;
+        }
+
+        // 🔴 AQUI ALTEREI: vai direto pro dashboard
+        window.location.href = 'dist/dashboard-tracking-saidas.html';
+
+      } catch (err) {
+        console.error('[signin] erro no fetch', err);
+        showError('Falha ao conectar. Tente novamente.');
+        btn.disabled = false;
+      }
+    });
+  </script>
 </body>
 </html>
