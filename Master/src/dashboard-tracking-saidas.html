@@ -1,0 +1,95 @@
+<!-- Dashboard: Tracking Saídas (Velzon-style)
+- Nova página independente seguindo o padrão de includes do Velzon
+- Contém 2 gráficos ECharts com DADOS FAKES determinísticos (sem API)
+- Arquivos sugeridos:
+    1) pages/dashboard-tracking-saidas.html (este HTML)
+    2) assets/js/pages/dashboard-tracking-saidas.init.js (JS abaixo)
+
+Como instalar:
+1) Salve o HTML abaixo como `dashboard-tracking-saidas.html` na raiz do tema (onde ficam os demais HTMLs do Velzon).
+2) Salve o JS após o marcador ====== INIT.JS ====== em `assets/js/pages/dashboard-tracking-saidas.init.js`.
+3) Certifique-se de que `assets/libs/echarts/echarts.min.js` exista (o Velzon já fornece). 
+4) Abra `dashboard-tracking-saidas.html` no navegador.
+-->
+
+@@include("partials/main.html")
+
+<head>
+  @@include("partials/title-meta.html", {"title": "Dashboard – Tracking Saídas"})
+  <!-- jsvectormap css (opcional, mantido por padrão do Velzon) -->
+  <link href="assets/libs/jsvectormap/jsvectormap.min.css" rel="stylesheet" type="text/css" />
+  @@include("partials/head-css.html")
+</head>
+
+<body>
+  <div id="layout-wrapper">
+    @@include("partials/menu.html")
+
+    <div class="main-content">
+      <div class="page-content">
+        <div class="container-fluid">
+
+          @@include("partials/page-title.html", {"pagetitle": "Dashboards", "title": "Tracking Saídas"})
+
+          <!-- ROW: Cards com os 2 gráficos -->
+          <div class="row">
+            <!-- Ranking por Entregadores (15 dias) -->
+            <div class="col-xl-6">
+              <div class="card card-height-100">
+                <div class="card-header align-items-center d-flex">
+                  <h4 class="card-title mb-0 flex-grow-1">Ranking por Entregadores (15 dias)</h4>
+                  <div class="flex-shrink-0">
+                    <button class="btn btn-soft-primary btn-sm" id="btn-refresh-ranking">Recarregar</button>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div id="chart-entregadores-ranking" style="height: 360px;"></div>
+                  <div class="text-muted fs-12 mt-2" id="ranking-period"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pedidos Diários por Origem (15 dias) -->
+            <div class="col-xl-6">
+              <div class="card card-height-100">
+                <div class="card-header align-items-center d-flex">
+                  <h4 class="card-title mb-0 flex-grow-1">Pedidos Diários por Origem (15 dias)</h4>
+                  <div class="flex-shrink-0 d-flex gap-2">
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Filtro de Origem">
+                   <!--   <button class="btn btn-soft-secondary active" data-origem="ambos">Ambos</button>
+                      <button class="btn btn-soft-secondary" data-origem="shopee">Shopee</button>
+                      <button class="btn btn-soft-secondary" data-origem="mercado_livre">Mercado Livre</button>
+                      <button class="btn btn-soft-secondary" data-origem="total">Total Geral</button>-->
+                    </div>
+                    <button class="btn btn-soft-primary btn-sm" id="btn-refresh-diario">Recarregar</button>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div id="chart-pedidos-diarios" style="height: 360px;"></div>
+                  <div class="text-muted fs-12 mt-2" id="diario-period"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div> <!-- container-fluid -->
+      </div> <!-- End Page-content -->
+
+      @@include("partials/footer.html")
+    </div> <!-- end main content-->
+  </div> <!-- END layout-wrapper -->
+
+  @@include("partials/customizer.html")
+  @@include("partials/vendor-scripts.html")
+
+  <!-- ECharts -->
+  <script src="assets/libs/echarts/echarts.min.js"></script>
+
+  <!-- Página init -->
+  <script src="assets/js/pages/dashboard-tracking-saidas.init.js"></script>
+
+  <!-- App js -->
+  <script src="assets/js/app.js"></script>
+</body>
+
+</html>

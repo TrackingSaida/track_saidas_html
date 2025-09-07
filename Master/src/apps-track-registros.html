@@ -1,0 +1,185 @@
+@@include("partials/main.html")
+<head>
+  @@include("partials/title-meta.html", {"title": "TrackSaídas — Registros"})
+  @@include("partials/head-css.html")
+</head>
+
+<body>
+  <!-- Body wrapper padrão (carrega topbar + sidebar) -->
+<body data-layout="vertical" data-topbar="light" data-sidebar="dark" data-sidebar-size="lg">
+
+
+  <div id="layout-wrapper">
+    @@include("partials/topbar.html")
+    @@include("partials/sidebar.html")
+
+    <div class="main-content">
+      <div class="page-content">
+        <div class="container-fluid">
+
+          <!-- TÍTULO -->
+          <div class="row">
+            <div class="col-12">
+              <div class="d-flex align-items-center mb-3">
+                <h4 class="mb-0">TrackSaídas — Registros</h4>
+                <div class="ms-auto small text-muted" id="pager-info"></div>
+              </div>
+            </div>
+          </div>
+
+  <!-- Conteúdo principal -->
+  <div class="page-content">
+    <div class="container-fluid">
+
+      <!-- Título / breadcrumb -->
+      <div class="row">
+        <div class="col-12">
+          <div class="d-flex align-items-center mb-3">
+            <h4 class="mb-0">TrackSaídas — Registros</h4>
+            <div class="ms-auto small text-muted" id="pager-info"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toolbar de filtros -->
+      <div class="card">
+        <div class="card-body">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-2">
+              <label class="form-label">De</label>
+              <input type="date" id="flt-from" class="form-control" />
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Até</label>
+              <input type="date" id="flt-to" class="form-control" />
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Entregador</label>
+              <select id="flt-entregador" class="form-control">
+                <option value="">(Todos)</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Status</label>
+              <select id="flt-status" class="form-control">
+                <option value="">(Todos)</option>
+                <option value="Saiu">Saiu</option>
+                <option value="Pendente">Pendente</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Código (contém)</label>
+              <input id="flt-codigo" class="form-control" placeholder="Ex.: BR... ou números" />
+            </div>
+            <div class="col-md-1">
+              <label class="form-label">Ordenar</label>
+              <select id="flt-sort" class="form-control">
+                <option value="-ts">Data/Hora ↓</option>
+                <option value="ts">Data/Hora ↑</option>
+                <option value="codigo">Código ↑</option>
+                <option value="-codigo">Código ↓</option>
+              </select>
+            </div>
+            <div class="col-md-1">
+              <label class="form-label">Itens</label>
+              <select id="flt-pageSize" class="form-control">
+                <option>20</option>
+                <option>50</option>
+                <option>100</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 mt-3">
+            <button id="btn-search" class="btn btn-primary"><i class="ri-search-line"></i> Buscar</button>
+            <button id="btn-bulk-delete" class="btn btn-danger"><i class="ri-delete-bin-line"></i> Excluir Selecionados</button>
+            <div class="ms-auto btn-group">
+              <button class="btn btn-soft-secondary" id="pager-prev">◀</button>
+              <button class="btn btn-soft-secondary" id="pager-next">▶</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabela -->
+      <div class="card">
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table align-middle table-nowrap">
+              <thead class="table-active">
+                <tr>
+                  <th style="width:36px"><input id="chk-all" type="checkbox" class="form-check-input" /></th>
+                  <th>Data Hora</th>
+                  <th>Entregador</th>
+                  <th>Código</th>
+                  <th>Serviço</th>
+                  <th>Status</th>
+                  <th>Dup?</th>
+                  <th>Estação</th>
+                  <th class="text-end">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="reg-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.container-fluid -->
+  </div><!-- /.page-content -->
+
+  <!-- Modal Editar -->
+  <div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+      <div class="modal-header p-3 bg-success-subtle">
+        <h5 class="modal-title">Editar Registro</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-id" />
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Entregador</label>
+            <input list="edit-entregadores" id="edit-entregador" class="form-control" />
+            <datalist id="edit-entregadores"></datalist>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Estação</label>
+            <input list="edit-estacoes" id="edit-estacao" class="form-control" />
+            <datalist id="edit-estacoes"></datalist>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Código</label>
+            <input id="edit-codigo" class="form-control" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Serviço</label>
+            <input id="edit-servico" class="form-control" placeholder="Shopee / Mercado Livre / Avulso" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Status</label>
+            <select id="edit-status" class="form-control">
+              <option value="Saiu">Saiu</option>
+              <option value="Pendente">Pendente</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost-secondary" data-bs-dismiss="modal">Fechar</button>
+        <button id="edit-save" class="btn btn-primary">Salvar</button>
+      </div>
+    </div></div>
+  </div>
+
+  @@include("partials/customizer.html")
+  @@include("partials/vendor-scripts.html")
+
+  <!-- seus scripts -->
+  <script src="assets/js/pages/track.api.js"></script>
+  <script src="assets/js/pages/track.registros.init.js" ></script>
+
+  <!-- app do Velzon -->
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
