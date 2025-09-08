@@ -10,8 +10,10 @@
     "> 2%"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "build": "gulp build",
+  "start": "gulp"
+}
+,
   "devDependencies": {
     "browser-sync": "^3.0.3",
     "del": "6.1.0",
