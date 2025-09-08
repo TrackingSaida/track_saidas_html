@@ -1,54 +1,70 @@
-const SIGNUP_URL = "https://track-saidas-api.onrender.com/api/users/";
+// =========================
+// Signup - TrackingSaídas
+// =========================
+const API_USERS = 'https://track-saidas-api.onrender.com/api/users';
 
-// mostrar/ocultar senha
-(function () {
-  const input = document.getElementById("senha-input");
-  const btn = document.getElementById("senha-addon");
-  if (input && btn) {
-    btn.addEventListener("click", () => {
-      input.type = input.type === "password" ? "text" : "password";
-    });
-  }
-})();
+function showSignupError(msg) {
+  // você pode criar uma <div id="signupError" class="alert alert-danger d-none"></div> no HTML se quiser feedback visual
+  console.error('[signup] ', msg || 'Erro ao criar conta.');
+}
 
-document.getElementById("signup-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('[signup] init');
 
-  const form = e.target;
-  if (!form.checkValidity()) {
-    form.classList.add('was-validated');
+  const form = document.getElementById('signup-form'); // existe no HTML de signup
+  if (!form) {
+    console.error('[signup] #signup-form não encontrado');
     return;
   }
 
-  const email = document.getElementById("useremail").value.trim();
-  const username = document.getElementById("username").value.trim();
-  const contato = document.getElementById("contato").value.trim();
-  const password_hash = document.getElementById("senha-input").value; // <-- nome que a API espera
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-  const btn = document.getElementById("signup-btn");
-  const originalText = btn.innerText;
-  btn.disabled = true; btn.innerText = "Enviando...";
+    const emailEl = document.getElementById('useremail');
+    const userEl = document.getElementById('username');
+    const contatoEl = document.getElementById('contato');
+    const senhaEl = document.getElementById('senha-input');
+    const btn = document.getElementById('signup-btn');
 
-  try {
-    const resp = await fetch(SIGNUP_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, username, contato, password_hash })
-    });
+    const email = emailEl?.value.trim();
+    const username = userEl?.value.trim();
+    const contato = contatoEl?.value.trim();
+    const password = senhaEl?.value;
 
-    if (resp.ok) {
-      alert("Conta criada com sucesso!");
-      window.location.href = "auth-signin-basic.html";
-    } else {
-      const data = await resp.json().catch(() => ({}));
-      const msg = data?.detail || data?.message || "Erro ao criar conta.";
-      alert(msg);
+    if (!email || !username || !contato || !password) {
+      showSignupError('Preencha todos os campos obrigatórios.');
+      return;
     }
-  } catch (err) {
-    console.error(err);
-    alert("Falha ao comunicar com o servidor.");
-  } finally {
-    btn.disabled = false; btn.innerText = originalText;
-  }
-});
 
+    try {
+      btn && (btn.disabled = true);
+
+      // 1) Cria o usuário
+      const resp = await fetch(API_USERS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          username,
+          contato,
+          password
+        })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        showSignupError(err.detail || 'Não foi possível criar a conta.');
+        btn && (btn.disabled = false);
+        return;
+      }
+
+      // 2) Redireciona para o login já levando ?email=...
+      window.location.href = 'auth-signin-tracking.html?email=' + encodeURIComponent(email);
+    } catch (err) {
+      console.error('[signup] erro de rede', err);
+      showSignupError('Falha ao conectar. Tente novamente.');
+      btn && (btn.disabled = false);
+    }
+  });
+});

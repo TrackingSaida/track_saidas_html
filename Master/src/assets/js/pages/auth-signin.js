@@ -1,85 +1,96 @@
-// URL COMPLETA da API (Render)
-const API_BASE = 'https://track-saidas-api.onrender.com/api/auth';
+// =========================
+// Login - TrackingSaídas
+// =========================
+const API_AUTH = 'https://track-saidas-api.onrender.com/api/auth';
 
-function getNextParam() {
+function getParam(name) {
   const u = new URL(window.location.href);
-  return u.searchParams.get('next');
+  return u.searchParams.get(name);
 }
 
-function showError(msg) {
+function showErrorLogin(msg) {
   const el = document.getElementById('loginError');
+  if (!el) return;
   el.textContent = msg || 'Falha no login.';
   el.classList.remove('d-none');
 }
 
-console.log('[signin] script carregado');
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('[signin] init');
 
-const form = document.getElementById('loginForm');
-if (!form) {
-  console.error('[signin] Não encontrei #loginForm');
-} else {
+  // 1) Autopreenche o e-mail se vier ?email=...
+  (function prefillEmail() {
+    const email = getParam('email');
+    if (email) {
+      const input = document.getElementById('email');
+      if (input) input.value = email;
+    }
+  })();
+
+  // 2) Intercepta o submit do formulário
+  const form = document.getElementById('loginForm'); // existe no HTML de login
+  if (!form) {
+    console.error('[signin] #loginForm não encontrado');
+    return;
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('[signin] submit interceptado');
 
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password-input').value;
+    const email = document.getElementById('email')?.value.trim();
+    const password = document.getElementById('password-input')?.value;
     const remember = document.getElementById('auth-remember-check')?.checked || false;
     const btn = document.getElementById('signinBtn');
 
-    if (!email || !password) { showError('Preencha email e senha.'); return false; }
+    if (!email || !password) {
+      showErrorLogin('Preencha e-mail e senha.');
+      return;
+    }
 
-    btn.disabled = true;
+    const store = remember ? localStorage : sessionStorage;
+    const other = remember ? sessionStorage : localStorage;
 
     try {
-      console.log('[signin] POST', `${API_BASE}/login`, { email, remember });
-      const resp = await fetch(`${API_BASE}/login`, {
+      btn && (btn.disabled = true);
+
+      // 3) Login → cria cookie de sessão
+      const resp = await fetch(`${API_AUTH}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // ESSENCIAL p/ cookie cross-site
+        credentials: 'include', // importante para cookie cross-site
         body: JSON.stringify({ email, password, remember })
       });
 
-      console.log('[signin] /auth/login status =', resp.status);
-
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
-        showError(err.detail || 'Usuário ou senha inválidos.');
-        btn.disabled = false;
-        return false;
+        showErrorLogin(err.detail || 'Usuário ou senha inválidos.');
+        btn && (btn.disabled = false);
+        return;
       }
 
-      // Confirma sessão imediatamente na MESMA ORIGEM da API
-      const meUrl = `${API_BASE}/me`;
-      console.log('[signin] GET', meUrl);
-      const me = await fetch(meUrl, { credentials: 'include' });
-      console.log('[signin] /auth/me status =', me.status);
-
+      // 4) Confirma a sessão e lê o usuário
+      const me = await fetch(`${API_AUTH}/me`, { credentials: 'include' });
       if (!me.ok) {
-  showError('Sessão não criada. Verifique as flags do cookie (Secure/SameSite/CORS).');
-  btn.disabled = false;
-  return false;
-}
+        showErrorLogin('Sessão não criada. Verifique flags do cookie (Secure/SameSite/CORS).');
+        btn && (btn.disabled = false);
+        return;
+      }
+      const userData = await me.json().catch(() => ({}));
 
-const userData = await me.json().catch(() => ({}));
+      // 5) Persistência (marcador para o index + cache do usuário)
+      other.removeItem('trackingToken');
+      other.removeItem('trackingUser');
+      store.setItem('trackingToken', 'cookie-session');
+      store.setItem('trackingUser', JSON.stringify(userData || {}));
 
-// aqui salvamos no storage
-localStorage.setItem("trackingToken", "cookie-session"); // opcional, só p/ marcar que existe
-localStorage.setItem("trackingUser", JSON.stringify(userData));
-
-// redireciona
-const next = getNextParam();
-window.location.href = next || 'dashboard-tracking-saidas.html';
-return false;
-   } catch (err) {
-      console.error('[signin] erro no fetch', err);
-      showError('Falha ao conectar. Tente novamente.');
-      btn.disabled = false;
-      return false;
+      // 6) Redireciona
+      const next = getParam('next');
+      window.location.href = next || 'dashboard-tracking-saidas.html';
+    } catch (err) {
+      console.error('[signin] erro de rede', err);
+      showErrorLogin('Falha ao conectar. Tente novamente.');
+      btn && (btn.disabled = false);
     }
-
-    
   });
-}
-
+});
