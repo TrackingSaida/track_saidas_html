@@ -5,24 +5,51 @@
   <title>Tracking Saídas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <script>
-    // Redirecionamento inteligente
-    document.addEventListener("DOMContentLoaded", () => {
-      const params = new URLSearchParams(window.location.search);
-      const next = params.get("next");
+<script>
+  const API_AUTH = 'https://track-saidas-api.onrender.com/api/auth';
 
-      const hasToken =
-        localStorage.getItem("trackingToken") ||
-        sessionStorage.getItem("trackingToken");
+  function getCookie(name) {
+    return document.cookie
+      .split('; ')
+      .find(row => row.startsWith(name + '='))?.split('=')[1] || null;
+  }
 
-      const destination = hasToken
-        ? (next || "dashboard-tracking-saidas.html")
-        : "landing-tracking.html";
+  document.addEventListener('DOMContentLoaded', async () => {
+    const params = new URLSearchParams(location.search);
+    const next = params.get('next');
 
-      // não deixa a index entrar no histórico
-      window.location.replace(destination);
-    });
-  </script>
+    let hasToken =
+      localStorage.getItem('trackingToken') ||
+      sessionStorage.getItem('trackingToken');
+
+    // 1) Se já tem marcador, vai pro app
+    if (hasToken) {
+      return location.replace(next || 'dashboard-tracking-saidas.html');
+    }
+
+    // 2) Se existir cookie access_token, marque e vá pro app
+    const cookieToken = getCookie('access_token');
+    if (cookieToken) {
+      localStorage.setItem('trackingToken', 'cookie-session');
+      return location.replace(next || 'dashboard-tracking-saidas.html');
+    }
+
+    // 3) Última checagem: pergunta pro backend (/auth/me) se há sessão
+    try {
+      const me = await fetch(`${API_AUTH}/me`, { credentials: 'include' });
+      if (me.ok) {
+        localStorage.setItem('trackingToken', 'cookie-session');
+        return location.replace(next || 'dashboard-tracking-saidas.html');
+      }
+    } catch (e) {
+      /* ignora e cai pro else abaixo */
+    }
+
+    // 4) Sem nada → landing
+    location.replace('landing-tracking.html');
+  });
+</script>
+
 
   <style>
     /* Mensagem de fallback enquanto redireciona */
