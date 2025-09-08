@@ -1,0 +1,107 @@
+@@include("partials/main.html")
+
+<head>
+  @@include("partials/title-meta.html", {"title": "Landing – Tracking Saídas"})
+
+  <!--Swiper slider css-->
+  <link href="assets/libs/swiper/swiper-bundle.min.css" rel="stylesheet" type="text/css" />
+
+  @@include("partials/head-css.html")
+</head>
+
+<body data-bs-spy="scroll" data-bs-target="#navbar-example">
+
+  <!-- Begin page -->
+  <div class="layout-wrapper landing">
+    <nav class="navbar navbar-expand-lg navbar-landing fixed-top" id="navbar">
+      <div class="container">
+        <a class="navbar-brand" href="index.html">
+          <img src="assets/images/logo-track-light.png" class="card-logo card-logo-light" alt="Tracking Saídas" height="40">
+        </a>
+        <button class="navbar-toggler py-0 fs-20 text-body" type="button" data-bs-toggle="collapse"
+          data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
+          aria-label="Toggle navigation">
+          <i class="mdi mdi-menu"></i>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav mx-auto mt-2 mt-lg-0" id="navbar-example">
+            <li class="nav-item">
+              <a class="nav-link active" href="#hero">Início</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#services">Serviços</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#features">Recursos</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#plans">Planos</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#reviews">Avaliações</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#team">Equipe</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#contact">Contato</a>
+            </li>
+          </ul>
+
+          <div class="">
+            <a href="auth-signin-tracking.html"
+              class="btn btn-link fw-medium text-decoration-none text-body">Entrar</a>
+            <a href="auth-signup-tracking.html" class="btn btn-primary">Criar Conta</a>
+          </div>
+        </div>
+      </div>
+    </nav>
+    <!-- end navbar -->
+
+    <div class="vertical-overlay" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent.show"></div>
+
+    <!-- start hero section -->
+    <section class="section pb-0 hero-section" id="hero">
+      <div class="bg-overlay bg-overlay-pattern"></div>
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col-lg-8 col-sm-10">
+            <div class="text-center mt-lg-5 pt-5">
+              <h1 class="display-6 fw-semibold mb-3 lh-base">
+                A melhor forma de gerenciar suas saídas com
+                <span class="text-success">Tracking Saídas</span>
+              </h1>
+              <p class="lead text-muted lh-base">
+                Sistema inteligente para gestão e rastreamento de entregas.
+              </p>
+
+              <div class="d-flex gap-2 justify-content-center mt-4">
+                <a href="auth-signup-tracking.html" class="btn btn-primary">Começar agora
+                  <i class="ri-arrow-right-line align-middle ms-1"></i></a>
+                <a href="#plans" class="btn btn-danger">Ver Planos
+                  <i class="ri-eye-line align-middle ms-1"></i></a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- end row -->
+      </div>
+      <!-- end container -->
+    </section>
+    <!-- end hero section -->
+
+    @@include("partials/footer.html")
+  </div>
+  <!-- end layout wrapper -->
+
+  @@include("partials/vendor-scripts.html")
+
+  <!--Swiper slider js-->
+  <script src="assets/libs/swiper/swiper-bundle.min.js"></script>
+
+  <!-- landing init -->
+  <script src="assets/js/pages/landing.init.js"></script>
+</body>
+
+</html>

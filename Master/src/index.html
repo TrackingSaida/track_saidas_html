@@ -1,1 +1,54 @@
-@@include("dashboard-tracking-saidas.html")
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>Tracking Saídas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <script>
+    // Redirecionamento inteligente
+    document.addEventListener("DOMContentLoaded", () => {
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get("next");
+
+      const hasToken =
+        localStorage.getItem("trackingToken") ||
+        sessionStorage.getItem("trackingToken");
+
+      const destination = hasToken
+        ? (next || "dashboard-tracking-saidas.html")
+        : "landing-tracking.html";
+
+      // não deixa a index entrar no histórico
+      window.location.replace(destination);
+    });
+  </script>
+
+  <style>
+    /* Mensagem de fallback enquanto redireciona */
+    html, body { height: 100%; margin: 0; }
+    .center {
+      height: 100%; display: grid; place-items: center;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: #6c757d; text-align: center; padding: 24px;
+    }
+    .spinner {
+      width: 42px; height: 42px; border: 3px solid #e9ecef; border-top-color: #0d6efd;
+      border-radius: 50%; margin: 0 auto 12px; animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="center" aria-live="polite" aria-busy="true">
+    <div class="spinner" role="img" aria-label="Carregando"></div>
+    <div>Redirecionando…</div>
+    <small>Se não acontecer automaticamente, <a href="landing-tracking.html">clique aqui</a>.</small>
+  </div>
+
+  <!-- Fallback caso o JavaScript esteja desabilitado -->
+  <noscript>
+    <meta http-equiv="refresh" content="0; url=landing-tracking.html">
+  </noscript>
+</body>
+</html>

@@ -57,20 +57,29 @@ if (!form) {
       console.log('[signin] /auth/me status =', me.status);
 
       if (!me.ok) {
-        showError('Sessão não criada. Verifique as flags do cookie (Secure/SameSite/CORS).');
-        btn.disabled = false;
-        return false;
-      }
+  showError('Sessão não criada. Verifique as flags do cookie (Secure/SameSite/CORS).');
+  btn.disabled = false;
+  return false;
+}
 
-      const next = getNextParam();
-      window.location.href = next || 'index.html';
-      return false;
-    } catch (err) {
+const userData = await me.json().catch(() => ({}));
+
+// aqui salvamos no storage
+localStorage.setItem("trackingToken", "cookie-session"); // opcional, só p/ marcar que existe
+localStorage.setItem("trackingUser", JSON.stringify(userData));
+
+// redireciona
+const next = getNextParam();
+window.location.href = next || 'dashboard-tracking-saidas.html';
+return false;
+   } catch (err) {
       console.error('[signin] erro no fetch', err);
       showError('Falha ao conectar. Tente novamente.');
       btn.disabled = false;
       return false;
     }
+
+    
   });
 }
 
