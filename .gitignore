@@ -10,3 +10,7 @@ Admin/Dist/
 *.log
 .DS_Store
 .env
+node_modules/
+dist/
+Master/Dist/
+Admin/Dist/
