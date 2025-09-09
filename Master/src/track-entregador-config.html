@@ -51,7 +51,6 @@
                         <th>Telefone</th>
                         <th>Documento</th>
                         <th style="width:110px;">Ativo</th>
-                       
                       </tr>
                     </thead>
                     <tbody id="tbody-entregadores"><!-- via JS --></tbody>
@@ -97,8 +96,7 @@
     <!-- Bootstrap inicial: ao abrir a página, lê o toggle e faz o GET -->
     <script>
       (function () {
-        //const API_BASE = "/api/entregadores/"; // ajuste se necessário
-        const API_BASE = "https://track-saidas-api.onrender.com/api/entregadores/";  // <-- ajuste aqui
+        const API_BASE = "https://track-saidas-api.onrender.com/api/entregadores/";
 
         const tbody = document.getElementById("tbody-entregadores");
         const empty = document.getElementById("empty");
@@ -131,7 +129,7 @@
         async function loadData() {
           try {
             const status = toggleAtivos.checked ? "ativo" : "todos";
-            const url = new URL(API_BASE, window.location.origin);
+            const url = new URL(API_BASE);      // absoluta
             url.searchParams.set("status", status);
 
             const res = await fetch(url.toString(), {
@@ -155,8 +153,14 @@
         // carrega ao abrir a página
         document.addEventListener("DOMContentLoaded", loadData);
 
-        // se o usuário alternar o toggle, recarrega
-        toggleAtivos.addEventListener("change", loadData);
+        // delegação: funciona mesmo se o DOM for re-renderizado
+        document.addEventListener("change", (e) => {
+          if (e.target && e.target.id === "toggleAtivos") loadData();
+        });
+        // alguns temas disparam 'input' em vez de 'change'
+        document.addEventListener("input", (e) => {
+          if (e.target && e.target.id === "toggleAtivos") loadData();
+        });
       })();
     </script>
 
@@ -224,4 +228,3 @@
     <script src="assets/js/app.js"></script>
   </body>
 </html>
-
