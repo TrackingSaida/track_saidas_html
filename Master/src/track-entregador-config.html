@@ -94,6 +94,70 @@
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
 
+    <!-- Bootstrap inicial: ao abrir a página, lê o toggle e faz o GET -->
+    <script>
+      (function () {
+        const API_BASE = "/api/entregadores/"; // ajuste se necessário
+        const tbody = document.getElementById("tbody-entregadores");
+        const empty = document.getElementById("empty");
+        const toggleAtivos = document.getElementById("toggleAtivos");
+
+        function renderRows(items) {
+          tbody.innerHTML = "";
+          if (!items || items.length === 0) {
+            empty.classList.remove("d-none");
+            return;
+          }
+          empty.classList.add("d-none");
+
+          for (const it of items) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${it.nome ?? ""}</td>
+              <td>${it.telefone ?? ""}</td>
+              <td>${it.documento ?? ""}</td>
+              <td>
+                ${it.ativo
+                  ? '<span class="badge bg-success-subtle text-success">Ativo</span>'
+                  : '<span class="badge bg-danger-subtle text-danger">Inativo</span>'}
+              </td>
+            `;
+            tbody.appendChild(tr);
+          }
+        }
+
+        async function loadData() {
+          try {
+            const status = toggleAtivos.checked ? "ativo" : "todos";
+            const url = new URL(API_BASE, window.location.origin);
+            url.searchParams.set("status", status);
+
+            const res = await fetch(url.toString(), {
+              method: "GET",
+              credentials: "include", // envia cookie de sessão
+            });
+
+            if (!res.ok) {
+              console.error("Falha no GET entregadores:", res.status, await res.text());
+              renderRows([]);
+              return;
+            }
+            const data = await res.json();
+            renderRows(data);
+          } catch (err) {
+            console.error("Erro ao carregar entregadores:", err);
+            renderRows([]);
+          }
+        }
+
+        // carrega ao abrir a página
+        document.addEventListener("DOMContentLoaded", loadData);
+
+        // se o usuário alternar o toggle, recarrega
+        toggleAtivos.addEventListener("change", loadData);
+      })();
+    </script>
+
     <!-- Offcanvas: só nome, documento, telefone -->
     <div class="offcanvas offcanvas-end" tabindex="-1" id="oc-form" aria-labelledby="ocLabel" style="width:520px">
       <div class="offcanvas-header">
