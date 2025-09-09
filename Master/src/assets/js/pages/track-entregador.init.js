@@ -1,13 +1,13 @@
-/* assets/js/pages/entregadores.init.js */
+/* assets/js/pages/track-entregador.init.js */
 
 /* =================== Config =================== */
-const API_BASE = "https://track-saidas-api.onrender.com/api";
-const ENDPOINT = `${API_BASE}/entregadores/`; // GET/POST/PUT/DELETE
-const USERS_ENDPOINT = `${API_BASE}/users/`;
+const API_BASE      = "https://track-saidas-api.onrender.com/api";
+const ENDPOINT      = `${API_BASE}/entregadores/`; // CRUD
+const AUTH_ME       = `${API_BASE}/auth/me`;        // (opcional) verificação de sessão
 
 /* =============== Helpers / UI ================= */
-const qs  = (s) => document.querySelector(s);
-const qsa = (s) => Array.from(document.querySelectorAll(s));
+const qs  = (s)=>document.querySelector(s);
+const qsa = (s)=>Array.from(document.querySelectorAll(s));
 
 const toast = (msg, type="primary") => {
   const el = document.createElement("div");
@@ -23,79 +23,104 @@ const toast = (msg, type="primary") => {
   setTimeout(()=>el.remove(), 2600);
 };
 
-const authToken = () => localStorage.getItem("auth_token") || (window.APP_USER && window.APP_USER.token) || "";
-const authHeaders = () => ({
-  "Content-Type": "application/json",
-  ...(authToken() ? { "Authorization": `Bearer ${authToken()}` } : {})
-});
-
-const setToday = (el) => {
-  const d = new Date(), p = (n)=>String(n).padStart(2,"0");
-  el.value = `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
-};
+// Wrapper para fetch sempre com cookie de sessão
+async function http(url, options = {}) {
+  const opts = {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options
+  };
+  return fetch(url, opts);
+}
 
 /* =============== Estado de página ============= */
-let DATA_CACHE = [];   // dados filtrados (toggle + busca)
-let CUR_PAGE   = 1;    // página atual
-let offcanvas, deletingId = null;
+let DATA_CACHE   = [];   // dados filtrados (toggle + busca)
+let CUR_PAGE     = 1;    // página atual
+let offcanvas    = null;
+let deletingId   = null;
+let SELECTED_ID  = null; // linha selecionada para header Editar/Excluir
 
-/* =============== Base (lookup) ================ */
-async function carregarBases() {
-  const sel  = qs("#base");
-  const fixa = (window.APP_USER && window.APP_USER.base) || localStorage.getItem("auth_base");
-  if (fixa) {
-    sel.innerHTML = `<option value="${fixa}" selected>${fixa}</option>`;
-    sel.disabled = true;
-    return;
-  }
-  try {
-    const r = await fetch(USERS_ENDPOINT, { headers: authHeaders() });
-    const data = r.ok ? await r.json() : [];
-    const bases = [...new Set(data.map(u => u.base).filter(Boolean))].sort();
-    sel.innerHTML = `<option value="" disabled selected>Selecione...</option>` +
-      bases.map(b=>`<option value="${b}">${b}</option>`).join("");
-  } catch {
-    sel.innerHTML = `<option value="" disabled selected>Erro ao carregar bases</option>`;
-  }
+function setHeaderActionsState() {
+  const can = !!SELECTED_ID;
+  const btnE = qs("#btnHeaderEdit");
+  const btnD = qs("#btnHeaderDel");
+  if (btnE) btnE.disabled = !can;
+  if (btnD) btnD.disabled = !can;
+}
+
+/* =============== (opcional) Sessão ============ */
+async function ensureSession() {
+  // Descomente para forçar verificação de sessão antes de carregar a página
+  // try {
+  //   const r = await http(AUTH_ME);
+  //   if (!r.ok) throw 0;
+  // } catch {
+  //   location.replace("landing-tracking.html?next=" + encodeURIComponent(location.pathname));
+  // }
 }
 
 /* =============== API CRUD ===================== */
-async function carregarEntregador(id) {
-  const r = await fetch(`${ENDPOINT}${id}`, { headers: authHeaders() });
-  if (!r.ok) throw new Error("Erro ao carregar");
+async function apiList() {
+  const r = await http(ENDPOINT);
+  if (!r.ok) throw new Error("Falha ao listar entregadores");
   return r.json();
 }
-async function criarEntregador(payload) {
-  const r = await fetch(ENDPOINT, { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) });
+async function apiGet(id) {
+  const r = await http(`${ENDPOINT}${id}`);
+  if (!r.ok) throw new Error("Falha ao carregar entregador");
+  return r.json();
+}
+async function apiCreate(payload) {
+  // Cadastro nasce ativo
+  const body = JSON.stringify({
+    nome: payload.nome,
+    documento: payload.documento,
+    telefone: payload.telefone,
+    ativo: true
+  });
+  const r = await http(ENDPOINT, { method: "POST", body });
   if (!r.ok) throw new Error(await r.text());
 }
-async function atualizarEntregador(id, payload) {
-  const r = await fetch(`${ENDPOINT}${id}`, { method: "PUT", headers: authHeaders(), body: JSON.stringify(payload) });
+async function apiUpdate(id, payload) {
+  const body = JSON.stringify({
+    nome: payload.nome,
+    documento: payload.documento,
+    telefone: payload.telefone
+  });
+  const r = await http(`${ENDPOINT}${id}`, { method: "PUT", body });
   if (!r.ok) throw new Error(await r.text());
 }
-async function excluirEntregador(id) {
-  const r = await fetch(`${ENDPOINT}${id}`, { method: "DELETE", headers: authHeaders() });
+async function apiUpdateAtivo(id, ativo) {
+  const body = JSON.stringify({ ativo: !!ativo });
+  const r = await http(`${ENDPOINT}${id}`, { method: "PUT", body });
+  if (!r.ok) throw new Error(await r.text());
+}
+async function apiDelete(id) {
+  const r = await http(`${ENDPOINT}${id}`, { method: "DELETE" });
   if (!r.ok) throw new Error(await r.text());
 }
 
 /* =============== Listagem + Paginação ========= */
 function buildRow(e) {
-  const id = e.id_entregador || e.id || "";
+  const id           = e.id_entregador || e.id || "";
+  const ativoChecked = e.ativo ? "checked" : "";
+  const baseBadge    = e.base ? `<span class="badge bg-primary-subtle text-primary">${e.base}</span>` : "-";
+
   return `
-    <tr>
+    <tr class="row-selectable" data-id="${id}">
       <td>${e.nome || "-"}</td>
       <td>${e.telefone || "-"}</td>
       <td>${e.documento || "-"}</td>
-      <td><span class="badge bg-primary-subtle text-primary">${e.base || "-"}</span></td>
+      <td>${baseBadge}</td>
       <td>
-        <div class="d-flex gap-2">
-          <button class="btn btn-sm btn-soft-primary btn-edit" data-id="${id}">
-            <i class="ri-edit-2-line"></i>
-          </button>
-          <button class="btn btn-sm btn-soft-danger btn-del" data-id="${id}">
-            <i class="ri-delete-bin-6-line"></i>
-          </button>
+        <div class="form-check form-switch">
+          <input class="form-check-input chk-ativo" type="checkbox" data-id="${id}" ${ativoChecked}>
         </div>
+      </td>
+      <td>
+        <button class="btn btn-sm btn-soft-primary btn-edit" data-id="${id}">
+          <i class="ri-edit-2-line"></i> Editar
+        </button>
       </td>
     </tr>`;
 }
@@ -113,41 +138,54 @@ function renderPage(page=1) {
   qs("#empty").classList.toggle("d-none", total !== 0);
 
   updatePagination(pages);
+
+  // seleção de linha
+  qsa("#tbody-entregadores tr.row-selectable").forEach(tr => {
+    tr.addEventListener("click", (ev) => {
+      if (ev.target.closest("button, .form-check-input")) return; // ignora clique em ações
+      qsa("#tbody-entregadores tr.row-selectable").forEach(x => x.classList.remove("table-active"));
+      tr.classList.add("table-active");
+      SELECTED_ID = tr.dataset.id || null;
+      setHeaderActionsState();
+    });
+  });
+
+  // mudou de página → limpa seleção
+  SELECTED_ID = null;
+  setHeaderActionsState();
 }
 
 function updatePagination(pages) {
   const prev = qs("#pg-prev"), next = qs("#pg-next"), nums = qs("#pg-numbers");
-  prev.classList.toggle("disabled", CUR_PAGE === 1);
-  next.classList.toggle("disabled", CUR_PAGE === pages || pages === 1);
+  if (prev) prev.classList.toggle("disabled", CUR_PAGE === 1);
+  if (next) next.classList.toggle("disabled", CUR_PAGE === pages || pages === 1);
 
   const MAX_BTNS = 7;
   let first = Math.max(1, CUR_PAGE - Math.floor(MAX_BTNS/2));
   let last  = Math.min(pages, first + MAX_BTNS - 1);
   first = Math.max(1, last - MAX_BTNS + 1);
 
-  nums.innerHTML = "";
-  for (let p = first; p <= last; p++) {
-    const li = document.createElement("li");
-    li.className = "page-item";
-    li.innerHTML = `<a class="page-link ${p===CUR_PAGE?"active":""}" href="javascript:void(0);">${p}</a>`;
-    li.querySelector("a").addEventListener("click", ()=>renderPage(p));
-    nums.appendChild(li);
+  if (nums) {
+    nums.innerHTML = "";
+    for (let p = first; p <= last; p++) {
+      const li = document.createElement("li");
+      li.className = "page-item";
+      li.innerHTML = `<a class="page-link ${p===CUR_PAGE?"active":""}" href="javascript:void(0);">${p}</a>`;
+      li.querySelector("a").addEventListener("click", ()=>renderPage(p));
+      nums.appendChild(li);
+    }
   }
 }
 
 async function listarEntregadores() {
-  const tb = qs("#tbody-entregadores");
-  tb.innerHTML = ""; qs("#empty").classList.add("d-none");
-
+  qs("#tbody-entregadores").innerHTML = ""; qs("#empty").classList.add("d-none");
   try {
-    // Dica: se a API suportar ?status=ativo, pode filtrar no servidor.
-    const r = await fetch(ENDPOINT, { headers: authHeaders() });
-    const all = r.ok ? await r.json() : [];
+    const all = await apiList();
 
-    const onlyActive = qs("#toggleAtivos").checked;
-    const baseList = onlyActive ? all.filter(e => String(e.status||"").toLowerCase() === "ativo") : all;
+    const onlyActive = qs("#toggleAtivos")?.checked ?? true;
+    const baseList   = onlyActive ? all.filter(e => e.ativo === true) : all;
 
-    const term = qs("#search").value.trim().toLowerCase();
+    const term = (qs("#search")?.value || "").trim().toLowerCase();
     DATA_CACHE = baseList.filter(e =>
       [e.nome, e.telefone, e.documento, e.base]
         .filter(Boolean)
@@ -164,30 +202,19 @@ async function listarEntregadores() {
 
 /* =============== Offcanvas (form) ============= */
 function openForm(modo, data = null) {
-  qs("#formEntregador").reset();
-  qs("#formEntregador").classList.remove("was-validated");
-  if (!qs("#data_cadastro").value) setToday(qs("#data_cadastro"));
+  const form = qs("#formEntregador");
+  form.reset();
+  form.classList.remove("was-validated");
 
-  qs("#entregadorId").value    = data?.id_entregador || data?.id || "";
-  qs("#nome").value            = data?.nome || "";
-  qs("#telefone").value        = data?.telefone || "";
-  qs("#documento").value       = data?.documento || "";
-  qs("#data_cadastro").value   = (data?.data_cadastro || "").substring(0,10) || qs("#data_cadastro").value;
+  qs("#entregadorId").value = data?.id_entregador || data?.id || "";
+  qs("#nome").value         = data?.nome || "";
+  qs("#telefone").value     = data?.telefone || "";
+  qs("#documento").value    = data?.documento || "";
 
-  // base (se select não estiver travado)
-  if (!qs("#base").disabled) {
-    if (data?.base) {
-      const has = Array.from(qs("#base").options).some(o => o.value === data.base);
-      if (!has) qs("#base").insertAdjacentHTML("beforeend", `<option value="${data.base}">${data.base}</option>`);
-      qs("#base").value = data.base;
-    } else {
-      qs("#base").value = "";
-    }
-  }
-
-  // ativo só no editar
-  qs("#grp-ativo").classList.toggle("d-none", modo !== "edit");
-  qs("#ativo").checked = String(data?.status || "ativo").toLowerCase() === "ativo";
+  // "Ativo" só no editar
+  qs("#grp-ativo")?.classList.toggle("d-none", modo !== "edit");
+  const ativoSwitch = qs("#ativo");
+  if (ativoSwitch) ativoSwitch.checked = !!data?.ativo;
 
   qs("#ocLabel").textContent = (modo === "edit") ? "Editar Entregador" : "Novo Entregador";
   offcanvas.show();
@@ -196,14 +223,8 @@ function openForm(modo, data = null) {
 function formPayload() {
   return {
     nome: qs("#nome").value.trim(),
-    telefone: qs("#telefone").value.trim(),
     documento: qs("#documento").value.trim(),
-    data_cadastro: qs("#data_cadastro").value,
-    base: qs("#base").value,
-    // status somente no editar; no criar, backend assume "ativo"
-    ...( !qs("#grp-ativo").classList.contains("d-none")
-        ? { status: qs("#ativo").checked ? "ativo" : "inativo" }
-        : {} )
+    telefone: qs("#telefone").value.trim()
   };
 }
 
@@ -211,30 +232,54 @@ function formPayload() {
 document.addEventListener("DOMContentLoaded", async () => {
   offcanvas = new bootstrap.Offcanvas("#oc-form");
 
-  await carregarBases();
+  await ensureSession();           // opcional
   await listarEntregadores();
 
   // busca/toggle/paginação
-  qs("#search").addEventListener("input", listarEntregadores);
-  qs("#toggleAtivos").addEventListener("change", listarEntregadores);
-  qs("#perPage").addEventListener("change", ()=>renderPage(1));
-  qs("#pg-prev").addEventListener("click", ()=> renderPage(CUR_PAGE - 1));
-  qs("#pg-next").addEventListener("click", ()=> renderPage(CUR_PAGE + 1));
+  qs("#search")?.addEventListener("input", listarEntregadores);
+  qs("#toggleAtivos")?.addEventListener("change", listarEntregadores);
+  qs("#perPage")?.addEventListener("change", ()=>renderPage(1));
+  qs("#pg-prev")?.addEventListener("click", ()=> renderPage(CUR_PAGE - 1));
+  qs("#pg-next")?.addEventListener("click", ()=> renderPage(CUR_PAGE + 1));
 
-  // adicionar
-  qs("#btnAdd").addEventListener("click", () => openForm("create"));
+  // header: adicionar
+  qs("#btnAdd")?.addEventListener("click", () => openForm("create"));
 
-  // submit
-  qs("#formEntregador").addEventListener("submit", async (ev) => {
+  // header: editar selecionado
+  qs("#btnHeaderEdit")?.addEventListener("click", async () => {
+    if (!SELECTED_ID) return;
+    try {
+      const data = await apiGet(SELECTED_ID);
+      openForm("edit", data);
+    } catch {
+      toast("Não foi possível abrir para edição.", "danger");
+    }
+  });
+
+  // header: excluir selecionado (se usar exclusão)
+  qs("#btnHeaderDel")?.addEventListener("click", () => {
+    if (!SELECTED_ID) return;
+    deletingId = SELECTED_ID;
+    new bootstrap.Modal("#modalDelete").show();
+  });
+
+  // submit (criar/editar)
+  qs("#formEntregador")?.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const form = ev.currentTarget;
     if (!form.checkValidity()) { form.classList.add("was-validated"); return; }
 
     const id = qs("#entregadorId").value;
     try {
-      if (id) await atualizarEntregador(id, formPayload());
-      else    await criarEntregador(formPayload());
-
+      if (id) {
+        await apiUpdate(id, formPayload());
+        // aplicar ativo se visível no offcanvas
+        if (!qs("#grp-ativo")?.classList.contains("d-none")) {
+          await apiUpdateAtivo(id, qs("#ativo").checked);
+        }
+      } else {
+        await apiCreate(formPayload()); // inclui ativo:true
+      }
       toast("Salvo com sucesso.", "success");
       offcanvas.hide();
       await listarEntregadores();
@@ -244,31 +289,42 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // delegação editar/excluir
-  qs("#tbody-entregadores").addEventListener("click", async (e) => {
-    const btn = e.target.closest("button");
-    if (!btn) return;
-    const id = btn.dataset.id;
-
-    if (btn.classList.contains("btn-edit")) {
+  // Delegação: botão editar por linha
+  qs("#tbody-entregadores")?.addEventListener("click", async (e) => {
+    const btnEdit = e.target.closest(".btn-edit");
+    if (btnEdit) {
       try {
-        const data = await carregarEntregador(id);
+        const data = await apiGet(btnEdit.dataset.id);
         openForm("edit", data);
       } catch {
         toast("Não foi possível abrir para edição.", "danger");
       }
     }
+  });
 
-    if (btn.classList.contains("btn-del")) {
-      deletingId = id;
-      new bootstrap.Modal("#modalDelete").show();
+  // Delegação: toggle ativo direto na tabela
+  qs("#tbody-entregadores")?.addEventListener("change", async (e) => {
+    const chk = e.target.closest(".chk-ativo");
+    if (!chk) return;
+    const id = chk.dataset.id;
+    const ativo = chk.checked;
+
+    try {
+      await apiUpdateAtivo(id, ativo);
+      toast(ativo ? "Entregador ativado." : "Entregador desativado.", "success");
+      // se estiver em “Somente ativos” e desativou, recarrega
+      if ((qs("#toggleAtivos")?.checked ?? true) && !ativo) await listarEntregadores();
+    } catch (err) {
+      console.error(err);
+      toast("Falha ao atualizar ativo.", "danger");
+      chk.checked = !ativo; // desfaz UI
     }
   });
 
-  // confirmar exclusão
-  qs("#btnConfirmDelete").addEventListener("click", async () => {
+  // Confirmação de exclusão
+  qs("#btnConfirmDelete")?.addEventListener("click", async () => {
     try {
-      await excluirEntregador(deletingId);
+      await apiDelete(deletingId);
       bootstrap.Modal.getInstance(qs("#modalDelete")).hide();
       toast("Excluído.", "success");
       await listarEntregadores();

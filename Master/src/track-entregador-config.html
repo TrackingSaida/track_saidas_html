@@ -5,13 +5,9 @@
     @@include("partials/head-css.html")
   </head>
   <body>
-    <!-- Begin page -->
     <div id="layout-wrapper">
       @@include("partials/menu.html")
 
-      <!-- ============================================================== -->
-      <!-- Start right Content here -->
-      <!-- ============================================================== -->
       <div class="main-content">
         <div class="page-content">
           <div class="container-fluid">
@@ -20,27 +16,32 @@
 
             <div class="card">
               <div class="card-header d-flex align-items-center justify-content-between">
-                <h5 class="mb-0">Entregadores</h5>
-                <div class="d-flex gap-2 align-items-center">
-                  <!-- Toggle: somente ativos -->
-                  <div class="form-check form-switch me-2">
-                    <input class="form-check-input" type="checkbox" id="toggleAtivos" checked>
-                    <label class="form-check-label" for="toggleAtivos">Somente ativos</label>
-                  </div>
+  <!-- ESQUERDA: ações -->
+  <div class="d-flex gap-2">
+    <button class="btn btn-primary" id="btnAdd">
+      <i class="ri-add-line align-bottom me-1"></i> Adicionar
+    </button>
+    <button class="btn btn-soft-primary" id="btnHeaderEdit" disabled>
+      <i class="ri-edit-2-line align-bottom me-1"></i> Editar
+    </button>
+    <button class="btn btn-soft-danger" id="btnHeaderDel" disabled>
+      <i class="ri-delete-bin-6-line align-bottom me-1"></i> Excluir
+    </button>
+  </div>
 
-                  <!-- Busca -->
-                  <div class="search-box">
-                    <input type="text" id="search" class="form-control" placeholder="Buscar por nome, telefone...">
-                    <i class="ri-search-line search-icon"></i>
-                  </div>
+  <!-- DIREITA: toggle + busca -->
+  <div class="d-flex gap-2 align-items-center">
+    <div class="form-check form-switch me-2">
+      <input class="form-check-input" type="checkbox" id="toggleAtivos" checked>
+      <label class="form-check-label" for="toggleAtivos">Somente ativos</label>
+    </div>
 
-                  <!-- Adicionar -->
-                  <button class="btn btn-primary" id="btnAdd">
-                    <i class="ri-add-line align-bottom me-1"></i> Adicionar
-                  </button>
-                </div>
-              </div>
-
+    <div class="search-box">
+      <input type="text" id="search" class="form-control" placeholder="Buscar por nome, telefone...">
+      <i class="ri-search-line search-icon"></i>
+    </div>
+  </div>
+</div>
               <div class="card-body">
                 <div class="table-responsive table-card">
                   <table class="table align-middle table-nowrap" id="tbl-entregadores">
@@ -50,10 +51,11 @@
                         <th>Telefone</th>
                         <th>Documento</th>
                         <th>Base</th>
-                        <th style="width:120px;">Ações</th>
+                        <th style="width:110px;">Ativo</th>
+                       
                       </tr>
                     </thead>
-                    <tbody id="tbody-entregadores"><!-- linhas via JS --></tbody>
+                    <tbody id="tbody-entregadores"><!-- via JS --></tbody>
                   </table>
 
                   <div id="empty" class="text-center text-muted py-4 d-none">
@@ -63,7 +65,7 @@
                   </div>
                 </div>
 
-                <!-- Controles de paginação -->
+                <!-- paginação -->
                 <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-3">
                   <div class="d-flex align-items-center gap-2">
                     <span class="text-muted">Itens por página:</span>
@@ -88,14 +90,12 @@
 
         @@include("partials/footer.html")
       </div><!-- end main content-->
-
     </div>
-    <!-- END layout-wrapper -->
 
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
 
-    <!-- Offcanvas de Cadastro/Edição -->
+    <!-- Offcanvas: só nome, documento, telefone -->
     <div class="offcanvas offcanvas-end" tabindex="-1" id="oc-form" aria-labelledby="ocLabel" style="width:520px">
       <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="ocLabel">Novo Entregador</h5>
@@ -122,21 +122,7 @@
             </div>
           </div>
 
-          <div class="row g-3 mt-1">
-            <div class="col-sm-6">
-              <label for="data_cadastro" class="form-label">Data de cadastro</label>
-              <input type="date" id="data_cadastro" class="form-control">
-            </div>
-            <div class="col-sm-6">
-              <label for="base" class="form-label">Base</label>
-              <select id="base" class="form-select" required>
-                <option value="" selected disabled>Selecione...</option>
-              </select>
-              <div class="invalid-feedback">Selecione a base.</div>
-            </div>
-          </div>
-
-          <!-- Ativo apenas no modo edição -->
+          <!-- Switch de ativo opcional no editar -->
           <div class="form-check form-switch mt-3 d-none" id="grp-ativo">
             <input class="form-check-input" type="checkbox" id="ativo">
             <label class="form-check-label" for="ativo">Ativo</label>
@@ -150,7 +136,7 @@
       </div>
     </div>
 
-    <!-- Confirmação de exclusão -->
+    <!-- Modal de exclusão (mantido caso precise no futuro) -->
     <div class="modal fade" id="modalDelete" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -168,9 +154,8 @@
       </div>
     </div>
 
-    <!-- Página init -->
+    <!-- Init da página -->
     <script src="assets/js/pages/track-entregador.init.js"></script>
-    <!-- App js -->
     <script src="assets/js/app.js"></script>
   </body>
 </html>
