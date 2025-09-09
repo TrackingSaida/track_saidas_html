@@ -1,3 +1,5 @@
+/* assets/js/pages/track-entregador.init.js */
+
 /* =================== Config =================== */
 const API_URL            = "https://track-saidas-api.onrender.com/api";
 const API_ENTREGADORES   = `${API_URL}/entregadores/`;
@@ -177,10 +179,10 @@ async function listarEntregadores() {
     const all = await apiList();
 
     const onlyActive = qs("#toggleAtivos")?.checked ?? true;
-    const baseList   = onlyActive ? all.filter(e => e.ativo === true) : all;
+    const list       = onlyActive ? all.filter(e => e.ativo === true) : all;
 
     const term = (qs("#search")?.value || "").trim().toLowerCase();
-    DATA_CACHE = baseList.filter(e =>
+    DATA_CACHE = list.filter(e =>
       [e.nome, e.telefone, e.documento]
         .filter(Boolean)
         .some(v => String(v).toLowerCase().includes(term))
