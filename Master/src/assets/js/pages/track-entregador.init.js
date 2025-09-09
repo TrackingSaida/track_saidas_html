@@ -1,9 +1,7 @@
-/* assets/js/pages/track-entregador.init.js */
-
 /* =================== Config =================== */
-const API_BASE      = "https://track-saidas-api.onrender.com/api";
-const ENDPOINT      = `${API_BASE}/entregadores/`; // CRUD
-const AUTH_ME       = `${API_BASE}/auth/me`;        // (opcional) verificação de sessão
+const API_BASE = "https://track-saidas-api.onrender.com/api";
+const ENDPOINT = `${API_BASE}/entregadores/`; // CRUD
+const AUTH_ME  = `${API_BASE}/auth/me`;       // (opcional) verificação de sessão
 
 /* =============== Helpers / UI ================= */
 const qs  = (s)=>document.querySelector(s);
@@ -23,7 +21,7 @@ const toast = (msg, type="primary") => {
   setTimeout(()=>el.remove(), 2600);
 };
 
-// Wrapper para fetch sempre com cookie de sessão
+// Fetch com cookies de sessão
 async function http(url, options = {}) {
   const opts = {
     credentials: "include",
@@ -34,23 +32,21 @@ async function http(url, options = {}) {
 }
 
 /* =============== Estado de página ============= */
-let DATA_CACHE   = [];   // dados filtrados (toggle + busca)
-let CUR_PAGE     = 1;    // página atual
-let offcanvas    = null;
-let deletingId   = null;
-let SELECTED_ID  = null; // linha selecionada para header Editar/Excluir
+let DATA_CACHE  = [];   // dados filtrados (toggle + busca)
+let CUR_PAGE    = 1;    // página atual
+let offcanvas   = null;
+let deletingId  = null;
+let SELECTED_ID = null; // linha selecionada
 
 function setHeaderActionsState() {
   const can = !!SELECTED_ID;
-  const btnE = qs("#btnHeaderEdit");
-  const btnD = qs("#btnHeaderDel");
-  if (btnE) btnE.disabled = !can;
-  if (btnD) btnD.disabled = !can;
+  qs("#btnHeaderEdit") && (qs("#btnHeaderEdit").disabled = !can);
+  qs("#btnHeaderDel")  && (qs("#btnHeaderDel").disabled  = !can);
 }
 
 /* =============== (opcional) Sessão ============ */
 async function ensureSession() {
-  // Descomente para forçar verificação de sessão antes de carregar a página
+  // Descomente se quiser exigir sessão:
   // try {
   //   const r = await http(AUTH_ME);
   //   if (!r.ok) throw 0;
@@ -104,14 +100,12 @@ async function apiDelete(id) {
 function buildRow(e) {
   const id           = e.id_entregador || e.id || "";
   const ativoChecked = e.ativo ? "checked" : "";
-  const baseBadge    = e.base ? `<span class="badge bg-primary-subtle text-primary">${e.base}</span>` : "-";
 
   return `
     <tr class="row-selectable" data-id="${id}">
       <td>${e.nome || "-"}</td>
       <td>${e.telefone || "-"}</td>
       <td>${e.documento || "-"}</td>
-      <td>${baseBadge}</td>
       <td>
         <div class="form-check form-switch">
           <input class="form-check-input chk-ativo" type="checkbox" data-id="${id}" ${ativoChecked}>
@@ -126,7 +120,7 @@ function buildRow(e) {
 }
 
 function renderPage(page=1) {
-  const perPage = parseInt(qs("#perPage").value, 10) || 10;
+  const perPage = parseInt(qs("#perPage")?.value || "10", 10);
   const total   = DATA_CACHE.length;
   const pages   = Math.max(1, Math.ceil(total / perPage));
   CUR_PAGE = Math.min(Math.max(1, page), pages);
@@ -134,15 +128,15 @@ function renderPage(page=1) {
   const start = (CUR_PAGE - 1) * perPage;
   const slice = DATA_CACHE.slice(start, start + perPage);
 
-  qs("#tbody-entregadores").innerHTML = slice.map(buildRow).join("");
-  qs("#empty").classList.toggle("d-none", total !== 0);
+  if (qs("#tbody-entregadores")) qs("#tbody-entregadores").innerHTML = slice.map(buildRow).join("");
+  qs("#empty")?.classList.toggle("d-none", total !== 0);
 
   updatePagination(pages);
 
   // seleção de linha
   qsa("#tbody-entregadores tr.row-selectable").forEach(tr => {
     tr.addEventListener("click", (ev) => {
-      if (ev.target.closest("button, .form-check-input")) return; // ignora clique em ações
+      if (ev.target.closest("button, .form-check-input")) return;
       qsa("#tbody-entregadores tr.row-selectable").forEach(x => x.classList.remove("table-active"));
       tr.classList.add("table-active");
       SELECTED_ID = tr.dataset.id || null;
@@ -157,8 +151,8 @@ function renderPage(page=1) {
 
 function updatePagination(pages) {
   const prev = qs("#pg-prev"), next = qs("#pg-next"), nums = qs("#pg-numbers");
-  if (prev) prev.classList.toggle("disabled", CUR_PAGE === 1);
-  if (next) next.classList.toggle("disabled", CUR_PAGE === pages || pages === 1);
+  prev && prev.classList.toggle("disabled", CUR_PAGE === 1);
+  next && next.classList.toggle("disabled", CUR_PAGE === pages || pages === 1);
 
   const MAX_BTNS = 7;
   let first = Math.max(1, CUR_PAGE - Math.floor(MAX_BTNS/2));
@@ -178,7 +172,8 @@ function updatePagination(pages) {
 }
 
 async function listarEntregadores() {
-  qs("#tbody-entregadores").innerHTML = ""; qs("#empty").classList.add("d-none");
+  if (qs("#tbody-entregadores")) qs("#tbody-entregadores").innerHTML = "";
+  qs("#empty")?.classList.add("d-none");
   try {
     const all = await apiList();
 
@@ -187,7 +182,7 @@ async function listarEntregadores() {
 
     const term = (qs("#search")?.value || "").trim().toLowerCase();
     DATA_CACHE = baseList.filter(e =>
-      [e.nome, e.telefone, e.documento, e.base]
+      [e.nome, e.telefone, e.documento] 
         .filter(Boolean)
         .some(v => String(v).toLowerCase().includes(term))
     );
@@ -195,7 +190,7 @@ async function listarEntregadores() {
     renderPage(1);
   } catch (err) {
     console.error(err);
-    qs("#empty").classList.remove("d-none");
+    qs("#empty")?.classList.remove("d-none");
     toast("Falha ao carregar entregadores.", "danger");
   }
 }
@@ -203,34 +198,35 @@ async function listarEntregadores() {
 /* =============== Offcanvas (form) ============= */
 function openForm(modo, data = null) {
   const form = qs("#formEntregador");
+  if (!form) return;
   form.reset();
   form.classList.remove("was-validated");
 
-  qs("#entregadorId").value = data?.id_entregador || data?.id || "";
-  qs("#nome").value         = data?.nome || "";
-  qs("#telefone").value     = data?.telefone || "";
-  qs("#documento").value    = data?.documento || "";
+  qs("#entregadorId") && (qs("#entregadorId").value = data?.id_entregador || data?.id || "");
+  qs("#nome")       && (qs("#nome").value         = data?.nome || "");
+  qs("#telefone")   && (qs("#telefone").value     = data?.telefone || "");
+  qs("#documento")  && (qs("#documento").value    = data?.documento || "");
 
   // "Ativo" só no editar
   qs("#grp-ativo")?.classList.toggle("d-none", modo !== "edit");
-  const ativoSwitch = qs("#ativo");
-  if (ativoSwitch) ativoSwitch.checked = !!data?.ativo;
+  if (qs("#ativo")) qs("#ativo").checked = !!data?.ativo;
 
-  qs("#ocLabel").textContent = (modo === "edit") ? "Editar Entregador" : "Novo Entregador";
-  offcanvas.show();
+  if (qs("#ocLabel")) qs("#ocLabel").textContent = (modo === "edit") ? "Editar Entregador" : "Novo Entregador";
+  offcanvas?.show();
 }
 
 function formPayload() {
   return {
-    nome: qs("#nome").value.trim(),
-    documento: qs("#documento").value.trim(),
-    telefone: qs("#telefone").value.trim()
+    nome: (qs("#nome")?.value || "").trim(),
+    documento: (qs("#documento")?.value || "").trim(),
+    telefone: (qs("#telefone")?.value || "").trim()
   };
 }
 
 /* =================== Init ===================== */
 document.addEventListener("DOMContentLoaded", async () => {
-  offcanvas = new bootstrap.Offcanvas("#oc-form");
+  const oc = qs("#oc-form");
+  if (oc) offcanvas = new bootstrap.Offcanvas(oc);
 
   await ensureSession();           // opcional
   await listarEntregadores();
@@ -256,11 +252,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // header: excluir selecionado (se usar exclusão)
+  // header: excluir selecionado (se usar)
   qs("#btnHeaderDel")?.addEventListener("click", () => {
     if (!SELECTED_ID) return;
     deletingId = SELECTED_ID;
-    new bootstrap.Modal("#modalDelete").show();
+    const m = qs("#modalDelete");
+    m && new bootstrap.Modal(m).show();
   });
 
   // submit (criar/editar)
@@ -269,19 +266,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     const form = ev.currentTarget;
     if (!form.checkValidity()) { form.classList.add("was-validated"); return; }
 
-    const id = qs("#entregadorId").value;
+    const id = qs("#entregadorId")?.value;
     try {
       if (id) {
         await apiUpdate(id, formPayload());
-        // aplicar ativo se visível no offcanvas
         if (!qs("#grp-ativo")?.classList.contains("d-none")) {
-          await apiUpdateAtivo(id, qs("#ativo").checked);
+          await apiUpdateAtivo(id, qs("#ativo")?.checked);
         }
       } else {
         await apiCreate(formPayload()); // inclui ativo:true
       }
       toast("Salvo com sucesso.", "success");
-      offcanvas.hide();
+      offcanvas?.hide();
       await listarEntregadores();
     } catch (err) {
       console.error(err);
@@ -312,7 +308,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       await apiUpdateAtivo(id, ativo);
       toast(ativo ? "Entregador ativado." : "Entregador desativado.", "success");
-      // se estiver em “Somente ativos” e desativou, recarrega
       if ((qs("#toggleAtivos")?.checked ?? true) && !ativo) await listarEntregadores();
     } catch (err) {
       console.error(err);
@@ -325,7 +320,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   qs("#btnConfirmDelete")?.addEventListener("click", async () => {
     try {
       await apiDelete(deletingId);
-      bootstrap.Modal.getInstance(qs("#modalDelete")).hide();
+      const m = qs("#modalDelete");
+      m && bootstrap.Modal.getInstance(m).hide();
       toast("Excluído.", "success");
       await listarEntregadores();
     } catch (err) {
