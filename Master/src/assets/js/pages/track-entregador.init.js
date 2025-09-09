@@ -1,7 +1,7 @@
 /* =================== Config =================== */
-const API_BASE = "https://track-saidas-api.onrender.com/api";
-const ENDPOINT = `${API_BASE}/entregadores/`; // CRUD
-const AUTH_ME  = `${API_BASE}/auth/me`;       // (opcional) verificação de sessão
+const API_URL            = "https://track-saidas-api.onrender.com/api";
+const API_ENTREGADORES   = `${API_URL}/entregadores/`;
+const API_AUTH_ME        = `${API_URL}/auth/me`;   // usado para obter base do usuário logado
 
 /* =============== Helpers / UI ================= */
 const qs  = (s)=>document.querySelector(s);
@@ -21,7 +21,7 @@ const toast = (msg, type="primary") => {
   setTimeout(()=>el.remove(), 2600);
 };
 
-// Fetch com cookies de sessão
+// fetch sempre enviando cookies de sessão
 async function http(url, options = {}) {
   const opts = {
     credentials: "include",
@@ -36,45 +36,43 @@ let DATA_CACHE  = [];   // dados filtrados (toggle + busca)
 let CUR_PAGE    = 1;    // página atual
 let offcanvas   = null;
 let deletingId  = null;
-let SELECTED_ID = null; // linha selecionada
+let SELECTED_ID = null; // linha selecionada (para botões do header)
+let CURRENT_USER = null; // usuário logado (precisamos de .base)
 
-function setHeaderActionsState() {
-  const can = !!SELECTED_ID;
-  qs("#btnHeaderEdit") && (qs("#btnHeaderEdit").disabled = !can);
-  qs("#btnHeaderDel")  && (qs("#btnHeaderDel").disabled  = !can);
-}
-
-/* =============== Sessão ============ */
-async function ensureSession() {
-
-   try {
-     const r = await http(AUTH_ME);
-    if (!r.ok) throw 0;
-   } catch {
-     location.replace("landing-tracking.html?next=" + encodeURIComponent(location.pathname));
-   }
+/* =============== Sessão / Usuário ============ */
+async function fetchCurrentUser() {
+  try {
+    const r = await http(API_AUTH_ME);
+    if (r.ok) {
+      CURRENT_USER = await r.json(); // esperado: { ..., base: "X" | null }
+    } else {
+      CURRENT_USER = null;
+    }
+  } catch {
+    CURRENT_USER = null;
+  }
 }
 
 /* =============== API CRUD ===================== */
 async function apiList() {
-  const r = await http(ENDPOINT);
-  if (!r.ok) throw new Error("Falha ao listar entregadores");
+  const r = await http(API_ENTREGADORES);
+  if (!r.ok) throw new Error(`Falha ao listar entregadores (${r.status})`);
   return r.json();
 }
 async function apiGet(id) {
-  const r = await http(`${ENDPOINT}${id}`);
-  if (!r.ok) throw new Error("Falha ao carregar entregador");
+  const r = await http(`${API_ENTREGADORES}${id}`);
+  if (!r.ok) throw new Error(`Falha ao carregar entregador (${r.status})`);
   return r.json();
 }
 async function apiCreate(payload) {
-  // Cadastro nasce ativo
+  // Novo entregador nasce ativo
   const body = JSON.stringify({
     nome: payload.nome,
     documento: payload.documento,
     telefone: payload.telefone,
     ativo: true
   });
-  const r = await http(ENDPOINT, { method: "POST", body });
+  const r = await http(API_ENTREGADORES, { method: "POST", body });
   if (!r.ok) throw new Error(await r.text());
 }
 async function apiUpdate(id, payload) {
@@ -83,16 +81,16 @@ async function apiUpdate(id, payload) {
     documento: payload.documento,
     telefone: payload.telefone
   });
-  const r = await http(`${ENDPOINT}${id}`, { method: "PUT", body });
+  const r = await http(`${API_ENTREGADORES}${id}`, { method: "PUT", body });
   if (!r.ok) throw new Error(await r.text());
 }
 async function apiUpdateAtivo(id, ativo) {
   const body = JSON.stringify({ ativo: !!ativo });
-  const r = await http(`${ENDPOINT}${id}`, { method: "PUT", body });
+  const r = await http(`${API_ENTREGADORES}${id}`, { method: "PUT", body });
   if (!r.ok) throw new Error(await r.text());
 }
 async function apiDelete(id) {
-  const r = await http(`${ENDPOINT}${id}`, { method: "DELETE" });
+  const r = await http(`${API_ENTREGADORES}${id}`, { method: "DELETE" });
   if (!r.ok) throw new Error(await r.text());
 }
 
@@ -136,7 +134,7 @@ function renderPage(page=1) {
   // seleção de linha
   qsa("#tbody-entregadores tr.row-selectable").forEach(tr => {
     tr.addEventListener("click", (ev) => {
-      if (ev.target.closest("button, .form-check-input")) return;
+      if (ev.target.closest("button, .form-check-input")) return; // ignora clique em ações
       qsa("#tbody-entregadores tr.row-selectable").forEach(x => x.classList.remove("table-active"));
       tr.classList.add("table-active");
       SELECTED_ID = tr.dataset.id || null;
@@ -175,6 +173,7 @@ async function listarEntregadores() {
   if (qs("#tbody-entregadores")) qs("#tbody-entregadores").innerHTML = "";
   qs("#empty")?.classList.add("d-none");
   try {
+    // SEM query de status no servidor; filtramos no cliente
     const all = await apiList();
 
     const onlyActive = qs("#toggleAtivos")?.checked ?? true;
@@ -182,7 +181,7 @@ async function listarEntregadores() {
 
     const term = (qs("#search")?.value || "").trim().toLowerCase();
     DATA_CACHE = baseList.filter(e =>
-      [e.nome, e.telefone, e.documento] 
+      [e.nome, e.telefone, e.documento]
         .filter(Boolean)
         .some(v => String(v).toLowerCase().includes(term))
     );
@@ -193,6 +192,13 @@ async function listarEntregadores() {
     qs("#empty")?.classList.remove("d-none");
     toast("Falha ao carregar entregadores.", "danger");
   }
+}
+
+/* =============== Header (seleção) ============= */
+function setHeaderActionsState() {
+  const can = !!SELECTED_ID;
+  qs("#btnHeaderEdit") && (qs("#btnHeaderEdit").disabled = !can);
+  qs("#btnHeaderDel")  && (qs("#btnHeaderDel").disabled  = !can);
 }
 
 /* =============== Offcanvas (form) ============= */
@@ -228,7 +234,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const oc = qs("#oc-form");
   if (oc) offcanvas = new bootstrap.Offcanvas(oc);
 
-  await ensureSession();           // opcional
+  // carrega o usuário logado (para validar base no cadastro)
+  await fetchCurrentUser();
+
   await listarEntregadores();
 
   // busca/toggle/paginação
@@ -267,9 +275,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!form.checkValidity()) { form.classList.add("was-validated"); return; }
 
     const id = qs("#entregadorId")?.value;
+
+    // 🔒 Bloqueia CADASTRO (novo) se usuário não tiver base vinculada
+    if (!id) {
+      const userBase = CURRENT_USER?.base ?? null;
+      if (!userBase) {
+        toast("Você não possui uma base vinculada. Solicite ao administrador para vincular uma base ao seu usuário.", "warning");
+        return;
+      }
+    }
+
     try {
       if (id) {
         await apiUpdate(id, formPayload());
+        // aplicar ativo se visível no offcanvas
         if (!qs("#grp-ativo")?.classList.contains("d-none")) {
           await apiUpdateAtivo(id, qs("#ativo")?.checked);
         }
