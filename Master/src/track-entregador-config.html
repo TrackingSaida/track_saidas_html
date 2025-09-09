@@ -97,7 +97,9 @@
     <!-- Bootstrap inicial: ao abrir a página, lê o toggle e faz o GET -->
     <script>
       (function () {
-        const API_BASE = "/api/entregadores/"; // ajuste se necessário
+        //const API_BASE = "/api/entregadores/"; // ajuste se necessário
+        const API_BASE = "https://track-saidas-api.onrender.com/api/entregadores/";  // <-- ajuste aqui
+
         const tbody = document.getElementById("tbody-entregadores");
         const empty = document.getElementById("empty");
         const toggleAtivos = document.getElementById("toggleAtivos");
@@ -222,3 +224,4 @@
     <script src="assets/js/app.js"></script>
   </body>
 </html>
+
