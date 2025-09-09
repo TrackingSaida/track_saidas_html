@@ -3,7 +3,7 @@
 /* =================== Config =================== */
 const API_URL            = "https://track-saidas-api.onrender.com/api";
 const API_ENTREGADORES   = `${API_URL}/entregadores/`;
-const API_AUTH_ME        = `${API_URL}/auth/me`;   // usado para obter base do usuário logado
+const API_AUTH_ME        = `${API_URL}/auth/me`;   // obter base do usuário logado
 
 /* =============== Helpers / UI ================= */
 const qs  = (s)=>document.querySelector(s);
@@ -23,7 +23,7 @@ const toast = (msg, type="primary") => {
   setTimeout(()=>el.remove(), 2600);
 };
 
-// fetch sempre enviando cookies de sessão
+// fetch com cookies de sessão
 async function http(url, options = {}) {
   const opts = {
     credentials: "include",
@@ -34,22 +34,18 @@ async function http(url, options = {}) {
 }
 
 /* =============== Estado de página ============= */
-let DATA_CACHE  = [];   // dados filtrados (toggle + busca)
-let CUR_PAGE    = 1;    // página atual
-let offcanvas   = null;
-let deletingId  = null;
-let SELECTED_ID = null; // linha selecionada (para botões do header)
+let DATA_CACHE   = [];   // dados filtrados (toggle + busca)
+let CUR_PAGE     = 1;    // página atual
+let offcanvas    = null;
+let deletingId   = null;
+let SELECTED_ID  = null; // linha selecionada (botões do header)
 let CURRENT_USER = null; // usuário logado (precisamos de .base)
 
 /* =============== Sessão / Usuário ============ */
 async function fetchCurrentUser() {
   try {
     const r = await http(API_AUTH_ME);
-    if (r.ok) {
-      CURRENT_USER = await r.json(); // esperado: { ..., base: "X" | null }
-    } else {
-      CURRENT_USER = null;
-    }
+    CURRENT_USER = r.ok ? await r.json() : null;   // esperado: { ..., base: "X" | null }
   } catch {
     CURRENT_USER = null;
   }
@@ -61,6 +57,19 @@ async function apiList() {
   if (!r.ok) throw new Error(`Falha ao listar entregadores (${r.status})`);
   return r.json();
 }
+
+// usa ?status= quando possível
+async function apiListWithStatus(status) {
+  const url = new URL(API_ENTREGADORES);
+  if (CURRENT_USER?.base && status) url.searchParams.set("status", status);
+  const r = await http(url.toString());
+  if (!r.ok) {
+    const txt = await r.text().catch(() => "");
+    throw new Error(`GET /entregadores falhou (${r.status}) ${txt}`);
+  }
+  return r.json();
+}
+
 async function apiGet(id) {
   const r = await http(`${API_ENTREGADORES}${id}`);
   if (!r.ok) throw new Error(`Falha ao carregar entregador (${r.status})`);
@@ -136,7 +145,7 @@ function renderPage(page=1) {
   // seleção de linha
   qsa("#tbody-entregadores tr.row-selectable").forEach(tr => {
     tr.addEventListener("click", (ev) => {
-      if (ev.target.closest("button, .form-check-input")) return; // ignora clique em ações
+      if (ev.target.closest("button, .form-check-input")) return;
       qsa("#tbody-entregadores tr.row-selectable").forEach(x => x.classList.remove("table-active"));
       tr.classList.add("table-active");
       SELECTED_ID = tr.dataset.id || null;
@@ -175,14 +184,26 @@ async function listarEntregadores() {
   if (qs("#tbody-entregadores")) qs("#tbody-entregadores").innerHTML = "";
   qs("#empty")?.classList.add("d-none");
   try {
-    // SEM query de status no servidor; filtramos no cliente
-    const all = await apiList();
-
     const onlyActive = qs("#toggleAtivos")?.checked ?? true;
-    const list       = onlyActive ? all.filter(e => e.ativo === true) : all;
+    const status     = onlyActive ? "ativo" : "todos";
+
+    let data;
+    try {
+      // servidor filtra por status quando há base vinculada
+      data = await apiListWithStatus(status);
+    } catch (e) {
+      // fallback: lista sem status e filtra no cliente
+      const all = await apiList();
+      data = onlyActive ? all.filter(x => x.ativo === true) : all;
+
+      // aviso opcional se o erro indicar ausência de base
+      if (String(e.message).toLowerCase().includes("base não definida")) {
+        toast("Você não possui base vinculada. Listando sem filtro de status.", "warning");
+      }
+    }
 
     const term = (qs("#search")?.value || "").trim().toLowerCase();
-    DATA_CACHE = list.filter(e =>
+    DATA_CACHE = data.filter(e =>
       [e.nome, e.telefone, e.documento]
         .filter(Boolean)
         .some(v => String(v).toLowerCase().includes(term))
@@ -236,7 +257,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const oc = qs("#oc-form");
   if (oc) offcanvas = new bootstrap.Offcanvas(oc);
 
-  // carrega o usuário logado (para validar base no cadastro)
+  // carrega o usuário logado (para validar base no cadastro e habilitar uso de ?status=)
   await fetchCurrentUser();
 
   await listarEntregadores();
@@ -262,7 +283,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // header: excluir selecionado (se usar)
+  // header: excluir selecionado
   qs("#btnHeaderDel")?.addEventListener("click", () => {
     if (!SELECTED_ID) return;
     deletingId = SELECTED_ID;
