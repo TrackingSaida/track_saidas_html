@@ -44,15 +44,15 @@ function setHeaderActionsState() {
   qs("#btnHeaderDel")  && (qs("#btnHeaderDel").disabled  = !can);
 }
 
-/* =============== (opcional) Sessão ============ */
+/* =============== Sessão ============ */
 async function ensureSession() {
-  // Descomente se quiser exigir sessão:
-  // try {
-  //   const r = await http(AUTH_ME);
-  //   if (!r.ok) throw 0;
-  // } catch {
-  //   location.replace("landing-tracking.html?next=" + encodeURIComponent(location.pathname));
-  // }
+
+   try {
+     const r = await http(AUTH_ME);
+    if (!r.ok) throw 0;
+   } catch {
+     location.replace("landing-tracking.html?next=" + encodeURIComponent(location.pathname));
+   }
 }
 
 /* =============== API CRUD ===================== */
