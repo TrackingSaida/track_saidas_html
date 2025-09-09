@@ -93,77 +93,7 @@
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
 
-    <!-- Bootstrap inicial: ao abrir a página, lê o toggle e faz o GET -->
-    <script>
-      (function () {
-        const API_BASE = "https://track-saidas-api.onrender.com/api/entregadores/";
-
-        const tbody = document.getElementById("tbody-entregadores");
-        const empty = document.getElementById("empty");
-        const toggleAtivos = document.getElementById("toggleAtivos");
-
-        function renderRows(items) {
-          tbody.innerHTML = "";
-          if (!items || items.length === 0) {
-            empty.classList.remove("d-none");
-            return;
-          }
-          empty.classList.add("d-none");
-
-          for (const it of items) {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td>${it.nome ?? ""}</td>
-              <td>${it.telefone ?? ""}</td>
-              <td>${it.documento ?? ""}</td>
-              <td>
-                ${it.ativo
-                  ? '<span class="badge bg-success-subtle text-success">Ativo</span>'
-                  : '<span class="badge bg-danger-subtle text-danger">Inativo</span>'}
-              </td>
-            `;
-            tbody.appendChild(tr);
-          }
-        }
-
-        async function loadData() {
-          try {
-            const status = toggleAtivos.checked ? "ativo" : "todos";
-            const url = new URL(API_BASE);      // absoluta
-            url.searchParams.set("status", status);
-
-            const res = await fetch(url.toString(), {
-              method: "GET",
-              credentials: "include", // envia cookie de sessão
-            });
-
-            if (!res.ok) {
-              console.error("Falha no GET entregadores:", res.status, await res.text());
-              renderRows([]);
-              return;
-            }
-            const data = await res.json();
-            renderRows(data);
-          } catch (err) {
-            console.error("Erro ao carregar entregadores:", err);
-            renderRows([]);
-          }
-        }
-
-        // carrega ao abrir a página
-        document.addEventListener("DOMContentLoaded", loadData);
-
-        // delegação: funciona mesmo se o DOM for re-renderizado
-        document.addEventListener("change", (e) => {
-          if (e.target && e.target.id === "toggleAtivos") loadData();
-        });
-        // alguns temas disparam 'input' em vez de 'change'
-        document.addEventListener("input", (e) => {
-          if (e.target && e.target.id === "toggleAtivos") loadData();
-        });
-      })();
-    </script>
-
+   
     <!-- Offcanvas: só nome, documento, telefone -->
     <div class="offcanvas offcanvas-end" tabindex="-1" id="oc-form" aria-labelledby="ocLabel" style="width:520px">
       <div class="offcanvas-header">
@@ -224,7 +154,7 @@
     </div>
 
     <!-- Init da página -->
-    <script src="assets/js/pages/track-entregador.init.js"></script>
+    <script src="assets/js/pages/track-entregador.init.js?v=2025-09-09-04"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>
