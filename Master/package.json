@@ -11,7 +11,7 @@
   ],
  
   "scripts": {
-  "build": "gulp build && echo '--- LISTANDO dist ---' && ls -la dist || true && echo '--- LISTANDO dist/assets/js/pages ---' && ls -la dist/assets/js/pages || true",
+  "build": "gulp build && echo '--- dist/assets/js ---' && ls -la dist/assets/js || true && echo '--- dist/assets/js/pages ---' && ls -la dist/assets/js/pages || true && echo '--- dist/assets/js/pages/plugins ---' && ls -la dist/assets/js/pages/plugins || true"
   "start": "gulp"
 }
 
@@ -90,5 +90,6 @@
     "autoprefixer": "10.4.5"
   }
 }
+
 
 
