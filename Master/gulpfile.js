@@ -70,7 +70,7 @@ const paths = {
     js: {
       dir: './src/assets/js',
       pages: './src/assets/js/pages',
-      files: './src/assets/js/pages/*.js',
+      files: './src/assets/js/pages/**/*.js',
       main: './src/assets/js/*.js',
     },
     partials: {
@@ -271,6 +271,15 @@ gulp.task('html', function () {
     .pipe(gulp.dest(paths.dist.base.dir));
 });
 
-gulp.task('build', gulp.series(gulp.parallel('clean:packageLock', 'clean:dist', 'copy:all', 'copy:libs'), 'bootstrap', 'scss', 'icons', 'html'));
+gulp.task('build', gulp.series(
+  gulp.parallel('clean:packageLock', 'clean:dist', 'copy:all', 'copy:libs'),
+  'bootstrap',
+  'scss',
+  'icons',
+  'js',       // garante app.js/layout.js etc.
+  'jsPages',  // garante pages/*.js
+  'html'
+));
+
 
 gulp.task('default', gulp.series(gulp.parallel('clean:packageLock', 'clean:dist', 'copy:all', 'copy:libs', 'fileinclude', 'bootstrap', 'scss', 'icons', 'js', 'jsPages', 'html'), gulp.parallel('browsersync', 'watch')));
