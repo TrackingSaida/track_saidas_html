@@ -11,12 +11,9 @@
   ],
  
   "scripts": {
-  "build": "gulp build && echo '--- dist/assets/js ---' && ls -la dist/assets/js || true && echo '--- dist/assets/js/pages ---' && ls -la dist/assets/js/pages || true && echo '--- dist/assets/js/pages/plugins ---' && ls -la dist/assets/js/pages/plugins || true"
+  "build": "gulp build && echo '--- dist/assets/js ---' && ls -la dist/assets/js || true && echo '--- dist/assets/js/pages ---' && ls -la dist/assets/js/pages || true && echo '--- dist/assets/js/pages/plugins ---' && ls -la dist/assets/js/pages/plugins || true",
   "start": "gulp"
-}
-
-
-,
+},
   "devDependencies": {
     "browser-sync": "^3.0.3",
     "del": "6.1.0",
@@ -90,6 +87,7 @@
     "autoprefixer": "10.4.5"
   }
 }
+
 
 
 
