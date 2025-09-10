@@ -1,3 +1,4 @@
+/* =================== Config =================== */
 const API_URL          = "https://track-saidas-api.onrender.com/api";
 const API_ENTREGADORES = `${API_URL}/entregadores/`;
 
@@ -53,7 +54,6 @@ async function apiGet(id) {
 }
 
 async function apiCreate(payload) {
-  // A API cuida de base e ativo — enviamos só os campos do formulário
   const body = JSON.stringify({
     nome: payload.nome,
     documento: payload.documento,
@@ -89,13 +89,13 @@ function buildRow(e) {
   const id           = e.id_entregador || e.id || "";
   const ativoChecked = e.ativo ? "checked" : "";
   return `
-    <tr class="row-selectable" data-id="${id}">
+    <tr class="row-selectable" data-id="${id}" role="button">
       <td>${e.nome || "-"}</td>
       <td>${e.telefone || "-"}</td>
       <td>${e.documento || "-"}</td>
       <td>
         <div class="form-check form-switch">
-          <input class="form-check-input chk-ativo" type="checkbox" data-id="${id}" ${ativoChecked}>
+          <input class="form-check-input" type="checkbox" ${ativoChecked} disabled>
         </div>
       </td>
     </tr>`;
@@ -115,10 +115,9 @@ function renderPage(page = 1) {
 
   updatePagination(pages);
 
-  // seleção por linha (para botões Editar/Excluir do header)
+  // seleção de linha
   qsa("#tbody-entregadores tr.row-selectable").forEach(tr => {
-    tr.addEventListener("click", (ev) => {
-      if (ev.target.closest(".form-check-input")) return;
+    tr.addEventListener("click", () => {
       qsa("#tbody-entregadores tr.row-selectable").forEach(x => x.classList.remove("table-active"));
       tr.classList.add("table-active");
       SELECTED_ID = tr.dataset.id || null;
@@ -126,7 +125,7 @@ function renderPage(page = 1) {
     });
   });
 
-  // mudou de página → limpa seleção
+  // ao paginar, limpa seleção
   SELECTED_ID = null;
   setHeaderActionsState();
 }
@@ -235,7 +234,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!SELECTED_ID) return;
     try {
       const data = await apiGet(SELECTED_ID);
-      openForm("edit", data);
+      openForm("edit", data); // no editar, #grp-ativo aparece para ligar/desligar
     } catch {
       toast("Não foi possível abrir para edição.", "danger");
     }
@@ -260,6 +259,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       if (id) {
         await apiUpdate(id, formPayload());
+        // aplicar ativo se visível no offcanvas (somente no editar)
         if (!qs("#grp-ativo")?.classList.contains("d-none")) {
           await apiUpdateAtivo(id, qs("#ativo")?.checked);
         }
@@ -275,25 +275,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Delegação: toggle ativo direto na tabela
-  qs("#tbody-entregadores")?.addEventListener("change", async (e) => {
-    const chk = e.target.closest(".chk-ativo");
-    if (!chk) return;
-    const id = chk.dataset.id;
-    const ativo = chk.checked;
-
-    try {
-      await apiUpdateAtivo(id, ativo);
-      toast(ativo ? "Entregador ativado." : "Entregador desativado.", "success");
-      if ((qs("#toggleAtivos")?.checked ?? true) && !ativo) await listarEntregadores();
-    } catch (err) {
-      console.error(err);
-      toast("Falha ao atualizar ativo.", "danger");
-      chk.checked = !ativo; // desfaz UI
-    }
-  });
-
-  // Confirmação de exclusão
+  // (removido) nenhum toggle de ativo direto na lista — coluna é somente leitura
+  // listener de exclusão (modal)
   qs("#btnConfirmDelete")?.addEventListener("click", async () => {
     try {
       await apiDelete(deletingId);
