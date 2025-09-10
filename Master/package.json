@@ -11,7 +11,7 @@
   ],
  
   "scripts": {
-  "build": "gulp build && echo '--- dist/assets/js ---' && ls -la dist/assets/js || true && echo '--- dist/assets/js/pages ---' && ls -la dist/assets/js/pages || true && echo '--- dist/assets/js/pages/plugins ---' && ls -la dist/assets/js/pages/plugins || true",
+    "build": "gulp build && echo '--- SRC pages ---' && find src/assets/js/pages -maxdepth 2 -type f -name '*.js' || true && echo '--- DIST pages ---' && find dist/assets/js/pages -maxdepth 2 -type f -name '*.js' || true",
   "start": "gulp"
 },
   "devDependencies": {
@@ -87,6 +87,7 @@
     "autoprefixer": "10.4.5"
   }
 }
+
 
 
 
