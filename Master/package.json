@@ -9,10 +9,12 @@
     "last 2 version",
     "> 2%"
   ],
+ 
   "scripts": {
-  "build": "gulp build",
+  "build": "gulp build && echo '--- LISTANDO Master/dist ---' && ls -la Master/dist || true && echo '--- LISTANDO Master/dist/assets/js/pages ---' && ls -la Master/dist/assets/js/pages || true",
   "start": "gulp"
 }
+
 ,
   "devDependencies": {
     "browser-sync": "^3.0.3",
@@ -87,3 +89,4 @@
     "autoprefixer": "10.4.5"
   }
 }
+
