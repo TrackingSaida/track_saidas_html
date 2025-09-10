@@ -80,10 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // 5) Persistência (marcador para o index + cache do usuário)
 
-const remember = document.getElementById('auth-remember-check')?.checked || false;
-const store = remember ? localStorage : sessionStorage;
-const other = remember ? sessionStorage : localStorage;
-
 other.removeItem('trackingToken');
 other.removeItem('trackingUser');
 store.setItem('trackingToken', 'cookie-session');
