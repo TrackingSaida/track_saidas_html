@@ -11,9 +11,10 @@
   ],
  
   "scripts": {
-  "build": "gulp build && echo '--- LISTANDO Master/dist ---' && ls -la Master/dist || true && echo '--- LISTANDO Master/dist/assets/js/pages ---' && ls -la Master/dist/assets/js/pages || true",
+  "build": "gulp build && echo '--- LISTANDO dist ---' && ls -la dist || true && echo '--- LISTANDO dist/assets/js/pages ---' && ls -la dist/assets/js/pages || true",
   "start": "gulp"
 }
+
 
 ,
   "devDependencies": {
@@ -89,4 +90,5 @@
     "autoprefixer": "10.4.5"
   }
 }
+
 
