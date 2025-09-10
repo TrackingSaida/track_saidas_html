@@ -44,7 +44,8 @@ let CURRENT_USER = null; // usuário logado (precisamos de .base)
 /* =============== Sessão / Usuário ============ */
 async function fetchCurrentUser() {
   try {
-    const r = await http(API_AUTH_ME);
+    // força resposta fresca (sem cache de CDN/navegador)
+    const r = await http(`${API_AUTH_ME}?t=${Date.now()}`, { cache: "no-store" });
     CURRENT_USER = r.ok ? await r.json() : null;   // esperado: { ..., base: "X" | null }
   } catch {
     CURRENT_USER = null;
@@ -58,7 +59,7 @@ async function apiList() {
   return r.json();
 }
 
-// usa ?status= quando possível
+// usa ?status= quando possível (usuário com base)
 async function apiListWithStatus(status) {
   const url = new URL(API_ENTREGADORES);
   if (CURRENT_USER?.base && status) url.searchParams.set("status", status);
@@ -241,6 +242,12 @@ function openForm(modo, data = null) {
   if (qs("#ativo")) qs("#ativo").checked = !!data?.ativo;
 
   if (qs("#ocLabel")) qs("#ocLabel").textContent = (modo === "edit") ? "Editar Entregador" : "Novo Entregador";
+
+  // feedback visual do botão Salvar conforme base
+  const hasBase = !!(CURRENT_USER?.base);
+  const btn = qs("#btnSalvar");
+  if (btn && modo !== "edit") btn.disabled = !hasBase;
+
   offcanvas?.show();
 }
 
@@ -269,8 +276,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   qs("#pg-prev")?.addEventListener("click", ()=> renderPage(CUR_PAGE - 1));
   qs("#pg-next")?.addEventListener("click", ()=> renderPage(CUR_PAGE + 1));
 
-  // header: adicionar
-  qs("#btnAdd")?.addEventListener("click", () => openForm("create"));
+  // header: adicionar (refresca o usuário para refletir base recém-vinculada)
+  qs("#btnAdd")?.addEventListener("click", async () => {
+    await fetchCurrentUser();
+    openForm("create");
+  });
 
   // header: editar selecionado
   qs("#btnHeaderEdit")?.addEventListener("click", async () => {
@@ -301,6 +311,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 🔒 Bloqueia CADASTRO (novo) se usuário não tiver base vinculada
     if (!id) {
+      // leitura fresca do backend (evita cache)
+      await fetchCurrentUser();
       const userBase = CURRENT_USER?.base ?? null;
       if (!userBase) {
         toast("Você não possui uma base vinculada. Solicite ao administrador para vincular uma base ao seu usuário.", "warning");
