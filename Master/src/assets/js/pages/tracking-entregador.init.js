@@ -62,8 +62,9 @@ async function apiList() {
 // usa ?status= quando possível (usuário com base)
 async function apiListWithStatus(status) {
   const url = new URL(API_ENTREGADORES);
-  if (CURRENT_USER?.base && status) url.searchParams.set("status", status);
-  const r = await http(url.toString());
+  if (status) url.searchParams.set("status", status);  // 👈 SEM checar CURRENT_USER
+  url.searchParams.set("_t", Date.now());              // 👈 anti-cache
+  const r = await http(url.toString(), { cache: "no-store" });
   if (!r.ok) {
     const txt = await r.text().catch(() => "");
     throw new Error(`GET /entregadores falhou (${r.status}) ${txt}`);
