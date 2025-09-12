@@ -55,32 +55,14 @@
     return request("/entregadores/"); // já filtrado pelo usuário logado no back
   };
 
-// POST registrar saída – tenta 3 rotas: /saidas/registrar, /saidas/registrar/, /saidas/
-ns.registerSaida = async function ({ entregador, codigo }) {
-  const payload = {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ entregador, codigo })
+  // POST /saidas/registrar  { entregador, codigo }
+  ns.registerSaida = function ({ entregador, codigo }) {
+    return request("/saidas/registrar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entregador, codigo }),
+    });
   };
-
-  // 1) /saidas/registrar  (como está na doc)
-  try {
-    return await request("/saidas/registrar", payload);
-  } catch (e1) {
-    if (e1?.status !== 404) throw e1;
-  }
-
-  // 2) /saidas/registrar/  (alguns frameworks exigem barra final)
-  try {
-    return await request("/saidas/registrar/", payload);
-  } catch (e2) {
-    if (e2?.status !== 404) throw e2;
-  }
-
-  // 3) /saidas/  (algumas APIs usam POST direto no recurso)
-  return await request("/saidas/", payload);
-};
-
 
   // opcional
   ns.ping = function () { return request("/health"); };
