@@ -1,17 +1,3 @@
-<!-- Dashboard: Tracking Saídas (Velzon-style)
-- Nova página independente seguindo o padrão de includes do Velzon
-- Contém 2 gráficos ECharts com DADOS FAKES determinísticos (sem API)
-- Arquivos sugeridos:
-    1) pages/dashboard-tracking-saidas.html (este HTML)
-    2) assets/js/pages/dashboard-tracking-saidas.init.js (JS abaixo)
-
-Como instalar:
-1) Salve o HTML abaixo como `dashboard-tracking-saidas.html` na raiz do tema (onde ficam os demais HTMLs do Velzon).
-2) Salve o JS após o marcador ====== INIT.JS ====== em `assets/js/pages/dashboard-tracking-saidas.init.js`.
-3) Certifique-se de que `assets/libs/echarts/echarts.min.js` exista (o Velzon já fornece). 
-4) Abra `dashboard-tracking-saidas.html` no navegador.
--->
-
 @@include("partials/main.html")
 
 <head>
@@ -22,6 +8,25 @@ Como instalar:
 </head>
 
 <body>
+ <script>
+    const API_AUTH = 'https://track-saidas-api.onrender.com/api/auth';
+    function hasMarker(){
+      return localStorage.getItem('trackingToken') || sessionStorage.getItem('trackingToken');
+    }
+    async function ensureAuth(){
+      if (hasMarker()) return; // já logado
+      const cookie = document.cookie.split('; ').find(r=>r.startsWith('access_token='));
+      if (cookie) { localStorage.setItem('trackingToken','cookie-session'); return; }
+      try {
+        const r = await fetch(`${API_AUTH}/me`, { credentials:'include' });
+        if (r.ok) { localStorage.setItem('trackingToken','cookie-session'); return; }
+      } catch(_) {}
+      location.replace(`index.html?next=${encodeURIComponent(location.pathname.split('/').pop())}`);
+    }
+    ensureAuth();
+  </script>
+
+
   <div id="layout-wrapper">
     @@include("partials/menu.html")
 

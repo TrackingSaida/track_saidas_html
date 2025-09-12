@@ -4,8 +4,25 @@
   @@include("partials/head-css.html")
 </head>
 
-<body data-layout="vertical" data-topbar="light" data-sidebar="dark" data-sidebar-size="lg">
+<body data-layout="vertical" data-topbar="light" data-sidebar="dark">
 
+ <script>
+    const API_AUTH = 'https://track-saidas-api.onrender.com/api/auth';
+    function hasMarker(){
+      return localStorage.getItem('trackingToken') || sessionStorage.getItem('trackingToken');
+    }
+    async function ensureAuth(){
+      if (hasMarker()) return; // já logado
+      const cookie = document.cookie.split('; ').find(r=>r.startsWith('access_token='));
+      if (cookie) { localStorage.setItem('trackingToken','cookie-session'); return; }
+      try {
+        const r = await fetch(`${API_AUTH}/me`, { credentials:'include' });
+        if (r.ok) { localStorage.setItem('trackingToken','cookie-session'); return; }
+      } catch(_) {}
+      location.replace(`index.html?next=${encodeURIComponent(location.pathname.split('/').pop())}`);
+    }
+    ensureAuth();
+  </script>
 
   <div id="layout-wrapper">
     @@include("partials/topbar.html")
@@ -13,20 +30,9 @@
 
     <div class="main-content">
       <div class="page-content">
-        <div class="container-fluid"></div>
-          </div>
+        <div class="container-fluid">
 
-    <div class="container-fluid">
-
-      <!-- Título / breadcrumb -->
-      <div class="row">
-        <div class="col-12">
-          <div class="d-flex align-items-center mb-3">
-            <h4 class="mb-0">TrackSaídas — Registros</h4>
-            <div class="ms-auto small text-muted" id="pager-info"></div>
-          </div>
-        </div>
-      </div>
+          @@include("partials/page-title.html", {"pagetitle": "Operação", "title": "Registros de Saídas"})
 
       <!-- Toolbar de filtros -->
       <div class="card">
@@ -157,6 +163,7 @@
   @@include("partials/customizer.html")
   @@include("partials/vendor-scripts.html")
 
+<script>window.TRACK_API_URL="https://track-saidas-api.onrender.com/api";</script>
 <script src="assets/js/pages/tracking-api-leitura-registros.init.js"></script>
 <script src="assets/js/pages/tracking-registros.init.js"></script>
 

@@ -5,6 +5,25 @@
 </head>
 
 <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
+
+ <script>
+    const API_AUTH = 'https://track-saidas-api.onrender.com/api/auth';
+    function hasMarker(){
+      return localStorage.getItem('trackingToken') || sessionStorage.getItem('trackingToken');
+    }
+    async function ensureAuth(){
+      if (hasMarker()) return; // já logado
+      const cookie = document.cookie.split('; ').find(r=>r.startsWith('access_token='));
+      if (cookie) { localStorage.setItem('trackingToken','cookie-session'); return; }
+      try {
+        const r = await fetch(`${API_AUTH}/me`, { credentials:'include' });
+        if (r.ok) { localStorage.setItem('trackingToken','cookie-session'); return; }
+      } catch(_) {}
+      location.replace(`index.html?next=${encodeURIComponent(location.pathname.split('/').pop())}`);
+    }
+    ensureAuth();
+  </script>
+
   <div id="layout-wrapper">
     @@include("partials/topbar.html")
     @@include("partials/sidebar.html")
@@ -13,7 +32,7 @@
       <div class="page-content">
         <div class="container-fluid">
 
-          @@include("partials/page-title.html", {"pagetitle": "Operação / TrackingSaídas", "title": "Leituras"})
+          @@include("partials/page-title.html", {"pagetitle": "Operação", "title": "Leituras"})
 
           <!-- Form de leitura -->
           <div class="card">
@@ -75,6 +94,11 @@
 
   @@include("partials/customizer.html")
   @@include("partials/vendor-scripts.html")
+
+  <script>
+  // aponte para o mesmo host que funciona em Entregadores
+  window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+</script>
 
 <script src="assets/js/pages/tracking-api-leitura-registros.init.js"></script>
 <script src="assets/js/pages/tracking-leitura.init.js"></script>

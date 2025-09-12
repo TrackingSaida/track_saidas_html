@@ -1,19 +1,19 @@
-// assets/js/pages/tracking-leitura.init.js
+// Tela de Leitura — normaliza código, envia para a API e mostra "Últimos" do entregador atual
 (function () {
   "use strict";
 
-  // ------------ elementos da página ------------
+  // ---------- elementos ----------
   const $ = (id) => document.getElementById(id);
 
   const selEnt = $("entregador");     // <select id="entregador">
-  const inpCod = $("codigo");         // <input id="codigo">
+  const inpCod = $("codigo");         // <input  id="codigo">
   const btnReg = $("btnRegistrar");   // <button id="btnRegistrar">
-  const msg    = $("msgArea");        // <div id="msgArea">
-  const tbLast = $("ultimos-rows");   // <tbody id="ultimos-rows">
+  const msg    = $("msgArea");        // <div    id="msgArea">
+  const tbLast = $("ultimos-rows");   // <tbody  id="ultimos-rows">
 
   const LAST_ENT_KEY = "track:lastEntregador";
 
-  // ------------ mensagens com Feather ------------
+  // ---------- mensagens ----------
   function showMsgIcon(tipo, texto) {
     const map = {
       erro:   { ico: "alert-octagon",  klass: "danger"  },
@@ -30,7 +30,7 @@
     window.feather && feather.replace();
   }
 
-  // ------------ normalização (igual ao MVP) ------------
+  // ---------- normalização (igual ao MVP) ----------
   // converte dígitos unicode -> ASCII (ex.: ⁴ → 4, ４ → 4)
   function toAsciiDigits(s) {
     if (!s) return "";
@@ -40,24 +40,24 @@
     s = s.replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30));
     return s;
   }
-  // mesma pipeline do Apps Script: upper, remover palavras "hífen/traço/menos",
-  // remover traços e tudo que não for A–Z/0–9
+  // upper + remove palavras "hífen/traço/menos" + remove traços e tudo que não for A–Z/0–9
   function normalizeCode(s) {
     if (!s) return "";
     return toAsciiDigits(String(s))
       .toUpperCase()
-      .replace(/\b(HI[F|́]F?EN|HÍFEN|MENOS|TRACO|TRA[ÇC]O)\b/gi, "")
+      .replace(/\b(HI[ÍI]FEN|HÍFEN|MENOS|TRACO|TRA[ÇC]O)\b/gi, "")
       .replace(/[–—−-]/g, "")
       .replace(/[^A-Z0-9]/g, "")
       .trim();
   }
 
-  // ------------ "Últimos registros" ------------
+  // ---------- últimos registros ----------
   function clearUltimos() { if (tbLast) tbLast.innerHTML = ""; }
 
-  // só exibe se o registro for do entregador atualmente selecionado
+  // só adiciona se o registro for do entregador atual; 6 colunas (a 6ª é "Dup?")
   function appendUltimoRegistro(row) {
     if (!tbLast) return;
+
     const entNow = selEnt?.value || "";
     if (entNow && row?.entregador && row.entregador !== entNow) return;
 
@@ -67,29 +67,29 @@
       row.entregador || "",
       row.codigo || "",
       row.servico || "",
-      row.status || (row.duplicado ? "Duplicado" : "Saiu")
+      row.status || (row.duplicado ? "Duplicado" : "Saiu"),
+      row.duplicado ? "Sim" : ""
     ];
     tr.innerHTML = cols.map(c => `<td>${c}</td>`).join("");
     tbLast.prepend(tr);
   }
 
-  // ------------ API helpers (usa o wrapper TrackAPI) ------------
+  // ---------- API helpers ----------
   function apiGetEntregadores() {
     if (!window.TrackAPI?.getEntregadores) {
       return Promise.reject(new Error("TrackAPI.getEntregadores não disponível"));
     }
-    return TrackAPI.getEntregadores(); // GET /entregadores?ativos=true
+    return TrackAPI.getEntregadores(); // GET /entregadores/
   }
 
   function apiRegistrarSaida({ entregador, codigo }) {
     if (!window.TrackAPI?.registerSaida) {
       return Promise.reject(new Error("TrackAPI.registerSaida não disponível"));
     }
-    // POST /api/saidas/registrar  { entregador, codigo }
-    return TrackAPI.registerSaida({ entregador, codigo });
+    return TrackAPI.registerSaida({ entregador, codigo }); // POST /saidas/registrar
   }
 
-  // ------------ carregamento de entregadores ------------
+  // ---------- carregar entregadores ----------
   function loadEntregadores() {
     return apiGetEntregadores().then(res => {
       const raw   = Array.isArray(res) ? res : (res?.data ?? []);
@@ -103,7 +103,7 @@
       const last = localStorage.getItem(LAST_ENT_KEY);
       if (last && lista.includes(last)) selEnt.value = last;
 
-      onEntregadorChange(); // limpa “Últimos” ao sincronizar
+      onEntregadorChange(); // limpa "Últimos"
     }).catch(() => {
       showMsgIcon("erro", "Falha ao carregar entregadores.");
     });
@@ -115,7 +115,7 @@
     clearUltimos(); // requisito: ao trocar, limpa a tabela
   }
 
-  // ------------ ação de registrar ------------
+  // ---------- registrar ----------
   async function registrar() {
     const entregador = selEnt?.value?.trim() || "";
     if (!entregador) return showMsgIcon("erro", "Selecione o entregador.");
@@ -139,7 +139,7 @@
         tsFmt: new Date().toLocaleString("pt-BR"),
         entregador,
         codigo,
-        servico: "",     // o back define no sucesso real
+        servico: "",
         status: "Saiu",
         duplicado: false
       };
@@ -155,15 +155,13 @@
     }
   }
 
-  // ------------ eventos ------------
+  // ---------- eventos ----------
   selEnt?.addEventListener("change", onEntregadorChange);
   btnReg?.addEventListener("click", registrar);
   inpCod?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); registrar(); }
   });
 
-  // ------------ init ------------
+  // ---------- init ----------
   loadEntregadores().then(() => { inpCod?.focus(); });
-
-
 })();

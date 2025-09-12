@@ -1,92 +1,89 @@
-// assets/js/pages/tracking-saida.api.js
-// Wrapper da API para a tela de Leitura
 (function (global) {
   "use strict";
 
-  // Namespace exportado
   const ns = global.TrackAPI || {};
 
-  // Base da API: pode sobrescrever em runtime com window.TRACK_API_URL
-  const API_BASE = global.TRACK_API_URL || (location.origin + "/api");
+  // Base: usa TRACK_API_URL do HTML; senão API_URL global; senão fallback
+  const API_BASE = (global.TRACK_API_URL || global.API_URL || "https://track-saidas-api.onrender.com/api")
+    .replace(/\/+$/, ""); // remove barra(s) finais
 
-  // ---------------- Auth / Headers ----------------
+  function url(path) {
+    return API_BASE + (path.startsWith("/") ? "" : "/") + path;
+  }
+
   function getToken() {
     return (
       localStorage.getItem("access_token") ||
-      localStorage.getItem("acess_token") || // cobre possível typo
+      localStorage.getItem("acess_token") || // cobre typo
       sessionStorage.getItem("access_token")
     );
   }
 
-  function buildHeaders(extra) {
+  function authHeaders(extra) {
     const h = { Accept: "application/json", ...(extra || {}) };
     const t = getToken();
     if (t) h.Authorization = `Bearer ${t}`;
     return h;
   }
 
-  // ---------------- Request helper ----------------
-  async function request(path, options = {}) {
-    const res = await fetch(API_BASE + path, {
-      ...options,
-      headers: buildHeaders(options.headers),
-    });
+ async function request(path, options = {}) {
+  const res = await fetch(url(path), {
+    mode: "cors",
+    credentials: "include",               // <<--- adiciona isto
+    ...options,
+    headers: authHeaders(options.headers),
+  });
 
-    let data = null;
-    try { data = await res.json(); } catch (_) {}
+  let body = null;
+  try { body = await res.json(); } catch (_) {}
 
-    if (!res.ok) {
-      // Devolve um erro consistente para o caller
-      const err = {
-        status: res.status,
-        ...(data || {}),
-        error: (data && data.error) || res.statusText || "Erro na requisição"
-      };
-      throw err;
-    }
-    return data;
+  if (!res.ok) {
+    throw {
+      status: res.status,
+      ...(body || {}),
+      error: (body && body.error) || res.statusText || "Erro na requisição",
+    };
+  }
+  return body;
+}
+
+
+  // -------- Endpoints --------
+
+  // GET /entregadores/  (barra final evita 307 e problemas de CORS em redirect)
+  ns.getEntregadores = function () {
+    return request("/entregadores/"); // já filtrado pelo usuário logado no back
+  };
+
+// POST registrar saída – tenta 3 rotas: /saidas/registrar, /saidas/registrar/, /saidas/
+ns.registerSaida = async function ({ entregador, codigo }) {
+  const payload = {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ entregador, codigo })
+  };
+
+  // 1) /saidas/registrar  (como está na doc)
+  try {
+    return await request("/saidas/registrar", payload);
+  } catch (e1) {
+    if (e1?.status !== 404) throw e1;
   }
 
-  // ---------------- Endpoints usados no front ----------------
+  // 2) /saidas/registrar/  (alguns frameworks exigem barra final)
+  try {
+    return await request("/saidas/registrar/", payload);
+  } catch (e2) {
+    if (e2?.status !== 404) throw e2;
+  }
 
-  // Entregadores do usuário logado (já filtrados no back)
-  // GET /entregadores?ativos=true
-  ns.getEntregadores = function () {
-    return request("/entregadores?ativos=true");
-  };
-
-  // Registrar leitura/saída (back classifica e valida)
-  // POST /saidas/registrar  { entregador, codigo }
-  ns.registerSaida = function ({ entregador, codigo }) {
-    return request("/saidas/registrar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entregador, codigo }),
-    });
-  };
-
-  // Lista saídas com filtros (usada na página de Registros)
-ns.listSaidas = function (params) {
-const q = new URLSearchParams(
-Object.entries(params || {}).filter(([, v]) => v !== "" && v != null)
-);
-return request("/saidas?" + q.toString());
+  // 3) /saidas/  (algumas APIs usam POST direto no recurso)
+  return await request("/saidas/", payload);
 };
 
-// Atualiza um registro (usada no modal de edição da página de Registros)
-ns.updateSaida = function (id, payload) {
-return request("/saidas/" + encodeURIComponent(id), {
-method: "PATCH",
-headers: { "Content-Type": "application/json" },
-body: JSON.stringify(payload || {}),
-});
-};
 
-  // Opcional (diagnóstico): GET /health
-  ns.ping = function () {
-    return request("/health");
-  };
+  // opcional
+  ns.ping = function () { return request("/health"); };
 
-    // Exporta
   global.TrackAPI = ns;
 })(window);
