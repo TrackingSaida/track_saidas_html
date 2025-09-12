@@ -1,4 +1,3 @@
-// src/assets/js/pages/track.registros.init.js
 (function () {
   var qs = function(s){ return document.querySelector(s); };
   var qsa = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
@@ -16,7 +15,7 @@
   var tblBody = qs("#reg-rows");
   var chkAll = qs("#chk-all");
   var btnSearch = qs("#btn-search");
-  var btnBulkDelete = qs("#btn-bulk-delete");
+  var btnEditSelected = qs("#btn-edit-selected");
   var pagerInfo = qs("#pager-info");
   var pagerPrev = qs("#pager-prev");
   var pagerNext = qs("#pager-next");
@@ -28,20 +27,18 @@
     console[ok ? "log" : "warn"](ok ? "✅" : "⚠️", msg);
   }
 
-  function loadCombos(){
-    if (!window.TrackAPI) return;
-    window.TrackAPI.getConfig().then(function(cfg){
-      var ent = (cfg && cfg.entregadores) || [];
-      f.entregador.innerHTML = ['<option value="">(Todos)</option>'].concat(ent.map(function(n){return "<option>"+n+"</option>";})).join("");
+ function loadCombos(){
+if (!window.TrackAPI) return;
+window.TrackAPI.getEntregadores().then(function(raw){
+var lista = Array.isArray(raw) ? raw : (raw && raw.data) || [];
+var nomes = lista.map(function(e){ return typeof e==="string" ? e : (e && (e.nome||e.name)); }).filter(Boolean);
+f.entregador.innerHTML = ['<option value="">(Todos)</option>'].concat(nomes.map(function(n){return "<option>"+n+"</option>";})).join("");
 
-      // datalist do modal
-      var dlEnt = document.getElementById("edit-entregadores");
-      if (dlEnt) dlEnt.innerHTML = ent.map(function(n){return '<option value="'+n+'"></option>';}).join("");
-      var dlEst = document.getElementById("edit-estacoes");
-      var est = (cfg && cfg.estacoes) || [];
-      if (dlEst) dlEst.innerHTML = est.map(function(n){return '<option value="'+n+'"></option>';}).join("");
-    });
-  }
+
+var dlEnt = document.getElementById("edit-entregadores");
+if (dlEnt) dlEnt.innerHTML = nomes.map(function(n){return '<option value="'+n+'"></option>';}).join("");
+});
+}
 
   function readFilters(){
     return {
@@ -89,26 +86,8 @@
         openEditModal(tr.getAttribute("data-id"));
       });
     });
-
-    // excluir (1)
-    qsa(".btn-del").forEach(function(b){
-      b.addEventListener("click", function(){
-        var tr = b.closest("tr");
-        if (!tr) return;
-        var id = tr.getAttribute("data-id");
-        if (!confirm("Excluir este registro?")) return;
-        window.TrackAPI.deleteSaida(id).then(function(r){
-          if (r && r.ok){
-            tr.remove();
-            toast("Excluído.");
-            refresh();
-          } else {
-            toast((r && r.error) || "Falha", false);
-          }
-        });
-      });
-    });
-  }
+    };
+  
 
   function refresh(){
     var p = readFilters();
@@ -127,7 +106,18 @@
     });
   }
 
-  // paginação
+  
+  // editar selecionado
+  if (btnEditSelected) btnEditSelected.addEventListener("click", function(){
+    var checks = qsa(".rowchk:checked");
+    if (checks.length !== 1){
+      return toast("Selecione exatamente 1 registro para editar.", false);
+    }
+    var tr = checks[0].closest("tr");
+    if (!tr) return;
+    openEditModal(tr.getAttribute("data-id"));
+  });
+// paginação
   if (pagerPrev) pagerPrev.addEventListener("click", function(){
     if (state.page > 1){ state.page--; refresh(); }
   });

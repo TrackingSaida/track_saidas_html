@@ -4,8 +4,6 @@
   @@include("partials/head-css.html")
 </head>
 
-<body>
-  <!-- Body wrapper padrão (carrega topbar + sidebar) -->
 <body data-layout="vertical" data-topbar="light" data-sidebar="dark" data-sidebar-size="lg">
 
 
@@ -15,20 +13,9 @@
 
     <div class="main-content">
       <div class="page-content">
-        <div class="container-fluid">
-
-          <!-- TÍTULO -->
-          <div class="row">
-            <div class="col-12">
-              <div class="d-flex align-items-center mb-3">
-                <h4 class="mb-0">TrackSaídas — Registros</h4>
-                <div class="ms-auto small text-muted" id="pager-info"></div>
-              </div>
-            </div>
+        <div class="container-fluid"></div>
           </div>
 
-  <!-- Conteúdo principal -->
-  <div class="page-content">
     <div class="container-fluid">
 
       <!-- Título / breadcrumb -->
@@ -92,7 +79,7 @@
 
           <div class="d-flex gap-2 mt-3">
             <button id="btn-search" class="btn btn-primary"><i class="ri-search-line"></i> Buscar</button>
-            <button id="btn-bulk-delete" class="btn btn-danger"><i class="ri-delete-bin-line"></i> Excluir Selecionados</button>
+            <button id="btn-edit-selected" class="btn btn-success"><i class="ri-edit-2-line"></i> Editar Selecionado</button>
             <div class="ms-auto btn-group">
               <button class="btn btn-soft-secondary" id="pager-prev">◀</button>
               <button class="btn btn-soft-secondary" id="pager-next">▶</button>
@@ -143,12 +130,7 @@
             <input list="edit-entregadores" id="edit-entregador" class="form-control" />
             <datalist id="edit-entregadores"></datalist>
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Estação</label>
-            <input list="edit-estacoes" id="edit-estacao" class="form-control" />
-            <datalist id="edit-estacoes"></datalist>
-          </div>
-          <div class="col-md-6">
+           <div class="col-md-6">
             <label class="form-label">Código</label>
             <input id="edit-codigo" class="form-control" />
           </div>
@@ -175,9 +157,8 @@
   @@include("partials/customizer.html")
   @@include("partials/vendor-scripts.html")
 
-  <!-- seus scripts -->
-  <script src="assets/js/pages/track.api.js"></script>
-  <script src="assets/js/pages/track.registros.init.js" ></script>
+<script src="assets/js/pages/tracking-api-leitura-registros.init.js"></script>
+<script src="assets/js/pages/tracking-registros.init.js"></script>
 
   <!-- app do Velzon -->
   <script src="assets/js/app.js"></script>

@@ -3,7 +3,7 @@
 // =========================
 const API_USERS = 'https://track-saidas-api.onrender.com/api/users';
 
-const WEBHOOK = 'https://webhook.site/e40b4630-87ed-4e21-b3ab-b6a70069a303';
+// const WEBHOOK = 'https://webhook.site/e40b4630-87ed-4e21-b3ab-b6a70069a303';
 
 function showSignupError(msg) {
   // você pode criar uma <div id="signupError" class="alert alert-danger d-none"></div> no HTML se quiser feedback visual
@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn && (btn.disabled = true);
 
       // 1) Cria o usuário
-      const resp = await fetch(WEBHOOK, {
+      const resp = await fetch(API_USERS, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
