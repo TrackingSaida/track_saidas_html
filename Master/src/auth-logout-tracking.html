@@ -1,80 +1,116 @@
-<!doctype html>
-<html lang="pt-br">
+@@include("partials/main.html")
 <head>
-  <meta charset="utf-8" />
-  <title>Sair | Tracking Saídas</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  @@include("partials/title-meta.html", {"title": "Sair"})
   @@include("partials/head-css.html")
-
+  <style>
+    /* imagem do lado esquerdo (cover) */
+    .auth-one-bg{
+      background: url('assets/images/sigup.jpg') center/cover no-repeat !important;
+    }
+    .auth-one-bg .bg-overlay{ background: rgba(0,0,0,.25); }
+    /* card branco para contraste no lado direito */
+    .auth-page-wrapper.auth-bg-cover .card{ background:#fff; box-shadow:0 0 22px rgba(0,0,0,.10); }
+  </style>
 </head>
 
 <body>
-  <div class="auth-page-wrapper pt-5">
-    <!-- bg -->
-    <div class="auth-one-bg-position auth-one-bg" id="auth-particles">
-      <div class="bg-overlay"></div>
-      <div class="shape">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 120">
-          <path d="M 0,36 C 144,53.6 432,123.2 720,124 C 1008,124.8 1296,56.8 1440,40L1440 140L0 140z"></path>
-        </svg>
-      </div>
-      <lord-icon class="moto-loop" src="https://cdn.lordicon.com/vihyezfv.json" trigger="loop"></lord-icon>
-    </div>
+  <!-- cover -->
+  <div class="auth-page-wrapper auth-bg-cover py-5 d-flex justify-content-center align-items-center min-vh-100">
+    <div class="bg-overlay"></div>
 
     <!-- conteúdo -->
-    <div class="auth-page-content">
+    <div class="auth-page-content overflow-hidden pt-lg-5">
       <div class="container">
-        <div class="row"><div class="col-lg-12">
-          <div class="text-center mt-sm-5 mb-4 text-white-50">
-            <div>
-              <a href="index.html" class="d-inline-block auth-logo">
-                <img src="assets/images/logo-track-light.png" alt="Tracking Saídas" height="140">
-              </a>
-            </div>
-            <p class="mt-3 fs-15 fw-medium">Gestão Inteligente de Saídas</p>
-          </div>
-        </div></div>
+        <div class="row">
+          <div class="col-lg-12">
+            <div class="card overflow-hidden card-bg-fill galaxy-border-none">
+              <div class="row justify-content-center g-0">
 
-        <div class="row justify-content-center">
-          <div class="col-md-8 col-lg-6 col-xl-5">
-            <div class="card mt-4 card-bg-fill">
-              <div class="card-body p-4 text-center">
-                <lord-icon src="https://cdn.lordicon.com/hzomhqxz.json" trigger="loop" colors="primary:#405189,secondary:#08a88a" style="width:180px;height:180px"></lord-icon>
-
-                <div class="mt-4 pt-2">
-                  <h5>Você saiu da sessão</h5>
-                  <p class="text-muted">Obrigado por utilizar o <span class="fw-semibold">Tracking Saídas</span>.</p>
-                  <div class="mt-4">
-                    <a href="auth-signin-tracking.html" class="btn btn-success w-100">Entrar</a>
+                <!-- coluna esquerda (imagem / brand / quotes) -->
+                <div class="col-lg-6">
+                  <div class="p-lg-5 p-4 auth-one-bg h-100">
+                    <div class="bg-overlay"></div>
+                    <div class="position-relative h-100 d-flex flex-column">
+                      <div class="mb-4">
+                        <a href="index.html" class="d-block">
+                          <img src="assets/images/logo-track-light.png" alt="Tracking Saídas" height="42">
+                        </a>
+                      </div>
+                      <div class="mt-auto">
+                        <div class="mb-3"><i class="ri-double-quotes-l display-4 text-success"></i></div>
+                        <div id="qoutescarouselIndicators" class="carousel slide" data-bs-ride="carousel">
+                          <div class="carousel-indicators">
+                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
+                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="1" aria-label="Slide 2"></button>
+                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="2" aria-label="Slide 3"></button>
+                          </div>
+                          <div class="carousel-inner text-center text-white-50 pb-5">
+                            <div class="carousel-item active"><p class="fs-15 fst-italic">“Sessão encerrada com segurança.”</p></div>
+                            <div class="carousel-item"><p class="fs-15 fst-italic">“Até breve no Tracking Saídas.”</p></div>
+                            <div class="carousel-item"><p class="fs-15 fst-italic">“Produtividade e controle em um só lugar.”</p></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div><!-- end col -->
-        </div><!-- end row -->
-      </div>
-    </div>
 
-    <!-- rodapé -->
-    <footer class="footer">
-      <div class="container"><div class="row"><div class="col-lg-12">
-        <div class="text-center">
-          <p class="mb-0 text-muted">&copy;<script>document.write(new Date().getFullYear())</script> Tracking Saídas.</p>
+                <!-- coluna direita (mensagem + botão) -->
+                <div class="col-lg-6">
+                  <div class="p-lg-5 p-4 text-center">
+                    <lord-icon src="https://cdn.lordicon.com/hzomhqxz.json" trigger="loop"
+                      colors="primary:#405189,secondary:#08a88a" style="width:180px;height:180px"></lord-icon>
+
+                    <div class="mt-4 pt-2">
+                      <h5>Você saiu da sessão</h5>
+                      <p class="text-muted">Obrigado por utilizar o <span class="fw-semibold">Tracking Saídas</span>.</p>
+                      <div class="mt-4">
+                        <!-- aponte para sua tela de login preferida (cover ou padrão) -->
+                        <a href="auth-signin-cover.html" class="btn btn-success w-100">Entrar</a>
+                        <!-- se quiser a padrão, troque para: auth-signin-tracking.html -->
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div><!-- row -->
+            </div><!-- card -->
+          </div>
         </div>
-      </div></div></div>
-    </footer>
+      </div>
+
+      <footer class="footer galaxy-border-none">
+        <div class="container"><div class="row"><div class="col-lg-12">
+          <div class="text-center">
+            <p class="mb-0">&copy;<script>document.write(new Date().getFullYear())</script> Tracking Saídas.</p>
+          </div>
+        </div></div></div>
+      </footer>
+    </div>
   </div>
 
   @@include("partials/vendor-scripts.html")
   <script src="assets/js/pages/plugins/lord-icon-2.1.0.js"></script>
   <script src="assets/js/plugins.js"></script>
-  <script src="assets/libs/particles.js/particles.js"></script>
-  <script src="assets/js/pages/particles.app.js"></script>
+
+  <!-- limpa estado local e (opcional) chama /auth/logout no backend -->
   <script>
-  localStorage.removeItem("trackingToken");
-  localStorage.removeItem("trackingUser");
-  sessionStorage.removeItem("trackingToken");
-  sessionStorage.removeItem("trackingUser");
-</script>
+    // limpa storages
+    try{
+      localStorage.removeItem('trackingToken');
+      localStorage.removeItem('trackingUser');
+      localStorage.removeItem('access_token');
+      sessionStorage.removeItem('trackingToken');
+      sessionStorage.removeItem('trackingUser');
+      sessionStorage.removeItem('access_token');
+    }catch(_){}
+
+    // invalidar cookie/sessão no servidor:
+    window.TRACK_API_URL = window.TRACK_API_URL || 'https://track-saidas-api.onrender.com/api';
+ fetch((window.TRACK_API_URL.replace(/\/+$/,'') + '/auth/logout'), { method:'POST', credentials:'include' });
+    
+ // voltar automaticamente para login após Xs:
+    setTimeout(()=> location.href='auth-signin-cover.html', 6000);
+  </script>
 </body>
 </html>

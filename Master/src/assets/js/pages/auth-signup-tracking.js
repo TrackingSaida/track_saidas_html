@@ -13,9 +13,10 @@ function showSignupError(msg) {
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[signup] init');
 
-  const form = document.getElementById('signup-form'); // existe no HTML de signup
+  // cobre ambos: novo wizard (#signup-wizard) e versão antiga (#signup-form)
+  const form = document.getElementById('signup-wizard') || document.getElementById('signup-form');
   if (!form) {
-    console.error('[signup] #signup-form não encontrado');
+    console.error('[signup] formulário de cadastro não encontrado (#signup-wizard / #signup-form)');
     return;
   }
 
@@ -23,50 +24,79 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     e.stopPropagation();
 
-    const emailEl = document.getElementById('useremail');
-    const userEl = document.getElementById('username');
-    const contatoEl = document.getElementById('contato');
-    const senhaEl = document.getElementById('senha-input');
-    const btn = document.getElementById('signup-btn');
+    // IDs do wizard (com fallbacks p/ ids antigos)
+    const emailEl     = document.getElementById('email')       || document.getElementById('useremail');
+    const userEl      = document.getElementById('username');
+    const nomeEl      = document.getElementById('nome');
+    const sobrenomeEl = document.getElementById('sobrenome');
+    const telEl       = document.getElementById('telefone')    || document.getElementById('contato');
+    const subBaseEl   = document.getElementById('subbase');
+    const senhaEl     = document.getElementById('senha')       || document.getElementById('senha-input');
+    const senha2El    = document.getElementById('senha2');
+    const termosEl    = document.getElementById('termos');
+    const btn         = document.getElementById('btn-submit')  || document.getElementById('signup-btn');
 
-    const email = emailEl?.value.trim();
-    const username = userEl?.value.trim();
-    const contato = contatoEl?.value.trim();
-    const password = senhaEl?.value;
+    const email     = emailEl?.value.trim();
+    const username  = userEl?.value.trim();
+    const nome      = nomeEl?.value.trim();
+    const sobrenome = sobrenomeEl?.value.trim();
+    const contato   = telEl?.value.trim();
+    const senha     = senhaEl?.value || '';
+    const senha2    = senha2El?.value || '';
+    const subBase   = subBaseEl?.value?.trim();
+    const termosOK  = termosEl ? !!termosEl.checked : true;
 
-    if (!email || !username || !contato || !password) {
+    if (!email || !username || !nome || !sobrenome || !contato || !senha || !subBase) {
       showSignupError('Preencha todos os campos obrigatórios.');
+      return;
+    }
+    if (senha2El && senha !== senha2) {
+      showSignupError('As senhas não coincidem.');
+      return;
+    }
+    //  força senha forte
+    if (!/(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}/.test(senha)) {
+       showSignupError('A senha deve ter 8+ caracteres, maiúscula, minúscula e número.');
+       return;
+       }
+    if (!termosOK) {
+      showSignupError('Você precisa aceitar os termos.');
       return;
     }
 
     try {
-      btn && (btn.disabled = true);
+      if (btn) btn.disabled = true;
 
-      // 1) Cria o usuário
+      // Cria o usuário
       const resp = await fetch(API_USERS, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           email,
           username,
-          contato,
-          password
+          senha,        // backend espera 'senha' (não 'password')
+          nome,
+          sobrenome,
+          contato,      // se o seu backend usa 'telefone'/'phone', troque a chave
+          subBase
         })
       });
 
       if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        showSignupError(err.detail || 'Não foi possível criar a conta.');
-        btn && (btn.disabled = false);
+        const errTxt = await resp.text().catch(() => '');
+        showSignupError(errTxt || 'Não foi possível criar a conta.');
+        if (btn) btn.disabled = false;
         return;
       }
 
-      // 2) Redireciona para o login já levando ?email=...
-      window.location.href = 'auth-signin-tracking.html?email=' + encodeURIComponent(email);
+      // Redireciona para login já com email e username
+      const qs = new URLSearchParams({ email, username }).toString();
+      window.location.href = 'auth-signin-tracking.html?' + qs;
     } catch (err) {
       console.error('[signup] erro de rede', err);
       showSignupError('Falha ao conectar. Tente novamente.');
-      btn && (btn.disabled = false);
+      if (btn) btn.disabled = false;
     }
   });
 });

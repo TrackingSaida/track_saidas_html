@@ -1,7 +1,7 @@
 // =========================
 // Login - TrackingSaídas
 // =========================
-const API_AUTH = 'https://track-saidas-api.onrender.com/api/auth';
+window.API_AUTH = 'https://track-saidas-api.onrender.com/api/auth'; 
 
 function getParam(name) {
   const u = new URL(window.location.href);
@@ -15,16 +15,17 @@ function showErrorLogin(msg) {
   el.classList.remove('d-none');
 }
 
+
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[signin] init');
 
-  // 1) Autopreenche o e-mail se vier ?email=...
-  (function prefillEmail() {
-    const email = getParam('email');
-    if (email) {
-      const input = document.getElementById('email');
-      if (input) input.value = email;
-    }
+  // 1) Autopreenche login se vier ?login=, ?email= ou ?username=
+  (function prefillLogin() {
+    const v = getParam('login') || getParam('email') || getParam('username') || '';
+    const input = document.getElementById('login')
+              || document.getElementById('email')
+              || document.getElementById('username');
+    if (input && v) input.value = v;
   })();
 
   // 2) Intercepta o submit do formulário
@@ -38,14 +39,31 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     e.stopPropagation();
 
-    const email = document.getElementById('email')?.value.trim();
+    // pega o valor do campo (suporta ids antigos e o novo #login)
+    const loginEl = document.getElementById('login')
+                  || document.getElementById('email')
+                  || document.getElementById('username');
+    const rawLogin = loginEl?.value?.trim();
     const password = document.getElementById('password-input')?.value;
     const remember = document.getElementById('auth-remember-check')?.checked || false;
     const btn = document.getElementById('signinBtn');
 
-    if (!email || !password) {
-      showErrorLogin('Preencha e-mail e senha.');
+    if (!rawLogin || !password) {
+      showErrorLogin('Preencha login e senha.');
       return;
+    }
+
+    // decide o payload conforme o tipo (e-mail | telefone | username)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const digits = rawLogin.replace(/\D/g, '');
+    let payload;
+    if (emailRegex.test(rawLogin)) {
+      payload = { email: rawLogin, password, remember };
+    } else if (digits.length >= 10) {
+      // se seu backend usa outro nome (ex.: phone/contato), troque aqui:
+      payload = { telefone: digits, password, remember };
+    } else {
+      payload = { username: rawLogin, password, remember };
     }
 
     const store = remember ? localStorage : sessionStorage;
@@ -54,12 +72,24 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       btn && (btn.disabled = true);
 
-      // 3) Login → cria cookie de sessão
-      const resp = await fetch(`${API_AUTH}/login`, {
+      // base da API: usa TRACK_API_URL se existir, senão API_AUTH legado
+      const base = ((window.TRACK_API_URL || window.API_AUTH || '') + '').replace(/\/+$/, '');
+      if (!base) {
+        showErrorLogin('URL da API não configurada (TRACK_API_URL/API_AUTH).');
+        btn && (btn.disabled = false);
+        return;
+      }
+      // caminho de login: usa override se definido, senão mantém /login
+      const signinPath = (typeof window.TRACK_SIGNIN_ENDPOINT === 'string')
+        ? window.TRACK_SIGNIN_ENDPOINT
+        : '/login';
+
+      // 3) Login → cria cookie de sessão (ou retorna token)
+      const resp = await fetch(base + signinPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include', // importante para cookie cross-site
-        body: JSON.stringify({ email, password, remember })
+        body: JSON.stringify(payload)
       });
 
       if (!resp.ok) {
@@ -69,21 +99,27 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // 4) Confirma a sessão e lê o usuário
-      const me = await fetch(`${API_AUTH}/me`, { credentials: 'include' });
-      if (!me.ok) {
-        showErrorLogin('Sessão não criada. Verifique flags do cookie (Secure/SameSite/CORS).');
-        btn && (btn.disabled = false);
-        return;
-      }
-      const userData = await me.json().catch(() => ({}));
+      // tenta ler token (se a API devolver) — opcional
+      try {
+        const data = await resp.clone().json();
+        const access = data?.access_token || data?.acess_token || data?.token;
+        if (access) {
+          try { store.setItem('access_token', access); } catch (_) {}
+        }
+      } catch (_) {}
+
+      // 4) Confirma a sessão e lê o usuário (se houver /me)
+      let userData = {};
+      try {
+        const me = await fetch(base + '/me', { credentials: 'include' });
+        if (me.ok) userData = await me.json().catch(() => ({}));
+      } catch (_) {}
 
       // 5) Persistência (marcador para o index + cache do usuário)
-
-other.removeItem('trackingToken');
-other.removeItem('trackingUser');
-store.setItem('trackingToken', 'cookie-session');
-store.setItem('trackingUser', JSON.stringify(userData || {}));
+      other.removeItem('trackingToken');
+      other.removeItem('trackingUser');
+      store.setItem('trackingToken', 'cookie-session');
+      store.setItem('trackingUser', JSON.stringify(userData || {}));
 
       // 6) Redireciona
       const next = getParam('next');
@@ -95,3 +131,4 @@ store.setItem('trackingUser', JSON.stringify(userData || {}));
     }
   });
 });
+
