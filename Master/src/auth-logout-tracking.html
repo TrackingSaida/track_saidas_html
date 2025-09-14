@@ -2,15 +2,7 @@
 <head>
   @@include("partials/title-meta.html", {"title": "Sair"})
   @@include("partials/head-css.html")
-  <style>
-    /* imagem do lado esquerdo (cover) */
-    .auth-one-bg{
-      background: url('assets/images/sigup.jpg') center/cover no-repeat !important;
-    }
-    .auth-one-bg .bg-overlay{ background: rgba(0,0,0,.25); }
-    /* card branco para contraste no lado direito */
-    .auth-page-wrapper.auth-bg-cover .card{ background:#fff; box-shadow:0 0 22px rgba(0,0,0,.10); }
-  </style>
+
 </head>
 
 <body>
@@ -110,7 +102,7 @@
  fetch((window.TRACK_API_URL.replace(/\/+$/,'') + '/auth/logout'), { method:'POST', credentials:'include' });
     
  // voltar automaticamente para login após Xs:
-    setTimeout(()=> location.href='auth-signin-cover.html', 6000);
+    setTimeout(()=> location.href='auth-signin-tracking-v2.html', 6000);
   </script>
 </body>
 </html>
