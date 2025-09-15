@@ -107,7 +107,7 @@
                             <div class="col-md-6">
                               <label for="senha" class="form-label">Senha <span class="text-danger">*</span></label>
                               <div class="position-relative auth-pass-inputgroup">
-                                <input type="password" class="form-control pe-5 senha-input" id="senha" placeholder="Mínimo 8 caracteres" pattern="(?=.*\\d)(?=.*[a-z])(?=.*[A-Z]).{8,}" autocomplete="new-password" required>
+                                <input type="password" class="form-control pe-5 senha-input" id="senha" placeholder="Mínimo 8 caracteres" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}" autocomplete="new-password" required>
                                 <button class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted material-shadow-none" type="button" data-toggle="ver-senha"><i class="ri-eye-fill align-middle"></i></button>
                                 <div class="invalid-feedback">Use pelo menos 8 caracteres com maiúsculas, minúsculas e números.</div>
                               </div>
@@ -215,95 +215,9 @@
   <script src="assets/libs/node-waves/waves.min.js"></script>
   <script src="assets/libs/feather-icons/feather.min.js"></script>
   <script src="assets/js/plugins.js"></script>
+  <script src="assets/js/pages/auth-signup-tracking.js"></script>
 
-  <script>
-    (function(){
-      const form = document.getElementById('signup-wizard');
-      const progress = document.querySelector('#progress-bar .progress-bar');
-      const tabs = Array.from(document.querySelectorAll('.progress-bar-tab .nav-link'));
 
-      function goTo(tabId){
-        const btn = document.getElementById(tabId);
-        if(!btn) return;
-        new bootstrap.Tab(btn).show();
-        const idx = tabs.findIndex(t => t.id === tabId);
-        const pct = Math.round(((idx+1)/tabs.length)*100);
-        progress.style.width = pct + '%';
-        progress.setAttribute('aria-valuenow', pct);
-      }
 
-      document.querySelectorAll('.nexttab').forEach(el=>{
-        el.addEventListener('click', (e)=>{
-          const activePane = document.querySelector('.tab-pane.active');
-          const inputs = activePane.querySelectorAll('input,select,textarea');
-          let valid = true;
-          inputs.forEach(inp=>{
-            if(inp.id === 'senha2'){
-              if(inp.value !== document.getElementById('senha').value){
-                inp.setCustomValidity('Mismatch');
-              } else { inp.setCustomValidity(''); }
-            }
-            if(!inp.checkValidity()) valid = false;
-          });
-          form.classList.add('was-validated');
-          if(!valid) return;
-          const next = e.currentTarget.getAttribute('data-nexttab');
-          goTo(next);
-        });
-      });
-
-      document.querySelectorAll('.previestab').forEach(el=>{
-        el.addEventListener('click', (e)=>{
-          const prev = e.currentTarget.getAttribute('data-previous');
-          goTo(prev);
-        });
-      });
-
-      // Toggle ver senha
-      document.querySelectorAll('[data-toggle="ver-senha"]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          const input = btn.previousElementSibling;
-          input.type = input.type === 'password' ? 'text' : 'password';
-        });
-      });
-
-      // Submit final -> POST /users/
-      form.addEventListener('submit', async (e)=>{
-        e.preventDefault();
-        e.stopPropagation();
-        const finalPane = document.getElementById('pane-subbase');
-        const inputs = finalPane.querySelectorAll('input[required],select[required],textarea[required]');
-        let valid = true; inputs.forEach(inp=>{ if(!inp.checkValidity()) valid = false; });
-        form.classList.add('was-validated');
-        if(!valid) return;
-
-        const payload = {
-          email: document.getElementById('email').value.trim(),
-          username: document.getElementById('username').value.trim(),
-          senha: document.getElementById('senha').value,
-          nome: document.getElementById('nome').value.trim(),
-          sobrenome: document.getElementById('sobrenome').value.trim(),
-          contato: document.getElementById('telefone').value.trim(),
-          subBase: document.getElementById('subbase').value.trim()
-        };
-
-        const btn = document.getElementById('btn-submit');
-        const originalHtml = btn.innerHTML; btn.disabled = true; btn.innerHTML = 'Enviando...';
-
-        try{
-          const baseUrl = (window.TRACK_API_URL || '').replace(/\/+$/,'');
-          if(!baseUrl){ throw new Error('TRACK_API_URL não configurada'); }
-          const res = await fetch(baseUrl + '/users/', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload)
-          });
-          if(!res.ok){ const txt = await res.text(); throw new Error('Falha ao criar conta: ' + txt); }
-          window.location.href = 'auth-signin-cover.html?email=' + encodeURIComponent(payload.email) + '&username=' + encodeURIComponent(payload.username);
-        }catch(err){
-          btn.disabled = false; btn.innerHTML = originalHtml;
-          console.error(err); alert(err.message || 'Erro inesperado ao criar a conta.');
-        }
-      });
-    })();
-  </script>
 </body>
 </html>
