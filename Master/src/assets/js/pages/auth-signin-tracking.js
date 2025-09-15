@@ -23,12 +23,30 @@ document.addEventListener('DOMContentLoaded', () => {
   (function prefillLogin() {
     const v = getParam('login') || getParam('email') || getParam('username') || '';
     const input = document.getElementById('login')
-              || document.getElementById('email')
-              || document.getElementById('username');
+               || document.getElementById('email')
+               || document.getElementById('username');
     if (input && v) input.value = v;
   })();
 
-  // 2) Intercepta o submit do formulário
+  // 2) Toggle do "olho" para ver/ocultar senha (login)  ⬅️ AGORA FORA DO SUBMIT
+  document.querySelectorAll('[data-toggle="ver-senha"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const group = btn.closest('.auth-pass-inputgroup');
+      const input = group ? group.querySelector('input') : document.getElementById('password-input');
+      if (!input) return;
+
+      input.type = input.type === 'password' ? 'text' : 'password';
+
+      // alterna o ícone (opcional)
+      const icon = btn.querySelector('i');
+      if (icon) {
+        icon.classList.toggle('ri-eye-fill');
+        icon.classList.toggle('ri-eye-off-fill');
+      }
+    });
+  });
+
+  // 3) Intercepta o submit do formulário
   const form = document.getElementById('loginForm'); // existe no HTML de login
   if (!form) {
     console.error('[signin] #loginForm não encontrado');
@@ -60,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (emailRegex.test(rawLogin)) {
       payload = { email: rawLogin, password, remember };
     } else if (digits.length >= 10) {
-          payload = { contato: digits, password, remember };
+      payload = { contato: digits, password, remember };
     } else {
       payload = { username: rawLogin, password, remember };
     }
@@ -71,22 +89,22 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       btn && (btn.disabled = true);
 
-const base = String(window.API_AUTH || '').replace(/\/+$/, '');
-if (!base) {
-  showErrorLogin('URL da API (API_AUTH) não configurada.');
-  btn && (btn.disabled = false);
-  return;
-}
+      const base = String(window.API_AUTH || '').replace(/\/+$/, '');
+      if (!base) {
+        showErrorLogin('URL da API (API_AUTH) não configurada.');
+        btn && (btn.disabled = false);
+        return;
+      }
 
-        const signinPath = (typeof window.TRACK_SIGNIN_ENDPOINT === 'string')
+      const signinPath = (typeof window.TRACK_SIGNIN_ENDPOINT === 'string')
         ? window.TRACK_SIGNIN_ENDPOINT
         : '/login';
 
-      // 3) Login → cria cookie de sessão (ou retorna token)
+      // 4) Login → cria cookie de sessão (ou retorna token)
       const resp = await fetch(base + signinPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // importante para cookie cross-site
+        credentials: 'include',
         body: JSON.stringify(payload)
       });
 
@@ -106,20 +124,20 @@ if (!base) {
         }
       } catch (_) {}
 
-      // 4) Confirma a sessão e lê o usuário (se houver /me)
+      // 5) Confirma a sessão e lê o usuário (se houver /me)
       let userData = {};
       try {
         const me = await fetch(base + '/me', { credentials: 'include' });
         if (me.ok) userData = await me.json().catch(() => ({}));
       } catch (_) {}
 
-      // 5) Persistência (marcador para o index + cache do usuário)
+      // 6) Persistência
       other.removeItem('trackingToken');
       other.removeItem('trackingUser');
       store.setItem('trackingToken', 'cookie-session');
       store.setItem('trackingUser', JSON.stringify(userData || {}));
 
-      // 6) Redireciona
+      // 7) Redireciona
       const next = getParam('next');
       window.location.href = next || 'dashboard-tracking-saidas.html';
     } catch (err) {
@@ -129,4 +147,6 @@ if (!base) {
     }
   });
 });
+
+
 
