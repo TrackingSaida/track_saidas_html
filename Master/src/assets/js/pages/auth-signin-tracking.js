@@ -60,8 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (emailRegex.test(rawLogin)) {
       payload = { email: rawLogin, password, remember };
     } else if (digits.length >= 10) {
-      // se seu backend usa outro nome (ex.: phone/contato), troque aqui:
-      payload = { telefone: digits, password, remember };
+          payload = { contato: digits, password, remember };
     } else {
       payload = { username: rawLogin, password, remember };
     }
@@ -72,15 +71,14 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       btn && (btn.disabled = true);
 
-      // base da API: usa TRACK_API_URL se existir, senão API_AUTH legado
-      const base = ((window.TRACK_API_URL || window.API_AUTH || '') + '').replace(/\/+$/, '');
-      if (!base) {
-        showErrorLogin('URL da API não configurada (TRACK_API_URL/API_AUTH).');
-        btn && (btn.disabled = false);
-        return;
-      }
-      // caminho de login: usa override se definido, senão mantém /login
-      const signinPath = (typeof window.TRACK_SIGNIN_ENDPOINT === 'string')
+const base = String(window.API_AUTH || '').replace(/\/+$/, '');
+if (!base) {
+  showErrorLogin('URL da API (API_AUTH) não configurada.');
+  btn && (btn.disabled = false);
+  return;
+}
+
+        const signinPath = (typeof window.TRACK_SIGNIN_ENDPOINT === 'string')
         ? window.TRACK_SIGNIN_ENDPOINT
         : '/login';
 
