@@ -153,3 +153,47 @@
     if (!isOnLoginPage()) carregarUsuarioLogado();
   });
 })();
+
+
+(function (w) {
+  "use strict";
+
+
+  w.UserUX = w.UserUX || {};
+
+  if (!w.UserUX.creditAlert) {
+    function hasSwal(){ return !!(w.Swal && typeof w.Swal.fire === "function"); }
+    function escapeHtml(str){
+      return String(str || "").replace(/[&<>"']/g, s =>
+        ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[s])
+      );
+    }
+    function openPlans(){
+      const url = w.USER_BILLING_URL || "billing.html"; // ajuste se necessário
+      try { w.location.assign(url); } catch { w.location.href = url; }
+    }
+
+    // SweetAlert padrão Velzon para falta de créditos
+    w.UserUX.creditAlert = function(message){
+      const msg = message || "Créditos insuficientes para registrar esta saída.";
+      if (hasSwal()) {
+        return Swal.fire({
+          icon: "warning",
+          title: "Créditos insuficientes",
+          html: `<div class="text-start">${escapeHtml(msg)}</div>`,
+          showCancelButton: true,
+          confirmButtonText: "Ver planos",
+          cancelButtonText: "Fechar",
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "btn btn-primary",
+            cancelButton: "btn btn-light"
+          }
+        }).then(res => { if (res.isConfirmed) openPlans(); });
+      }
+      alert(msg); // fallback sem SweetAlert
+      return Promise.resolve();
+    };
+  }
+})(window);
+/* --- FIM DO APPEND-ONLY --- */

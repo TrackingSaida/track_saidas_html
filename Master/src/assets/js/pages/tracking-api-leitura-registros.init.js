@@ -8,12 +8,16 @@
   const API_BASE = (global.TRACK_API_URL || global.API_URL || "https://track-saidas-api.onrender.com/api")
     .replace(/\/+$/, "");
 
-  function url(path) { return API_BASE + (path.startsWith("/") ? "" : "/") + path; }
+  function url(path) {
+    return API_BASE + (path.startsWith("/") ? "" : "/") + path;
+  }
 
   function getToken() {
-    return localStorage.getItem("access_token")
-        || localStorage.getItem("acess_token")
-        || sessionStorage.getItem("access_token");
+    return (
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("acess_token") ||
+      sessionStorage.getItem("access_token")
+    );
   }
 
   function authHeaders(extra) {
@@ -24,77 +28,61 @@
   }
 
   async function request(path, options = {}) {
-    const res = await fetch(url(path), {
-      mode: "cors",
-      credentials: "include",               // envia cookie/sessão
-      ...options,
-      headers: authHeaders(options.headers),
-    });
-    let body = null;
-    try { body = await res.json(); } catch (_) {}
-    if (!res.ok) {
-      throw { status: res.status, ...(body || {}), error: (body && body.error) || res.statusText || "Erro" };
-    }
-    return body;
+  const res = await fetch(url(path), {
+    mode: "cors",
+    credentials: "include",
+    ...options,
+    headers: authHeaders(options.headers),
+  });
+
+  let data = null, text = null;
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+  if (ct.includes("application/json")) {
+    try { data = await res.json(); } catch (_) {}
+  } else {
+    try { text = await res.text(); } catch (_) {}
   }
+
+  if (!res.ok) {
+    // <- NOVO: dá suporte a detail = { code, message }
+    let code = null;
+    let msg =
+      (data && (data.error || data.message)) ||
+      (Array.isArray(data?.detail) &&
+        data.detail.map(d => d.msg || d.message || d.detail).filter(Boolean).join("; ")) ||
+      (data?.detail && typeof data.detail === "object" && (code = data.detail.code || null, data.detail.message || data.detail.msg)) ||
+      (typeof data === "string" ? data : null) ||
+      res.statusText || "Erro";
+
+    const err = { status: res.status, ...(data || {}), error: msg };
+    if (code) err.code = code; // <- expõe o code no erro
+    throw err;
+  }
+
+  if (data && typeof data === "object" && ("ok" in data || "data" in data)) return data;
+  return { ok: true, status: res.status, data: (data ?? null), text };
+}
+
 
   // -------- Endpoints --------
 
   // Lista entregadores do usuário logado
   ns.getEntregadores = function () {
-    return request("/entregadores/");  // barra final evita 307 sem CORS
+    return request("/entregadores/"); // barra final evita 307 sem CORS
   };
 
-  // Registrar saída (agora enviando também "servico")
-  ns.registerSaida = async function ({ entregador, codigo, servico }) {
-    // Tenta rota sem e com barra final
-    try {
-      return await request("/saidas/registrar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entregador, codigo, servico }),
-      });
-    } catch (e1) {
-      if (e1?.status !== 404) throw e1;
-      return await request("/saidas/registrar/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entregador, codigo, servico }),
-      });
-    }
+  // Registrar saída (única rota)
+  ns.registerSaida = function ({ entregador, codigo, servico }) {
+    return request("/saidas/registrar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entregador, codigo, servico }),
+    });
   };
 
-  // Marcar/atualizar duplicado (somente update)
-  // Preferido: PATCH /saidas/duplicado  { entregador, codigo, duplicado:true }
-  // Fallbacks:  POST /saidas/duplicado  |  PATCH /saidas/marcar-duplicado
-  ns.setDuplicado = async function ({ entregador, codigo, duplicado = true }) {
-    try {
-      return await request("/saidas/duplicado", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entregador, codigo, duplicado }),
-      });
-    } catch (e1) {
-      if (e1?.status !== 404) throw e1;
-      try {
-        return await request("/saidas/duplicado", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ entregador, codigo, duplicado }),
-        });
-      } catch (e2) {
-        if (e2?.status !== 404) throw e2;
-        return await request("/saidas/marcar-duplicado", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ entregador, codigo, duplicado }),
-        });
-      }
-    }
+  ns.ping = function () {
+    return request("/health");
   };
-
-  // opcional
-  ns.ping = function () { return request("/health"); };
 
   global.TrackAPI = ns;
 })(window);
