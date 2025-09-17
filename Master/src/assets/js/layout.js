@@ -21,7 +21,7 @@
     R.setAttribute("data-sidebar-color", "gradient-1"); // 1ª bolinha do gradient (se suportado)
     R.setAttribute("data-sidebar-size", "lg");     // Sidebar Size (Default)
     R.setAttribute("data-theme", "default");       // Theme (Default)
-    R.setAttribute("data-preloader", "enable");    // Preloader ligado (se suportado)
+    R.setAttribute("data-preloader", "disable");    // Preloader ligado (se suportado)
   }
 
   // 3) Garante o padrão mesmo após scripts do template
