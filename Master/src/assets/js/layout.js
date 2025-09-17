@@ -1,52 +1,49 @@
-/*
-Template Name: Velzon - Admin & Dashboard Template
-Author: Themesbrand
-Version: 4.3.0
-Website: https://Themesbrand.com/
-Contact: Themesbrand@gmail.com
-File: Layout Js File
-*/
+/* TrackingSaidas – layout fixo para todos os usuários */
 
 (function () {
+  const R = document.documentElement;
 
-    'use strict';
+  // 1) Limpa preferências antigas salvas pelo Velzon
+  [
+    "data-bs-theme","data-layout","data-layout-width","data-layout-position",
+    "data-topbar","data-sidebar","data-sidebar-size","data-theme","data-sidebar-color",
+    "data-sidebar-image","data-theme-colors","data-preloader"
+  ].forEach(k => localStorage.removeItem(k));
 
-    if (sessionStorage.getItem('defaultAttribute')) {
+  // 2) Aplica os atributos padrão do layout
+  function applyDefaults() {
+    R.setAttribute("data-bs-theme", "light");      // Color Scheme
+    R.setAttribute("data-layout", "vertical");     // Layout
+    R.setAttribute("data-layout-width", "fluid");  // Layout Width
+    R.setAttribute("data-layout-position", "fixed"); // Layout Position
+    R.setAttribute("data-topbar", "dark");         // Topbar Color
+    R.setAttribute("data-sidebar", "gradient");    // Sidebar Color (gradient)
+    R.setAttribute("data-sidebar-color", "gradient-1"); // 1ª bolinha do gradient (se suportado)
+    R.setAttribute("data-sidebar-size", "lg");     // Sidebar Size (Default)
+    R.setAttribute("data-theme", "default");       // Theme (Default)
+    R.setAttribute("data-preloader", "enable");    // Preloader ligado (se suportado)
+  }
 
-        var attributesValue = document.documentElement.attributes;
-        var CurrentLayoutAttributes = {};
-        Object.entries(attributesValue).forEach(function(key) {
-            if (key[1] && key[1].nodeName && key[1].nodeName != "undefined") {
-                var nodeKey = key[1].nodeName;
-                CurrentLayoutAttributes[nodeKey] = key[1].nodeValue;
-            }
-          });
-        if(sessionStorage.getItem('defaultAttribute') !== JSON.stringify(CurrentLayoutAttributes)) {
-            sessionStorage.clear();
-            window.location.reload();
-        } else {
-            var isLayoutAttributes = {};
-            isLayoutAttributes['data-layout'] = sessionStorage.getItem('data-layout');
-            isLayoutAttributes['data-sidebar-size'] = sessionStorage.getItem('data-sidebar-size');
-            isLayoutAttributes['data-bs-theme'] = sessionStorage.getItem('data-bs-theme');
-            isLayoutAttributes['data-layout-width'] = sessionStorage.getItem('data-layout-width');
-            isLayoutAttributes['data-sidebar'] = sessionStorage.getItem('data-sidebar');
-            isLayoutAttributes['data-sidebar-image'] = sessionStorage.getItem('data-sidebar-image');
-            isLayoutAttributes['data-layout-direction'] = sessionStorage.getItem('data-layout-direction');
-            isLayoutAttributes['data-layout-position'] = sessionStorage.getItem('data-layout-position');
-            isLayoutAttributes['data-layout-style'] = sessionStorage.getItem('data-layout-style');
-            isLayoutAttributes['data-topbar'] = sessionStorage.getItem('data-topbar');
-            isLayoutAttributes['data-preloader'] = sessionStorage.getItem('data-preloader');
-            isLayoutAttributes['data-body-image'] = sessionStorage.getItem('data-body-image');
-            isLayoutAttributes['data-theme'] = sessionStorage.getItem('data-theme');
-            isLayoutAttributes['data-theme-colors'] = sessionStorage.getItem('data-theme-colors');
+  // 3) Garante o padrão mesmo após scripts do template
+  document.addEventListener("DOMContentLoaded", () => {
+    applyDefaults();
+    setTimeout(applyDefaults, 0);
+  });
 
-            Object.keys(isLayoutAttributes).forEach(function (x) {
-                if (isLayoutAttributes[x] && isLayoutAttributes[x]) {
-                    document.documentElement.setAttribute(x, isLayoutAttributes[x]);
-                }
-            });
-        }
+  // 4) Desativa qualquer input do customizer caso o HTML ainda exista
+  document.addEventListener("click", (ev) => {
+    const el = ev.target.closest('[name^="data-"],[data-bs-target="#theme-settings-offcanvas"]');
+    if (el) {
+      ev.stopImmediatePropagation();
+      ev.preventDefault();
+      applyDefaults();
+      return false;
     }
+  });
 
+  // 5) Remove o botão e o offcanvas se estiverem na página
+  const btn = document.querySelector('.customizer-setting');
+  const offcanvas = document.getElementById('theme-settings-offcanvas');
+  if (btn) btn.remove();
+  if (offcanvas) offcanvas.remove();
 })();
