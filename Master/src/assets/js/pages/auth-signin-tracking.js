@@ -1,7 +1,12 @@
 // =========================
 // Login - TrackingSaídas
 // =========================
-window.API_AUTH = 'https://track-saidas-api.onrender.com/api/auth'; 
+
+// Base da API de autenticação.
+// Se não existir window.API_AUTH, usa o endpoint padrão:
+const API_AUTH = (typeof window !== 'undefined' && window.API_AUTH)
+  ? String(window.API_AUTH)
+  : 'https://track-saidas-api.onrender.com/api/auth';
 
 function getParam(name) {
   const u = new URL(window.location.href);
@@ -15,11 +20,35 @@ function showErrorLogin(msg) {
   el.classList.remove('d-none');
 }
 
+// controla spinner/mensagem no botão
+function setSigningIn(btn, on) {
+  const status = document.getElementById('signinStatus');
+  if (!btn) return;
+
+  if (on) {
+    if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
+    const text = btn.dataset.loading || 'Entrando...';
+    btn.innerHTML =
+      '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' +
+      text;
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    if (status) {
+      status.textContent = 'Efetuando login…';
+      status.classList.remove('d-none');
+    }
+  } else {
+    btn.innerHTML = btn.dataset.originalHtml || 'Entrar';
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+    if (status) status.classList.add('d-none');
+  }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[signin] init');
 
-  // 1) Autopreenche login se vier ?login=, ?email= ou ?username=
+  // Preenche login se vier ?login=, ?email= ou ?username=
   (function prefillLogin() {
     const v = getParam('login') || getParam('email') || getParam('username') || '';
     const input = document.getElementById('login')
@@ -28,16 +57,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (input && v) input.value = v;
   })();
 
-  // 2) Toggle do "olho" para ver/ocultar senha (login)  ⬅️ AGORA FORA DO SUBMIT
+  // Toggle do "olho" para ver/ocultar senha
   document.querySelectorAll('[data-toggle="ver-senha"]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const group = btn.closest('.auth-pass-inputgroup');
       const input = group ? group.querySelector('input') : document.getElementById('password-input');
       if (!input) return;
-
       input.type = input.type === 'password' ? 'text' : 'password';
 
-      // alterna o ícone (opcional)
       const icon = btn.querySelector('i');
       if (icon) {
         icon.classList.toggle('ri-eye-fill');
@@ -46,8 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 3) Intercepta o submit do formulário
-  const form = document.getElementById('loginForm'); // existe no HTML de login
+  // Intercepta o submit do formulário
+  const form = document.getElementById('loginForm');
   if (!form) {
     console.error('[signin] #loginForm não encontrado');
     return;
@@ -57,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     e.stopPropagation();
 
-    // pega o valor do campo (suporta ids antigos e o novo #login)
     const loginEl = document.getElementById('login')
                   || document.getElementById('email')
                   || document.getElementById('username');
@@ -71,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // decide o payload conforme o tipo (e-mail | telefone | username)
+    // Decide o payload conforme o tipo (e-mail | telefone | username)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const digits = rawLogin.replace(/\D/g, '');
     let payload;
@@ -83,24 +109,35 @@ document.addEventListener('DOMContentLoaded', () => {
       payload = { username: rawLogin, password, remember };
     }
 
+    // Armazenamento (remember)
     const store = remember ? localStorage : sessionStorage;
     const other = remember ? sessionStorage : localStorage;
 
+    // Loading + mensagens de demora
+    let slowTimer1, slowTimer2;
     try {
-      btn && (btn.disabled = true);
-
-      const base = String(window.API_AUTH || '').replace(/\/+$/, '');
-      if (!base) {
-        showErrorLogin('URL da API (API_AUTH) não configurada.');
-        btn && (btn.disabled = false);
+      if (!API_AUTH) {
+        showErrorLogin('URL da API de autenticação não configurada.');
         return;
       }
+      const base = API_AUTH.replace(/\/+$/, '');
+
+      setSigningIn(btn, true);
+      clearTimeout(slowTimer1); clearTimeout(slowTimer2);
+      slowTimer1 = setTimeout(() => {
+        const s = document.getElementById('signinStatus');
+        if (s && !s.classList.contains('d-none')) s.textContent = 'Ainda tentando conectar…';
+      }, 6000);
+      slowTimer2 = setTimeout(() => {
+        const s = document.getElementById('signinStatus');
+        if (s && !s.classList.contains('d-none')) s.textContent = 'A conexão está lenta, continue aguardando…';
+      }, 12000);
 
       const signinPath = (typeof window.TRACK_SIGNIN_ENDPOINT === 'string')
         ? window.TRACK_SIGNIN_ENDPOINT
         : '/login';
 
-      // 4) Login → cria cookie de sessão (ou retorna token)
+      // Login → cria cookie de sessão (ou retorna token)
       const resp = await fetch(base + signinPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -109,13 +146,14 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       if (!resp.ok) {
+        clearTimeout(slowTimer1); clearTimeout(slowTimer2);
         const err = await resp.json().catch(() => ({}));
         showErrorLogin(err.detail || 'Usuário ou senha inválidos.');
-        btn && (btn.disabled = false);
+        setSigningIn(btn, false);
         return;
       }
 
-      // tenta ler token (se a API devolver) — opcional
+      // Se a API devolver token, guarda (opcional)
       try {
         const data = await resp.clone().json();
         const access = data?.access_token || data?.acess_token || data?.token;
@@ -124,29 +162,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (_) {}
 
-      // 5) Confirma a sessão e lê o usuário (se houver /me)
+      // Confirma a sessão e lê o usuário (se houver /me)
       let userData = {};
       try {
         const me = await fetch(base + '/me', { credentials: 'include' });
         if (me.ok) userData = await me.json().catch(() => ({}));
       } catch (_) {}
 
-      // 6) Persistência
+      // Persistência
       other.removeItem('trackingToken');
       other.removeItem('trackingUser');
       store.setItem('trackingToken', 'cookie-session');
       store.setItem('trackingUser', JSON.stringify(userData || {}));
 
-      // 7) Redireciona
+      // Redireciona
+      clearTimeout(slowTimer1); clearTimeout(slowTimer2);
       const next = getParam('next');
       window.location.href = next || 'dashboard-tracking-saidas.html';
     } catch (err) {
+      clearTimeout(slowTimer1); clearTimeout(slowTimer2);
       console.error('[signin] erro de rede', err);
       showErrorLogin('Falha ao conectar. Tente novamente.');
-      btn && (btn.disabled = false);
+      setSigningIn(btn, false);
     }
   });
 });
-
-
-

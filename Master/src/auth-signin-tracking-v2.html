@@ -4,18 +4,19 @@
    @@include("partials/title-meta.html", {"title": "Sign Up"})
   @@include("partials/head-css.html")
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Fonte do tema -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<style>
-  :root{
-    --vz-body-font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto,
-      "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji",
-      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  }
-  body{ font-family: var(--vz-body-font-family) !important; }
-</style>
+  <style>
+    :root{
+      --vz-body-font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji",
+        "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    }
+    body{ font-family: var(--vz-body-font-family) !important; }
+  </style>
 
 </head>
 <body>
@@ -69,7 +70,7 @@
                       <div class="mb-3">
                         <label for="login" class="form-label">Login</label>
                         <input type="text" class="form-control" id="login" placeholder="Digite e-mail, usuário ou telefone" required>
-                        <div class="invalid-feedback">Informe seu e-mail ou usuário ou telefone.</div>
+                        <div class="invalid-feedback">Informe seu e-mail, usuário ou telefone.</div>
                       </div>
 
                       <div class="mb-3">
@@ -92,7 +93,12 @@
                       <div id="loginError" class="alert alert-danger d-none mt-3"></div>
 
                       <div class="mt-4">
-                        <button id="signinBtn" class="btn btn-success w-100" type="submit">Entrar</button>
+                        <!-- data-loading define o texto enquanto loga -->
+                        <button id="signinBtn" class="btn btn-success w-100" type="submit" data-loading="Entrando...">
+                          Entrar
+                        </button>
+                        <!-- status de progresso (dinâmico) -->
+                        <div id="signinStatus" class="text-muted small mt-2 d-none" aria-live="polite"></div>
                       </div>
 
                       <div class="mt-4 text-center">
@@ -126,6 +132,7 @@
   <script src="assets/libs/feather-icons/feather.min.js"></script>
   <script src="assets/js/plugins.js"></script>
 
+  <!-- Lógica do login -->
   <script src="assets/js/pages/auth-signin-tracking.js"></script>
 </body>
 </html>
