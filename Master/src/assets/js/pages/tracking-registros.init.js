@@ -1,5 +1,5 @@
 (function () {
-  var qs = function(s){ return document.querySelector(s); };
+  var qs  = function(s){ return document.querySelector(s); };
   var qsa = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
 
   var f = {
@@ -12,33 +12,44 @@
     pageSize: qs("#flt-pageSize")
   };
 
-  var tblBody = qs("#reg-rows");
-  var chkAll = qs("#chk-all");
-  var btnSearch = qs("#btn-search");
-  var btnEditSelected = qs("#btn-edit-selected");
-  var pagerInfo = qs("#pager-info");
-  var pagerPrev = qs("#pager-prev");
-  var pagerNext = qs("#pager-next");
+  var tblBody     = qs("#reg-rows");
+  var chkAll      = qs("#chk-all");
+  var btnSearch   = qs("#btn-search");
+  var btnEdit     = qs("#btn-edit-selected");
+  var btnDelete   = qs("#btn-delete-selected");
+  var pagerInfo   = qs("#pager-info");
+  var pagerPrev   = qs("#pager-prev");
+  var pagerNext   = qs("#pager-next");
 
   var state = { page: 1, pageSize: 20, total: 0, rows: [] };
 
-  function toast(msg, ok){
-    if (ok === void 0) ok = true;
-    console[ok ? "log" : "warn"](ok ? "✅" : "⚠️", msg);
+  function toast(msg, ok){ if (ok === void 0) ok = true; console[ok ? "log" : "warn"](ok ? "✅" : "⚠️", msg); }
+
+  // Preenche combos: começa pela API e complementa com o que veio na lista
+  function loadCombosBase(){
+    if (!window.TrackAPI || !TrackAPI.getEntregadores) return Promise.resolve([]);
+    return TrackAPI.getEntregadores().then(function(res){
+      var raw   = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : (res && res.data) || []);
+      var nomes = raw.map(function(e){ return (typeof e === "string") ? e : (e && (e.nome || e.name)); }).filter(Boolean);
+      return nomes;
+    }).catch(function(){ return []; });
   }
 
- function loadCombos(){
-if (!window.TrackAPI) return;
-window.TrackAPI.getEntregadores().then(function(raw){
-var lista = Array.isArray(raw) ? raw : (raw && raw.data) || [];
-var nomes = lista.map(function(e){ return typeof e==="string" ? e : (e && (e.nome||e.name)); }).filter(Boolean);
-f.entregador.innerHTML = ['<option value="">(Todos)</option>'].concat(nomes.map(function(n){return "<option>"+n+"</option>";})).join("");
+  function fillEntregadores(nomes){
+    var unique = Array.from(new Set((nomes || []).filter(Boolean))).sort(function(a,b){ return a.localeCompare(b, "pt-BR"); });
+    if (f.entregador) {
+      var opts = ['<option value="">(Todos)</option>'].concat(unique.map(function(n){ return '<option value="'+n+'">'+n+'</option>'; }));
+      f.entregador.innerHTML = opts.join("");
+    }
+    var dl = document.getElementById("edit-entregadores");
+    if (dl) dl.innerHTML = unique.map(function(n){ return '<option value="'+n+'"></option>'; }).join("");
+  }
 
-
-var dlEnt = document.getElementById("edit-entregadores");
-if (dlEnt) dlEnt.innerHTML = nomes.map(function(n){return '<option value="'+n+'"></option>';}).join("");
-});
-}
+  // complementa o filtro de entregadores com o que veio na última listagem
+  function augmentEntregadoresFromRows(rows){
+    var nomesLista = (rows||[]).map(function(r){ return r && r.entregador; }).filter(Boolean);
+    fillEntregadores((augmentEntregadoresFromRows._base||[]).concat(nomesLista));
+  }
 
   function readFilters(){
     return {
@@ -61,33 +72,21 @@ if (dlEnt) dlEnt.innerHTML = nomes.map(function(n){return '<option value="'+n+'"
     }
     tblBody.innerHTML = rows.map(function(r){
       return (
-        '<tr data-id="'+r.id+'">' +
+        '<tr data-id="'+(r.id||r._id||'')+'">' +
           '<td><input type="checkbox" class="rowchk form-check-input" /></td>' +
           '<td>'+(r.tsFmt||"")+'</td>' +
           '<td>'+(r.entregador||"")+'</td>' +
           '<td>'+(r.codigo||"")+'</td>' +
           '<td>'+(r.servico||"")+'</td>' +
           '<td>'+(r.status||"")+'</td>' +
-          '<td>'+(r.duplicado ? "Sim" : "Não")+'</td>' +
-          '<td>'+(r.estacao||"")+'</td>' +
-          '<td class="text-end">' +
-            '<button class="btn btn-sm btn-soft-primary me-1 btn-edit">Editar</button>' +
-            '<button class="btn btn-sm btn-soft-danger btn-del">Excluir</button>' +
-          '</td>' +
+          '<td>'+(r.duplicado ? "Sim" : "Não")+'</td>' +          
+          '<td class="text-end">'+(r.lido_por||r.lido||"")+'</td>' +
         '</tr>'
       );
     }).join("");
 
-    // editar
-    qsa(".btn-edit").forEach(function(b){
-      b.addEventListener("click", function(){
-        var tr = b.closest("tr");
-        if (!tr) return;
-        openEditModal(tr.getAttribute("data-id"));
-      });
-    });
-    };
-  
+    // nada de botões por linha (ações só na barra)
+  }
 
   function refresh(){
     var p = readFilters();
@@ -103,21 +102,13 @@ if (dlEnt) dlEnt.innerHTML = nomes.map(function(n){return '<option value="'+n+'"
       renderTable(state.rows);
       if (pagerInfo) pagerInfo.textContent = "Página " + r.page + " • " + (r.rows ? r.rows.length : 0) + " de " + r.total;
       if (chkAll) chkAll.checked = false;
+
+      // atualiza filtro de entregadores com dados reais da tabela
+      augmentEntregadoresFromRows(state.rows);
     });
   }
 
-  
-  // editar selecionado
-  if (btnEditSelected) btnEditSelected.addEventListener("click", function(){
-    var checks = qsa(".rowchk:checked");
-    if (checks.length !== 1){
-      return toast("Selecione exatamente 1 registro para editar.", false);
-    }
-    var tr = checks[0].closest("tr");
-    if (!tr) return;
-    openEditModal(tr.getAttribute("data-id"));
-  });
-// paginação
+  // paginação
   if (pagerPrev) pagerPrev.addEventListener("click", function(){
     if (state.page > 1){ state.page--; refresh(); }
   });
@@ -127,73 +118,76 @@ if (dlEnt) dlEnt.innerHTML = nomes.map(function(n){return '<option value="'+n+'"
   });
 
   if (btnSearch) btnSearch.addEventListener("click", function(){
-    state.page = 1; refresh();
+    state.page = 1;
+    refresh();
   });
 
   if (chkAll) chkAll.addEventListener("change", function(){
-    qsa(".rowchk").forEach(function(ch){ ch.checked = chkAll.checked; });
+    qsa(".rowchk").forEach(function(c){ c.checked = chkAll.checked; });
   });
 
-  if (btnBulkDelete) btnBulkDelete.addEventListener("click", function(){
-    var ids = qsa(".rowchk:checked").map(function(ch){
-      var tr = ch.closest("tr");
-      return tr ? tr.getAttribute("data-id") : null;
-    }).filter(Boolean);
-    if (!ids.length) { toast("Selecione ao menos 1 registro", false); return; }
-    if (!confirm("Excluir " + ids.length + " registro(s)?")) return;
-    window.TrackAPI.bulkDelete(ids).then(function(r){
+  // editar (1 selecionado)
+  if (btnEdit) btnEdit.addEventListener("click", function(){
+    var checks = qsa(".rowchk:checked");
+    if (checks.length !== 1) return toast("Selecione exatamente 1 registro para editar.", false);
+    var tr = checks[0].closest("tr");
+    if (!tr) return;
+    openEditModal(tr.getAttribute("data-id"));
+  });
+
+  // excluir (1 selecionado)
+  if (btnDelete) btnDelete.addEventListener("click", function(){
+    var checks = qsa(".rowchk:checked");
+    if (checks.length !== 1) return toast("Selecione exatamente 1 registro para excluir.", false);
+    var tr = checks[0].closest("tr");
+    if (!tr) return;
+    var id = tr.getAttribute("data-id");
+    if (!id) return toast("Registro sem ID.", false);
+    if (!confirm("Excluir este registro?")) return;
+    if (!window.TrackAPI || !TrackAPI.deleteSaida) return toast("API de exclusão não disponível.", false);
+
+    TrackAPI.deleteSaida(id).then(function(r){
       if (r && r.ok){
-        toast("Excluídos: " + r.count);
+        toast("Excluído.");
         refresh();
       } else {
-        toast((r && r.error) || "Falha", false);
+        toast((r && r.error) || "Falha ao excluir", false);
       }
     });
   });
 
-  // ===== modal =====
+  // -------- Modal de edição --------
   var modalEl = document.getElementById("editModal");
-  var modal = modalEl ? new bootstrap.Modal(modalEl) : null;
-  var fm = {
-    id: document.getElementById("edit-id"),
-    entregador: document.getElementById("edit-entregador"),
-    codigo: document.getElementById("edit-codigo"),
-    servico: document.getElementById("edit-servico"),
-    status: document.getElementById("edit-status"),
-    estacao: document.getElementById("edit-estacao"),
-    btnSave: document.getElementById("edit-save")
-  };
+  var modal   = (window.bootstrap && modalEl) ? new bootstrap.Modal(modalEl) : null;
+  var eId     = document.getElementById("edit-id");
+  var eEnt    = document.getElementById("edit-entregador");
+  var eCod    = document.getElementById("edit-codigo");
+  var eSrv    = document.getElementById("edit-servico");
+  var eSta    = document.getElementById("edit-status");
+  var btnSave = document.getElementById("edit-save");
 
   function openEditModal(id){
-    if (!modal) return;
-    var row = (state.rows || []).find(function(r){ return String(r.id) === String(id); });
-    if (!row) return;
-    if (fm.id) fm.id.value = row.id || "";
-    if (fm.entregador) fm.entregador.value = row.entregador || "";
-    if (fm.codigo) fm.codigo.value = row.codigo || "";
-    if (fm.servico) fm.servico.value = row.servico || "";
-    if (fm.status) fm.status.value = row.status || "";
-    if (fm.estacao) fm.estacao.value = row.estacao || "";
-    modal.show();
+    var row = (state.rows || []).find(function(r){ return String(r.id||r._id) === String(id); });
+    if (!row) return toast("Registro não encontrado.", false);
+    if (eId)  eId.value = id;
+    if (eEnt) eEnt.value = row.entregador || "";
+    if (eCod) eCod.value = row.codigo || "";
+    if (eSrv) eSrv.value = row.servico || "";
+    if (eSta) eSta.value = row.status || "Saiu";
+    if (modal) modal.show();
   }
 
-  if (fm.btnSave) fm.btnSave.addEventListener("click", function(){
-    // valida NF-e 44 dígitos
-    var onlyDigits = ((fm.codigo && fm.codigo.value) || "").replace(/\D+/g, "");
-    if (/^\d{44}$/.test(onlyDigits)){
-      toast("Código inválido (NF-e). Leia a etiqueta do marketplace.", false);
-      if (fm.codigo) fm.codigo.focus();
-      return;
-    }
+  if (btnSave) btnSave.addEventListener("click", function(){
+    var id = eId && eId.value;
+    if (!id) return toast("ID ausente.", false);
     var payload = {
-      entregador: (fm.entregador && fm.entregador.value || "").trim(),
-      codigo: (fm.codigo && fm.codigo.value || "").trim(),
-      servico: (fm.servico && fm.servico.value || "").trim(),
-      status: (fm.status && fm.status.value) || "",
-      estacao: (fm.estacao && fm.estacao.value || "").trim()
+      entregador: eEnt && eEnt.value,
+      codigo:     eCod && eCod.value,
+      servico:    eSrv && eSrv.value,
+      status:     eSta && eSta.value
     };
-    var id = fm.id ? fm.id.value : null;
-    window.TrackAPI.updateSaida(id, payload).then(function(r){
+    if (!window.TrackAPI || !TrackAPI.updateSaida) return toast("API de atualização não disponível.", false);
+    TrackAPI.updateSaida(id, payload).then(function(r){
       if (r && r.ok){
         if (modal) modal.hide();
         toast("Atualizado.");
@@ -205,6 +199,8 @@ if (dlEnt) dlEnt.innerHTML = nomes.map(function(n){return '<option value="'+n+'"
   });
 
   // init
-  loadCombos();
-  refresh();
+  loadCombosBase().then(function(nomes){
+    augmentEntregadoresFromRows._base = nomes || [];
+    fillEntregadores(nomes || []);
+  }).finally(refresh);
 })();
