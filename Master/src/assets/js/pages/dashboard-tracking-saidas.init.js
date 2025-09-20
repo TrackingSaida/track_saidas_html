@@ -1,12 +1,14 @@
-
 (function(){
+  // ============ CONFIG ============
+  const API_BASE = window.TRACK_API_BASE || 'https://track-saidas-api.onrender.com/api';
+  // Ajuste conforme seu backend
+  const ENDPOINT_SAIDAS = API_BASE + '/saidas'; // espera ?start=YYYY-MM-DD&end=YYYY-MM-DD
+
   // ===== Util: datas / período =====
   function fmtISO(d){ return d.toISOString().slice(0,10); }
   function startEndLastNDays(n){
-    const end = new Date();
-    end.setHours(0,0,0,0);
-    const start = new Date(end);
-    start.setDate(start.getDate() - (n-1));
+    const end = new Date(); end.setHours(0,0,0,0);
+    const start = new Date(end); start.setDate(start.getDate() - (n-1));
     return {start, end};
   }
   function daysArray(start, end){
@@ -15,32 +17,38 @@
     return arr;
   }
 
-  // ===== PRNG determinístico (seed baseado em string) =====
-  function xmur3(str){
-    let h=1779033703^str.length; for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353); h=h<<13|h>>>19;} return function(){ h=Math.imul(h^h>>>16,2246822507); h=Math.imul(h^h>>>13,3266489909); return (h^h>>>16)>>>0; } }
-  function mulberry32(a){ return function(){ let t=a+=0x6D2B79F5; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296; } }
-  function seededRand(min,max,seedStr){ const seed=xmur3(seedStr)(); const rnd=mulberry32(seed)(); return Math.floor(rnd*(max-min+1))+min; }
+  // ===== Normalizadores =====
+  function toDateISO(rec){
+    if (rec.data) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(rec.data)) return rec.data;
+      try { return new Date(rec.data).toISOString().slice(0,10); } catch { /* noop */ }
+    }
+    if (rec.data_hora) {
+      if (typeof rec.data_hora === 'number') return new Date(rec.data_hora).toISOString().slice(0,10);
+      try { return new Date(rec.data_hora).toISOString().slice(0,10); } catch { /* noop */ }
+    }
+    const d=new Date(); d.setHours(0,0,0,0); return fmtISO(d);
+  }
+  function toOrigem(rec){
+    return (rec.origem || rec.servico || '').toString().toLowerCase();
+  }
+  function toEntregador(rec){
+    return rec.entregador_nome || rec.entregador || (rec.id_entregador?`ID ${rec.id_entregador}`:'Sem nome');
+  }
 
-  // ===== FAKE DATA determinístico =====
-  const ENTREGADORES = [
-    "Ana Souza","Carlos Lima","João Pedro","Maria Fernandes","Rafael Silva",
-    "Thiago Santos","Luiz Henrique","Priscila Medeiros","Guilherme A.","Beatriz Ramos"
-  ];
+  // ===== API =====
+  async function fetchSaidas(startISO, endISO){
+    const url = new URL(ENDPOINT_SAIDAS);
+    url.searchParams.set('start', startISO);
+    url.searchParams.set('end', endISO);
+    // Se sua API usa outros nomes: url.searchParams.set('inicio', startISO); url.searchParams.set('fim', endISO);
 
-  function fakeSaidas(startISO, endISO){
-    const dias = daysArray(new Date(startISO), new Date(endISO));
-    const out=[];
-    dias.forEach(d=>{
-      ENTREGADORES.forEach((nome,idx)=>{
-        // Determinístico por (dia+nome)
-        const baseKey = d+"::"+nome;
-        const qShopee = Math.max(0, seededRand(0,3, baseKey+"S"));
-        const qML     = Math.max(0, seededRand(0,2, baseKey+"M"));
-        for(let k=0;k<qShopee;k++) out.push({data:d, origem:"shopee", entregador:nome});
-        for(let k=0;k<qML;k++) out.push({data:d, origem:"mercado_livre", entregador:nome});
-      });
-    });
-    return out;
+    const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error('Falha ao buscar saídas: '+res.status);
+    const data = await res.json();
+
+    const items = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : []);
+    return items.map(r=>({ data: toDateISO(r), origem: toOrigem(r), entregador: toEntregador(r) }));
   }
 
   // ===== Helpers de agregação =====
@@ -97,17 +105,25 @@
   // ===== Fluxo =====
   let currentModo='ambos';
   async function loadAll(){
-    const {start,end}=startEndLastNDays(15); const startISO=fmtISO(start), endISO=fmtISO(end);
-    document.getElementById('ranking-period').textContent=`Período: ${startISO} a ${endISO}`;
-    document.getElementById('diario-period').textContent=`Período: ${startISO} a ${endISO}`;
+    try {
+      const {start,end}=startEndLastNDays(15); const startISO=fmtISO(start), endISO=fmtISO(end);
+      document.getElementById('ranking-period').textContent=`Período: ${startISO} a ${endISO}`;
+      document.getElementById('diario-period').textContent=`Período: ${startISO} a ${endISO}`;
 
-    const saidas=fakeSaidas(startISO,endISO);
-    const {names,values}=buildRanking(saidas);
-    renderRanking(names,values);
+      const saidas=await fetchSaidas(startISO,endISO);
+      const {names,values}=buildRanking(saidas);
+      renderRanking(names,values);
 
-    const days=daysArray(start,end);
-    const {shopee,ml,total}=buildSerieDiaria(saidas,days);
-    renderDiario(days,shopee,ml,total,currentModo);
+      const days=daysArray(start,end);
+      const {shopee,ml,total}=buildSerieDiaria(saidas,days);
+      renderDiario(days,shopee,ml,total,currentModo);
+    } catch (err) {
+      console.error(err);
+      chartRanking.clear();
+      chartDiario.clear();
+      chartRanking.setOption({title:{text:'Erro ao carregar dados', left:'center'}});
+      chartDiario.setOption({title:{text:'Erro ao carregar dados', left:'center'}});
+    }
   }
 
   document.getElementById('btn-refresh-ranking')?.addEventListener('click', loadAll);

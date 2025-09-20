@@ -20,17 +20,17 @@ const toast = (msg, ok = true) => {
   setTimeout(()=>el.remove(), 2600);
 };
 
-// Sanitize de IDs vindos da API (evita "null", "undefined" etc.)
+// Sanitize de IDs vindos da API (evita "null", "undefined", "")
 function safeId(raw) {
   if (raw === null || raw === undefined) return "";
   const s = String(raw).trim();
   return (s === "" || s === "null" || s === "undefined") ? "" : s;
 }
 
-// fetch enviando cookies de sessão
+// fetch com cookies de sessão
 async function http(url, options = {}) {
   const opts = {
-    credentials: "include", // usa sessão via cookie
+    credentials: "include",
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
   };
@@ -45,7 +45,7 @@ let deletingId  = null;
 let SELECTED_ID = null;
 
 /* =============== API ========================== */
-// Lista com ?status= (API já filtra pela base do usuário logado)
+// Lista com ?status= (API já filtra por base + status)
 async function apiList(status) {
   const url = new URL(API_ENTREGADORES);
   if (status) url.searchParams.set("status", status);
@@ -71,28 +71,27 @@ async function apiCreate(payload){
   });
   if (!r.ok) throw new Error(await r.text());
 }
+// ✅ PATCH /api/entregadores/{id_entregador}
 async function apiUpdate(id, payload){
   const clean = safeId(id);
   if (!clean) throw new Error("ID inválido");
   const r = await http(`${API_ENTREGADORES}${encodeURIComponent(clean)}`, {
-    method: "PUT",
-    body: JSON.stringify({
-      nome: payload.nome,
-      documento: payload.documento,
-      telefone: payload.telefone,
-    })
+    method: "PATCH",
+    body: JSON.stringify(payload)
   });
   if (!r.ok) throw new Error(await r.text());
 }
+// ✅ PATCH /api/entregadores/{id_entregador}  (só o campo ativo)
 async function apiUpdateAtivo(id, ativo){
   const clean = safeId(id);
   if (!clean) throw new Error("ID inválido");
   const r = await http(`${API_ENTREGADORES}${encodeURIComponent(clean)}`, {
-    method: "PUT",
+    method: "PATCH",
     body: JSON.stringify({ ativo: !!ativo })
   });
   if (!r.ok) throw new Error(await r.text());
 }
+// ✅ DELETE /api/entregadores/{id_entregador}
 async function apiDelete(id){
   const clean = safeId(id);
   if (!clean) throw new Error("ID inválido");
@@ -102,12 +101,9 @@ async function apiDelete(id){
 
 /* =============== Listagem/Paginação =========== */
 function buildRow(e){
-  const id = safeId(e.id_entregador ?? e.id);     // aceita id_entregador OU id
+  const id = safeId(e.id_entregador ?? e.id); // aceita id_entregador OU id
   const ativoChecked = e.ativo ? "checked" : "";
-
-  // se não houver id → linha não-selecionável (radio desabilitado)
   const radioAttrs = id ? `value="${id}"` : `value="" disabled`;
-
   return `
     <tr class="row-selectable ${id ? "" : "row-disabled"}" data-id="${id}">
       <td class="text-center">
