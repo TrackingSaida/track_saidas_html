@@ -294,8 +294,9 @@
   let lastText = "", sameCount = 0;
   let opening = false;
 
-  function showOverlay(){ overlay.classList.add("show"); }
+  function showOverlay(){ overlay.classList.add("show"); pushHistoryGuard(); }
   function hideOverlay(){ overlay.classList.remove("show"); }
+  function closeScanner(){ stop(); hideOverlay(); }
 
   function stop(){
     try { codeReader.reset(); } catch(_){}
@@ -312,20 +313,21 @@
       }
       if (result){
         const text = String(result.getText() || "");
+        // confirma 2 frames iguais
         sameCount = (text === lastText) ? sameCount + 1 : 0;
         lastText = text;
-        if (sameCount < 1) return; // confirma 2 frames
+        if (sameCount < 1) return;
 
         const cls = typeof classifyCodigo === "function" ? classifyCodigo(text) : {ok:true, codigo:text, servico:null};
         if (!cls.ok){ showMsgIcon("erro", `Código inválido: ${cls.motivo}.`); Sound.play("err"); return; }
 
-        // precisa ter entregador escolhido
         const ent = document.getElementById("entregador")?.value;
         if (!ent){ showMsgIcon("erro", "Selecione o entregador antes de escanear."); Sound.play("err"); return; }
 
         const inp = document.getElementById("codigo"); if (inp) inp.value = cls.codigo;
 
-        stop(); hideOverlay();
+        // fecha sozinho após leitura
+        closeScanner();
         if (typeof registrar === "function") registrar();
       }
     });
@@ -337,22 +339,22 @@
     lastText=""; sameCount=0;
 
     showOverlay();
+    showMsgIcon("info", "Aponte a câmera para o código.");
 
     try {
       // 1) tenta traseira explícita
       await startWithConstraints({ video: { facingMode: { exact: "environment" } } });
-    } catch (e1) {
+    } catch {
       try {
         // 2) ideal traseira
         await startWithConstraints({ video: { facingMode: { ideal: "environment" } } });
-      } catch (e2) {
+      } catch {
         try {
-          // 3) qualquer câmera disponível
+          // 3) qualquer câmera
           await startWithConstraints({ video: true });
-        } catch (e3) {
-          // 4) fallback final por deviceId nulo (ZXing decide)
+        } catch {
+          // 4) fallback do ZXing
           await codeReader.decodeFromVideoDevice(null, video, () => {});
-          // se ainda assim não rolar, cai no catch do botão
         }
       }
     }
@@ -366,24 +368,32 @@
     await trackWithTorch.applyConstraints({ advanced: [{ torch: !st.torch }] });
   }
 
-  // eventos
-  btnScan.addEventListener("click", async () => {
-    try {
-      await openScanner();
-      showMsgIcon("info", "Aponte a câmera para o código.");
-    } catch (e) {
-      stop(); hideOverlay();
-      showMsgIcon("erro", "Não foi possível acessar a câmera. Verifique permissões/HTTPS.");
-      Sound.play("err");
-    }
+  // ------- extras de saída sem ler -------
+  // botão voltar da UI
+  btnBack.addEventListener("click", closeScanner);
+  // tocar no fundo escuro (fora da moldura)
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) closeScanner(); });
+  // tecla ESC
+  document.addEventListener("keydown", (e) => {
+    if (overlay.classList.contains("show") && e.key === "Escape") closeScanner();
+  });
+  // botão físico "voltar" do Android (histórico)
+  function pushHistoryGuard(){ try { history.pushState({ scanOpen: true }, ""); } catch(_) {} }
+  window.addEventListener("popstate", () => {
+    if (overlay.classList.contains("show")) closeScanner();
   });
 
-  btnBack.addEventListener("click", () => { stop(); hideOverlay(); });
+  // eventos principais
+  btnScan.addEventListener("click", async () => {
+    try { await openScanner(); }
+    catch { closeScanner(); showMsgIcon("erro","Não foi possível acessar a câmera. Verifique permissões/HTTPS."); Sound.play("err"); }
+  });
   btnTorch?.addEventListener("click", toggleTorch);
 
   // ao sair da página/aba
   window.addEventListener("pagehide", stop);
 })();
+
 
 
   // ---------- eventos ----------
