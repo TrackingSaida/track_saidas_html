@@ -276,6 +276,122 @@
     if (inpCod) { inpCod.value = ""; inpCod.focus(); }
   }
 
+// ===== Leitor por Câmera (ZXing) =====
+(function CameraScanner(){
+  if (!window.ZXingBrowser) return; // se a lib não carregou, ignora
+
+  const btnScan = document.getElementById("btnScan");
+  const video   = document.getElementById("scanVideo");
+  const selCam  = document.getElementById("scanCamera");
+  const btnTorch= document.getElementById("scanToggleTorch");
+  const modalEl = document.getElementById("scanModal");
+
+  if (!btnScan || !video || !selCam || !modalEl) return;
+
+  const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
+  let currentDeviceId = null;
+  let currentStream   = null;
+  let trackWithTorch  = null;
+  let bsModal         = null;
+  let decoding        = false;
+  let lastText        = "";
+  let sameCount       = 0;
+
+  async function listCameras(){
+    const devices = await ZXingBrowser.BrowserMultiFormatReader.listVideoInputDevices();
+    selCam.innerHTML = devices.map(d => `<option value="${d.deviceId}">${d.label || d.deviceId}</option>`).join("");
+    // prioriza câmera traseira quando disponível
+    const back = devices.find(d => /back|traseira|environment|trás/i.test(d.label));
+    currentDeviceId = (back || devices[devices.length-1] || {}).deviceId || null;
+    if (currentDeviceId) selCam.value = currentDeviceId;
+  }
+
+  function stop(){
+    decoding = false;
+    try { codeReader.reset(); } catch(_){}
+    if (currentStream){
+      currentStream.getTracks().forEach(t=>t.stop());
+      currentStream = null;
+    }
+    trackWithTorch = null;
+  }
+
+  async function start(deviceId){
+    stop();
+    currentDeviceId = deviceId || currentDeviceId;
+    decoding = true;
+
+    await codeReader.decodeFromVideoDevice(currentDeviceId, video, (result, err) => {
+      // guarda stream/track p/ controlar flash
+      if (!currentStream && video.srcObject) {
+        currentStream = video.srcObject;
+        trackWithTorch = currentStream.getVideoTracks()?.[0] || null;
+      }
+      if (result) {
+        const text = String(result.getText() || "");
+        // confirma duas leituras iguais pra evitar falsos positivos
+        sameCount = (text === lastText) ? (sameCount+1) : 0;
+        lastText = text;
+        if (sameCount < 1) return;
+
+        // usa sua classificação já existente
+        const cls = (typeof classifyCodigo === "function") ? classifyCodigo(text) : { ok:true, servico:null, codigo:text };
+        if (!cls.ok) {
+          showMsgIcon("erro", `Código inválido: ${cls.motivo}.`);
+          Sound.play("err");
+          return;
+        }
+
+        const inp = document.getElementById("codigo");
+        if (inp) inp.value = cls.codigo;
+
+        stop();
+        if (bsModal) bsModal.hide();
+
+        const ent = document.getElementById("entregador")?.value;
+        if (!ent) {
+          showMsgIcon("erro", "Selecione o entregador antes de escanear.");
+          Sound.play("err");
+          return;
+        }
+        // dispara o mesmo fluxo do teclado
+        if (typeof registrar === "function") registrar();
+      }
+    });
+  }
+
+  // Flash (quando suportado pelo device)
+  async function toggleTorch(){
+    if (!trackWithTorch) return;
+    const caps = trackWithTorch.getCapabilities?.();
+    if (!caps || !caps.torch) return;
+    const st = trackWithTorch.getSettings?.();
+    const newTorch = !st.torch;
+    await trackWithTorch.applyConstraints({ advanced: [{ torch: newTorch }] });
+  }
+
+  // Eventos UI
+  btnScan.addEventListener("click", async () => {
+    lastText = ""; sameCount = 0;
+    try {
+      bsModal = bsModal || new bootstrap.Modal(modalEl, { backdrop: 'static' });
+      await listCameras();
+      bsModal.show();
+      start(selCam.value);
+      showMsgIcon("info", "Aponte a câmera para o código.");
+    } catch (e) {
+      showMsgIcon("erro", "Não foi possível acessar a câmera. Verifique permissões e HTTPS.");
+      Sound.play("err");
+    }
+  });
+
+  selCam.addEventListener("change", e => start(e.target.value));
+  btnTorch?.addEventListener("click", toggleTorch);
+
+  modalEl.addEventListener("hidden.bs.modal", () => stop());
+})();
+
+
   // ---------- eventos ----------
   selEnt?.addEventListener("change", onEntregadorChange);
   btnReg?.addEventListener("click", registrar);

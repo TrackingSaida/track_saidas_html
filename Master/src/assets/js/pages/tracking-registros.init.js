@@ -71,9 +71,10 @@
       return;
     }
     tblBody.innerHTML = rows.map(function(r){
-      return (
-        '<tr data-id="'+(r.id||r._id||'')+'">' +
-          '<td><input type="checkbox" class="rowchk form-check-input" /></td>' +
+      var isCancelado = String(r.status || "").toLowerCase() === "cancelado";
+return (
+  '<tr data-id="'+(r.id||r._id||'')+'"'+(isCancelado ? ' class="table-danger-subtle bg-danger-subtle"' : '')+'>' +
+    '<td><input type="checkbox" class="rowchk form-check-input" /></td>' +
           '<td>'+(r.tsFmt||"")+'</td>' +
           '<td>'+(r.entregador||"")+'</td>' +
           '<td>'+(r.codigo||"")+'</td>' +
@@ -86,6 +87,8 @@
     }).join("");
 
     // nada de botões por linha (ações só na barra)
+
+    
   }
 
   function refresh(){

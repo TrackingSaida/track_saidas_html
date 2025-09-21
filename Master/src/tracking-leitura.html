@@ -48,6 +48,9 @@
                 <div class="col-md-4">
                   <label class="form-label">Código (bipe ou digite)</label>
                   <input id="codigo" class="form-control" placeholder="Ex.: BR... / código marketplace" autofocus />
+                  <button id="btnScan" type="button" class="btn btn-outline-secondary" title="Ler com a câmera">
+                 <i data-feather="camera"></i>
+                  </button>
                 </div>
                 <div class="col-md-2">
                   <button id="btnRegistrar" class="btn btn-success w-100">
@@ -92,13 +95,46 @@
     </div>
   </div>
 
+  <div class="modal fade" id="scanModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Escanear código</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex gap-2 align-items-center mb-3">
+          <label class="me-2">Câmera:</label>
+          <select id="scanCamera" class="form-select" style="max-width:320px"></select>
+          <button id="scanToggleTorch" type="button" class="btn btn-light">Flash</button>
+        </div>
+        <div style="position:relative; width:100%; aspect-ratio: 16/9; background:#000; overflow:hidden; border-radius:12px;">
+          <video id="scanVideo" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
+          <!-- mira -->
+          <div style="position:absolute; inset:15%; border:2px solid rgba(255,255,255,.7); border-radius:12px;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="scanClose" type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
   @@include("partials/customizer.html")
   @@include("partials/vendor-scripts.html")
+
+
+
 
   <script>
   // aponte para o mesmo host que funciona em Entregadores
   window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
 </script>
+
+<!-- ZXing local (sem CDN) -->
+<script src="assets/vendor/zxing/zxing.bundle.min.js"></script>
 
 <script src="assets/js/pages/tracking-api-leitura-registros.init.js"></script>
 <script src="assets/js/pages/tracking-leitura.init.js"></script>

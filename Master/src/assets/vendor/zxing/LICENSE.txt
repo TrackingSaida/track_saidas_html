@@ -1,0 +1,2 @@
+ZXing JS – Apache 2.0
+https://github.com/zxing-js
