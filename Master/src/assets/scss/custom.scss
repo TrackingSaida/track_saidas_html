@@ -1,7 +1,23 @@
-/*
-Template Name: Velzon - Admin & Dashboard Template
-Author: Themesbrand
-Website: https://themesbrand.com/
-Contact: support@themesbrand.com
-File: Custom Css File
-*/
+/* Scanner full-screen */
+.scanfs {
+  position: fixed; inset: 0; background: #000; z-index: 2000; display: none;
+  &.show { display: block; }
+
+  video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+  &-top, &-bottom { position: absolute; left: 0; right: 0; color: #fff; }
+  &-top {
+    top: 0; height: 56px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 8px; background: rgba(0,0,0,.35); backdrop-filter: blur(8px);
+  }
+  &-title { font-weight: 700; }
+  &-bottom { bottom: 0; text-align: center; padding: 18px; background: rgba(0,0,0,.35); font-weight: 600; }
+
+  &-frame { position: absolute; inset: 12% 10%; border-radius: 16px;
+    .corner { position: absolute; width: 52px; height: 52px; border: 4px solid #fff; }
+    .tl { top: 0; left: 0; border-right: none; border-bottom: none; border-radius: 16px 0 0 0; }
+    .tr { top: 0; right: 0; border-left: none; border-bottom: none; border-radius: 0 16px 0 0; }
+    .bl { bottom: 0; left: 0; border-right: none; border-top: none; border-radius: 0 0 0 16px; }
+    .br { bottom: 0; right: 0; border-left: none; border-top: none; border-radius: 0 0 16px 0; }
+  }
+}

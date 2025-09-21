@@ -276,119 +276,113 @@
     if (inpCod) { inpCod.value = ""; inpCod.focus(); }
   }
 
-// ===== Leitor por Câmera (ZXing) =====
-(function CameraScanner(){
-  if (!window.ZXingBrowser) return; // se a lib não carregou, ignora
+// ===== Leitor por Câmera – Full-screen (ZXing) =====
+(function CameraScannerFS(){
+  if (!window.ZXingBrowser) return;
 
-  const btnScan = document.getElementById("btnScan");
-  const video   = document.getElementById("scanVideo");
-  const selCam  = document.getElementById("scanCamera");
-  const btnTorch= document.getElementById("scanToggleTorch");
-  const modalEl = document.getElementById("scanModal");
+  const btnScan   = document.getElementById("btnScan");
+  const overlay   = document.getElementById("scanFS");
+  const video     = document.getElementById("scanFSVideo");
+  const btnBack   = document.getElementById("scanFSBack");
+  const btnTorch  = document.getElementById("scanFSTorch");
 
-  if (!btnScan || !video || !selCam || !modalEl) return;
+  if (!btnScan || !overlay || !video) return;
 
   const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
-  let currentDeviceId = null;
-  let currentStream   = null;
-  let trackWithTorch  = null;
-  let bsModal         = null;
-  let decoding        = false;
-  let lastText        = "";
-  let sameCount       = 0;
+  let currentStream = null;
+  let trackWithTorch = null;
+  let lastText = "", sameCount = 0;
+  let opening = false;
 
-  async function listCameras(){
-    const devices = await ZXingBrowser.BrowserMultiFormatReader.listVideoInputDevices();
-    selCam.innerHTML = devices.map(d => `<option value="${d.deviceId}">${d.label || d.deviceId}</option>`).join("");
-    // prioriza câmera traseira quando disponível
-    const back = devices.find(d => /back|traseira|environment|trás/i.test(d.label));
-    currentDeviceId = (back || devices[devices.length-1] || {}).deviceId || null;
-    if (currentDeviceId) selCam.value = currentDeviceId;
-  }
+  function showOverlay(){ overlay.classList.add("show"); }
+  function hideOverlay(){ overlay.classList.remove("show"); }
 
   function stop(){
-    decoding = false;
     try { codeReader.reset(); } catch(_){}
-    if (currentStream){
-      currentStream.getTracks().forEach(t=>t.stop());
-      currentStream = null;
-    }
+    if (currentStream){ currentStream.getTracks().forEach(t=>t.stop()); currentStream = null; }
     trackWithTorch = null;
+    opening = false;
   }
 
-  async function start(deviceId){
-    stop();
-    currentDeviceId = deviceId || currentDeviceId;
-    decoding = true;
-
-    await codeReader.decodeFromVideoDevice(currentDeviceId, video, (result, err) => {
-      // guarda stream/track p/ controlar flash
-      if (!currentStream && video.srcObject) {
+  async function startWithConstraints(constraints){
+    await codeReader.decodeFromConstraints(constraints, video, (result, err) => {
+      if (!currentStream && video.srcObject){
         currentStream = video.srcObject;
         trackWithTorch = currentStream.getVideoTracks()?.[0] || null;
       }
-      if (result) {
+      if (result){
         const text = String(result.getText() || "");
-        // confirma duas leituras iguais pra evitar falsos positivos
-        sameCount = (text === lastText) ? (sameCount+1) : 0;
+        sameCount = (text === lastText) ? sameCount + 1 : 0;
         lastText = text;
-        if (sameCount < 1) return;
+        if (sameCount < 1) return; // confirma 2 frames
 
-        // usa sua classificação já existente
-        const cls = (typeof classifyCodigo === "function") ? classifyCodigo(text) : { ok:true, servico:null, codigo:text };
-        if (!cls.ok) {
-          showMsgIcon("erro", `Código inválido: ${cls.motivo}.`);
-          Sound.play("err");
-          return;
-        }
+        const cls = typeof classifyCodigo === "function" ? classifyCodigo(text) : {ok:true, codigo:text, servico:null};
+        if (!cls.ok){ showMsgIcon("erro", `Código inválido: ${cls.motivo}.`); Sound.play("err"); return; }
 
-        const inp = document.getElementById("codigo");
-        if (inp) inp.value = cls.codigo;
-
-        stop();
-        if (bsModal) bsModal.hide();
-
+        // precisa ter entregador escolhido
         const ent = document.getElementById("entregador")?.value;
-        if (!ent) {
-          showMsgIcon("erro", "Selecione o entregador antes de escanear.");
-          Sound.play("err");
-          return;
-        }
-        // dispara o mesmo fluxo do teclado
+        if (!ent){ showMsgIcon("erro", "Selecione o entregador antes de escanear."); Sound.play("err"); return; }
+
+        const inp = document.getElementById("codigo"); if (inp) inp.value = cls.codigo;
+
+        stop(); hideOverlay();
         if (typeof registrar === "function") registrar();
       }
     });
   }
 
-  // Flash (quando suportado pelo device)
+  async function openScanner(){
+    if (opening) return;
+    opening = true;
+    lastText=""; sameCount=0;
+
+    showOverlay();
+
+    try {
+      // 1) tenta traseira explícita
+      await startWithConstraints({ video: { facingMode: { exact: "environment" } } });
+    } catch (e1) {
+      try {
+        // 2) ideal traseira
+        await startWithConstraints({ video: { facingMode: { ideal: "environment" } } });
+      } catch (e2) {
+        try {
+          // 3) qualquer câmera disponível
+          await startWithConstraints({ video: true });
+        } catch (e3) {
+          // 4) fallback final por deviceId nulo (ZXing decide)
+          await codeReader.decodeFromVideoDevice(null, video, () => {});
+          // se ainda assim não rolar, cai no catch do botão
+        }
+      }
+    }
+  }
+
   async function toggleTorch(){
     if (!trackWithTorch) return;
     const caps = trackWithTorch.getCapabilities?.();
     if (!caps || !caps.torch) return;
     const st = trackWithTorch.getSettings?.();
-    const newTorch = !st.torch;
-    await trackWithTorch.applyConstraints({ advanced: [{ torch: newTorch }] });
+    await trackWithTorch.applyConstraints({ advanced: [{ torch: !st.torch }] });
   }
 
-  // Eventos UI
+  // eventos
   btnScan.addEventListener("click", async () => {
-    lastText = ""; sameCount = 0;
     try {
-      bsModal = bsModal || new bootstrap.Modal(modalEl, { backdrop: 'static' });
-      await listCameras();
-      bsModal.show();
-      start(selCam.value);
+      await openScanner();
       showMsgIcon("info", "Aponte a câmera para o código.");
     } catch (e) {
-      showMsgIcon("erro", "Não foi possível acessar a câmera. Verifique permissões e HTTPS.");
+      stop(); hideOverlay();
+      showMsgIcon("erro", "Não foi possível acessar a câmera. Verifique permissões/HTTPS.");
       Sound.play("err");
     }
   });
 
-  selCam.addEventListener("change", e => start(e.target.value));
+  btnBack.addEventListener("click", () => { stop(); hideOverlay(); });
   btnTorch?.addEventListener("click", toggleTorch);
 
-  modalEl.addEventListener("hidden.bs.modal", () => stop());
+  // ao sair da página/aba
+  window.addEventListener("pagehide", stop);
 })();
 
 
