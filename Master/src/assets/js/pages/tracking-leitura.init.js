@@ -48,15 +48,17 @@
     return { play };
   })();
 
-  // ---------- mensagens ----------
-  function showMsgIcon(tipo, texto) {
-    const map = {
-      erro:   { ico: "alert-octagon",  klass: "danger"  },
-      alerta: { ico: "alert-triangle", klass: "warning" },
-      info:   { ico: "alert-circle",   klass: "info"    }
-    };
-    const m = map[tipo] || map.info;
-    if (!msg) return;
+ // ---------- mensagens ----------
+function showMsgIcon(tipo, texto) {
+  const map = {
+    erro:   { ico: "alert-octagon",  klass: "danger"  },
+    alerta: { ico: "alert-triangle", klass: "warning" },
+    info:   { ico: "alert-circle",   klass: "info"    }
+  };
+  const m = map[tipo] || map.info;
+
+  // 1) Mensagem na área padrão da página (fora do overlay)
+  if (msg) {
     msg.innerHTML = `
       <div class="d-flex align-items-center gap-2">
         <i data-feather="${m.ico}" class="icon-dual icon-dual-${m.klass}"></i>
@@ -64,6 +66,23 @@
       </div>`;
     window.feather && feather.replace();
   }
+
+  // 2) Espelha a mensagem dentro do overlay da câmera, se estiver aberto
+  const overlay = document.getElementById('scanFS');
+  const hud = document.getElementById('scanFSMsg');
+  if (overlay && hud && overlay.classList.contains('show')) {
+    hud.textContent = String(texto || '');
+    hud.classList.remove('info', 'warning', 'danger', 'show');
+    hud.classList.add(m.klass || 'info', 'show');
+
+    // auto-esconde após alguns segundos (renova o timer a cada msg)
+    clearTimeout(hud._t);
+    hud._t = setTimeout(() => {
+      hud.classList.remove('show');
+    }, tipo === 'erro' ? 3000 : 2000);
+  }
+}
+
 
   // ---------- normalização / classificação ----------
   function toAsciiDigits(s){
