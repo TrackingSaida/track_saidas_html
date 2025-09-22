@@ -8,11 +8,8 @@
   const API_BASE = (global.TRACK_API_URL || global.API_URL || "https://track-saidas-api.onrender.com/api")
     .replace(/\/+$/, "");
 
-  function url(path) {
-    return API_BASE + (path.startsWith("/") ? "" : "/") + path;
-  }
+  function url(path) { return API_BASE + (path.startsWith("/") ? "" : "/") + path; }
 
-  // Token opcional (se sua API usa Bearer). Cookies de sessão vão por credentials: 'include'
   function getToken() {
     return (
       localStorage.getItem("access_token") ||
@@ -29,12 +26,10 @@
     if (token && !headers.Authorization) headers.Authorization = "Bearer " + token;
 
     const res = await fetch(url(path), Object.assign({ credentials: "include" }, init, { headers }));
-
     let data = null, text = "";
     try { data = await res.clone().json(); } catch (_) { try { text = await res.text(); } catch (__) {} }
-
     if (!res.ok) {
-      return { ok: false, status: res.status, error: (data && data.error) || text || res.statusText, data };
+      return { ok: false, status: res.status, error: (data && (data.error || data.detail)) || text || res.statusText, data };
     }
     return { ok: true, status: res.status, data: (data ?? null) };
   }
@@ -43,24 +38,20 @@
   function formatTs(ts) {
     try {
       if (!ts) return "";
-      // aceita Date, ISO string ou epoch numérico
       const d = (ts instanceof Date) ? ts : (typeof ts === "number" ? new Date(ts) : new Date(String(ts)));
       if (isNaN(d.getTime())) return "";
-      // pt-BR, no timezone do browser
       return d.toLocaleString("pt-BR");
     } catch (_) { return ""; }
+  }
+  function getRowId(r){
+    return r && (r.id_saida || r.idSaida || r.id || r._id || r.uuid || null);
   }
 
   // -------- Endpoints --------
 
-  // Lista entregadores do usuário logado
-  ns.getEntregadores = function () {
-    // incluo ?ativos=true para bater com teu uso
-    return request("/entregadores?ativos=true");
-  };
+  ns.getEntregadores = function () { return request("/entregadores?ativos=true"); };
 
-  // POST /api/saidas/registrar { entregador, codigo }
-  ns.registerSaida = function ({ entregador, codigo, servico}) {
+  ns.registerSaida = function ({ entregador, codigo, servico }) {
     return request("/saidas/registrar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -87,28 +78,19 @@
 
     return request("/saidas/listar?" + qp.toString()).then(function (res) {
       if (!res || !res.ok) return res;
-
-      // Normalização do payload do back:
-      // - Array direto
-      // - { rows: [], total } | { items: [], total } | { data: [], total }
       const d = res.data;
       let rows = Array.isArray(d) ? d : (d && (d.rows || d.items || d.data)) || [];
       const total = (d && typeof d.total === "number") ? d.total : rows.length;
-
-      // >>> Ajuste para a coluna "Data Hora":
-      // O front usa r.tsFmt. A API retorna "timestamp".
       rows = rows.map(function (r) {
         const ts = r.timestamp || r.ts || r.data_hora || r.datahora || r.date || null;
-        return Object.assign({}, r, {
-          tsFmt: r.tsFmt || formatTs(ts) // gera tsFmt quando não vier pronto
-        });
+        const id = getRowId(r);
+        return Object.assign({}, r, { id: id, tsFmt: r.tsFmt || formatTs(ts) });
       });
-
       return { ok: true, page, pageSize, total, rows };
     });
   };
 
-  // PATCH /api/saidas/:id
+  // PATCH /api/saidas/{id_saida}
   ns.updateSaida = function (id, payload) {
     return request("/saidas/" + encodeURIComponent(id), {
       method: "PATCH",
@@ -117,14 +99,12 @@
     });
   };
 
-ns.deleteSaida = function(id){
-  return request("/saidas/" + encodeURIComponent(id), { method: "DELETE" });
-};
+  // DELETE /api/saidas/{id_saida}
+  ns.deleteSaida = function (id) {
+    return request("/saidas/" + encodeURIComponent(id), { method: "DELETE" });
+  };
 
-
-  // Diagnóstico opcional
   ns.ping = function () { return request("/health"); };
 
-  // Exporta
   global.TrackAPI = ns;
 })(window);
