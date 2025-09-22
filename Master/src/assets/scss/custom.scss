@@ -38,32 +38,39 @@
   &.danger{  background: rgba(220,53,69,.80); }    /* vermelho */
 }
 
-/* Pilha de leituras OK dentro do overlay */
+/* Pilha de leituras OK (painel inferior) */
 .scanfs-stack{
-  position:absolute; left:8px; right:8px;
-  bottom: 72px;                 /* deixa livre a barra .scanfs-bottom */
-  max-height: 50vh;             /* "até a metade da tela" */
+  position:absolute; left:8px; right:8px; bottom:72px;
+  /* viewport para ~5 cards (56px cada + 8px de gap) */
+  max-height: calc(56px * 5 + 8px * 4 + 8px);
   overflow-y: auto;
-  display: flex; flex-direction: column;
-  gap: 8px; padding: 4px;
-  pointer-events: none;         /* não bloqueia toques na câmera */
+  display:flex; flex-direction:column; gap:8px; padding:4px;
+  pointer-events:none;
+  scrollbar-width: thin;                          /* Firefox */
+  scrollbar-color: rgba(255,255,255,.6) transparent;
+}
+.scanfs-stack::-webkit-scrollbar{ width:8px; height:8px; } /* Chromium/WebKit */
+.scanfs-stack::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,.55);
+  border-radius: 8px;
 }
 
+/* Card de leitura OK */
 .scanfs-card{
-  pointer-events: auto;
+  pointer-events:auto;
   display:flex; align-items:center; justify-content:space-between; gap:12px;
-  padding: 10px 12px; border-radius: 12px;
-  color:#fff; backdrop-filter: blur(6px);
+  height:56px; padding:10px 12px; border-radius:12px;
+  color:#fff; font-weight:600; letter-spacing:.2px;
+  backdrop-filter: blur(6px);
   background: rgba(0,0,0,.55);
   border: 1px solid rgba(255,255,255,.18);
   box-shadow: 0 6px 24px rgba(0,0,0,.25);
   animation: scanfsPop .18s ease-out both;
-  font-weight: 600; letter-spacing: .2px;
   .c{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .s{ opacity:.9; font-size:.925rem; }
+  .s{ opacity:.9; font-size:.925rem; white-space:nowrap; }
 }
 @keyframes scanfsPop{
-  from{ transform: translateY(6px); opacity: 0; }
-  to  { transform: translateY(0);   opacity: 1; }
+  from{ transform: translateY(6px); opacity:0; }
+  to  { transform: translateY(0);   opacity:1; }
 }
 
