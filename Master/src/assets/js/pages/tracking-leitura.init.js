@@ -276,7 +276,7 @@
     if (inpCod) { inpCod.value = ""; inpCod.focus(); }
   }
 
-// ===== Leitor por Câmera – Full-screen (ZXing) =====
+// ===== Leitor por Câmera – Full-screen (ZXing) | Modo contínuo =====
 (function CameraScannerFS(){
   if (!window.ZXingBrowser) return;
 
@@ -291,62 +291,99 @@
   const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
   let currentStream = null;
   let trackWithTorch = null;
+
+  // anti-bounce: confirma 2 frames iguais e aplica cooldown após “pegar” um código
   let lastText = "", sameCount = 0;
-  let opening = false;
+  let cooldownUntil = 0;                // ignora frames até esse timestamp
+  const HIT_COOLDOWN_MS = 1200;
+
+  // evita reprocessar o mesmo código repetidamente
+  const RECENT_TTL = 2500;              // ms
+  const recentHits = new Map();         // codigo -> lastTs
+  function seenRecently(cod){
+    const now = Date.now();
+    for (const [k,ts] of [...recentHits]) if (now-ts > RECENT_TTL) recentHits.delete(k);
+    const ts = recentHits.get(cod);
+    recentHits.set(cod, now);
+    return ts && (now - ts < RECENT_TTL);
+  }
 
   function showOverlay(){ overlay.classList.add("show"); pushHistoryGuard(); }
   function hideOverlay(){ overlay.classList.remove("show"); }
-  function closeScanner(){ stop(); hideOverlay(); }
 
   function stop(){
     try { codeReader.reset(); } catch(_){}
     if (currentStream){ currentStream.getTracks().forEach(t=>t.stop()); currentStream = null; }
     trackWithTorch = null;
-    opening = false;
   }
 
   async function startWithConstraints(constraints){
     await codeReader.decodeFromConstraints(constraints, video, (result, err) => {
+      const now = Date.now();
+      if (now < cooldownUntil) return;                     // respeita cooldown
+
+      // guarda stream/track para flash
       if (!currentStream && video.srcObject){
         currentStream = video.srcObject;
         trackWithTorch = currentStream.getVideoTracks()?.[0] || null;
       }
-      if (result){
-        const text = String(result.getText() || "");
-        // confirma 2 frames iguais
-        sameCount = (text === lastText) ? sameCount + 1 : 0;
-        lastText = text;
-        if (sameCount < 1) return;
 
-        const cls = typeof classifyCodigo === "function" ? classifyCodigo(text) : {ok:true, codigo:text, servico:null};
-        if (!cls.ok){ showMsgIcon("erro", `Código inválido: ${cls.motivo}.`); Sound.play("err"); return; }
+      if (!result) return;
+      const text = String(result.getText() || "");
 
-        const ent = document.getElementById("entregador")?.value;
-        if (!ent){ showMsgIcon("erro", "Selecione o entregador antes de escanear."); Sound.play("err"); return; }
+      // confirma 2 frames iguais para reduzir falso positivo
+      if (text === lastText) sameCount++; else { lastText = text; sameCount = 0; }
+      if (sameCount < 1) return;
 
-        const inp = document.getElementById("codigo"); if (inp) inp.value = cls.codigo;
+      // classifica com a mesma regra do teclado
+      const cls = typeof classifyCodigo === "function" ? classifyCodigo(text) : { ok:true, codigo:text, servico:null };
 
-        // fecha sozinho após leitura
-        closeScanner();
-        if (typeof registrar === "function") registrar();
+      if (!cls.ok) {
+        // erro local (ex.: NF-e 44 dígitos) – mostra e continua ligado
+        showMsgIcon("erro", `Código inválido: ${cls.motivo}.`);
+        Sound.play("err");
+        cooldownUntil = now + 600;                         // pequeno intervalo p/ não floodar
+        return;
       }
+
+      // precisa ter entregador selecionado
+      const ent = document.getElementById("entregador")?.value;
+      if (!ent) {
+        showMsgIcon("erro", "Selecione o entregador antes de escanear.");
+        Sound.play("err");
+        cooldownUntil = now + 600;
+        return;
+      }
+
+      // evita reprocessar o mesmo código em loop
+      if (seenRecently(cls.codigo)) {
+        cooldownUntil = now + 400;
+        return;
+      }
+
+      // empilha normalmente (usa o mesmo fluxo do botão “Registrar”)
+      const inp = document.getElementById("codigo");
+      if (inp) inp.value = cls.codigo;
+      if (typeof registrar === "function") registrar();    // isso dispara toda a UI: “Enviando…”, 409 duplicado, erros 422, etc.
+      Sound.play("ok");
+
+      // mantém a câmera ligada – só pausa por um curto cooldown
+      cooldownUntil = now + HIT_COOLDOWN_MS;
+      sameCount = 0;                                       // aguarda sair do alvo
     });
   }
 
   async function openScanner(){
-    if (opening) return;
-    opening = true;
-    lastText=""; sameCount=0;
-
+    lastText=""; sameCount=0; cooldownUntil=0;
     showOverlay();
     showMsgIcon("info", "Aponte a câmera para o código.");
 
     try {
-      // 1) tenta traseira explícita
+      // 1) traseira explícita
       await startWithConstraints({ video: { facingMode: { exact: "environment" } } });
     } catch {
       try {
-        // 2) ideal traseira
+        // 2) traseira ideal
         await startWithConstraints({ video: { facingMode: { ideal: "environment" } } });
       } catch {
         try {
@@ -354,7 +391,7 @@
           await startWithConstraints({ video: true });
         } catch {
           // 4) fallback do ZXing
-          await codeReader.decodeFromVideoDevice(null, video, () => {});
+          await codeReader.decodeFromVideoDevice(null, video, ()=>{});
         }
       }
     }
@@ -368,20 +405,15 @@
     await trackWithTorch.applyConstraints({ advanced: [{ torch: !st.torch }] });
   }
 
-  // ------- extras de saída sem ler -------
-  // botão voltar da UI
+  // ---- sair sem ler ----
+  function closeScanner(){ stop(); hideOverlay(); }
   btnBack.addEventListener("click", closeScanner);
-  // tocar no fundo escuro (fora da moldura)
   overlay.addEventListener("click", (e) => { if (e.target === overlay) closeScanner(); });
-  // tecla ESC
   document.addEventListener("keydown", (e) => {
     if (overlay.classList.contains("show") && e.key === "Escape") closeScanner();
   });
-  // botão físico "voltar" do Android (histórico)
   function pushHistoryGuard(){ try { history.pushState({ scanOpen: true }, ""); } catch(_) {} }
-  window.addEventListener("popstate", () => {
-    if (overlay.classList.contains("show")) closeScanner();
-  });
+  window.addEventListener("popstate", () => { if (overlay.classList.contains("show")) closeScanner(); });
 
   // eventos principais
   btnScan.addEventListener("click", async () => {
@@ -390,9 +422,9 @@
   });
   btnTorch?.addEventListener("click", toggleTorch);
 
-  // ao sair da página/aba
   window.addEventListener("pagehide", stop);
 })();
+
 
 
 
