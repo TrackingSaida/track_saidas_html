@@ -51,13 +51,63 @@
 
   ns.getEntregadores = function () { return request("/entregadores?ativos=true"); };
 
-  ns.registerSaida = function ({ entregador, codigo, servico }) {
-    return request("/saidas/registrar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entregador, codigo, servico })
-    });
-  };
+  // Registrar saída (envia {entregador, codigo, servico} e emite 'saida-resultado')
+TrackAPI.registerSaida = async function ({ entregador, codigo, servico }) {
+  const body = JSON.stringify({ entregador, codigo, servico });
+
+  // 1ª tentativa (sem barra final)
+  let resp;
+  try {
+    const r1 = await fetch(
+      window.TRACK_API_URL.replace(/\/+$/, '') + '/saidas/registrar',
+      { method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }, body }
+    );
+    let data = null; try { data = await r1.json(); } catch(_) {}
+    resp = { ok: r1.ok, status: r1.status, data };
+  } catch (_) {
+    resp = { ok:false, status:0, data:null };
+  }
+
+  // fallback com barra final (alguns proxies/routers exigem)
+  if (resp.status === 404) {
+    try {
+      const r2 = await fetch(
+        window.TRACK_API_URL.replace(/\/+$/, '') + '/saidas/registrar/',
+        { method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }, body }
+      );
+      let data = null; try { data = await r2.json(); } catch(_) {}
+      resp = { ok: r2.ok, status: r2.status, data };
+    } catch (_) {
+      resp = { ok:false, status:0, data:null };
+    }
+  }
+
+  // → avisa o leitor da câmera (empilha só quando 201)
+  try {
+    if (resp.status === 201) {
+      window.dispatchEvent(new CustomEvent('saida-resultado', {
+        detail: { status:'ok',  codigo, servico }
+      }));
+    } else if (resp.status === 409) {
+      window.dispatchEvent(new CustomEvent('saida-resultado', {
+        detail: { status:'dup', codigo, servico }
+      }));
+    } else if (resp.status === 422) {
+      window.dispatchEvent(new CustomEvent('saida-resultado', {
+        detail: { status:'erro', codigo, servico, http:422 }
+      }));
+    } else if (resp.status === 0) {
+      window.dispatchEvent(new CustomEvent('saida-resultado', {
+        detail: { status:'erro', codigo, servico, http:0 }
+      }));
+    }
+  } catch(_) {}
+
+  return resp;
+};
+
 
   // GET /api/saidas/listar?de&ate&entregador&status&codigo&limit&offset
   ns.listSaidas = function (params) {

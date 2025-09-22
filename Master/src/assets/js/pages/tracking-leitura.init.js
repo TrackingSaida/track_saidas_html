@@ -304,7 +304,7 @@ function showMsgIcon(tipo, texto) {
   const video     = document.getElementById("scanFSVideo");
   const btnBack   = document.getElementById("scanFSBack");
   const btnTorch  = document.getElementById("scanFSTorch");
-  const stackBox  = document.getElementById("scanFSStack");   // <-- NOVO (pilha)
+  const stackBox  = document.getElementById("scanFSStack");
 
   if (!btnScan || !overlay || !video) return;
 
@@ -328,7 +328,7 @@ function showMsgIcon(tipo, texto) {
     return ts && (now - ts < RECENT_TTL);
   }
 
-  // === NOVO: empilhar "código + serviço" no painel inferior ===
+  // === empilhar "código + serviço" no painel inferior (somente com 201) ===
   function pushScanCard({ codigo, servico }){
     if (!stackBox) return;
     const div = document.createElement('div');
@@ -338,12 +338,39 @@ function showMsgIcon(tipo, texto) {
       <div class="s">${servico ? servico : ''}</div>
     `;
     stackBox.appendChild(div);
+    // mantém no máximo 50 itens no DOM
+    while (stackBox.children.length > 50) {
+      stackBox.removeChild(stackBox.firstElementChild);
+    }
     // rolar para o fim para mostrar o último
     stackBox.scrollTop = stackBox.scrollHeight;
   }
   function clearScanStack(){
     if (stackBox) stackBox.innerHTML = '';
   }
+
+  // --- NOVO: controle de estado e listener do resultado do back ---
+  const okKnown  = new Set();  // confirmados (201)
+  const dupKnown = new Set();  // duplicados (409)
+  const pending  = new Set();  // aguardando retorno da API
+
+  // Empilha somente quando o back confirmar 201
+  window.addEventListener('saida-resultado', (ev) => {
+    const { status, codigo, servico } = ev.detail || {};
+    if (!codigo) return;
+
+    pending.delete(codigo);
+
+    if (status === 'ok') {
+      okKnown.add(codigo);
+      pushScanCard({ codigo, servico });       // <-- empilha aqui
+    } else if (status === 'dup') {
+      dupKnown.add(codigo);
+      showMsgIcon('alerta', `DUPLICADO • ${codigo}`);  // não empilha
+    } else {
+      showMsgIcon('erro', `Falha ao registrar ${codigo}.`); // não empilha
+    }
+  });
 
   function showOverlay(){ overlay.classList.add("show"); pushHistoryGuard(); }
   function hideOverlay(){ overlay.classList.remove("show"); }
@@ -392,10 +419,13 @@ function showMsgIcon(tipo, texto) {
 
       if (seenRecently(cls.codigo)) { cooldownUntil = now + 400; return; }
 
-      // EMPILHA no painel inferior (apenas quando a câmera está aberta)
-      pushScanCard({ codigo: cls.codigo, servico: cls.servico });
+      // NÃO empilha aqui; aguarde confirmação do back (evento 'saida-resultado')
+      if (dupKnown.has(cls.codigo) || okKnown.has(cls.codigo) || pending.has(cls.codigo)) {
+        cooldownUntil = now + 400; return;
+      }
 
       // dispara o mesmo fluxo do botão "Registrar"
+      pending.add(cls.codigo);
       const inp = document.getElementById("codigo");
       if (inp) inp.value = cls.codigo;
       if (typeof registrar === "function") registrar();
@@ -431,7 +461,7 @@ function showMsgIcon(tipo, texto) {
   }
 
   // sair sem ler
-  function closeScanner(){ stop(); hideOverlay(); clearScanStack(); } // <-- limpa a pilha ao fechar
+  function closeScanner(){ stop(); hideOverlay(); clearScanStack(); }
   const backgroundClick = (e) => { if (e.target === overlay) closeScanner(); };
 
   btnScan.addEventListener("click", async () => {
@@ -449,6 +479,7 @@ function showMsgIcon(tipo, texto) {
   btnTorch?.addEventListener("click", toggleTorch);
   window.addEventListener("pagehide", stop);
 })();
+
 
   // ---------- eventos ----------
   selEnt?.addEventListener("change", onEntregadorChange);
