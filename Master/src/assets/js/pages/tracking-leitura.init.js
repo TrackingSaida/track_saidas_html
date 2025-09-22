@@ -304,6 +304,7 @@ function showMsgIcon(tipo, texto) {
   const video     = document.getElementById("scanFSVideo");
   const btnBack   = document.getElementById("scanFSBack");
   const btnTorch  = document.getElementById("scanFSTorch");
+  const stackBox  = document.getElementById("scanFSStack");   // <-- NOVO (pilha)
 
   if (!btnScan || !overlay || !video) return;
 
@@ -311,20 +312,37 @@ function showMsgIcon(tipo, texto) {
   let currentStream = null;
   let trackWithTorch = null;
 
-  // anti-bounce: confirma 2 frames iguais e aplica cooldown após “pegar” um código
+  // anti-bounce
   let lastText = "", sameCount = 0;
-  let cooldownUntil = 0;                // ignora frames até esse timestamp
+  let cooldownUntil = 0;
   const HIT_COOLDOWN_MS = 1200;
 
   // evita reprocessar o mesmo código repetidamente
-  const RECENT_TTL = 2500;              // ms
-  const recentHits = new Map();         // codigo -> lastTs
+  const RECENT_TTL = 2500;
+  const recentHits = new Map();
   function seenRecently(cod){
     const now = Date.now();
     for (const [k,ts] of [...recentHits]) if (now-ts > RECENT_TTL) recentHits.delete(k);
     const ts = recentHits.get(cod);
     recentHits.set(cod, now);
     return ts && (now - ts < RECENT_TTL);
+  }
+
+  // === NOVO: empilhar "código + serviço" no painel inferior ===
+  function pushScanCard({ codigo, servico }){
+    if (!stackBox) return;
+    const div = document.createElement('div');
+    div.className = 'scanfs-card';
+    div.innerHTML = `
+      <div class="c">${codigo}</div>
+      <div class="s">${servico ? servico : ''}</div>
+    `;
+    stackBox.appendChild(div);
+    // rolar para o fim para mostrar o último
+    stackBox.scrollTop = stackBox.scrollHeight;
+  }
+  function clearScanStack(){
+    if (stackBox) stackBox.innerHTML = '';
   }
 
   function showOverlay(){ overlay.classList.add("show"); pushHistoryGuard(); }
@@ -339,9 +357,8 @@ function showMsgIcon(tipo, texto) {
   async function startWithConstraints(constraints){
     await codeReader.decodeFromConstraints(constraints, video, (result, err) => {
       const now = Date.now();
-      if (now < cooldownUntil) return;                     // respeita cooldown
+      if (now < cooldownUntil) return;
 
-      // guarda stream/track para flash
       if (!currentStream && video.srcObject){
         currentStream = video.srcObject;
         trackWithTorch = currentStream.getVideoTracks()?.[0] || null;
@@ -350,7 +367,7 @@ function showMsgIcon(tipo, texto) {
       if (!result) return;
       const text = String(result.getText() || "");
 
-      // confirma 2 frames iguais para reduzir falso positivo
+      // confirma 2 frames iguais
       if (text === lastText) sameCount++; else { lastText = text; sameCount = 0; }
       if (sameCount < 1) return;
 
@@ -358,14 +375,13 @@ function showMsgIcon(tipo, texto) {
       const cls = typeof classifyCodigo === "function" ? classifyCodigo(text) : { ok:true, codigo:text, servico:null };
 
       if (!cls.ok) {
-        // erro local (ex.: NF-e 44 dígitos) – mostra e continua ligado
         showMsgIcon("erro", `Código inválido: ${cls.motivo}.`);
         Sound.play("err");
-        cooldownUntil = now + 600;                         // pequeno intervalo p/ não floodar
+        cooldownUntil = now + 600;
         return;
       }
 
-      // precisa ter entregador selecionado
+      // precisa entregador
       const ent = document.getElementById("entregador")?.value;
       if (!ent) {
         showMsgIcon("erro", "Selecione o entregador antes de escanear.");
@@ -374,21 +390,19 @@ function showMsgIcon(tipo, texto) {
         return;
       }
 
-      // evita reprocessar o mesmo código em loop
-      if (seenRecently(cls.codigo)) {
-        cooldownUntil = now + 400;
-        return;
-      }
+      if (seenRecently(cls.codigo)) { cooldownUntil = now + 400; return; }
 
-      // empilha normalmente (usa o mesmo fluxo do botão “Registrar”)
+      // EMPILHA no painel inferior (apenas quando a câmera está aberta)
+      pushScanCard({ codigo: cls.codigo, servico: cls.servico });
+
+      // dispara o mesmo fluxo do botão "Registrar"
       const inp = document.getElementById("codigo");
       if (inp) inp.value = cls.codigo;
-      if (typeof registrar === "function") registrar();    // isso dispara toda a UI: “Enviando…”, 409 duplicado, erros 422, etc.
-      Sound.play("ok");
+      if (typeof registrar === "function") registrar();
 
-      // mantém a câmera ligada – só pausa por um curto cooldown
+      Sound.play("ok");
       cooldownUntil = now + HIT_COOLDOWN_MS;
-      sameCount = 0;                                       // aguarda sair do alvo
+      sameCount = 0;
     });
   }
 
@@ -398,20 +412,12 @@ function showMsgIcon(tipo, texto) {
     showMsgIcon("info", "Aponte a câmera para o código.");
 
     try {
-      // 1) traseira explícita
       await startWithConstraints({ video: { facingMode: { exact: "environment" } } });
     } catch {
-      try {
-        // 2) traseira ideal
-        await startWithConstraints({ video: { facingMode: { ideal: "environment" } } });
-      } catch {
-        try {
-          // 3) qualquer câmera
-          await startWithConstraints({ video: true });
-        } catch {
-          // 4) fallback do ZXing
-          await codeReader.decodeFromVideoDevice(null, video, ()=>{});
-        }
+      try { await startWithConstraints({ video: { facingMode: { ideal: "environment" } } }); }
+      catch {
+        try { await startWithConstraints({ video: true }); }
+        catch { await codeReader.decodeFromVideoDevice(null, video, ()=>{}); }
       }
     }
   }
@@ -424,28 +430,25 @@ function showMsgIcon(tipo, texto) {
     await trackWithTorch.applyConstraints({ advanced: [{ torch: !st.torch }] });
   }
 
-  // ---- sair sem ler ----
-  function closeScanner(){ stop(); hideOverlay(); }
+  // sair sem ler
+  function closeScanner(){ stop(); hideOverlay(); clearScanStack(); } // <-- limpa a pilha ao fechar
+  const backgroundClick = (e) => { if (e.target === overlay) closeScanner(); };
+
+  btnScan.addEventListener("click", async () => {
+    try { await openScanner(); }
+    catch { closeScanner(); showMsgIcon("erro","Não foi possível acessar a câmera. Verifique permissões/HTTPS."); Sound.play("err"); }
+  });
   btnBack.addEventListener("click", closeScanner);
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) closeScanner(); });
+  overlay.addEventListener("click", backgroundClick);
   document.addEventListener("keydown", (e) => {
     if (overlay.classList.contains("show") && e.key === "Escape") closeScanner();
   });
   function pushHistoryGuard(){ try { history.pushState({ scanOpen: true }, ""); } catch(_) {} }
   window.addEventListener("popstate", () => { if (overlay.classList.contains("show")) closeScanner(); });
 
-  // eventos principais
-  btnScan.addEventListener("click", async () => {
-    try { await openScanner(); }
-    catch { closeScanner(); showMsgIcon("erro","Não foi possível acessar a câmera. Verifique permissões/HTTPS."); Sound.play("err"); }
-  });
   btnTorch?.addEventListener("click", toggleTorch);
-
   window.addEventListener("pagehide", stop);
 })();
-
-
-
 
   // ---------- eventos ----------
   selEnt?.addEventListener("change", onEntregadorChange);
