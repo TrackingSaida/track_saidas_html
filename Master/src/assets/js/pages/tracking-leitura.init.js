@@ -328,22 +328,23 @@ function showMsgIcon(tipo, texto) {
     return ts && (now - ts < RECENT_TTL);
   }
 
-  // === NOVO: empilhar "código + serviço" no painel inferior ===
+  // ===  empilhar "código + serviço" no painel inferior ===
   function pushScanCard({ codigo, servico }){
-    if (!stackBox) return;
-    const div = document.createElement('div');
-    div.className = 'scanfs-card';
-    div.innerHTML = `
-      <div class="c">${codigo}</div>
-      <div class="s">${servico ? servico : ''}</div>
-    `;
-    stackBox.appendChild(div);
-    // rolar para o fim para mostrar o último
-    stackBox.scrollTop = stackBox.scrollHeight;
+  if (!stackBox) return;
+  const div = document.createElement('div');
+  div.className = 'scanfs-card';
+  div.innerHTML = `
+    <div class="c">${codigo}</div>
+    <div class="s">${servico ? servico : ''}</div>
+  `;
+  stackBox.prepend(div);
+
+  while (stackBox.children.length > 50) {
+    stackBox.removeChild(stackBox.lastElementChild);
   }
-  function clearScanStack(){
-    if (stackBox) stackBox.innerHTML = '';
-  }
+  stackBox.scrollTop = 0;
+}
+
 
   function showOverlay(){ overlay.classList.add("show"); pushHistoryGuard(); }
   function hideOverlay(){ overlay.classList.remove("show"); }
