@@ -9,8 +9,7 @@ const qsa = (s) => Array.from(document.querySelectorAll(s));
 const toast = (msg, ok = true) => {
   const el = document.createElement("div");
   el.className = `toast align-items-center text-bg-${ok ? "primary" : "danger"} border-0 position-fixed bottom-0 end-0 m-3`;
-  el.innerHTML = `
-    <div class="d-flex">
+  el.innerHTML = `<div class="d-flex">
       <div class="toast-body">${msg}</div>
       <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
     </div>`;
@@ -20,37 +19,62 @@ const toast = (msg, ok = true) => {
   setTimeout(()=>el.remove(), 2600);
 };
 
-// Sanitize de IDs vindos da API (evita "null", "undefined", "")
 function safeId(raw) {
   if (raw === null || raw === undefined) return "";
   const s = String(raw).trim();
   return (s === "" || s === "null" || s === "undefined") ? "" : s;
 }
 
-// fetch com cookies de sessão
 async function http(url, options = {}) {
-  const opts = {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options,
-  };
+  const opts = { credentials: "include", headers: { "Content-Type": "application/json" }, ...options };
   return fetch(url, opts);
 }
 
-/* =============== Estado de página ============= */
+// CEP utils
+function onlyDigits(s){ return (s||"").replace(/\D/g,""); }
+function setAddrLoading(on){
+  ["rua","bairro","cidade"].forEach(id=>{
+    const el = qs("#"+id); if (!el) return;
+    el.toggleAttribute("readonly", on);
+    el.classList.toggle("bg-light", on);
+  });
+  // número sempre editável
+  qs("#numero")?.removeAttribute("readonly");
+}
+function fillAddressFromViaCep(data){
+  if (!data || data.erro) throw new Error("CEP não encontrado");
+  if (qs("#rua"))    qs("#rua").value    = data.logradouro || "";
+  if (qs("#bairro")) qs("#bairro").value = data.bairro     || "";
+  if (qs("#cidade")) qs("#cidade").value = data.localidade || "";
+}
+async function lookupCep(cepRaw){
+  const cep = onlyDigits(cepRaw);
+  if (cep.length !== 8) throw new Error("CEP inválido");
+  const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+  if (!r.ok) throw new Error("Falha ao consultar CEP");
+  return r.json();
+}
+function lockAddress(on){
+  qsa("[data-autolock]").forEach(el=>{
+    el.toggleAttribute("readonly", on);
+    el.classList.toggle("bg-light", on);
+  });
+  qs("#numero")?.removeAttribute("readonly");
+}
+
+/* =============== Estado ============= */
 let DATA_CACHE  = [];
 let CUR_PAGE    = 1;
 let offcanvas   = null;
 let deletingId  = null;
 let SELECTED_ID = null;
 
-/* =============== API ========================== */
-// Lista com ?status= (API já filtra por base + status)
+/* =============== API ================= */
 async function apiList(status) {
   const url = new URL(API_ENTREGADORES);
   if (status) url.searchParams.set("status", status);
   const r = await http(url.toString());
-  if (!r.ok) throw new Error(`Falha ao listar (${r.status}) ${await r.text().catch(()=> "")}`);
+  if (!r.ok) throw new Error(`Falha ao listar (${r.status})`);
   return r.json();
 }
 async function apiGet(id){
@@ -61,47 +85,29 @@ async function apiGet(id){
   return r.json();
 }
 async function apiCreate(payload){
-  const r = await http(API_ENTREGADORES, {
-    method: "POST",
-    body: JSON.stringify({
-      nome: payload.nome,
-      documento: payload.documento,
-      telefone: payload.telefone,
-    })
-  });
+  const r = await http(API_ENTREGADORES, { method: "POST", body: JSON.stringify(payload) });
   if (!r.ok) throw new Error(await r.text());
 }
-// ✅ PATCH /api/entregadores/{id_entregador}
 async function apiUpdate(id, payload){
-  const clean = safeId(id);
-  if (!clean) throw new Error("ID inválido");
-  const r = await http(`${API_ENTREGADORES}${encodeURIComponent(clean)}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload)
+  const r = await http(`${API_ENTREGADORES}${encodeURIComponent(safeId(id))}`, {
+    method: "PATCH", body: JSON.stringify(payload)
   });
   if (!r.ok) throw new Error(await r.text());
 }
-// ✅ PATCH /api/entregadores/{id_entregador}  (só o campo ativo)
 async function apiUpdateAtivo(id, ativo){
-  const clean = safeId(id);
-  if (!clean) throw new Error("ID inválido");
-  const r = await http(`${API_ENTREGADORES}${encodeURIComponent(clean)}`, {
-    method: "PATCH",
-    body: JSON.stringify({ ativo: !!ativo })
+  const r = await http(`${API_ENTREGADORES}${encodeURIComponent(safeId(id))}`, {
+    method: "PATCH", body: JSON.stringify({ ativo: !!ativo })
   });
   if (!r.ok) throw new Error(await r.text());
 }
-// ✅ DELETE /api/entregadores/{id_entregador}
 async function apiDelete(id){
-  const clean = safeId(id);
-  if (!clean) throw new Error("ID inválido");
-  const r = await http(`${API_ENTREGADORES}${encodeURIComponent(clean)}`, { method: "DELETE" });
+  const r = await http(`${API_ENTREGADORES}${encodeURIComponent(safeId(id))}`, { method: "DELETE" });
   if (!r.ok) throw new Error(await r.text());
 }
 
 /* =============== Listagem/Paginação =========== */
 function buildRow(e){
-  const id = safeId(e.id_entregador ?? e.id); // aceita id_entregador OU id
+  const id = safeId(e.id_entregador ?? e.id);
   const ativoChecked = e.ativo ? "checked" : "";
   const radioAttrs = id ? `value="${id}"` : `value="" disabled`;
   return `
@@ -112,38 +118,18 @@ function buildRow(e){
       <td>${e.nome || "-"}</td>
       <td>${e.telefone || "-"}</td>
       <td>${e.documento || "-"}</td>
-      <td class="text-center">
-        <input type="checkbox" class="form-check-input" ${ativoChecked} disabled>
-      </td>
+      <td class="text-center"><input type="checkbox" class="form-check-input" ${ativoChecked} disabled></td>
     </tr>`;
-}
-
-function updatePagination(pages){
-  const prev = qs("#pg-prev"), next = qs("#pg-next"), nums = qs("#pg-numbers");
-  prev && prev.classList.toggle("disabled", CUR_PAGE === 1);
-  next && next.classList.toggle("disabled", CUR_PAGE === pages || pages === 1);
-
-  const MAX_BTNS = 7;
-  let first = Math.max(1, CUR_PAGE - Math.floor(MAX_BTNS/2));
-  let last  = Math.min(pages, first + MAX_BTNS - 1);
-  first = Math.max(1, last - MAX_BTNS + 1);
-
-  if (nums){
-    nums.innerHTML = "";
-    for (let p = first; p <= last; p++){
-      const li = document.createElement("li");
-      li.className = "page-item";
-      li.innerHTML = `<a class="page-link ${p===CUR_PAGE?"active":""}" href="javascript:void(0);">${p}</a>`;
-      li.querySelector("a").addEventListener("click", ()=>renderPage(p));
-      nums.appendChild(li);
-    }
-  }
 }
 
 function setHeaderActionsState(){
   const can = !!safeId(SELECTED_ID);
   qs("#btnHeaderEdit") && (qs("#btnHeaderEdit").disabled = !can);
   qs("#btnHeaderDel")  && (qs("#btnHeaderDel").disabled  = !can);
+}
+
+function updatePagination(){ /* simples: só prev/next baseados no slice render */
+  // opcional manter contador de páginas; para simplicidade ficam só os botões
 }
 
 function renderPage(page=1){
@@ -158,22 +144,20 @@ function renderPage(page=1){
   const tbody = qs("#tbody-entregadores");
   if (tbody) tbody.innerHTML = slice.map(buildRow).join("");
   qs("#empty")?.classList.toggle("d-none", total !== 0);
-  updatePagination(pages);
 
-  // limpar seleção ao paginar
   SELECTED_ID = null;
   setHeaderActionsState();
+  showEnderecoEmpty();
+  updatePagination();
 }
 
 async function listarEntregadores(){
   const tbody = qs("#tbody-entregadores");
   if (tbody) tbody.innerHTML = "";
   qs("#empty")?.classList.add("d-none");
-
-  try {
-    const onlyActive = qs("#toggleAtivos")?.checked ?? true;
-    const status     = onlyActive ? "ativo" : "todos";
-    const data       = await apiList(status); // API filtra por base + status
+  try{
+    const status = (qs("#toggleAtivos")?.checked ?? true) ? "ativo" : "todos";
+    const data   = await apiList(status);
 
     const term = (qs("#search")?.value || "").trim().toLowerCase();
     DATA_CACHE = data.filter(e =>
@@ -181,157 +165,200 @@ async function listarEntregadores(){
         .filter(Boolean)
         .some(v => String(v).toLowerCase().includes(term))
     );
-
     renderPage(1);
-  } catch (err) {
-    console.error(err);
+  }catch(e){
+    console.error(e);
     qs("#empty")?.classList.remove("d-none");
     toast("Falha ao carregar entregadores.", false);
   }
 }
 
-/* =============== Offcanvas (form) ============= */
+/* =============== Detail Endereço ============== */
+function showEnderecoEmpty(){
+  const wrap = qs("#endereco-detail"); if (!wrap) return;
+  wrap.classList.remove("d-none");
+  qs("#endereco-empty")?.classList.remove("d-none");
+  qs("#endereco-content")?.classList.add("d-none");
+  const nm = qs("#endereco-detail-nome"); if (nm) nm.textContent = "";
+}
+function renderEnderecoDetail(ent){
+  const wrap = qs("#endereco-detail"); if (!wrap) return;
+  const nm = qs("#endereco-detail-nome");
+  if (nm) nm.textContent = ent?.nome ? `(${ent.nome})` : "";
+
+  const assign = (id, v) => qs(id)?.replaceChildren(document.createTextNode(v || "—"));
+  assign("#d-rua", ent?.rua);
+  assign("#d-numero", ent?.numero);
+  assign("#d-complemento", ent?.complemento);
+  assign("#d-bairro", ent?.bairro);
+  assign("#d-cidade", ent?.cidade);
+  assign("#d-cep", ent?.cep);
+
+  wrap.classList.remove("d-none");
+  qs("#endereco-empty")?.classList.add("d-none");
+  qs("#endereco-content")?.classList.remove("d-none");
+}
+async function loadEnderecoById(id){
+  try{
+    const data = await apiGet(id);
+    renderEnderecoDetail(data);
+  }catch(e){
+    showEnderecoEmpty();
+  }
+}
+
+/* =============== Formulário =================== */
 function openForm(modo, data=null){
   const form = qs("#formEntregador");
   if (!form) return;
   form.reset();
   form.classList.remove("was-validated");
 
-  qs("#entregadorId") && (qs("#entregadorId").value = safeId(data?.id_entregador ?? data?.id));
-  qs("#nome")       && (qs("#nome").value         = data?.nome || "");
-  qs("#telefone")   && (qs("#telefone").value     = data?.telefone || "");
-  qs("#documento")  && (qs("#documento").value    = data?.documento || "");
+  qs("#entregadorId").value = safeId(data?.id_entregador ?? data?.id) || "";
+  qs("#nome").value        = data?.nome || "";
+  qs("#telefone").value    = data?.telefone || "";
+  qs("#documento").value   = data?.documento || "";
 
-  // switch Ativo só no Editar
+  qs("#rua").value         = data?.rua || "";
+  qs("#numero").value      = data?.numero || "";
+  qs("#complemento").value = data?.complemento || "";
+  qs("#cep").value         = data?.cep || "";
+  qs("#cidade").value      = data?.cidade || "";
+  qs("#bairro").value      = data?.bairro || "";
+
   qs("#grp-ativo")?.classList.toggle("d-none", modo !== "edit");
   if (qs("#ativo")) qs("#ativo").checked = !!data?.ativo;
 
-  if (qs("#ocLabel")) qs("#ocLabel").textContent = (modo === "edit") ? "Editar Entregador" : "Novo Entregador";
+  // CEP-first
+  if (modo === "edit") { lockAddress(false); }
+  else { lockAddress(true); setTimeout(()=>qs("#cep")?.focus(), 50); }
 
+  if (qs("#ocLabel")) qs("#ocLabel").textContent = (modo === "edit") ? "Editar Entregador" : "Novo Entregador";
   offcanvas?.show();
 }
 
 function formPayload(){
   return {
-    nome: (qs("#nome")?.value || "").trim(),
-    documento: (qs("#documento")?.value || "").trim(),
-    telefone: (qs("#telefone")?.value || "").trim(),
+    nome:       (qs("#nome").value || "").trim(),
+    documento:  (qs("#documento").value || "").trim(),
+    telefone:   (qs("#telefone").value || "").trim(),
+
+    rua:         (qs("#rua").value || "").trim(),
+    numero:      (qs("#numero").value || "").trim(),
+    complemento: (qs("#complemento").value || "").trim(),
+    cep:         (qs("#cep").value || "").trim(),
+    cidade:      (qs("#cidade").value || "").trim(),
+    bairro:      (qs("#bairro").value || "").trim(),
   };
 }
 
 /* =================== Init ===================== */
 document.addEventListener("DOMContentLoaded", async () => {
-  const oc = qs("#oc-form");
-  if (oc) offcanvas = new bootstrap.Offcanvas(oc);
+  const oc = qs("#oc-form"); if (oc) offcanvas = new bootstrap.Offcanvas(oc);
 
   await listarEntregadores();
 
-  // Filtros/Paginação
+  // filtros
   qs("#search")?.addEventListener("input", listarEntregadores);
   qs("#toggleAtivos")?.addEventListener("change", listarEntregadores);
   qs("#perPage")?.addEventListener("change", () => renderPage(1));
   qs("#pg-prev")?.addEventListener("click", () => renderPage(CUR_PAGE - 1));
   qs("#pg-next")?.addEventListener("click", () => renderPage(CUR_PAGE + 1));
 
-  // Delegação global no TBODY (seleção e duplo-clique)
+  // seleção na tabela
   const tbody = qs("#tbody-entregadores");
-
-  // Seleção por clique
   tbody?.addEventListener("click", (e) => {
-    const tr = e.target.closest("tr.row-selectable");
-    if (!tr || !tbody.contains(tr)) return;
+    const tr = e.target.closest("tr.row-selectable"); if (!tr || !tbody.contains(tr)) return;
+    const id = safeId(tr.dataset.id); if (!id) return;
 
-    const id = safeId(tr.dataset.id);
-    if (!id) return; // linha sem ID não seleciona
-
-    const radio = tr.querySelector(".sel-row");
-    if (radio && !radio.disabled) radio.checked = true;
-
-    qsa("#tbody-entregadores tr.row-selectable").forEach(x => x.classList.remove("table-active"));
+    const radio = tr.querySelector(".sel-row"); if (radio && !radio.disabled) radio.checked = true;
+    qsa("#tbody-entregadores tr.row-selectable").forEach(x=>x.classList.remove("table-active"));
     tr.classList.add("table-active");
-    SELECTED_ID = id;
-    setHeaderActionsState();
+    SELECTED_ID = id; setHeaderActionsState();
+    loadEnderecoById(SELECTED_ID);
   });
 
-  // Duplo-clique abre Edição
   tbody?.addEventListener("dblclick", async (e) => {
-    const tr = e.target.closest("tr.row-selectable");
-    if (!tr || !tbody.contains(tr)) return;
-
-    const id = safeId(tr.dataset.id);
-    if (!id) return;
-
-    SELECTED_ID = id;
-    setHeaderActionsState();
-    try {
-      const data = await apiGet(SELECTED_ID);
-      openForm("edit", data);
-    } catch {
-      toast("Não foi possível abrir para edição.", false);
-    }
+    const tr = e.target.closest("tr.row-selectable"); if (!tr || !tbody.contains(tr)) return;
+    const id = safeId(tr.dataset.id); if (!id) return;
+    SELECTED_ID = id; setHeaderActionsState(); loadEnderecoById(SELECTED_ID);
+    try { const data = await apiGet(SELECTED_ID); openForm("edit", data); }
+    catch { toast("Não foi possível abrir para edição.", false); }
   });
 
-  // Header actions
+  // header actions
   qs("#btnAdd")?.addEventListener("click", () => openForm("create"));
-
   qs("#btnHeaderEdit")?.addEventListener("click", async () => {
-    const id = safeId(SELECTED_ID);
-    if (!id) return;
-    try {
-      const data = await apiGet(id);
-      openForm("edit", data);
-    } catch {
-      toast("Não foi possível abrir para edição.", false);
-    }
+    const id = safeId(SELECTED_ID); if (!id) return;
+    try { const data = await apiGet(id); openForm("edit", data); }
+    catch { toast("Não foi possível abrir para edição.", false); }
   });
-
   qs("#btnHeaderDel")?.addEventListener("click", () => {
-    const id = safeId(SELECTED_ID);
-    if (!id) return;
-    deletingId = id;
-    const m = qs("#modalDelete");
-    m && new bootstrap.Modal(m).show();
+    const id = safeId(SELECTED_ID); if (!id) return;
+    deletingId = id; const m = qs("#modalDelete"); m && new bootstrap.Modal(m).show();
   });
 
-  // Submit (criar/editar)
+  // submit
   qs("#formEntregador")?.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const form = ev.currentTarget;
     if (!form.checkValidity()){ form.classList.add("was-validated"); return; }
 
-    const id = safeId(qs("#entregadorId")?.value);
-
+    const id = safeId(qs("#entregadorId").value);
+    const payload = formPayload();
     try {
       if (id) {
-        await apiUpdate(id, formPayload());
-        if (!qs("#grp-ativo")?.classList.contains("d-none")) {
-          await apiUpdateAtivo(id, qs("#ativo")?.checked);
+        await apiUpdate(id, payload);
+        if (!qs("#grp-ativo").classList.contains("d-none")) {
+          await apiUpdateAtivo(id, qs("#ativo").checked);
         }
       } else {
-        await apiCreate(formPayload());
+        await apiCreate(payload);
       }
       toast("Salvo com sucesso.");
       offcanvas?.hide();
       await listarEntregadores();
-    } catch(err){
+    } catch (err) {
       console.error(err);
       toast("Erro ao salvar. Verifique os dados.", false);
     }
   });
 
-  // Confirma exclusão
+  // excluir
   qs("#btnConfirmDelete")?.addEventListener("click", async () => {
     try {
       await apiDelete(deletingId);
-      const m = qs("#modalDelete");
-      m && bootstrap.Modal.getInstance(m).hide();
+      bootstrap.Modal.getInstance(qs("#modalDelete"))?.hide();
       toast("Excluído.");
       await listarEntregadores();
     } catch (err) {
       console.error(err);
       toast("Falha ao excluir.", false);
-    } finally {
-      deletingId = null;
-    }
+    } finally { deletingId = null; }
   });
+
+  /* CEP: máscara + auto lookup + botões */
+  const cepInput = qs("#cep");
+  cepInput?.addEventListener("input", () => {
+    let v = onlyDigits(cepInput.value).slice(0,8);
+    if (v.length > 5) v = `${v.slice(0,5)}-${v.slice(5)}`;
+    cepInput.value = v;
+  });
+  cepInput?.addEventListener("blur", async () => {
+    const cep = onlyDigits(cepInput.value); if (cep.length !== 8) return;
+    try { setAddrLoading(true); const data = await lookupCep(cep); fillAddressFromViaCep(data); lockAddress(false); qs("#numero")?.focus(); }
+    catch(e){ toast(e.message || "Não foi possível buscar o CEP.", false); }
+    finally { setAddrLoading(false); }
+  });
+  cepInput?.addEventListener("keyup", () => {
+    const cep = onlyDigits(cepInput.value); if (cep.length === 8) cepInput.dispatchEvent(new Event("blur"));
+  });
+  qs("#btnCepBuscar")?.addEventListener("click", async () => {
+    const cep = onlyDigits(qs("#cep")?.value || "");
+    if (cep.length !== 8){ toast("Informe um CEP válido com 8 dígitos.", false); return; }
+    try { setAddrLoading(true); const data = await lookupCep(cep); fillAddressFromViaCep(data); lockAddress(false); qs("#numero")?.focus(); }
+    catch(e){ toast(e.message || "Não foi possível buscar o CEP.", false); }
+    finally { setAddrLoading(false); }
+  });
+  qs("#btnEnderecoManual")?.addEventListener("click", () => { lockAddress(false); qs("#rua")?.focus(); });
 });

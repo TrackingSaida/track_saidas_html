@@ -6,7 +6,8 @@
   </head>
   <body>
 
- <script>
+  <!-- Autenticação (mantido do original) -->
+  <script>
     const API_AUTH = 'https://track-saidas-api.onrender.com/api/auth';
     function hasMarker(){
       return localStorage.getItem('trackingToken') || sessionStorage.getItem('trackingToken');
@@ -35,45 +36,46 @@
 
             <div class="card">
               <div class="card-header d-flex align-items-center justify-content-between">
-  <!-- ESQUERDA: ações -->
-  <div class="d-flex gap-2">
-    <button class="btn btn-primary" id="btnAdd">
-      <i class="ri-add-line align-bottom me-1"></i> Adicionar
-    </button>
-    <button class="btn btn-soft-primary" id="btnHeaderEdit" disabled>
-      <i class="ri-edit-2-line align-bottom me-1"></i> Editar
-    </button>
-    <button class="btn btn-soft-danger" id="btnHeaderDel" disabled>
-      <i class="ri-delete-bin-6-line align-bottom me-1"></i> Excluir
-    </button>
-  </div>
+                <!-- ESQUERDA: ações -->
+                <div class="d-flex gap-2">
+                  <button class="btn btn-primary" id="btnAdd">
+                    <i class="ri-add-line align-bottom me-1"></i> Adicionar
+                  </button>
+                  <button class="btn btn-soft-primary" id="btnHeaderEdit" disabled>
+                    <i class="ri-edit-2-line align-bottom me-1"></i> Editar
+                  </button>
+                  <button class="btn btn-soft-danger" id="btnHeaderDel" disabled>
+                    <i class="ri-delete-bin-6-line align-bottom me-1"></i> Excluir
+                  </button>
+                </div>
 
-  <!-- DIREITA: toggle + busca -->
-  <div class="d-flex gap-2 align-items-center">
-    <div class="form-check form-switch me-2">
-      <input class="form-check-input" type="checkbox" id="toggleAtivos" checked>
-      <label class="form-check-label" for="toggleAtivos">Somente ativos</label>
-    </div>
+                <!-- DIREITA: toggle + busca -->
+                <div class="d-flex gap-2 align-items-center">
+                  <div class="form-check form-switch me-2">
+                    <input class="form-check-input" type="checkbox" id="toggleAtivos" checked>
+                    <label class="form-check-label" for="toggleAtivos">Somente ativos</label>
+                  </div>
 
-    <div class="search-box">
-      <input type="text" id="search" class="form-control" placeholder="Buscar por nome, telefone...">
-      <i class="ri-search-line search-icon"></i>
-    </div>
-  </div>
-</div>
+                  <div class="search-box">
+                    <input type="text" id="search" class="form-control" placeholder="Buscar por nome, telefone...">
+                    <i class="ri-search-line search-icon"></i>
+                  </div>
+                </div>
+              </div>
+
               <div class="card-body">
                 <div class="table-responsive table-card">
                   <table class="table align-middle table-nowrap" id="tbl-entregadores">
                     <thead class="table-light">
-  <tr>
-    <th style="width:56px;">Sel.</th>
-    <th>Nome</th>
-    <th>Telefone</th>
-    <th>Documento</th>
-    <th style="width:110px;">Ativo</th>
-  </tr>
-</thead>
-                    <tbody id="tbody-entregadores"> </tbody>
+                      <tr>
+                        <th style="width:56px;">Sel.</th>
+                        <th>Nome</th>
+                        <th>Telefone</th>
+                        <th>Documento</th>
+                        <th style="width:110px;">Ativo</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbody-entregadores"></tbody>
                   </table>
 
                   <div id="empty" class="text-center text-muted py-4 d-none">
@@ -103,6 +105,45 @@
               </div>
             </div>
 
+            <!-- DETAIL: Endereço do entregador selecionado -->
+            <div id="endereco-detail" class="card mt-3 d-none">
+              <div class="card-header d-flex align-items-center justify-content-between">
+                <span class="fw-semibold">Endereço</span>
+                <small class="text-muted" id="endereco-detail-nome"></small>
+              </div>
+              <div class="card-body">
+                <div id="endereco-empty" class="text-muted">
+                  Selecione um entregador para ver o endereço.
+                </div>
+                <div id="endereco-content" class="row g-3 d-none">
+                  <div class="col-md-8">
+                    <label class="form-label text-muted mb-0">Rua</label>
+                    <div id="d-rua">—</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label text-muted mb-0">Número</label>
+                    <div id="d-numero">—</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-muted mb-0">Complemento</label>
+                    <div id="d-complemento">—</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-muted mb-0">Bairro</label>
+                    <div id="d-bairro">—</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-muted mb-0">Cidade</label>
+                    <div id="d-cidade">—</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-muted mb-0">CEP</label>
+                    <div id="d-cep">—</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div><!-- container-fluid -->
         </div><!-- End Page-content -->
 
@@ -113,35 +154,94 @@
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
 
-   
-    <!-- Offcanvas: só nome, documento, telefone -->
-    <div class="offcanvas offcanvas-end" tabindex="-1" id="oc-form" aria-labelledby="ocLabel" style="width:520px">
-      <div class="offcanvas-header">
-        <h5 class="offcanvas-title" id="ocLabel">Novo Entregador</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-      </div>
-      <div class="offcanvas-body">
-        <form id="formEntregador" novalidate>
-          <input type="hidden" id="entregadorId">
+   <!-- Offcanvas: Formulário -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="oc-form" aria-labelledby="ocLabel" style="width: 720px;">
+  <div class="offcanvas-header border-bottom">
+    <h5 class="offcanvas-title" id="ocLabel">Novo Entregador</h5>
+    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
+  </div>
 
-          <div class="mb-3">
-            <label for="nome" class="form-label">Nome</label>
-            <input type="text" id="nome" class="form-control" placeholder="Ex.: João da Silva" required>
-            <div class="invalid-feedback">Informe o nome.</div>
-          </div>
+  <form id="formEntregador" class="needs-validation" novalidate>
+    <div class="offcanvas-body">
+      <input type="hidden" id="entregadorId" />
 
+      <!-- Dados -->
+      <div class="card mb-3">
+        <div class="card-header bg-light fw-semibold">Dados</div>
+        <div class="card-body">
           <div class="row g-3">
-            <div class="col-sm-6">
-              <label for="telefone" class="form-label">Telefone</label>
-              <input type="tel" id="telefone" class="form-control" placeholder="(11) 99999-9999">
+            <div class="col-12">
+              <label for="nome" class="form-label">Nome</label>
+              <input type="text" id="nome" class="form-control" required />
+              <div class="invalid-feedback">Informe o nome.</div>
             </div>
-            <div class="col-sm-6">
+
+            <div class="col-md-6">
+              <label for="telefone" class="form-label">Telefone</label>
+              <input type="text" id="telefone" class="form-control" />
+            </div>
+
+            <div class="col-md-6">
               <label for="documento" class="form-label">Documento</label>
-              <input type="text" id="documento" class="form-control" placeholder="123.456.789-00">
+              <input type="text" id="documento" class="form-control" />
+            </div>
+
+            <div class="col-12 d-none" id="grp-ativo">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="ativo">
+                <label class="form-check-label" for="ativo">Ativo</label>
+              </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          <!-- Switch de ativo opcional no editar -->
+      <!-- Endereço (CEP-first) -->
+      <div class="card">
+        <div class="card-header bg-light d-flex align-items-center justify-content-between">
+          <span class="fw-semibold">Endereço</span>
+          <span class="badge bg-primary-subtle text-primary">1º preencha o CEP</span>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="cep" class="form-label">CEP</label>
+              <input type="text" id="cep" class="form-control" inputmode="numeric"
+                     pattern="\d{5}-?\d{3}" required placeholder="00000-000" aria-describedby="cepHelp" autofocus />
+              <div id="cepHelp" class="form-text">Digite o CEP e saia do campo para preencher automaticamente.</div>
+              <div class="invalid-feedback">Informe um CEP válido (ex.: 12345-678).</div>
+            </div>
+          
+            <div class="col-md-8">
+              <label for="rua" class="form-label">Rua</label>
+              <input type="text" id="rua" class="form-control" required data-autolock />
+              <div class="invalid-feedback">Informe a rua.</div>
+            </div>
+            <div class="col-md-4">
+              <label for="numero" class="form-label">Número</label>
+              <input type="text" id="numero" class="form-control" required data-autolock />
+              <div class="invalid-feedback">Informe o número.</div>
+            </div>
+            <div class="col-md-6">
+              <label for="complemento" class="form-label">Complemento</label>
+              <input type="text" id="complemento" class="form-control" data-autolock />
+            </div>
+            <div class="col-md-6">
+              <label for="bairro" class="form-label">Bairro</label>
+              <input type="text" id="bairro" class="form-control" required data-autolock />
+              <div class="invalid-feedback">Informe o bairro.</div>
+            </div>
+            <div class="col-md-6">
+              <label for="cidade" class="form-label">Cidade</label>
+              <input type="text" id="cidade" class="form-control" required data-autolock />
+              <div class="invalid-feedback">Informe a cidade.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+          <!-- Switch de ativo visível apenas ao editar -->
           <div class="form-check form-switch mt-3 d-none" id="grp-ativo">
             <input class="form-check-input" type="checkbox" id="ativo">
             <label class="form-check-label" for="ativo">Ativo</label>
@@ -155,7 +255,7 @@
       </div>
     </div>
 
-    <!-- Modal de exclusão (mantido caso precise no futuro) -->
+    <!-- Modal de exclusão -->
     <div class="modal fade" id="modalDelete" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -173,8 +273,7 @@
       </div>
     </div>
 
-    <!-- Init da página -->
-   <script src="assets/js/pages/tracking-entregador.init.js?v=2025-09-17"></script>
+   <script src="assets/js/pages/tracking-entregador.init.js?v=endereco-detail-1"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>
