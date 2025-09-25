@@ -114,3 +114,80 @@
   }
 }
 
+
+/* ======== Toolbar de Entregadores (mobile first) ======== */
+.ent-toolbar {
+  flex-wrap: wrap;
+  gap: .75rem;
+}
+
+/* bloco esquerdo (botões) e direito (toggle+busca) ocupam a linha inteira no mobile */
+.ent-toolbar .ent-actions,
+.ent-toolbar .ent-filters {
+  width: 100%;
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+
+/* botões viram 2 colunas no mobile */
+.ent-toolbar .ent-actions .btn {
+  flex: 1 1 48%;
+}
+
+/* toggle e busca se acomodam; busca ocupa a largura restante */
+.ent-toolbar .ent-filters .form-check {
+  flex: 0 0 auto;
+}
+.ent-toolbar .ent-filters .search-box {
+  flex: 1 1 auto;
+  min-width: 0;           /* evita overflow por conteúdo */
+}
+
+/* Em telas >= 768px (md): volta a ficar lado a lado como no desktop */
+@media (min-width: 768px) {
+  .ent-toolbar {
+    flex-wrap: nowrap;
+  }
+  .ent-toolbar .ent-actions {
+    width: auto;
+  }
+  .ent-toolbar .ent-filters {
+    width: auto;
+  }
+  .ent-toolbar .ent-actions .btn {
+    flex: 0 0 auto;
+  }
+  .ent-toolbar .ent-filters .search-box {
+    width: 320px;         /* limite confortável no desktop */
+  }
+}
+
+/* ======== Tabela: não estourar a tela ======== */
+.table-card {
+  overflow-x: auto;       /* barra horizontal se necessário */
+}
+#tbl-entregadores {
+  min-width: 640px;       /* garante leitura sem quebrar tudo no mobile */
+}
+
+/* Colunas estreitas ficam mais compactas */
+#tbl-entregadores th:first-child,
+#tbl-entregadores td:first-child {
+  width: 56px;
+  white-space: nowrap;
+}
+#tbl-entregadores th:last-child,
+#tbl-entregadores td:last-child {
+  width: 90px;
+  text-align: center;
+}
+
+/* ======== Paginação: evitar quebra feia no mobile ======== */
+.pagination-wrap, .pagination {
+  flex-wrap: wrap;
+}
+.pagination .page-item .page-link {
+  padding: .375rem .5rem;
+}
+

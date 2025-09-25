@@ -34,34 +34,35 @@
 
             @@include("partials/page-title.html", {"pagetitle": "Configurações", "title": "Entregadores"})
 
-            <div class="card">
-              <div class="card-header d-flex align-items-center justify-content-between">
-                <!-- ESQUERDA: ações -->
-                <div class="d-flex gap-2">
-                  <button class="btn btn-primary" id="btnAdd">
-                    <i class="ri-add-line align-bottom me-1"></i> Adicionar
-                  </button>
-                  <button class="btn btn-soft-primary" id="btnHeaderEdit" disabled>
-                    <i class="ri-edit-2-line align-bottom me-1"></i> Editar
-                  </button>
-                  <button class="btn btn-soft-danger" id="btnHeaderDel" disabled>
-                    <i class="ri-delete-bin-6-line align-bottom me-1"></i> Excluir
-                  </button>
-                </div>
+  <div class="card">
+          <div class="card-header d-flex align-items-center justify-content-between ent-toolbar">
+             <!-- ESQUERDA: ações -->
+          <div class="d-flex gap-2 ent-actions">
+              <button class="btn btn-primary" id="btnAdd">
+                <i class="ri-add-line align-bottom me-1"></i> Adicionar
+               </button>
+              <button class="btn btn-soft-primary" id="btnHeaderEdit" disabled>
+               <i class="ri-edit-2-line align-bottom me-1"></i> Editar
+              </button>
+              <button class="btn btn-soft-danger" id="btnHeaderDel" disabled>
+              <i class="ri-delete-bin-6-line align-bottom me-1"></i> Excluir
+             </button>
+           </div>
 
-                <!-- DIREITA: toggle + busca -->
-                <div class="d-flex gap-2 align-items-center">
-                  <div class="form-check form-switch me-2">
-                    <input class="form-check-input" type="checkbox" id="toggleAtivos" checked>
-                    <label class="form-check-label" for="toggleAtivos">Somente ativos</label>
-                  </div>
+    <!-- DIREITA: toggle + busca -->
+    <div class="d-flex align-items-center gap-2 ent-filters">
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="toggleAtivos" checked>
+        <label class="form-check-label" for="toggleAtivos">Somente ativos</label>
+      </div>
 
-                  <div class="search-box">
-                    <input type="text" id="search" class="form-control" placeholder="Buscar por nome, telefone...">
-                    <i class="ri-search-line search-icon"></i>
-                  </div>
-                </div>
-              </div>
+      <div class="search-box w-100">
+        <input type="text" id="search" class="form-control" placeholder="Buscar por nome, telefone...">
+        <i class="ri-search-line search-icon"></i>
+      </div>
+    </div>
+    </div>
+   </div>
 
               <div class="card-body">
                 <div class="table-responsive table-card">
