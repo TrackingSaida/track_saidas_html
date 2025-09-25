@@ -74,3 +74,33 @@
   to  { transform: translateY(0);   opacity:1; }
 }
 
+/* Corrige scroll do formulário (offcanvas) no mobile */
+#oc-form.offcanvas {
+  display: flex;
+  flex-direction: column;
+  max-height: 100vh;               /* nunca maior que a viewport */
+}
+
+/* O corpo deve rolar, não o documento inteiro */
+#oc-form .offcanvas-body {
+  flex: 1 1 auto;                  /* ocupa o espaço disponível */
+  overflow-y: auto;                /* faz rolar o conteúdo */
+  -webkit-overflow-scrolling: touch; /* suaviza no iOS */
+}
+
+/* O rodapé fica fixo e visível */
+#oc-form .offcanvas-footer {
+  flex: 0 0 auto;
+  position: sticky;
+  bottom: 0;
+  background: var(--bs-body-bg);
+  z-index: 2;
+  border-top: 1px solid var(--bs-border-color);
+}
+
+/* Dá uma folga extra em telas pequenas para evitar que o teclado esconda botões */
+@media (max-width: 576px) {
+  #oc-form .offcanvas-body {
+    padding-bottom: 1rem;          /* espaço para o footer/botões */
+  }
+}
