@@ -154,15 +154,22 @@
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
 
-   <!-- Offcanvas: Formulário -->
-<div class="offcanvas offcanvas-end" tabindex="-1" id="oc-form" aria-labelledby="ocLabel" style="width: 520px;"  data-bs-scroll="true">
+<!-- Offcanvas: Formulário -->
+<div class="offcanvas offcanvas-end"
+     tabindex="-1"
+     id="oc-form"
+     aria-labelledby="ocLabel"
+     style="width:520px"
+     data-bs-scroll="true">
   <div class="offcanvas-header border-bottom">
     <h5 class="offcanvas-title" id="ocLabel">Novo Entregador</h5>
     <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
   </div>
 
-  <form id="formEntregador" class="needs-validation" novalidate>
-    <div class="offcanvas-body">
+  <!-- form ocupa a coluna toda (header / body / footer) -->
+  <form id="formEntregador" class="needs-validation d-flex flex-column h-100" novalidate>
+    <!-- BODY: rola -->
+    <div class="offcanvas-body flex-grow-1">
       <input type="hidden" id="entregadorId" />
 
       <!-- Dados -->
@@ -186,6 +193,7 @@
               <input type="text" id="documento" class="form-control" />
             </div>
 
+            <!-- Switch “Ativo” só no editar -->
             <div class="col-12 d-none" id="grp-ativo">
               <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" id="ativo">
@@ -207,11 +215,11 @@
             <div class="col-md-6">
               <label for="cep" class="form-label">CEP</label>
               <input type="text" id="cep" class="form-control" inputmode="numeric"
-                     pattern="\d{5}-?\d{3}" required placeholder="00000-000" aria-describedby="cepHelp" autofocus />
+                     pattern="\d{5}-?\d{3}" required placeholder="00000-000" aria-describedby="cepHelp" />
               <div id="cepHelp" class="form-text">Digite o CEP e saia do campo para preencher automaticamente.</div>
               <div class="invalid-feedback">Informe um CEP válido (ex.: 12345-678).</div>
             </div>
-          
+
             <div class="col-md-8">
               <label for="rua" class="form-label">Rua</label>
               <input type="text" id="rua" class="form-control" required data-autolock />
@@ -239,21 +247,17 @@
           </div>
         </div>
       </div>
-    </div>
+    </div><!-- /.offcanvas-body -->
 
-          <!-- Switch de ativo visível apenas ao editar -->
-          <div class="form-check form-switch mt-3 d-none" id="grp-ativo">
-            <input class="form-check-input" type="checkbox" id="ativo">
-            <label class="form-check-label" for="ativo">Ativo</label>
-          </div>
-
-          <div class="hstack gap-2 justify-content-end mt-4">
-            <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
-            <button type="submit" class="btn btn-primary" id="btnSalvar">Salvar</button>
-          </div>
-        </form>
-      </div>
+    <!-- FOOTER: fixo / sempre visível -->
+    <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body">
+      <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="btnSalvar">Salvar</button>
     </div>
+  </form>
+</div>
+
+    
 
     <!-- Modal de exclusão -->
     <div class="modal fade" id="modalDelete" tabindex="-1" aria-hidden="true">
