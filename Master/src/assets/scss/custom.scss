@@ -74,33 +74,43 @@
   to  { transform: translateY(0);   opacity:1; }
 }
 
-/* Corrige scroll do formulário (offcanvas) no mobile */
+/* =============== Offcanvas mobile: rolagem correta =============== */
 #oc-form.offcanvas {
   display: flex;
   flex-direction: column;
-  max-height: 100vh;               /* nunca maior que a viewport */
+  /* use viewport dinâmico p/ iOS/Android (Chrome barra de URL, etc.) */
+  height: 100dvh;
+  max-height: 100dvh;
 }
 
-/* O corpo deve rolar, não o documento inteiro */
+#oc-form .offcanvas-header {
+  flex: 0 0 auto;
+}
+
 #oc-form .offcanvas-body {
-  flex: 1 1 auto;                  /* ocupa o espaço disponível */
-  overflow-y: auto;                /* faz rolar o conteúdo */
-  -webkit-overflow-scrolling: touch; /* suaviza no iOS */
+  /* chave: o body precisa “poder crescer” e rolar */
+  min-height: 0;               /* evita estourar o container no iOS */
+  flex: 1 1 auto;              /* ocupa o espaço entre header e footer */
+  overflow-y: auto;            /* rola só o corpo, não a página inteira */
+  -webkit-overflow-scrolling: touch;
+
+  /* espaço extra para não ficar escondido por barras/gestos do sistema */
+  padding-bottom: calc(env(safe-area-inset-bottom) + 6rem);
 }
 
-/* O rodapé fica fixo e visível */
 #oc-form .offcanvas-footer {
   flex: 0 0 auto;
-  position: sticky;
+  position: sticky;            /* permanece visível ao final da rolagem */
   bottom: 0;
   background: var(--bs-body-bg);
   z-index: 2;
   border-top: 1px solid var(--bs-border-color);
 }
 
-/* Dá uma folga extra em telas pequenas para evitar que o teclado esconda botões */
+/* telas muito pequenas: um pouco mais de folga */
 @media (max-width: 576px) {
   #oc-form .offcanvas-body {
-    padding-bottom: 1rem;          /* espaço para o footer/botões */
+    padding-bottom: calc(env(safe-area-inset-bottom) + 7rem);
   }
 }
+
