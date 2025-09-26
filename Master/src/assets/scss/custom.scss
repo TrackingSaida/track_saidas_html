@@ -74,37 +74,41 @@
   to  { transform: translateY(0);   opacity:1; }
 }
 
-/* =============== Offcanvas mobile: rolagem correta =============== */
+/* Offcanvas do Entregador — altura cheia + body rolável + footer visível */
 #oc-form.offcanvas {
+  position: fixed;         /* garante ancoragem à viewport */
+  inset: 0 auto 0  auto;   /* top/bottom = 0; (end) controla pela classe Bootstrap */
   display: flex;
   flex-direction: column;
-  /* use viewport dinâmico p/ iOS/Android (Chrome barra de URL, etc.) */
-  height: 100dvh;
-  max-height: 100dvh;
+  height: 100vh;           /* desktop e mobile */
+  max-height: 100vh;
 }
 
-#oc-form .offcanvas-header {
-  flex: 0 0 auto;
-}
+#oc-form .offcanvas-header { flex: 0 0 auto; }
 
 #oc-form .offcanvas-body {
-  /* chave: o body precisa “poder crescer” e rolar */
-  min-height: 0;               /* evita estourar o container no iOS */
-  flex: 1 1 auto;              /* ocupa o espaço entre header e footer */
-  overflow-y: auto;            /* rola só o corpo, não a página inteira */
+  flex: 1 1 auto;
+  min-height: 0;                 /* ESSENCIAL para flex não estourar */
+  overflow-y: auto;              /* só o conteúdo rola */
   -webkit-overflow-scrolling: touch;
-
-  /* espaço extra para não ficar escondido por barras/gestos do sistema */
-  padding-bottom: calc(env(safe-area-inset-bottom) + 6rem);
+  padding-bottom: 1rem;          /* sem “6rem” aqui */
 }
 
 #oc-form .offcanvas-footer {
   flex: 0 0 auto;
-  position: sticky;            /* permanece visível ao final da rolagem */
+  position: sticky;              /* fica colado ao final do offcanvas */
   bottom: 0;
+  z-index: 5;
   background: var(--bs-body-bg);
-  z-index: 2;
   border-top: 1px solid var(--bs-border-color);
+  padding: 1rem;
+}
+
+/* áreas seguras (iOS) */
+@supports (padding: max(0px)) {
+  #oc-form .offcanvas-footer {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
 }
 
 /* telas muito pequenas: um pouco mais de folga */

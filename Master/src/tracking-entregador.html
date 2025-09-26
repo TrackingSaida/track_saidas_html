@@ -161,7 +161,8 @@
      id="oc-form"
      aria-labelledby="ocLabel"
      style="width:520px"
-     data-bs-scroll="true">
+     data-bs-scroll="false"
+     data-bs-backdrop="true">
   <div class="offcanvas-header border-bottom">
     <h5 class="offcanvas-title" id="ocLabel">Novo Entregador</h5>
     <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
@@ -186,12 +187,14 @@
 
             <div class="col-md-6">
               <label for="telefone" class="form-label">Telefone</label>
-              <input type="text" id="telefone" class="form-control" />
+              <input type="text" id="telefone" class="form-control"
+       inputmode="numeric" autocomplete="tel" placeholder="(11) 99999-9999" />
             </div>
 
             <div class="col-md-6">
               <label for="documento" class="form-label">Documento</label>
-              <input type="text" id="documento" class="form-control" />
+              <input type="text" id="documento" class="form-control"
+       inputmode="numeric" autocomplete="off" placeholder="CPF ou RG"/>
             </div>
 
             <!-- Switch “Ativo” só no editar -->
