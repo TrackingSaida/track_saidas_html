@@ -22,6 +22,41 @@
   const msg    = $("msgArea");
   const tbLast = $("ultimos-rows");
 
+  // ---------- resumo dos últimos registros ----------
+  // Elementos para mostrar o total de registros por serviço (Shopee, Mercado Livre, Avulso) e o total geral.
+  const sumShopeeEl   = document.getElementById('ult-sum-shopee');
+  const sumMercadoEl  = document.getElementById('ult-sum-ml');
+  const sumAvulsoEl   = document.getElementById('ult-sum-avulso');
+  const sumTotalEl    = document.getElementById('ult-sum-total');
+
+  /**
+   * Atualiza o resumo visível dos últimos registros. Percorre todas as linhas
+   * atualmente exibidas no card "Últimos registros" (mantidas em rowsByKey)
+   * e contabiliza quantos códigos pertencem a cada serviço. O resultado
+   * alimenta os elementos definidos no HTML. Chamado sempre que uma linha
+   * é criada ou atualizada e quando o quadro é limpo.
+   */
+  function updateSummary() {
+    // Se os elementos do resumo não existirem, não faz nada. Permite manter
+    // compatibilidade caso o HTML não tenha os IDs esperados.
+    if (!sumShopeeEl || !sumMercadoEl || !sumAvulsoEl || !sumTotalEl) return;
+    let shopee = 0, mercado = 0, avulso = 0, total = 0;
+    for (const tr of rowsByKey.values()) {
+      const srvCell = tr.querySelector('.srv');
+      const servico = (srvCell?.textContent || '').trim().toLowerCase();
+      if (!servico) continue;
+      total++;
+      if (servico === 'shopee') shopee++;
+      else if (servico === 'mercado livre') mercado++;
+      else if (servico === 'mercado_livre' || servico === 'mercadolivre') mercado++;
+      else if (servico === 'avulso') avulso++;
+    }
+    sumShopeeEl.textContent  = shopee;
+    sumMercadoEl.textContent = mercado;
+    sumAvulsoEl.textContent  = avulso;
+    sumTotalEl.textContent   = total;
+  }
+
   // ---------- mapa de linhas visíveis (evitar duplicar visualmente) ----------
   const rowsByKey = new Map(); // key(ent,cod) -> <tr>
   const keyFor = (entregador, codigo) =>
@@ -130,7 +165,12 @@ function showMsgIcon(tipo, texto) {
   }
 
   // ---------- últimos registros (DOM) ----------
-  function clearUltimos(){ if (tbLast) tbLast.innerHTML = ""; rowsByKey.clear(); }
+  function clearUltimos(){
+    if (tbLast) tbLast.innerHTML = "";
+    rowsByKey.clear();
+    // Após limpar as linhas, zera o resumo de contagens
+    updateSummary();
+  }
 
   function createRow(row){
     const tr = document.createElement("tr");
@@ -156,9 +196,14 @@ function showMsgIcon(tipo, texto) {
       ex.querySelector(".srv").textContent = row.servico || ex.querySelector(".srv").textContent;
       ex.querySelector(".st").textContent  = row.status  || ex.querySelector(".st").textContent;
       if (row.duplicado) { const chk = ex.querySelector(".dup-mark"); if (chk) chk.checked = true; }
+      // Atualiza o resumo após editar a linha existente
+      updateSummary();
       return ex;
     }
-    return createRow(row);
+    const newRow = createRow(row);
+    // Atualiza o resumo após criar nova linha
+    updateSummary();
+    return newRow;
   }
 
   // ---------- API helpers ----------
@@ -198,6 +243,8 @@ function showMsgIcon(tipo, texto) {
         if (duplicado) {
           const chk = tr.querySelector(".dup-mark"); if (chk) chk.checked = true;
         }
+        // Após alterar serviço/status da linha, atualiza o resumo
+        updateSummary();
       }
 
       if (duplicado) { showMsgIcon("alerta", `DUPLICADO • ${p.codigo}`); Sound.play("warn"); }
@@ -210,6 +257,8 @@ function showMsgIcon(tipo, texto) {
         if (tr) {
           tr.querySelector(".st").textContent = "Duplicado";
           const chk = tr.querySelector(".dup-mark"); if (chk) chk.checked = true;
+          // Marca a duplicação e atualiza o resumo, pois o total de duplicados não influencia na contagem por serviço
+          updateSummary();
         }
         showMsgIcon("alerta", `DUPLICADO • ${p.codigo}`);
         Sound.play("warn");
@@ -218,7 +267,11 @@ function showMsgIcon(tipo, texto) {
 
       // demais erros (422 validação, 409 créditos etc.) → mantém a linha e mostra erro
       removePending(p.id);
-      if (tr) tr.querySelector(".st").textContent = `Erro${e?.status ? " " + e.status : ""}`;
+      if (tr) {
+        tr.querySelector(".st").textContent = `Erro${e?.status ? " " + e.status : ""}`;
+        // Atualiza o resumo para refletir possíveis remoções de pendentes
+        updateSummary();
+      }
       showMsgIcon("erro", e?.error || "Erro ao registrar");
       Sound.play("err");
     }

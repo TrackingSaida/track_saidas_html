@@ -51,6 +51,14 @@
               <h5 class="mb-0">Últimos registros</h5>
             </div>
             <div class="card-body">
+              <!-- Resumo com totais por serviço -->
+              <div id="ultimos-summary" class="mb-2 text-muted" style="font-size: 0.9rem;">
+                Totais:&nbsp;
+                Shopee <strong id="ult-sum-shopee">0</strong> •
+                Mercado Livre <strong id="ult-sum-ml">0</strong> •
+                Avulso <strong id="ult-sum-avulso">0</strong> •
+                Geral <strong id="ult-sum-total">0</strong>
+              </div>
               <div class="table-responsive">
                 <table class="table align-middle table-nowrap mb-0">
                   <thead class="table-light">
@@ -60,7 +68,7 @@
                       <th>Código</th>
                       <th>Serviço</th>
                       <th>Status</th>
-                      <th>Dup?</th>                     
+                      <th>Dup?</th>
                     </tr>
                   </thead>
                   <tbody id="ultimos-rows">
