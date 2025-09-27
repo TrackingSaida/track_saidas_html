@@ -222,58 +222,86 @@ function showMsgIcon(tipo, texto) {
   async function attemptSend(p){
     if (inflight.has(p.id)) return;
     inflight.add(p.id);
-
     const tr = rowsById.get(p.id);
-    if (tr) tr.querySelector(".st").textContent = "Enviando…";
-
+    if (tr) tr.querySelector('.st').textContent = 'Enviando…';
     try {
       const res = await apiRegistrarSaida({ entregador: p.entregador, codigo: p.codigo, servico: p.servico });
-
-      // sucesso
-      removePending(p.id);
-
-      const apiRow = (res && typeof res === "object" && typeof res.data === "object") ? res.data : {};
-      const novoServico = apiRow.servico ?? p.servico ?? "";
-      const duplicado   = !!apiRow.duplicado;
-      const novoStatus  = duplicado ? "Duplicado" : (apiRow.status ?? "Saiu");
-
-      if (tr) {
-        tr.querySelector(".srv").textContent = novoServico;
-        tr.querySelector(".st").textContent  = novoStatus;
-        if (duplicado) {
-          const chk = tr.querySelector(".dup-mark"); if (chk) chk.checked = true;
-        }
-        // Após alterar serviço/status da linha, atualiza o resumo
-        updateSummary();
-      }
-
-      if (duplicado) { showMsgIcon("alerta", `DUPLICADO • ${p.codigo}`); Sound.play("warn"); }
-      else           { showMsgIcon("info",    `Registrado: ${p.codigo}${novoServico ? " • " + novoServico : ""}`); Sound.play("ok"); }
-
-    } catch (e) {
-      // 409 DUPLICADO do back: manter linha e marcar como "Duplicado"
-      if (isDupConflict(e)) {
-        removePending(p.id);
-        if (tr) {
-          tr.querySelector(".st").textContent = "Duplicado";
-          const chk = tr.querySelector(".dup-mark"); if (chk) chk.checked = true;
-          // Marca a duplicação e atualiza o resumo, pois o total de duplicados não influencia na contagem por serviço
+      // Se a resposta não for OK, lidar com conflitos e outros erros
+      if (!res || !res.ok) {
+        // Conflito de duplicidade no backend
+        if (res && res.status === 409 && isDupConflict(res)) {
+          removePending(p.id);
+          if (tr) tr.remove();
+          rowsById.delete(p.id);
+          rowsByKey.delete(keyFor(p.entregador, p.codigo));
           updateSummary();
+          showMsgIcon('alerta', `DUPLICADO • ${p.codigo}`);
+          Sound.play('warn');
+          return;
         }
-        showMsgIcon("alerta", `DUPLICADO • ${p.codigo}`);
-        Sound.play("warn");
+        // Outros erros: remove a entrada e exibe mensagem
+        removePending(p.id);
+        if (tr) tr.remove();
+        rowsById.delete(p.id);
+        rowsByKey.delete(keyFor(p.entregador, p.codigo));
+        updateSummary();
+        let errMsg;
+        if (res && typeof res.error === 'string') {
+          errMsg = res.error;
+        } else if (res && res.error && typeof res.error === 'object') {
+          errMsg = res.error.error || res.error.detail || res.error.message || res.error.msg;
+          if (!errMsg && res.error.text) errMsg = res.error.text;
+          if (!errMsg) errMsg = JSON.stringify(res.error);
+        }
+        if (!errMsg) errMsg = 'Erro ao registrar';
+        showMsgIcon('erro', errMsg);
+        Sound.play('err');
         return;
       }
-
-      // demais erros (422 validação, 409 créditos etc.) → mantém a linha e mostra erro
+      // sucesso
       removePending(p.id);
-      if (tr) {
-        tr.querySelector(".st").textContent = `Erro${e?.status ? " " + e.status : ""}`;
-        // Atualiza o resumo para refletir possíveis remoções de pendentes
+      const apiRow = (res && typeof res === 'object' && typeof res.data === 'object') ? res.data : {};
+      const novoServico = apiRow.servico ?? p.servico ?? '';
+      const duplicado   = !!apiRow.duplicado;
+      const novoStatus  = duplicado ? 'Duplicado' : (apiRow.status ?? 'Saiu');
+      if (duplicado) {
+        // Se o backend sinalizar duplicado na resposta OK, não exibe a linha
+        if (tr) tr.remove();
+        rowsById.delete(p.id);
+        rowsByKey.delete(keyFor(p.entregador, p.codigo));
         updateSummary();
+        showMsgIcon('alerta', `DUPLICADO • ${p.codigo}`);
+        Sound.play('warn');
+      } else {
+        // Caso de sucesso verdadeiro: atualiza e mantém a linha
+        if (tr) {
+          tr.querySelector('.srv').textContent = novoServico;
+          tr.querySelector('.st').textContent  = novoStatus;
+          updateSummary();
+        }
+        showMsgIcon('info', `Registrado: ${p.codigo}${novoServico ? ' • ' + novoServico : ''}`);
+        Sound.play('ok');
       }
-      showMsgIcon("erro", e?.error || "Erro ao registrar");
-      Sound.play("err");
+    } catch (e) {
+      // Erro inesperado (promise rejected)
+      removePending(p.id);
+      if (tr) tr.remove();
+      rowsById.delete(p.id);
+      rowsByKey.delete(keyFor(p.entregador, p.codigo));
+      updateSummary();
+      let catchMsg;
+      if (e && typeof e.error === 'string') {
+        catchMsg = e.error;
+      } else if (e && e.error && typeof e.error === 'object') {
+        catchMsg = e.error.error || e.error.detail || e.error.message || e.error.msg;
+        if (!catchMsg && e.error.text) catchMsg = e.error.text;
+        if (!catchMsg) catchMsg = JSON.stringify(e.error);
+      } else if (e && typeof e.message === 'string') {
+        catchMsg = e.message;
+      }
+      if (!catchMsg) catchMsg = 'Erro ao registrar';
+      showMsgIcon('erro', catchMsg);
+      Sound.play('err');
     }
   }
 

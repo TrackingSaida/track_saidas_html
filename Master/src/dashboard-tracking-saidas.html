@@ -8,8 +8,8 @@
 </head>
 
 <body>
-  <!-- A verificação de sessão é feita de forma centralizada pelo módulo user.js.
-       O dashboard chama window.ensureAuth() no início do arquivo init (dashboard-tracking-saidas.init.js). -->
+  <!-- A verificação de sessão é realizada de forma centralizada pelo módulo user.js.
+       Não é necessário duplicar a lógica aqui. -->
 
 
   <div id="layout-wrapper">
@@ -74,9 +74,9 @@
 
   <!-- ECharts -->
   <script src="assets/libs/echarts/echarts.min.js"></script>
-  
-    <!-- API wrapper (define TrackAPI) -->
-   <script src="assets/js/pages/tracking-api-leitura-registros.init.js"></script>
+
+  <!-- API wrapper (define window.TrackAPI) -->
+  <script src="assets/js/pages/tracking-api-leitura-registros.init.js"></script>
 
   <!-- Página init -->
   <script src="assets/js/pages/dashboard-tracking-saidas.init.js"></script>
