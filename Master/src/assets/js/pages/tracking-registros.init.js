@@ -1,7 +1,11 @@
-(function () {
+(async function () {
   var qs  = function(s){ return document.querySelector(s); };
   var qsa = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
 
+  // Garante que o usuário esteja autenticado antes de iniciar a lógica de registros.
+  if (typeof window !== 'undefined' && typeof window.ensureAuth === 'function') {
+    try { await window.ensureAuth(); } catch (_) {}
+  }
   // ============= SweetAlert helpers (Velzon) =============
   function notify(message, kind){
     // kind: 'success' | 'error' | 'warning' | 'info'

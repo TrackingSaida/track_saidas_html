@@ -22,9 +22,15 @@
     const current = window.location.pathname + window.location.search + window.location.hash;
     const target = `${LOGIN_PAGE}?reason=${encodeURIComponent(reason)}&redirect=${encodeURIComponent(current)}`;
     try {
+      // Remove tokens e marcadores de sessão de ambas as storages
       localStorage.removeItem("access_token");
       localStorage.removeItem("acess_token"); // grafia alternativa observada
+      localStorage.removeItem("trackingToken");
+      localStorage.removeItem("trackingUser");
       sessionStorage.removeItem("access_token");
+      sessionStorage.removeItem("acess_token");
+      sessionStorage.removeItem("trackingToken");
+      sessionStorage.removeItem("trackingUser");
     } catch (_) {}
     window.location.replace(target);
   }
@@ -196,4 +202,47 @@
     };
   }
 })(window);
-/* --- FIM DO APPEND-ONLY --- */
+
+// Global helper de autenticação: verifica se há sessão válida e redireciona se necessário.
+// A intenção é centralizar a lógica de checagem em um único local.
+(function(w) {
+  "use strict";
+  if (!w.ensureAuth) {
+    const API_ORIGIN = "https://track-saidas-api.onrender.com";
+    const API_AUTH = `${API_ORIGIN}/api/auth`;
+    // Retorna true se há um marker de sessão (trackingToken ou access_token)
+    function hasMarker() {
+      try {
+        return (
+          w.localStorage.getItem('trackingToken') ||
+          w.sessionStorage.getItem('trackingToken') ||
+          w.localStorage.getItem('access_token') ||
+          w.localStorage.getItem('acess_token') ||
+          w.sessionStorage.getItem('access_token') ||
+          w.sessionStorage.getItem('acess_token')
+        );
+      } catch(_) { return false; }
+    }
+    async function ensureAuth() {
+      try {
+        if (hasMarker()) return;
+        // Se houver cookie de access_token, define marker para evitar requisições extras.
+        const cookie = document.cookie.split('; ').find(r => r.startsWith('access_token='));
+        if (cookie) {
+          try { w.localStorage.setItem('trackingToken', 'cookie-session'); } catch(_) {}
+          return;
+        }
+        // Consulta o endpoint /me para checar a sessão
+        const r = await fetch(`${API_AUTH}/me`, { credentials:'include' });
+        if (r && r.ok) {
+          try { w.localStorage.setItem('trackingToken', 'cookie-session'); } catch(_) {}
+          return;
+        }
+      } catch (_) {}
+      // Se não há sessão, redireciona para a página de login padrão.
+      const current = w.location.pathname.split('/').pop();
+      w.location.replace(`index.html?next=${encodeURIComponent(current)}`);
+    }
+    w.ensureAuth = ensureAuth;
+  }
+})(window);

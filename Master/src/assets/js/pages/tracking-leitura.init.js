@@ -4,8 +4,15 @@
 //  - Não lembrar último entregador (select inicia vazio)
 //  - Se já existir NA SESSÃO: não cria linha e não envia; só avisa
 //  - Se for DUPLICADO no BACK (409): mantém a linha e marca Status="Duplicado" (checkbox checado)
-(function () {
+  (async function () {
   "use strict";
+
+  // Certifica que a sessão está válida antes de iniciar a leitura. Aguarda a
+  // resolução de ensureAuth() para evitar que a lógica da página rode
+  // enquanto a autenticação ainda não foi checada.
+  if (typeof window !== 'undefined' && typeof window.ensureAuth === 'function') {
+    try { await window.ensureAuth(); } catch (_) {}
+  }
 
   // ---------- elementos ----------
   const $ = (id) => document.getElementById(id);

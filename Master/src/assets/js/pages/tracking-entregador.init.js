@@ -254,6 +254,11 @@ function formPayload(){
 
 /* =================== Init ===================== */
 document.addEventListener("DOMContentLoaded", async () => {
+  // Garante a autenticação antes de prosseguir com qualquer inicialização da página.
+  if (typeof window.ensureAuth === 'function') {
+    try { await window.ensureAuth(); } catch(_) {}
+  }
+
   const oc = qs("#oc-form"); if (oc) offcanvas = new bootstrap.Offcanvas(oc);
 
   await listarEntregadores();

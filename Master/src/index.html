@@ -18,46 +18,39 @@
     const params = new URLSearchParams(location.search);
     const next = params.get('next');
 
-    let hasToken =
+    const hasMarker =
       localStorage.getItem('trackingToken') ||
-      sessionStorage.getItem('trackingToken');
+      sessionStorage.getItem('trackingToken') ||
+      localStorage.getItem('access_token') ||
+      sessionStorage.getItem('access_token') ||
+      localStorage.getItem('acess_token') ||
+      sessionStorage.getItem('acess_token') ||
+      getCookie('access_token');
 
-    // 1) Se já tem marcador, CONFIRMA no backend
-if (hasToken) {
-  try {
-    const me = await fetch(`${API_AUTH}/me`, { credentials: 'include' });
-    if (me.ok) {
-      return location.replace(next || 'dashboard-tracking-saidas.html');
-    }
-  } catch (e) { /* ignora e continua */ }
-  // marcador inválido → limpa e segue o fluxo
-  localStorage.removeItem('trackingToken');
-  sessionStorage.removeItem('trackingToken');
-}
-
-
-    // 2) Se houver cookie, CONFIRMA no backend
-try {
-  const me = await fetch(`${API_AUTH}/me`, { credentials: 'include' });
-  if (me.ok) {
-    localStorage.setItem('trackingToken', 'cookie-session');
-    return location.replace(next || 'dashboard-tracking-saidas.html');
-  }
-} catch (e) { /* ignora e cai pro else */ }
-
-
-    // 3) Última checagem: pergunta pro backend (/auth/me) se há sessão
-    try {
-      const me = await fetch(`${API_AUTH}/me`, { credentials: 'include' });
-      if (me.ok) {
-        localStorage.setItem('trackingToken', 'cookie-session');
-        return location.replace(next || 'dashboard-tracking-saidas.html');
+    if (hasMarker) {
+      try {
+        const me = await fetch(`${API_AUTH}/me`, { credentials: 'include' });
+        if (me.ok) {
+          // Se foi autenticado via cookie, grava um marcador simples.
+          if (!localStorage.getItem('trackingToken')) {
+            localStorage.setItem('trackingToken', 'cookie-session');
+          }
+          return location.replace(next || 'dashboard-tracking-saidas.html');
+        }
+      } catch (e) {
+        // Em caso de erro de rede, continua para limpeza e landing
       }
-    } catch (e) {
-      /* ignora e cai pro else abaixo */
+      // Caso /auth/me não confirme a sessão, remove todos os marcadores
+      try {
+        localStorage.removeItem('trackingToken');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('acess_token');
+        sessionStorage.removeItem('trackingToken');
+        sessionStorage.removeItem('access_token');
+        sessionStorage.removeItem('acess_token');
+      } catch (_) {}
     }
-
-    // 4) Sem nada → landing
+    // Sem sessão válida → landing
     location.replace('landing-tracking.html');
   });
 </script>
