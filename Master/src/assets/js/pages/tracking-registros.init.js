@@ -53,6 +53,40 @@
   var pagerPrev   = qs("#pager-prev");
   var pagerNext   = qs("#pager-next");
 
+  // ====== Resumo Totais ======
+  // Obtém referências aos elementos que exibem os totais por serviço e o total geral. Se
+  // os elementos não existirem no HTML (caso de páginas legadas), as chamadas
+  // subsequentes de updateSummary() não farão nada.
+  var sumShopeeEl  = qs('#sum-shopee');
+  var sumMercadoEl = qs('#sum-mercado');
+  var sumAvulsoEl  = qs('#sum-avulso');
+  var sumTotalEl   = qs('#sum-total');
+
+  /**
+   * Atualiza o resumo de totais por serviço e geral, com base nas linhas atualmente
+   * carregadas em state.rows. Este método lê o campo "servico" de cada
+   * registro para contar quantos pertencem a Shopee, Mercado Livre e Avulso.
+   * O campo total indica o número total de linhas. Se um dos elementos
+   * necessários não existir no DOM, a função retorna sem fazer nada.
+   */
+  function updateSummary(){
+    if (!sumShopeeEl || !sumMercadoEl || !sumAvulsoEl || !sumTotalEl) return;
+    var shopee = 0, mercado = 0, avulso = 0, total = 0;
+    var rows = state && Array.isArray(state.rows) ? state.rows : [];
+    rows.forEach(function(r){
+      var s = (r && r.servico || '').toString().toLowerCase();
+      if (!s) return;
+      total++;
+      if (s === 'shopee') shopee++;
+      else if (s === 'mercado livre' || s === 'mercado_livre' || s === 'mercadolivre') mercado++;
+      else if (s === 'avulso') avulso++;
+    });
+    sumShopeeEl.textContent  = shopee;
+    sumMercadoEl.textContent = mercado;
+    sumAvulsoEl.textContent  = avulso;
+    sumTotalEl.textContent   = total;
+  }
+
   var state = { page: 1, pageSize: 20, total: 0, rows: [] };
 
   // ============= Combos =============
@@ -140,6 +174,8 @@
       if (!r || !r.ok){ notify((r && r.error) || "Falha ao listar", "error"); return; }
       state.page = r.page; state.pageSize = r.pageSize; state.total = r.total; state.rows = (r.rows || []).map(normalizeRow);
       renderTable(state.rows);
+      // Após renderizar a tabela, atualiza o resumo de totais.
+      updateSummary();
       if (pagerInfo) pagerInfo.textContent = "Página " + r.page + " • " + (r.rows ? r.rows.length : 0) + " de " + r.total;
       if (chkAll) chkAll.checked = false;
       augmentEntregadoresFromRows(state.rows);
@@ -261,6 +297,8 @@
             return String(getRowId(row)) === String(id) ? Object.assign({}, row, updated) : row;
           });
           renderTable(state.rows);
+          // Atualiza o resumo após editar um registro
+          updateSummary();
           if (modal) modal.hide();
           notify("Atualizado com sucesso.", "success");
           break;

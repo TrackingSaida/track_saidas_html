@@ -27,8 +27,10 @@
             <div class="col-xl-6">
               <div class="card card-height-100">
                 <div class="card-header align-items-center d-flex">
-                  <h4 class="card-title mb-0 flex-grow-1">Ranking por Entregadores (15 dias)</h4>
-                  <div class="flex-shrink-0">
+                  <h4 class="card-title mb-0 flex-grow-1">Ranking por Entregadores</h4>
+                  <div class="flex-shrink-0 d-flex gap-2 align-items-center">
+                    <input type="date" id="rank-from" class="form-control form-control-sm" style="min-width: 140px;" />
+                    <input type="date" id="rank-to" class="form-control form-control-sm" style="min-width: 140px;" />
                     <button class="btn btn-soft-primary btn-sm" id="btn-refresh-ranking">Recarregar</button>
                   </div>
                 </div>
@@ -43,14 +45,11 @@
             <div class="col-xl-6">
               <div class="card card-height-100">
                 <div class="card-header align-items-center d-flex">
-                  <h4 class="card-title mb-0 flex-grow-1">Pedidos Diários por Origem (15 dias)</h4>
-                  <div class="flex-shrink-0 d-flex gap-2">
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Filtro de Origem">
-                   <!--   <button class="btn btn-soft-secondary active" data-origem="ambos">Ambos</button>
-                      <button class="btn btn-soft-secondary" data-origem="shopee">Shopee</button>
-                      <button class="btn btn-soft-secondary" data-origem="mercado_livre">Mercado Livre</button>
-                      <button class="btn btn-soft-secondary" data-origem="total">Total Geral</button>-->
-                    </div>
+                  <h4 class="card-title mb-0 flex-grow-1">Pedidos Diários por Origem</h4>
+                  <div class="flex-shrink-0 d-flex gap-2 align-items-center">
+                    <input type="date" id="daily-from" class="form-control form-control-sm" style="min-width: 140px;" />
+                    <input type="date" id="daily-to" class="form-control form-control-sm" style="min-width: 140px;" />
+                    <!-- Botões de filtro por origem permanecem comentados, caso queira ativar no futuro -->
                     <button class="btn btn-soft-primary btn-sm" id="btn-refresh-diario">Recarregar</button>
                   </div>
                 </div>

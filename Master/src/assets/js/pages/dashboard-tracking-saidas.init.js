@@ -1,242 +1,265 @@
 // assets/js/pages/dashboard-tracking-saidas.init.js
-// Dashboard: usa dados reais da API de registros para montar ranking e série diária
-// dos últimos 15 dias. Inclui a contagem de Avulso e um total geral, além de
-// mostrar no tooltip do ranking a decomposição por serviço (Shopee, Mercado Livre, Avulso).
+// Dashboard: Ranking (Entregadores) e Série Diária (por origem) com filtros de data inclusivos
+// Usa TrackAPI.listSaidas() e autenticação centralizada (window.ensureAuth)
 
-(async function(){
+(async function () {
   "use strict";
 
-  // ===== Util: datas / período =====
-  function fmtISO(d){ return d.toISOString().slice(0,10); }
-  function startEndLastNDays(n){
-    const end = new Date();
-    end.setHours(0,0,0,0);
-    const start = new Date(end);
-    start.setDate(start.getDate() - (n-1));
-    return {start, end};
+  // ===== Helpers de DATA (100% local; nada de UTC/toISOString) =====
+  function parseLocalDate(ymd) { // 'YYYY-MM-DD' -> Date local 00:00
+    if (!ymd) return null;
+    const [y, m, d] = ymd.split("-").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1);
   }
-  function daysArray(start, end){
-    const arr=[];
-    const cur=new Date(start);
-    while(cur<=end){ arr.push(fmtISO(cur)); cur.setDate(cur.getDate()+1); }
-    return arr;
+  function fmtYMD(d) {
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${mm}-${dd}`;
+  }
+  function todayYMD() { return fmtYMD(new Date()); }
+
+  function daysArrayInclusive(fromYMD, toYMD) {
+    const start = parseLocalDate(fromYMD);
+    const end   = parseLocalDate(toYMD);
+    const out = [];
+    if (!start || !end) return out;
+    const d = new Date(start);
+    while (d <= end) {
+      out.push(fmtYMD(d));
+      d.setDate(d.getDate() + 1);
+    }
+    return out;
+  }
+
+  // ===== Helpers de leitura dos inputs de data =====
+  // Suporta: (a) inputs individuais por card (rank-from/rank-to, daily-from/daily-to)
+  //          (b) inputs globais (dash-from/dash-to)
+  function readDateRange(kind /* 'rank' | 'daily' */) {
+    const globalFrom = document.getElementById("dash-from");
+    const globalTo   = document.getElementById("dash-to");
+
+    const perFrom = document.getElementById(`${kind}-from`);
+    const perTo   = document.getElementById(`${kind}-to`);
+
+    // prioridade: per-card -> global -> hoje
+    let from = perFrom?.value || globalFrom?.value || todayYMD();
+    let to   = perTo?.value   || globalTo?.value   || from;
+
+    // se usuário preencheu só um dos lados, espelha
+    if (!from && to) from = to;
+    if (!to && from) to = from;
+
+    return { from, to };
   }
 
   // ===== Autenticação de sessão =====
-  // Garante que a sessão esteja válida antes de acessar a API. Se a função
-  // window.ensureAuth estiver disponível (exposta pelo módulo user.js), ela
-  // fará a verificação de tokens e cookies e redirecionará para o login se
-  // necessário. Ignora eventuais erros, pois a própria função cuidará do redirecionamento.
-  if (typeof window !== 'undefined' && typeof window.ensureAuth === 'function') {
-    try { await window.ensureAuth(); } catch (_) {}
+  if (typeof window !== "undefined" && typeof window.ensureAuth === "function") {
+    try { await window.ensureAuth(); } catch(_) {}
   }
 
-  // ===== Helpers de normalização =====
-  /**
-   * Extrai a data no formato AAAA-MM-DD de um registro retornado pela API.
-   * Os registros podem ter campos diferentes para a data; esta função tenta
-   * diversas propriedades comuns (timestamp, ts, data, date, data_hora, datahora).
-   * Retorna null se nenhum campo for encontrado ou se a data for inválida.
-   */
-  function extractDateISO(row){
+  // ===== Normalizadores / coletores =====
+  function normalizeOrigem(row) {
+    const v = (row && (row.origem || row.servico) || "").toString().toLowerCase();
+    const noAccent = v.normalize ? v.normalize("NFD").replace(/\p{Diacritic}/gu, "") : v;
+    return noAccent.replace(/\s+/g, "_");
+  }
+  function extractDateISO(row) {
     if (!row) return null;
-    // considera timestamp ou campos comuns
-    let dt = row.data || row.date;
-    if (!dt) dt = row.timestamp || row.ts || row.data_hora || row.datahora || null;
+    let dt = row.data || row.date || row.timestamp || row.ts || row.data_hora || row.datahora || null;
     if (!dt) return null;
     try {
       const d = (dt instanceof Date) ? dt : new Date(dt);
       if (isNaN(d.getTime())) return null;
-      return fmtISO(d);
-    } catch (_) {
-      return null;
-    }
+      return fmtYMD(d);
+    } catch (_) { return null; }
+  }
+  function groupBy(arr, keyFn) {
+    return arr.reduce((acc, it) => {
+      const k = keyFn(it);
+      (acc[k] ||= []).push(it);
+      return acc;
+    }, {});
   }
 
-  /**
-   * Normaliza o campo de origem/serviço removendo acentos e convertendo para
-   * minúsculas. Serve para agrupar corretamente diferentes formas de escrever
-   * "Shopee", "Mercado Livre" e "Avulso".
-   */
-  function normalizeOrigem(row){
-    const v = (row && (row.origem || row.servico) || "").toString().toLowerCase();
-    const noAccent = v.normalize ? v.normalize('NFD').replace(/\p{Diacritic}/gu, '') : v;
-    return noAccent.replace(/\s+/g, '_');
-  }
-
-  // ===== Helpers de agregação =====
-  function groupBy(arr, keyFn){
-    return arr.reduce((acc,it)=>{ const k=keyFn(it); (acc[k] ||= []).push(it); return acc; },{});
-  }
-
-  /**
-   * Constrói o ranking de entregadores. Além de retornar nomes e totais
-   * ordenados, também retorna um objeto `details` que contém, para cada
-   * entregador, a decomposição da quantidade de saídas por serviço (shopee,
-   * mercado_livre, avulso) e o total.
-   */
-  function buildRanking(saidas){
-    const counts = {};
-    const details = {};
-    for (const s of saidas) {
-      const ent = s.entregador || '';
-      counts[ent] = (counts[ent] || 0) + 1;
-      if (!details[ent]) details[ent] = { shopee: 0, mercado_livre: 0, avulso: 0, total: 0 };
-      const orig = normalizeOrigem(s);
-      if (orig === 'shopee') details[ent].shopee++;
-      else if (orig === 'mercado_livre' || orig === 'mercadolivre') details[ent].mercado_livre++;
-      else if (orig === 'avulso') details[ent].avulso++;
+  // ===== Agregações =====
+  function buildRanking(saidas) {
+    // soma por entregador e também decompõe por serviço
+    const details = {}; // { entregador: { shopee, ml, avulso, total } }
+    for (const s of (saidas || [])) {
+      const ent = s.entregador || "(sem nome)";
+      const o = normalizeOrigem(s);
+      (details[ent] ||= { shopee: 0, ml: 0, avulso: 0, total: 0 });
+      if (o === "shopee") details[ent].shopee++;
+      else if (o === "mercado_livre" || o === "mercadolivre") details[ent].ml++;
+      else if (o === "avulso") details[ent].avulso++;
       details[ent].total++;
     }
-    const entries = Object.entries(counts).sort((a,b) => b[1] - a[1]);
-    const top = entries.slice(0,10);
-    const names = top.map(e => e[0]).reverse();
-    const values = top.map(e => e[1]).reverse();
-    return { names, values, details };
+    const entries = Object.entries(details).sort((a,b)=> b[1].total - a[1].total);
+    const top = entries.slice(0, 10);
+    return {
+      names: top.map(e => e[0]).reverse(),
+      values: top.map(e => e[1].total).reverse(),
+      details // mantém completo para tooltip
+    };
   }
 
-  /**
-   * Constrói a série diária para o gráfico de linhas. Para cada dia, conta
-   * quantas saídas foram de Shopee, Mercado Livre, Avulso e calcula o total
-   * geral. Recebe a lista de saídas e o array de dias (ISO) a serem
-   * considerados.
-   */
-  function buildSerieDiaria(saidas, days){
-    // Agrupa por data ISO
-    const porDia = groupBy(saidas, s => extractDateISO(s));
-    const shopee = [];
-    const ml     = [];
-    const avulso = [];
-    const total  = [];
+  function buildSerieDiaria(saidas, days /* array de 'YYYY-MM-DD' */) {
+    const porDia = groupBy(saidas || [], s => extractDateISO(s));
+    const shopee = [], ml = [], avulso = [], total = [];
     for (const d of days) {
       const arr = porDia[d] || [];
-      let cShopee=0, cML=0, cAvulso=0;
-      for (const row of arr) {
-        const o = normalizeOrigem(row);
-        if (o === 'shopee') cShopee++;
-        else if (o === 'mercado_livre' || o === 'mercadolivre') cML++;
-        else if (o === 'avulso') cAvulso++;
-      }
-      shopee.push(cShopee);
-      ml.push(cML);
-      avulso.push(cAvulso);
-      total.push(cShopee + cML + cAvulso);
+      const nShopee = arr.filter(x => normalizeOrigem(x) === "shopee").length;
+      const nML     = arr.filter(x => {
+        const o = normalizeOrigem(x);
+        return o === "mercado_livre" || o === "mercadolivre";
+      }).length;
+      const nAv     = arr.filter(x => normalizeOrigem(x) === "avulso").length;
+      shopee.push(nShopee);
+      ml.push(nML);
+      avulso.push(nAv);
+      total.push(arr.length);
     }
     return { shopee, ml, avulso, total };
   }
 
-  // ===== Charts =====
-  const elRanking = document.getElementById('chart-entregadores-ranking');
-  const elDiario  = document.getElementById('chart-pedidos-diarios');
-  const chartRanking = echarts.init(elRanking, null, {renderer:'canvas'});
-  const chartDiario  = echarts.init(elDiario,  null, {renderer:'canvas'});
-  // Detalhes do último ranking, usado pelo tooltip
-  let lastRankingDetails = {};
+  // ===== ECharts setup =====
+  const elRanking = document.getElementById("chart-entregadores-ranking");
+  const elDiario  = document.getElementById("chart-pedidos-diarios");
+  const chartRanking = echarts.init(elRanking, null, { renderer: "canvas" });
+  const chartDiario  = echarts.init(elDiario , null, { renderer: "canvas" });
 
-  /**
-   * Renderiza o gráfico de barras do ranking. Recebe os nomes dos
-   * entregadores, os valores totais e o objeto `details` (decomposição por
-   * serviço). Configura o tooltip para exibir a soma por serviço ao passar
-   * o mouse sobre a barra.
-   */
-  function renderRanking(names, values, details){
-    lastRankingDetails = details || {};
+  function renderRanking(names, values, details) {
     chartRanking.setOption({
       grid: { left: 8, right: 16, top: 10, bottom: 10, containLabel: true },
       tooltip: {
-        trigger: 'axis',
-        axisPointer: { type: 'shadow' },
-        // custom formatter para mostrar contagem por serviço
-        formatter: function(params){
-          if (!params || !params.length) return '';
-          const idx = params[0].dataIndex;
-          const name = names[idx];
-          const det  = lastRankingDetails[name] || {};
-          const s = det.shopee || 0;
-          const m = det.mercado_livre || 0;
-          const a = det.avulso || 0;
-          const t = det.total || (s+m+a);
-          return `${name}<br/>Shopee: ${s}<br/>Mercado Livre: ${m}<br/>Avulso: ${a}<br/>Total Geral: ${t}`;
+        trigger: "axis",
+        axisPointer: { type: "shadow" },
+        formatter: (params) => {
+          // params[0] é a barra
+          if (!params || !params.length) return "";
+          const name = params[0].name;
+          const d = details[name] || { shopee: 0, ml: 0, avulso: 0, total: params[0].value };
+          return [
+            `<b>${name}</b>`,
+            `Shopee: <b>${d.shopee || 0}</b>`,
+            `Mercado Livre: <b>${d.ml || 0}</b>`,
+            `Avulso: <b>${d.avulso || 0}</b>`,
+            `Total: <b>${d.total || params[0].value}</b>`
+          ].join("<br>");
         }
       },
-      xAxis: { type: 'value' },
-      yAxis: { type: 'category', data: names },
-      series: [ {
-        name: 'Total Geral',
-        type: 'bar',
+      xAxis: { type: "value" },
+      yAxis: { type: "category", data: names },
+      series: [{
+        type: "bar",
         data: values,
-        barWidth: '55%',
-        label: { show: true, position: 'right' },
+        barWidth: "55%",
+        label: { show: true, position: "right" },
         itemStyle: { borderRadius: [0, 6, 6, 0] }
-      } ]
+      }]
     });
   }
 
-  /**
-   * Renderiza o gráfico de linhas diárias. Mostra todas as origens (Shopee,
-   * Mercado Livre, Avulso) e o total geral. Não aplica filtros por "modo"
-   * neste dashboard; todas as séries são sempre exibidas.
-   */
-  function renderDiario(days, serieShopee, serieML, serieAvulso, serieTotal){
+  function renderDiario(days, serieShopee, serieML, serieAvulso, serieTotal) {
     chartDiario.setOption({
       grid: { left: 8, right: 16, top: 20, bottom: 40, containLabel: true },
-      tooltip: { trigger: 'axis' },
+      tooltip: { trigger: "axis" },
       legend: { bottom: 0 },
-      xAxis: { type: 'category', data: days.map(d => d.slice(5)) },
-      yAxis: { type: 'value' },
+      xAxis: { type: "category", data: days.map(d => d.slice(5)) },
+      yAxis: { type: "value" },
       series: [
-        { name: 'Shopee', type: 'line', smooth: true, areaStyle: {}, showSymbol: false, lineStyle: { width: 2 }, data: serieShopee },
-        { name: 'Mercado Livre', type: 'line', smooth: true, areaStyle: {}, showSymbol: false, lineStyle: { width: 2 }, data: serieML },
-        { name: 'Avulso', type: 'line', smooth: true, areaStyle: {}, showSymbol: false, lineStyle: { width: 2 }, data: serieAvulso },
-        { name: 'Total Geral', type: 'line', smooth: true, showSymbol: false, lineStyle: { width: 3 }, data: serieTotal }
+        { name: "Shopee",        type: "line", smooth: true, areaStyle: {}, showSymbol: false, lineStyle: { width: 2 }, data: serieShopee },
+        { name: "Mercado Livre", type: "line", smooth: true, areaStyle: {}, showSymbol: false, lineStyle: { width: 2 }, data: serieML },
+        { name: "Avulso",        type: "line", smooth: true, areaStyle: {}, showSymbol: false, lineStyle: { width: 2 }, data: serieAvulso },
+        { name: "Total Geral",   type: "line", smooth: true, showSymbol: false, lineStyle: { width: 3 }, data: serieTotal }
       ]
     });
   }
 
-  // ===== Fluxo =====
-  async function loadAll(){
-    const { start, end } = startEndLastNDays(15);
-    const startISO = fmtISO(start), endISO = fmtISO(end);
-    const rankingPeriodEl = document.getElementById('ranking-period');
-    const diarioPeriodEl  = document.getElementById('diario-period');
-    if (rankingPeriodEl) rankingPeriodEl.textContent = `Período: ${startISO} a ${endISO}`;
-    if (diarioPeriodEl)  diarioPeriodEl.textContent  = `Período: ${startISO} a ${endISO}`;
+  // ===== Carregadores (com período inclusivo) =====
+  function setPeriodLabels(from, to) {
+    const rp = document.getElementById("ranking-period");
+    const dp = document.getElementById("diario-period");
+    if (rp) rp.textContent = `Período: ${from} a ${to}`;
+    if (dp) dp.textContent = `Período: ${from} a ${to}`;
+  }
 
-    // Busca saídas reais via API. Usamos pageSize alto para tentar obter
-    // todos os registros no intervalo de 15 dias. Filtramos manualmente
-    // depois para garantir que caibam no período correto.
-    let saidas = [];
+  async function fetchSaidas(from, to) {
+    let rows = [];
     try {
-      if (window.TrackAPI && typeof window.TrackAPI.listSaidas === 'function') {
-        const res = await window.TrackAPI.listSaidas({ from: startISO, to: endISO, pageSize: 1000, page: 1 });
-        if (res && res.ok && Array.isArray(res.rows)) saidas = res.rows;
+      if (window.TrackAPI && typeof window.TrackAPI.listSaidas === "function") {
+        const res = await window.TrackAPI.listSaidas({
+          from, to,
+          sort: "-ts",
+          pageSize: 1000,
+          page: 1
+        });
+        if (res && res.ok && Array.isArray(res.rows)) rows = res.rows;
       }
     } catch (e) {
-      console.error('Erro ao carregar saídas para dashboard:', e);
+      console.error("Erro ao carregar saídas:", e);
     }
-    // Filtra para garantir que a data da saída esteja no período desejado (caso o backend ignore os filtros)
-    const filtered = saidas.filter(s => {
-      const iso = extractDateISO(s);
-      return iso && iso >= startISO && iso <= endISO;
-    });
+    return rows;
+  }
 
-    // Monta ranking e série diária
-    const { names, values, details } = buildRanking(filtered);
+  async function loadRanking() {
+    const { from, to } = readDateRange("rank");
+    setPeriodLabels(from, to);
+    const saidas = await fetchSaidas(from, to);
+    const { names, values, details } = buildRanking(saidas);
     renderRanking(names, values, details);
-    const days = daysArray(start, end);
-    const { shopee, ml, avulso, total } = buildSerieDiaria(filtered, days);
+  }
+
+  async function loadDiario() {
+    const { from, to } = readDateRange("daily");
+    setPeriodLabels(from, to);
+    const saidas = await fetchSaidas(from, to);
+    const days = daysArrayInclusive(from, to);
+    const { shopee, ml, avulso, total } = buildSerieDiaria(saidas, days);
     renderDiario(days, shopee, ml, avulso, total);
   }
 
-  // Eventos de recarregar
-  document.getElementById('btn-refresh-ranking')?.addEventListener('click', loadAll);
-  document.getElementById('btn-refresh-diario')?.addEventListener('click', loadAll);
-  // Nota: se futuramente forem adicionados botões de filtro por origem, o
-  // handler deverá chamar renderDiario() com as séries filtradas.
+  // ===== Eventos =====
+  document.getElementById("btn-refresh-ranking")?.addEventListener("click", loadRanking);
+  document.getElementById("btn-refresh-diario") ?.addEventListener("click", loadDiario);
 
-  // Resize charts on window resize
-  window.addEventListener('resize', () => { chartRanking.resize(); chartDiario.resize(); });
+  // per-card inputs
+  document.getElementById("rank-from")?.addEventListener("change", () => {
+    const rf = document.getElementById("rank-from"), rt = document.getElementById("rank-to");
+    if (rf && rt && !rt.value) rt.value = rf.value;
+    loadRanking();
+  });
+  document.getElementById("rank-to")?.addEventListener("change", loadRanking);
 
-  // Boot inicial
-  loadAll();
+  document.getElementById("daily-from")?.addEventListener("change", () => {
+    const df = document.getElementById("daily-from"), dt = document.getElementById("daily-to");
+    if (df && dt && !dt.value) dt.value = df.value;
+    loadDiario();
+  });
+  document.getElementById("daily-to")?.addEventListener("change", loadDiario);
+
+  // globais (se existirem)
+  document.getElementById("dash-from")?.addEventListener("change", () => { 
+    const a = document.getElementById("dash-from"), b = document.getElementById("dash-to");
+    if (a && b && !b.value) b.value = a.value;
+    loadRanking(); loadDiario();
+  });
+  document.getElementById("dash-to")?.addEventListener("change", () => { loadRanking(); loadDiario(); });
+
+  // ===== Boot =====
+  // Se existirem inputs de data, preenche "hoje" por padrão.
+  (function initDefaultDates() {
+    const ids = ["rank-from","rank-to","daily-from","daily-to","dash-from","dash-to"];
+    const today = todayYMD();
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el.value) el.value = today;
+    });
+  })();
+
+  await loadRanking();
+  await loadDiario();
+
+  // resize
+  window.addEventListener("resize", () => { chartRanking.resize(); chartDiario.resize(); });
 })();
