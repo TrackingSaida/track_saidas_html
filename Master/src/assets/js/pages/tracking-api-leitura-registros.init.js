@@ -1,110 +1,111 @@
-// Wrapper da API para Leitura/Registros
-(function (global) {
-  "use strict";
+// assets/js/pages/tracking-api-leitura-registros.init.js
+// Wrapper da API (lista/atualiza/exclui saídas) com paginação correta via limit+1.
 
-  const ns = global.TrackAPI || {};
+(function () {
+  const BASE = (window.TRACK_API_URL || "").replace(/\/+$/,"");
 
-  // Base definida no HTML (ou fallback)
-  const API_BASE = (global.TRACK_API_URL || global.API_URL || "https://track-saidas-api.onrender.com/api")
-    .replace(/\/+$/, "");
+  if (!window.TrackAPI) window.TrackAPI = {};
 
-  function url(path) { return API_BASE + (path.startsWith("/") ? "" : "/") + path; }
-
-  function getToken() {
-    return (
-      localStorage.getItem("access_token") ||
-      localStorage.getItem("acess_token") ||
-      sessionStorage.getItem("access_token") ||
-      sessionStorage.getItem("acess_token") ||
-      null
-    );
+  // -------- util de request
+  async function req(path, opts) {
+    const res = await fetch(BASE + path, Object.assign({
+      credentials: "include",
+      headers: { "Accept": "application/json" }
+    }, opts || {}));
+    return res;
   }
 
-  async function request(path, init) {
-    const headers = Object.assign({ Accept: "application/json" }, (init && init.headers) || {});
-    const token = getToken();
-    if (token && !headers.Authorization) headers.Authorization = "Bearer " + token;
+  // -------- LISTAR SAÍDAS (usa limit/offset, com técnica "limit+1" p/ detectar próxima página)
+  // GET /saidas/listar?de=&ate=&entregador=&status=&codigo=&limit=&offset=
+  window.TrackAPI.listSaidas = async function (params) {
+    const page     = Number(params && params.page)     || 1;
+    const pageSize = Number(params && params.pageSize) || 20;
 
-    const res = await fetch(url(path), Object.assign({ credentials: "include" }, init, { headers }));
-    let data = null, text = "";
-    try { data = await res.clone().json(); } catch (_) { try { text = await res.text(); } catch (__) {} }
-    if (!res.ok) {
-      return { ok: false, status: res.status, error: (data && (data.error || data.detail)) || text || res.statusText, data };
-    }
-    return { ok: true, status: res.status, data: (data ?? null) };
-  }
+    // técnica limit+1
+    const limitRequested = pageSize + 1;
+    const offset = (page - 1) * pageSize;
 
-  // -------- Utils --------
-  function formatTs(ts) {
+    const q = new URLSearchParams();
+    if (params && params.from)        q.set("de", params.from);
+    if (params && params.to)          q.set("ate", params.to);
+    if (params && params.entregador)  q.set("entregador", params.entregador);
+    if (params && params.status)      q.set("status", params.status);
+    if (params && params.codigo)      q.set("codigo", params.codigo);
+    // Se seu back aceitar ordenação, mapeie aqui. Exemplo:
+    // if (params && params.sort) q.set("ordenar", params.sort);
+
+    q.set("limit",  String(limitRequested));
+    q.set("offset", String(offset));
+
     try {
-      if (!ts) return "";
-      const d = (ts instanceof Date) ? ts : (typeof ts === "number" ? new Date(ts) : new Date(String(ts)));
-      if (isNaN(d.getTime())) return "";
-      return d.toLocaleString("pt-BR");
-    } catch (_) { return ""; }
-  }
-  function getRowId(r){
-    return r && (r.id_saida || r.idSaida || r.id || r._id || r.uuid || null);
-  }
+      const res = await req("/saidas/listar?" + q.toString());
+      const ok  = res.ok;
 
-  // -------- Endpoints --------
+      // tenta pegar total do header (caso o back envie)
+      let total = null;
+      const hTotal = res.headers.get("X-Total-Count") || res.headers.get("x-total-count");
+      if (hTotal != null) total = Number(hTotal);
 
-  ns.getEntregadores = function () { return request("/entregadores?ativos=true"); };
+      // interpreta o corpo
+      let data = null;
+      try { data = await res.json(); } catch (_) {}
 
-  ns.registerSaida = function ({ entregador, codigo, servico }) {
-    return request("/saidas/registrar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entregador, codigo, servico })
-    });
+      let rows = [];
+      if (Array.isArray(data)) {
+        rows = data;
+      } else if (data && Array.isArray(data.items)) {
+        rows = data.items;
+        if (typeof data.total === "number") total = data.total;
+      } else if (data && Array.isArray(data.rows)) {
+        rows = data.rows;
+        if (typeof data.total === "number") total = data.total;
+      } else if (data && Array.isArray(data.data)) {
+        rows = data.data;
+        if (typeof data.total === "number") total = data.total;
+      }
+
+      // detecta se há próxima página (veio 1 item a mais)
+      const hasMore = rows.length > pageSize;
+
+      // exibe apenas pageSize no front
+      if (hasMore) rows = rows.slice(0, pageSize);
+
+      // fallback do total quando o back não informa
+      if (total == null) {
+        total = offset + rows.length + (hasMore ? 1 : 0);
+      }
+
+      return { ok, status: res.status, rows, total, page, pageSize, hasMore };
+    } catch (err) {
+      return { ok: false, status: 0, error: String((err && err.message) || err) };
+    }
   };
 
-  // GET /api/saidas/listar?de&ate&entregador&status&codigo&limit&offset
-  ns.listSaidas = function (params) {
-    params = params || {};
-    const page     = Number(params.page || 1);
-    const pageSize = Number(params.pageSize || 20);
-    const limit    = pageSize;
-    const offset   = Math.max(0, (page - 1) * pageSize);
-
-    const qp = new URLSearchParams();
-    if (params.from)        qp.set("de",  params.from);
-    if (params.to)          qp.set("ate", params.to);
-    if (params.entregador)  qp.set("entregador", params.entregador);
-    if (params.status)      qp.set("status", params.status);
-    if (params.codigo)      qp.set("codigo", params.codigo);
-    qp.set("limit",  String(limit));
-    qp.set("offset", String(offset));
-
-    return request("/saidas/listar?" + qp.toString()).then(function (res) {
-      if (!res || !res.ok) return res;
-      const d = res.data;
-      let rows = Array.isArray(d) ? d : (d && (d.rows || d.items || d.data)) || [];
-      const total = (d && typeof d.total === "number") ? d.total : rows.length;
-      rows = rows.map(function (r) {
-        const ts = r.timestamp || r.ts || r.data_hora || r.datahora || r.date || null;
-        const id = getRowId(r);
-        return Object.assign({}, r, { id: id, tsFmt: r.tsFmt || formatTs(ts) });
-      });
-      return { ok: true, page, pageSize, total, rows };
-    });
-  };
-
-  // PATCH /api/saidas/{id_saida}
-  ns.updateSaida = function (id, payload) {
-    return request("/saidas/" + encodeURIComponent(id), {
+  // -------- ATUALIZAR SAÍDA
+  // PATCH /saidas/{id}
+  window.TrackAPI.updateSaida = async function (id, payload) {
+    const res = await req("/saidas/" + encodeURIComponent(id), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload || {})
     });
+    let data = null; try { data = await res.json(); } catch (_){}
+    return { ok: res.ok, status: res.status, data, error: data && data.error };
   };
 
-  // DELETE /api/saidas/{id_saida}
-  ns.deleteSaida = function (id) {
-    return request("/saidas/" + encodeURIComponent(id), { method: "DELETE" });
+  // -------- EXCLUIR SAÍDA
+  // DELETE /saidas/{id}
+  window.TrackAPI.deleteSaida = async function (id) {
+    const res = await req("/saidas/" + encodeURIComponent(id), { method: "DELETE" });
+    let data = null; try { data = await res.json(); } catch (_){}
+    return { ok: res.ok, status: res.status, data, error: data && data.error };
   };
 
-  ns.ping = function () { return request("/health"); };
-
-  global.TrackAPI = ns;
-})(window);
+  // -------- LISTA ENTREGADORES (opcional)
+  // GET /entregadores
+  window.TrackAPI.getEntregadores = async function () {
+    const res = await req("/entregadores");
+    let data = null; try { data = await res.json(); } catch (_){}
+    return data;
+  };
+})();

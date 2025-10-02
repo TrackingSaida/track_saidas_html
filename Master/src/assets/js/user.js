@@ -8,6 +8,12 @@
   const API_ORIGIN = "https://track-saidas-api.onrender.com";
   const LOGIN_PAGE = "auth-signin-tracking-v2.html"; // relativo às páginas
 
+    const HEARTBEAT_MS = 20000; // 20s
+  const SKEW_MS = 5000; // redireciona até 5s antes do expirar para não dar erro visual
+  let expiryTimer = null;
+  let heartbeatTimer = null;
+  let lastToken = null;
+
   function isOnLoginPage() {
     try {
       const u = new URL(window.location.href);
