@@ -119,6 +119,7 @@ function buildRow(e){
       <td>${e.telefone || "-"}</td>
       <td>${e.documento || "-"}</td>
       <td class="text-center"><input type="checkbox" class="form-check-input" ${ativoChecked} disabled></td>
+      <td class="text-center"><input type="checkbox" class="form-check-input" ${e.coletador ? "checked" : ""} disabled></td>
     </tr>`;
 }
 
@@ -237,12 +238,21 @@ function openForm(modo, data=null){
   offcanvas?.show();
 }
 
-function formPayload(){
-  return {
-    nome:       (qs("#nome").value || "").trim(),
-    documento:  (qs("#documento").value || "").trim(),
-    telefone:   (qs("#telefone").value || "").trim(),
+function normalizeNome(nomeRaw = "") {
+  return nomeRaw
+    .toLowerCase()                            // tudo minúsculo
+    .split(/\s+/)                             // divide por espaços
+    .filter(Boolean)                          // remove vazios
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1)) // capitaliza
+    .join(" ");                               // junta de volta
+}
 
+
+function formPayload(){
+  const payload = {
+    nome:        normalizeNome(qs("#nome").value || ""),
+    documento:   (qs("#documento").value || "").trim(),
+    telefone:    (qs("#telefone").value || "").trim(),
     rua:         (qs("#rua").value || "").trim(),
     numero:      (qs("#numero").value || "").trim(),
     complemento: (qs("#complemento").value || "").trim(),
@@ -250,7 +260,18 @@ function formPayload(){
     cidade:      (qs("#cidade").value || "").trim(),
     bairro:      (qs("#bairro").value || "").trim(),
   };
+
+  // === Coletador ===
+  const chk = qs("#coletador");
+  if (chk && chk.checked) {
+    payload.coletador = true;
+    payload.username_entregador = (qs("#username_entregador")?.value || "").trim();
+    payload.senha = (qs("#senha_entregador")?.value || "").trim();
+  }
+
+  return payload;
 }
+
 
 /* =================== Init ===================== */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -303,31 +324,71 @@ document.addEventListener("DOMContentLoaded", async () => {
     deletingId = id; const m = qs("#modalDelete"); m && new bootstrap.Modal(m).show();
   });
 
-  // submit
-  qs("#formEntregador")?.addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const form = ev.currentTarget;
-    if (!form.checkValidity()){ form.classList.add("was-validated"); return; }
+  
+// submit
+qs("#formEntregador")?.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const form = ev.currentTarget;
+  if (!form.checkValidity()) {
+    form.classList.add("was-validated");
+    return;
+  }
 
-    const id = safeId(qs("#entregadorId").value);
-    const payload = formPayload();
-    try {
-      if (id) {
+  const id = safeId(qs("#entregadorId").value);
+  const payload = formPayload();
+
+  try {
+    if (id) {
+      // entregador já existente → PATCH (sempre)
+      try {
         await apiUpdate(id, payload);
-        if (!qs("#grp-ativo").classList.contains("d-none")) {
-          await apiUpdateAtivo(id, qs("#ativo").checked);
+        toast("Entregador atualizado com sucesso.");
+      } catch (err) {
+        if (err?.status === 422) {
+          toast("Erro de validação. Verifique os dados.", false);
+        } else if (err?.status === 401) {
+          toast("Sessão expirada. Faça login novamente.", false);
+          return;
+        } else if (err?.status === 409) {
+          toast("Conflito: já existe um entregador com esse documento nesta sub-base.", false);
+        } else {
+          toast("Erro ao atualizar entregador.", false);
         }
-      } else {
-        await apiCreate(payload);
       }
-      toast("Salvo com sucesso.");
-      offcanvas?.hide();
-      await listarEntregadores();
-    } catch (err) {
-      console.error(err);
-      toast("Erro ao salvar. Verifique os dados.", false);
+
+      if (!qs("#grp-ativo").classList.contains("d-none")) {
+        await apiUpdateAtivo(id, qs("#ativo").checked);
+      }
+
+    } else {
+      // novo entregador → POST
+      try {
+        await apiCreate(payload);
+        toast("Entregador criado com sucesso.");
+      } catch (err) {
+        if (err?.status === 422) {
+          toast("Erro de validação. Verifique os dados.", false);
+        } else if (err?.status === 401) {
+          toast("Sessão expirada. Faça login novamente.", false);
+          return;
+        } else if (err?.status === 409) {
+          toast("Conflito: já existe um entregador com esse documento nesta sub-base.", false);
+        } else {
+          toast("Erro ao criar entregador.", false);
+        }
+      }
     }
-  });
+
+    offcanvas?.hide();
+    await listarEntregadores();
+
+  } catch (err) {
+    console.error(err);
+    toast("Erro ao salvar. Verifique os dados.", false);
+  }
+});
+
+
 
   // excluir
   qs("#btnConfirmDelete")?.addEventListener("click", async () => {
@@ -557,3 +618,33 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 })();
 
+
+
+// === COLETADOR: Mostrar/Ocultar campos extras ===
+const chkColetador = document.getElementById("coletador");
+const grpColetadorExtra = document.getElementById("grp-coletador-extra");
+if (chkColetador && grpColetadorExtra) {
+  chkColetador.addEventListener("change", () => {
+    if (chkColetador.checked) {
+      grpColetadorExtra.classList.remove("d-none");
+    } else {
+      grpColetadorExtra.classList.add("d-none");
+      const u = document.getElementById("username_entregador");
+      const s = document.getElementById("senha_entregador");
+      if (u) u.value = "";
+      if (s) s.value = "";
+    }
+  });
+}
+
+// === Alternar visibilidade da senha (Coletador) ===
+document.querySelectorAll('[data-toggle="ver-senha"]').forEach(btn => {
+  btn.addEventListener("click", () => {
+    const input = btn.closest(".position-relative").querySelector(".senha-input");
+    if (!input) return;
+    const isPassword = input.getAttribute("type") === "password";
+    input.setAttribute("type", isPassword ? "text" : "password");
+    btn.querySelector("i").classList.toggle("ri-eye-fill", !isPassword);
+    btn.querySelector("i").classList.toggle("ri-eye-off-fill", isPassword);
+  });
+});
