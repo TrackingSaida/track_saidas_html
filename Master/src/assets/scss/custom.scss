@@ -195,3 +195,30 @@
   padding: .375rem .5rem;
 }
 
+// ===============================================
+// Estilos personalizados - Resumo de Coletas
+// ===============================================
+$color-shopee: #EE4D2D;
+$color-ml-yellow: #FFE600;
+$color-ml-blue: #2D3277;
+$color-avulso: #6c757d;
+
+.card-shopee {
+  background-color: $color-shopee;
+  color: #fff;
+}
+
+.card-ml {
+  background-color: $color-ml-yellow;
+  color: $color-ml-blue;
+}
+
+.card-avulso {
+  background-color: $color-avulso;
+  color: #fff;
+}
+
+.card-total {
+  background-color: $color-ml-blue;
+  color: #fff;
+}
