@@ -195,9 +195,33 @@
   padding: .375rem .5rem;
 }
 
-// ===============================================
-// Estilos personalizados - Resumo de Coletas
-// ===============================================
+/* estilo do contador dentro do overlay (parte inferior) */
+.scanfs-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+
+  .scan-hint { font-size: 1rem; color: #fff; font-weight: 600; }
+
+  .scan-packages-count {
+    pointer-events: auto;
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: .875rem;
+    min-width: 56px;
+    text-align: center;
+    box-shadow: 0 6px 18px rgba(0,0,0,.35);
+  }
+}
+
+/* ===============================================
+Estilos personalizados - Resumo de Coletas
+=============================================== */
 $color-shopee: #EE4D2D;
 $color-ml-yellow: #FFE600;
 $color-ml-blue: #2D3277;

@@ -89,11 +89,11 @@ function classifyCodigo(rawInput){
 
   // Resumo (já existia)
   var sumShopeeEl  = qs('#sum-shopee');
-  var sumMercadoEl = qs('#sum-mercado');
+  var sumMercadoEl = qs('#sum-ml');
   var sumAvulsoEl  = qs('#sum-avulso');
   var sumTotalEl   = qs('#sum-total');
 
-  var state = { page: 1, pageSize: 20, total: 0, rows: [], hasMore: false };
+  var state = { page: 1, pageSize: 200, total: 0, rows: [], hasMore: false };
 
   // ================== Combos (entregadores) ==================
   function loadCombosBase(){
@@ -131,18 +131,18 @@ function classifyCodigo(rawInput){
   }
 
   // ================== helpers ==================
-  function readFilters(){
-    return {
-      page: state.page,
-      pageSize: parseInt((f.pageSize && f.pageSize.value) || "20", 10),
-      from: (f.from && f.from.value) || "",
-      to: (f.to && f.to.value) || "",
-      entregador: (f.entregador && f.entregador.value) || "",
-      status: (f.status && f.status.value) || "",
-      codigo: (f.codigo && f.codigo.value) || "",
-      sort: (f.sort && f.sort.value) || "-ts"
-    };
-  }
+function readFilters(){
+  return {
+    page: state.page,
+    pageSize: parseInt((f.pageSize && f.pageSize.value) || "200", 10),
+    from: (f.from && f.from.value) || "",
+    to: (f.to && f.to.value) || "",
+    entregador: (f.entregador && f.entregador.value) || "",
+    status: (f.status && f.status.value) || "",
+    codigo: (f.codigo && f.codigo.value) || "",
+    sort: (f.sort && f.sort.value) || "-ts"
+  };
+}
   function getRowId(r){ return (r && (r.id || r.id_saida || r.idSaida || r._id || r.uuid)) || ''; }
 
   function normalizeRow(r){
@@ -429,7 +429,40 @@ function classifyCodigo(rawInput){
   loadCombosBase().then(function(nomes){
     augmentEntregadoresFromRows._base = nomes || [];
     fillEntregadores(nomes || []);
-  }).finally(function(){
-    refresh(false); // primeira carga
-  });
+}).finally(function(){
+  if (f.pageSize) f.pageSize.value = String(state.pageSize);
+  refresh(false); // primeira carga
+});
 })();
+
+/**
+ * Atualiza o resumo visível dos registros. Conta quantos códigos pertencem
+ * a cada serviço (Shopee, Mercado Livre, Avulso) e o total geral.
+ * Pode ser chamada após carregar ou atualizar a tabela.
+ */
+function updateSummaryRegistros() {
+  if (!sumShopeeEl || !sumMercadoEl || !sumAvulsoEl || !sumTotalEl) return;
+
+  let shopee = 0, ml = 0, avulso = 0, total = 0;
+
+  document.querySelectorAll('#reg-rows tr').forEach(tr => {
+    const servico = tr.querySelector('td:nth-child(5)')?.textContent?.trim().toLowerCase();
+    if (!servico) return;
+
+    total++;
+    if (servico.includes('shopee')) shopee++;
+    else if (servico.includes('mercado')) ml++;
+    else avulso++;
+  });
+
+  sumShopeeEl.textContent  = shopee;
+  sumMercadoEl.textContent = ml;
+  sumAvulsoEl.textContent  = avulso;
+  sumTotalEl.textContent   = total;
+}
+
+// Executa o resumo ao carregar a página (caso os dados já estejam renderizados)
+document.addEventListener('DOMContentLoaded', () => {
+  updateSummaryRegistros();
+});
+

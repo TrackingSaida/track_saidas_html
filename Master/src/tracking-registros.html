@@ -74,14 +74,45 @@
           <!-- Tabela -->
           <div class="card">
             <div class="card-body">
-              <!-- Resumo com totais por serviço -->
-              <div id="reg-summary" class="mb-2 text-muted" style="font-size: 0.9rem;">
-                Totais:&nbsp;
-                Shopee <strong id="sum-shopee">0</strong> •
-                Mercado Livre <strong id="sum-mercado">0</strong> •
-                Avulso <strong id="sum-avulso">0</strong> •
-                Geral <strong id="sum-total">0</strong>
-              </div>
+<!-- Resumo das Leituras Atuais -->
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">Resumo das Leituras</h5>
+    <small class="text-muted">Sessão atual</small>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-3">
+        <div class="p-3 rounded card-shopee text-center">
+          <span class="fw-semibold">Shopee</span>
+          <div class="fs-5 fw-semibold" id="sum-shopee">0</div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="p-3 rounded card-ml text-center">
+          <span class="fw-semibold">Mercado Livre</span>
+          <div class="fs-5 fw-semibold" id="sum-ml">0</div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="p-3 rounded card-avulso text-center">
+          <span class="fw-semibold">Avulso</span>
+          <div class="fs-5 fw-semibold" id="sum-avulso">0</div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="p-3 rounded card-total text-center">
+          <span class="fw-semibold">Total</span>
+          <div class="fs-5 fw-semibold" id="sum-total">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 
               <div class="table-responsive">
                 <table class="table align-middle table-nowrap">

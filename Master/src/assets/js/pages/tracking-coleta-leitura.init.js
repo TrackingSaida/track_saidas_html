@@ -7,6 +7,25 @@ const STORAGE_KEY = "coletasPendentes";
 const qs  = (s) => document.querySelector(s);
 const qsa = (s) => Array.from(document.querySelectorAll(s));
 
+
+/* ================== Sons  ================== */
+const Sound = (() => {
+  let ctx;
+  function ensure(){ if (!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); if (ctx.state==='suspended') ctx.resume(); return ctx; }
+  function beep({ freq=880, dur=120, type="sine", vol=1.2, when=0 }){
+    const c = ensure(), t0 = c.currentTime + when/1000, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t0); g.gain.linearRampToValueAtTime(0.0001, t0 + dur/1000);
+    o.connect(g).connect(c.destination); o.start(t0); o.stop(t0 + dur/1000 + 0.02); return dur;
+  }
+  function play(kind){
+    if (kind === "ok"){ let d = 0; d += beep({freq:1046,dur:90,type:"sine",vol:1.2,when:d}); beep({freq:1318,dur:140,type:"sine",vol:1.2,when:d+60}); }
+    else if (kind === "warn"){ let d = 0; d += beep({freq:660,dur:120,type:"triangle",vol:1.2,when:d}); beep({freq:660,dur:120,type:"triangle",vol:1.2,when:d+160}); }
+    else { beep({freq:220,dur:240,type:"square",vol:1.2,when:0}); beep({freq:180,dur:220,type:"square",vol:1.2,when:260}); }
+  }
+  return { play };
+})();
+
 const toast = (msg, ok = true) => {
   const el = document.createElement("div");
   el.className = `toast align-items-center text-bg-${ok ? "primary" : "danger"} border-0 position-fixed bottom-0 end-0 m-3`;
@@ -40,6 +59,7 @@ async function enviarColetasLote(base, itens) {
   return r;
 }
 
+
 /* =================== Normalização / Classificação =================== */
 function toAsciiDigits(s){
   if (!s) return "";
@@ -67,6 +87,11 @@ function classifyCodigo(rawInput){
   // Avulso (CEP): primeira ocorrência de 8 dígitos
   const cep = (allDigits.match(/\d{8}/) || [null])[0];
   if (cep)   return { ok:true, servico:"Avulso", codigo: cep };
+
+      // TIME + 6 dígitos → Avulso (Time)
+if (/^TIME\d{6}$/i.test(raw)) {
+  return { ok:true, servico:"Avulso", codigo:raw };
+}
 
   return { ok:false, motivo:"Padrão não configurado" };
 }
@@ -128,6 +153,7 @@ function registrarCodigo() {
   const parsed = classifyCodigo(codRaw);
   if (!parsed.ok) {
     toast(`Código inválido (${parsed.motivo})`, false);
+    Sound.play('error');
     return;
   }
 
@@ -137,11 +163,16 @@ function registrarCodigo() {
   if (COLETAS.some(c => c.codigo === codigo)) {
     COLETAS.push({ base: baseSel, codigo, servico, status: "duplicado", tentativas: 0 });
     toast("Código duplicado.", false);
+    Sound.play("warn");
   } else {
     COLETAS.push({ base: baseSel, codigo, servico, status: "pendente", tentativas: 0 });
     toast("Código registrado.");
+    Sound.play("ok");
   }
+
+ 
   qs("#codigo").value = "";
+  qs("#codigo")?.focus();
   renderTabela();
 }
 
@@ -160,6 +191,7 @@ async function enviarLote() {
     if (r.status === 201) {
       COLETAS = COLETAS.map(c => ({ ...c, status: "enviado", tentativas: c.tentativas || 0 }));
       toast("Coleta realizada com sucesso!");
+      Sound.play("ok");
     } else {
       throw new Error(`Erro: ${r.status}`);
     }
@@ -175,6 +207,7 @@ async function enviarLote() {
       }
     });
     toast("Falha ao enviar. Tente novamente.", false);
+    Sound.play('error');
   } finally {
     renderTabela();
   }
@@ -193,6 +226,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   qs("#btnRegistrar")?.addEventListener("click", registrarCodigo);
+  qs("#codigo")?.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {e.preventDefault();
+      registrarCodigo();
+    }
+  });
   qs("#btnIrParaLote")?.addEventListener("click", enviarLote);
   qs("#tbody-coletas")?.addEventListener("click", e => {
     const btn = e.target.closest("[data-remove]");
@@ -205,3 +243,43 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderTabela();
   atualizarResumo();
 });
+
+/* ======= Normalize scanner binding: desativa inits antigos e usa Scanner compartilhado ======= */
+(function replaceLocalScannerInit(){
+  // neutraliza helper/debug antigo (se existir)
+  try {
+    if (window.__scannerDebug) {
+      window.__scannerDebug.openScanner = async function(){ console.warn('old scanner disabled'); };
+      window.__scannerDebug.stopScanner = function(){ /* noop */ };
+    }
+  } catch(e){ console.warn('Não foi possível neutralizar __scannerDebug', e); }
+
+  const btn = document.getElementById('btnScan');
+  if (!btn) return;
+
+  // remove listeners antigos clonando o botão (prática simples e segura)
+  const newBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn, btn);
+
+  newBtn.addEventListener('click', function(ev){
+    ev.preventDefault();
+    if (!window.Scanner || typeof window.Scanner.open !== 'function') {
+      toast && toast('Scanner não disponível no momento.', false);
+      console.warn('Scanner service não encontrado.');
+      return;
+    }
+
+    window.Scanner.open({
+      autoClose: true,
+      onScan: function(text){
+        const inp = document.getElementById('codigo');
+        if (inp) inp.value = String(text || '').trim();
+        try { if (typeof registrarCodigo === 'function') registrarCodigo(true); }
+        catch(e){ console.error('Erro ao registrar código após scan:', e); }
+      }
+    }).catch(function(err){
+      console.error('Scanner.open erro:', err);
+      toast && toast('Não foi possível abrir o scanner.', false);
+    });
+  });
+})();

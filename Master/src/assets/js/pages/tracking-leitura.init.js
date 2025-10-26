@@ -77,15 +77,15 @@
   const Sound = (() => {
     let ctx;
     function ensure(){ if (!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); if (ctx.state==='suspended') ctx.resume(); return ctx; }
-    function beep({ freq=880, dur=120, type="sine", vol=0.06, when=0 }){
+    function beep({ freq=880, dur=120, type="sine", vol=1.5, when=0 }){
       const c=ensure(), t0=c.currentTime+when/1000, o=c.createOscillator(), g=c.createGain();
       o.type=type; o.frequency.value=freq; g.gain.setValueAtTime(vol,t0); g.gain.linearRampToValueAtTime(0.0001,t0+dur/1000);
       o.connect(g).connect(c.destination); o.start(t0); o.stop(t0+dur/1000+0.02); return dur;
     }
     function play(kind){
-      if (kind==="ok"){ let d=0; d+=beep({freq:1046,dur:90, type:"sine",vol:0.05,when:d}); beep({freq:1318,dur:140,type:"sine",vol:0.05,when:d+60}); }
-      else if (kind==="warn"){ let d=0; d+=beep({freq:660,dur:120,type:"triangle",vol:0.05,when:d}); beep({freq:660,dur:120,type:"triangle",vol:0.05,when:d+160}); }
-      else { beep({freq:220,dur:240,type:"square",vol:0.06,when:0}); beep({freq:180,dur:220,type:"square",vol:0.06,when:260}); }
+      if (kind==="ok"){ let d=0; d+=beep({freq:1046,dur:90, type:"sine",vol:1.5,when:d}); beep({freq:1318,dur:140,type:"sine",vol:1.5,when:d+60}); }
+      else if (kind==="warn"){ let d=0; d+=beep({freq:660,dur:120,type:"triangle",vol:1.5,when:d}); beep({freq:660,dur:120,type:"triangle",vol:1.5,when:d+160}); }
+      else { beep({freq:220,dur:240,type:"square",vol:1.5,when:0}); beep({freq:180,dur:220,type:"square",vol:1.5,when:260}); }
     }
     return { play };
   })();
@@ -152,6 +152,13 @@ function showMsgIcon(tipo, texto) {
     // Avulso (CEP): primeira ocorrência de 8 dígitos
     const cep = (allDigits.match(/\d{8}/) || [null])[0];
     if (cep)   return { ok:true, servico:"Avulso", codigo: cep };
+
+
+    // TIME + 6 dígitos → Avulso (Time)
+if (/^TIME\d{6}$/i.test(raw)) {
+  return { ok:true, servico:"Avulso", codigo:raw };
+}
+
 
     return { ok:false, motivo:"Padrão não configurado" };
   }
@@ -383,7 +390,7 @@ function showMsgIcon(tipo, texto) {
     if (inpCod) { inpCod.value = ""; inpCod.focus(); }
   }
 
-// ===== Leitor por Câmera – Full-screen (ZXing) | Modo contínuo =====
+// ===== Leitor por Câmera — Full-screen (ZXing) | Modo contínuo =====
 (function CameraScannerFS(){
   if (!window.ZXingBrowser) return;
 
@@ -392,7 +399,7 @@ function showMsgIcon(tipo, texto) {
   const video     = document.getElementById("scanFSVideo");
   const btnBack   = document.getElementById("scanFSBack");
   const btnTorch  = document.getElementById("scanFSTorch");
-  const stackBox  = document.getElementById("scanFSStack");   // <-- NOVO (pilha)
+  const stackBox  = document.getElementById("scanFSStack");
 
   if (!btnScan || !overlay || !video) return;
 
@@ -416,30 +423,37 @@ function showMsgIcon(tipo, texto) {
     return ts && (now - ts < RECENT_TTL);
   }
 
-  // ===  empilhar "código + serviço" no painel inferior ===
+  // === empilhar "código + serviço" no painel inferior ===
   function pushScanCard({ codigo, servico }){
-  if (!stackBox) return;
-  const div = document.createElement('div');
-  div.className = 'scanfs-card';
-  div.innerHTML = `
-    <div class="c">${codigo}</div>
-    <div class="s">${servico ? servico : ''}</div>
-  `;
-  stackBox.prepend(div);
+    if (!stackBox) return;
+    const div = document.createElement('div');
+    div.className = 'scanfs-card';
+    div.innerHTML = `
+      <div class="c">${codigo}</div>
+      <div class="s">${servico ? servico : ''}</div>
+    `;
+    stackBox.prepend(div);
 
-  while (stackBox.children.length > 50) {
-    stackBox.removeChild(stackBox.lastElementChild);
+    while (stackBox.children.length > 50) {
+      stackBox.removeChild(stackBox.lastElementChild);
+    }
+    stackBox.scrollTop = 0;
   }
-  stackBox.scrollTop = 0;
-}
 
+  // ✅ Define corretamente a função usada no closeScanner
+  function clearScanStack(){
+    if (stackBox) stackBox.innerHTML = '';
+  }
 
   function showOverlay(){ overlay.classList.add("show"); pushHistoryGuard(); }
   function hideOverlay(){ overlay.classList.remove("show"); }
 
   function stop(){
     try { codeReader.reset(); } catch(_){}
-    if (currentStream){ currentStream.getTracks().forEach(t=>t.stop()); currentStream = null; }
+    if (currentStream){
+      currentStream.getTracks().forEach(t=>t.stop());
+      currentStream = null;
+    }
     trackWithTorch = null;
   }
 
@@ -460,8 +474,9 @@ function showMsgIcon(tipo, texto) {
       if (text === lastText) sameCount++; else { lastText = text; sameCount = 0; }
       if (sameCount < 1) return;
 
-      // classifica com a mesma regra do teclado
-      const cls = typeof classifyCodigo === "function" ? classifyCodigo(text) : { ok:true, codigo:text, servico:null };
+      const cls = typeof classifyCodigo === "function"
+        ? classifyCodigo(text)
+        : { ok:true, codigo:text, servico:null };
 
       if (!cls.ok) {
         showMsgIcon("erro", `Código inválido: ${cls.motivo}.`);
@@ -470,7 +485,6 @@ function showMsgIcon(tipo, texto) {
         return;
       }
 
-      // precisa entregador
       const ent = document.getElementById("entregador")?.value;
       if (!ent) {
         showMsgIcon("erro", "Selecione o entregador antes de escanear.");
@@ -481,10 +495,8 @@ function showMsgIcon(tipo, texto) {
 
       if (seenRecently(cls.codigo)) { cooldownUntil = now + 400; return; }
 
-      // EMPILHA no painel inferior (apenas quando a câmera está aberta)
       pushScanCard({ codigo: cls.codigo, servico: cls.servico });
 
-      // dispara o mesmo fluxo do botão "Registrar"
       const inp = document.getElementById("codigo");
       if (inp) inp.value = cls.codigo;
       if (typeof registrar === "function") registrar();
@@ -519,25 +531,160 @@ function showMsgIcon(tipo, texto) {
     await trackWithTorch.applyConstraints({ advanced: [{ torch: !st.torch }] });
   }
 
-  // sair sem ler
-  function closeScanner(){ stop(); hideOverlay(); clearScanStack(); } // <-- limpa a pilha ao fechar
-  const backgroundClick = (e) => { if (e.target === overlay) closeScanner(); };
+  // ✅ Aqui agora a função existe antes de ser chamada
+  function closeScanner(){
+    stop();
+    hideOverlay();
+    clearScanStack();
+  }
+
+  const backgroundClick = (e) => {
+    if (e.target === overlay) closeScanner();
+  };
 
   btnScan.addEventListener("click", async () => {
     try { await openScanner(); }
-    catch { closeScanner(); showMsgIcon("erro","Não foi possível acessar a câmera. Verifique permissões/HTTPS."); Sound.play("err"); }
+    catch {
+      closeScanner();
+      showMsgIcon("erro","Não foi possível acessar a câmera. Verifique permissões/HTTPS.");
+      Sound.play("err");
+    }
   });
+
   btnBack.addEventListener("click", closeScanner);
   overlay.addEventListener("click", backgroundClick);
+
   document.addEventListener("keydown", (e) => {
     if (overlay.classList.contains("show") && e.key === "Escape") closeScanner();
   });
-  function pushHistoryGuard(){ try { history.pushState({ scanOpen: true }, ""); } catch(_) {} }
-  window.addEventListener("popstate", () => { if (overlay.classList.contains("show")) closeScanner(); });
+
+  function pushHistoryGuard(){
+    try { history.pushState({ scanOpen: true }, ""); } catch(_) {}
+  }
+  window.addEventListener("popstate", () => {
+    if (overlay.classList.contains("show")) closeScanner();
+  });
 
   btnTorch?.addEventListener("click", toggleTorch);
   window.addEventListener("pagehide", stop);
 })();
+
+
+  // ===== Leitor por Câmera — integração com Scanner compartilhado + validação de status =====
+(function LeituraUseSharedScanner(){
+  const btnScan = document.getElementById("btnScan");
+  const inputCodigo = document.getElementById("codigo");
+  const btnRegistrar = document.getElementById("btnRegistrar");
+
+  // tenta verificar se o código foi coletado (ajuste URLs conforme backend)
+  async function checkCollected(code){
+    if (!code) return false;
+
+    // respeito da flag global: quando false, permito registro sem checagem
+    if (window.ENABLE_STATUS_CHECK === false) return true;
+
+    // usa helper global se existir
+    if (typeof window.checkCodigoStatus === "function") {
+      try {
+        const r = await window.checkCodigoStatus(code);
+        if (typeof r === "boolean") return r;
+        const st = (r && (r.status || r.data?.status || r.state)) || r;
+        return String(st || "").toLowerCase() === "coletado";
+      } catch(e){
+        console.warn("checkCodigoStatus failed, permitindo registro por fallback", e);
+        return true; // permissivo em caso de falha do helper
+      }
+    }
+
+    // se não houver endpoint configurado, permitir (modo dev/offline)
+    if (!window.TRACK_API_URL) return true;
+
+    const urls = [
+      `${window.TRACK_API_URL}/coletas/status?codigo=${encodeURIComponent(code)}`,
+      `${window.TRACK_API_URL}/packages/status?codigo=${encodeURIComponent(code)}`
+    ];
+
+    for (const u of urls) {
+      try {
+        const res = await fetch(u, { credentials: "include" });
+        if (!res.ok) {
+          // tenta próxima rota; não bloqueia por falha HTTP
+          console.warn('status-check non-ok', u, res.status);
+          continue;
+        }
+        const j = await res.json().catch(()=>null);
+        if (typeof j === "boolean") return j;
+        const status = (j.status || j.data?.status || j.state || j.result || "").toString();
+        if (status.toLowerCase() === "coletado") return true;
+        return false; // backend confirmou NÃO coletado
+      } catch (err) {
+        console.warn('status-check failed (network), permitindo registro por fallback', err);
+        return true; // permissivo em caso de erro de rede
+      }
+    }
+
+    // se nenhuma rota confirmou "Coletado", não bloqueia por padrão
+    return true;
+  }
+
+  function showNotCollectedAlert(code){
+    const title = "Coleta não realizada";
+    const text = `O código "${String(code||'')}" não foi coletado.`;
+    if (window.Swal && typeof Swal.fire === "function") {
+      Swal.fire({ icon: "warning", title, text, confirmButtonText: "Ok" });
+    } else {
+      alert(title + "\n\n" + text);
+    }
+  }
+
+  async function handleScanResult(text){
+    const code = String(text || "").trim();
+    if (!code) return;
+    if (inputCodigo) inputCodigo.value = code;
+
+    try {
+      const ok = await checkCollected(code);
+      if (ok) {
+        // chama a rotina de registro existente (registrar ou registrarCodigo)
+        if (typeof registrarCodigo === "function") {
+          registrarCodigo(true);
+        } else if (typeof registrar === "function") {
+          registrar();
+        } else if (btnRegistrar) {
+          btnRegistrar.click();
+        }
+      } else {
+        showNotCollectedAlert(code);
+      }
+    } catch (e) {
+      console.error("Erro ao validar status:", e);
+      showNotCollectedAlert(code);
+    }
+  }
+
+  if (btnScan) {
+    // remove binds antigos substituindo o nó (seguro)
+    const newBtn = btnScan.cloneNode(true);
+    btnScan.parentNode.replaceChild(newBtn, btnScan);
+    newBtn.addEventListener("click", function(ev){
+      ev && ev.preventDefault && ev.preventDefault();
+      if (!window.Scanner || typeof window.Scanner.open !== "function") {
+        (window.toast && window.toast("Scanner indisponível.", false)) || console.warn("Scanner não encontrado");
+        return;
+      }
+      window.Scanner.open({
+        autoClose: true,
+        onScan: function(txt){
+          handleScanResult(txt);
+        }
+      }).catch(err => {
+        console.error("Scanner.open erro:", err);
+        (window.toast && window.toast("Não foi possível abrir o scanner.", false)) || null;
+      });
+    });
+  }
+})();
+
 
   // ---------- eventos ----------
   selEnt?.addEventListener("change", onEntregadorChange);
