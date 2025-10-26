@@ -20,10 +20,14 @@ window.TrackAPI.listSaidas = async function (params) {
   const page     = Number(params && params.page)     || 1;
   const pageSize = Number(params && params.pageSize) || 200;
 
+  // Detecta se há algum filtro ativo
   const hasFilter =
     (params && (params.entregador || params.status || params.codigo || params.from || params.to));
 
-  // 🔹 Se há filtro, não aplica limit/offset (traz tudo)
+  // 🔹 Sempre define offset = 0 como fallback
+  let offset = 0;
+
+  // Monta os parâmetros da query
   const q = new URLSearchParams();
   if (params && params.from)        q.set("de", params.from);
   if (params && params.to)          q.set("ate", params.to);
@@ -31,56 +35,64 @@ window.TrackAPI.listSaidas = async function (params) {
   if (params && params.status)      q.set("status", params.status);
   if (params && params.codigo)      q.set("codigo", params.codigo);
 
+  // 🔹 Se NÃO houver filtro, aplica paginação
   if (!hasFilter) {
     const limitRequested = pageSize + 1;
-    const offset = (page - 1) * pageSize;
+    offset = (page - 1) * pageSize;
     q.set("limit",  String(limitRequested));
     q.set("offset", String(offset));
+  } else {
+    // 🔹 Se há filtro, traz tudo (usa limite alto)
+    q.set("limit",  "6000");
+    q.set("offset", "0");
   }
 
-    try {
-      const res = await req("/saidas/listar?" + q.toString());
-      const ok  = res.ok;
+  try {
+    // ✅ Corrigido o endpoint
+    const res = await req("/saidas/listar?" + q.toString());
+    const ok  = res.ok;
 
-      // tenta pegar total do header (caso o back envie)
-      let total = null;
-      const hTotal = res.headers.get("X-Total-Count") || res.headers.get("x-total-count");
-      if (hTotal != null) total = Number(hTotal);
+    // tenta pegar total do header (caso o back envie)
+    let total = null;
+    const hTotal = res.headers.get("X-Total-Count") || res.headers.get("x-total-count");
+    if (hTotal != null) total = Number(hTotal);
 
-      // interpreta o corpo
-      let data = null;
-      try { data = await res.json(); } catch (_) {}
+    // interpreta o corpo
+    let data = null;
+    try { data = await res.json(); } catch (_) {}
 
-      let rows = [];
-      if (Array.isArray(data)) {
-        rows = data;
-      } else if (data && Array.isArray(data.items)) {
-        rows = data.items;
-        if (typeof data.total === "number") total = data.total;
-      } else if (data && Array.isArray(data.rows)) {
-        rows = data.rows;
-        if (typeof data.total === "number") total = data.total;
-      } else if (data && Array.isArray(data.data)) {
-        rows = data.data;
-        if (typeof data.total === "number") total = data.total;
-      }
-
-      // detecta se há próxima página (veio 1 item a mais)
-      const hasMore = rows.length > pageSize;
-
-      // exibe apenas pageSize no front
-      if (hasMore) rows = rows.slice(0, pageSize);
-
-      // fallback do total quando o back não informa
-      if (total == null) {
-        total = offset + rows.length + (hasMore ? 1 : 0);
-      }
-
-      return { ok, status: res.status, rows, total, page, pageSize, hasMore };
-    } catch (err) {
-      return { ok: false, status: 0, error: String((err && err.message) || err) };
+    let rows = [];
+    if (Array.isArray(data)) {
+      rows = data;
+    } else if (data && Array.isArray(data.items)) {
+      rows = data.items;
+      if (typeof data.total === "number") total = data.total;
+    } else if (data && Array.isArray(data.rows)) {
+      rows = data.rows;
+      if (typeof data.total === "number") total = data.total;
+    } else if (data && Array.isArray(data.data)) {
+      rows = data.data;
+      if (typeof data.total === "number") total = data.total;
     }
-  };
+
+    // detecta se há próxima página (veio 1 item a mais)
+    const hasMore = rows.length > pageSize;
+
+    // exibe apenas pageSize no front (somente se houver paginação)
+    if (!hasFilter && hasMore) rows = rows.slice(0, pageSize);
+
+    // fallback do total quando o back não informa
+    if (total == null) {
+      total = offset + rows.length + (hasMore ? 1 : 0);
+    }
+
+    return { ok, status: res.status, rows, total, page, pageSize, hasMore };
+  } catch (err) {
+    return { ok: false, status: 0, error: String((err && err.message) || err) };
+  }
+};
+
+
 
     // -------- REGISTRAR SAÍDA
   // POST /saidas
