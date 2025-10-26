@@ -15,27 +15,28 @@
     return res;
   }
 
-  // -------- LISTAR SAÍDAS (usa limit/offset, com técnica "limit+1" p/ detectar próxima página)
-  // GET /saidas/listar?de=&ate=&entregador=&status=&codigo=&limit=&offset=
-  window.TrackAPI.listSaidas = async function (params) {
-    const page     = Number(params && params.page)     || 1;
-    const pageSize = Number(params && params.pageSize) || 20;
+// -------- LISTAR SAÍDAS (usa limit/offset, com técnica "limit+1" p/ detectar próxima página)
+window.TrackAPI.listSaidas = async function (params) {
+  const page     = Number(params && params.page)     || 1;
+  const pageSize = Number(params && params.pageSize) || 200;
 
-    // técnica limit+1
+  const hasFilter =
+    (params && (params.entregador || params.status || params.codigo || params.from || params.to));
+
+  // 🔹 Se há filtro, não aplica limit/offset (traz tudo)
+  const q = new URLSearchParams();
+  if (params && params.from)        q.set("de", params.from);
+  if (params && params.to)          q.set("ate", params.to);
+  if (params && params.entregador)  q.set("entregador", params.entregador);
+  if (params && params.status)      q.set("status", params.status);
+  if (params && params.codigo)      q.set("codigo", params.codigo);
+
+  if (!hasFilter) {
     const limitRequested = pageSize + 1;
     const offset = (page - 1) * pageSize;
-
-    const q = new URLSearchParams();
-    if (params && params.from)        q.set("de", params.from);
-    if (params && params.to)          q.set("ate", params.to);
-    if (params && params.entregador)  q.set("entregador", params.entregador);
-    if (params && params.status)      q.set("status", params.status);
-    if (params && params.codigo)      q.set("codigo", params.codigo);
-    // Se seu back aceitar ordenação, mapeie aqui. Exemplo:
-    // if (params && params.sort) q.set("ordenar", params.sort);
-
     q.set("limit",  String(limitRequested));
     q.set("offset", String(offset));
+  }
 
     try {
       const res = await req("/saidas/listar?" + q.toString());
