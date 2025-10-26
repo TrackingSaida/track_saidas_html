@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    @@include("partials/title-meta.html", {"title":"TrackSaídas — Resumo Coletas"})
+    @@include("partials/head-css.html")
+  </head>
+  <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
+    <div id="layout-wrapper">
+      <div class="main-content">
+        <div class="page-content">
+          <div class="container-fluid">
+            <div class="row mt-4">
+              <div class="col-12">
+                <div class="card">
+                  <div class="card-body d-flex justify-content-between align-items-center">
+                    <h4 class="card-title mb-0">Resumo de Coletas</h4>
+                    <div>
+                      <button id="btnRefreshResumo" class="btn btn-sm btn-outline-primary">Atualizar</button>
+                      <button id="btnExportCsv" class="btn btn-sm btn-outline-secondary">Exportar CSV</button>
+                    </div>
+                  </div>
+                  <div class="card-body">
+                    <div id="resumoMsg" class="mb-2"></div>
+                    <div class="table-responsive">
+                      <table id="coletas-resumo-table" class="table table-striped table-hover">
+                        <thead>
+                          <tr>
+                            <th>Base</th>                          
+                            <th>Entregador</th>
+                            <th>Shopee</th>
+                            <th>Mercado Livre</th>
+                            <th>Avulso</th>
+                            <th>Valor Total</th>
+                          </tr>
+                        </thead>
+                        <tbody></tbody>
+                        <tfoot>
+                          <tr>
+                            <th colspan="3">Totais</th>
+                            <th id="sumShopee">0</th>
+                            <th id="sumMl">0</th>
+                            <th id="sumAvulso">0</th>
+                            <th id="sumValor">0</th>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div><!-- container -->
+        </div><!-- page-content -->
+      </div><!-- main-content -->
+    </div><!-- layout-wrapper -->
+
+    @@include("partials/vendor-scripts.html")
+    <!-- SweetAlert2 (CDN if not in vendor) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+
+    <script>
+      // fallback TRACK_API_URL se necessário
+      window.TRACK_API_URL = window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api";
+    </script>
+
+    <script src="assets/js/pages/tracking-coletas-resumo.init.js"></script>
+    <script src="assets/js/app.js"></script>
+  </body>
+</html>

@@ -81,6 +81,36 @@
     }
   };
 
+    // -------- REGISTRAR SAÍDA
+  // POST /saidas
+  window.TrackAPI.registerSaida = async function ({ entregador, codigo, servico }) {
+    const payload = { entregador, codigo, servico };
+    try {
+      const res = await req("/saidas/registrar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      let data = null;
+      try { data = await res.json(); } catch (_) {}
+
+      return {
+        ok: res.ok,
+        status: res.status,
+        data,
+        error: data && data.error
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        status: 0,
+        error: String((err && err.message) || err)
+      };
+    }
+  };
+
+
   // -------- ATUALIZAR SAÍDA
   // PATCH /saidas/{id}
   window.TrackAPI.updateSaida = async function (id, payload) {
