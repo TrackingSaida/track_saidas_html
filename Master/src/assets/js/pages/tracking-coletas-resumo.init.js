@@ -36,8 +36,7 @@
     for (const r of (data || [])) {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${r.base || ''}</td>
-        <td>${r.sub_base || ''}</td>
+        <td>${r.base || ''}</td>      
         <td>${r.username_entregador || ''}</td>
         <td class="text-end">${Number(r.shopee || 0)}</td>
         <td class="text-end">${Number(r.mercado_livre || 0)}</td>

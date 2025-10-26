@@ -58,21 +58,54 @@
             <ul class="navbar-nav" id="navbar-nav">
                 <li class="menu-title"><span data-key="t-menu">Menu</span></li>
                 <li class="nav-item">
-                 <a class="nav-link menu-link" href="#sidebarTrackOps" data-bs-toggle="collapse" role="button"
+  <a class="nav-link menu-link" href="#sidebarTrackOps" data-bs-toggle="collapse" role="button"
      aria-expanded="false" aria-controls="sidebarTrackOps">
-    <i class="las la-motorcycle "></i> <span>Operação</span>
+    <i class="las la-motorcycle"></i> <span>Operação</span>
   </a>
+
   <div class="collapse menu-dropdown" id="sidebarTrackOps">
     <ul class="nav nav-sm flex-column">
+
+      <!-- Coletas -->
       <li class="nav-item">
-        <a href="tracking-registros.html" class="nav-link">Registros</a>
+        <a href="#sidebarColetas" class="nav-link" data-bs-toggle="collapse" role="button"
+           aria-expanded="false" aria-controls="sidebarColetas">
+          <i class="ri-box-3-line me-1"></i> <span>Coletas</span>
+        </a>
+        <div class="collapse menu-dropdown" id="sidebarColetas">
+          <ul class="nav nav-sm flex-column">
+            <li class="nav-item">
+              <a href="tracking-coleta-leitura.html" class="nav-link">Leitura de Coletas</a>
+            </li>
+            <li class="nav-item">
+              <a href="tracking-coletas-resumo.html" class="nav-link">Resumo de Coletas</a>
+            </li>
+          </ul>
+        </div>
       </li>
-      <!-- (opcional) outras telas de uso diário: -->
-          <li class="nav-item"><a href="tracking-leitura.html" class="nav-link">Leituras</a></li>
-     
+
+      <!-- Saídas -->
+      <li class="nav-item">
+        <a href="#sidebarSaidas" class="nav-link" data-bs-toggle="collapse" role="button"
+           aria-expanded="false" aria-controls="sidebarSaidas">
+          <i class="ri-truck-line me-1"></i> <span>Saídas</span>
+        </a>
+        <div class="collapse menu-dropdown" id="sidebarSaidas">
+          <ul class="nav nav-sm flex-column">
+            <li class="nav-item">
+              <a href="tracking-leitura.html" class="nav-link">Leitura de Saídas</a>
+            </li>
+            <li class="nav-item">
+              <a href="tracking-registros.html" class="nav-link">Registros de Saídas</a>
+            </li>
+          </ul>
+        </div>
+      </li>
+
     </ul>
   </div>
 </li>
+
 
 
      <a class="nav-link menu-link" href="#sidebarDashboards" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarDashboards">
