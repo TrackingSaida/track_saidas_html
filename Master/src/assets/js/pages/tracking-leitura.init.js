@@ -390,213 +390,28 @@ if (/^TIME\d{6}$/i.test(raw)) {
     if (inpCod) { inpCod.value = ""; inpCod.focus(); }
   }
 
-// ===== Leitor por Câmera — Full-screen (ZXing) | Modo contínuo =====
-(function CameraScannerFS(){
-  if (!window.ZXingBrowser) return;
-
-  const btnScan   = document.getElementById("btnScan");
-  const overlay   = document.getElementById("scanFS");
-  const video     = document.getElementById("scanFSVideo");
-  const btnBack   = document.getElementById("scanFSBack");
-  const btnTorch  = document.getElementById("scanFSTorch");
-  const stackBox  = document.getElementById("scanFSStack");
-
-  if (!btnScan || !overlay || !video) return;
-
-  const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
-  let currentStream = null;
-  let trackWithTorch = null;
-
-  // anti-bounce
-  let lastText = "", sameCount = 0;
-  let cooldownUntil = 0;
-  const HIT_COOLDOWN_MS = 1200;
-
-  // evita reprocessar o mesmo código repetidamente
-  const RECENT_TTL = 2500;
-  const recentHits = new Map();
-  function seenRecently(cod){
-    const now = Date.now();
-    for (const [k,ts] of [...recentHits]) if (now-ts > RECENT_TTL) recentHits.delete(k);
-    const ts = recentHits.get(cod);
-    recentHits.set(cod, now);
-    return ts && (now - ts < RECENT_TTL);
-  }
-
-  // === empilhar "código + serviço" no painel inferior ===
-  function pushScanCard({ codigo, servico }){
-    if (!stackBox) return;
-    const div = document.createElement('div');
-    div.className = 'scanfs-card';
-    div.innerHTML = `
-      <div class="c">${codigo}</div>
-      <div class="s">${servico ? servico : ''}</div>
-    `;
-    stackBox.prepend(div);
-
-    while (stackBox.children.length > 50) {
-      stackBox.removeChild(stackBox.lastElementChild);
-    }
-    stackBox.scrollTop = 0;
-  }
-
-  // ✅ Define corretamente a função usada no closeScanner
-  function clearScanStack(){
-    if (stackBox) stackBox.innerHTML = '';
-  }
-
-  function showOverlay(){ overlay.classList.add("show"); pushHistoryGuard(); }
-  function hideOverlay(){ overlay.classList.remove("show"); }
-
-  function stop(){
-    try { codeReader.reset(); } catch(_){}
-    if (currentStream){
-      currentStream.getTracks().forEach(t=>t.stop());
-      currentStream = null;
-    }
-    trackWithTorch = null;
-  }
-
-  async function startWithConstraints(constraints){
-    await codeReader.decodeFromConstraints(constraints, video, (result, err) => {
-      const now = Date.now();
-      if (now < cooldownUntil) return;
-
-      if (!currentStream && video.srcObject){
-        currentStream = video.srcObject;
-        trackWithTorch = currentStream.getVideoTracks()?.[0] || null;
-      }
-
-      if (!result) return;
-      const text = String(result.getText() || "");
-
-      // confirma 2 frames iguais
-      if (text === lastText) sameCount++; else { lastText = text; sameCount = 0; }
-      if (sameCount < 1) return;
-
-      const cls = typeof classifyCodigo === "function"
-        ? classifyCodigo(text)
-        : { ok:true, codigo:text, servico:null };
-
-      if (!cls.ok) {
-        showMsgIcon("erro", `Código inválido: ${cls.motivo}.`);
-        Sound.play("err");
-        cooldownUntil = now + 600;
-        return;
-      }
-
-      const ent = document.getElementById("entregador")?.value;
-      if (!ent) {
-        showMsgIcon("erro", "Selecione o entregador antes de escanear.");
-        Sound.play("err");
-        cooldownUntil = now + 600;
-        return;
-      }
-
-      if (seenRecently(cls.codigo)) { cooldownUntil = now + 400; return; }
-
-      pushScanCard({ codigo: cls.codigo, servico: cls.servico });
-
-      const inp = document.getElementById("codigo");
-      if (inp) inp.value = cls.codigo;
-      if (typeof registrar === "function") registrar();
-
-      Sound.play("ok");
-      cooldownUntil = now + HIT_COOLDOWN_MS;
-      sameCount = 0;
-    });
-  }
-
-  async function openScanner(){
-    lastText=""; sameCount=0; cooldownUntil=0;
-    showOverlay();
-    showMsgIcon("info", "Aponte a câmera para o código.");
-
-    try {
-      await startWithConstraints({ video: { facingMode: { exact: "environment" } } });
-    } catch {
-      try { await startWithConstraints({ video: { facingMode: { ideal: "environment" } } }); }
-      catch {
-        try { await startWithConstraints({ video: true }); }
-        catch { await codeReader.decodeFromVideoDevice(null, video, ()=>{}); }
-      }
-    }
-  }
-
-  async function toggleTorch(){
-    if (!trackWithTorch) return;
-    const caps = trackWithTorch.getCapabilities?.();
-    if (!caps || !caps.torch) return;
-    const st = trackWithTorch.getSettings?.();
-    await trackWithTorch.applyConstraints({ advanced: [{ torch: !st.torch }] });
-  }
-
-  // ✅ Aqui agora a função existe antes de ser chamada
-  function closeScanner(){
-    stop();
-    hideOverlay();
-    clearScanStack();
-  }
-
-  const backgroundClick = (e) => {
-    if (e.target === overlay) closeScanner();
-  };
-
-  btnScan.addEventListener("click", async () => {
-    try { await openScanner(); }
-    catch {
-      closeScanner();
-      showMsgIcon("erro","Não foi possível acessar a câmera. Verifique permissões/HTTPS.");
-      Sound.play("err");
-    }
-  });
-
-  btnBack.addEventListener("click", closeScanner);
-  overlay.addEventListener("click", backgroundClick);
-
-  document.addEventListener("keydown", (e) => {
-    if (overlay.classList.contains("show") && e.key === "Escape") closeScanner();
-  });
-
-  function pushHistoryGuard(){
-    try { history.pushState({ scanOpen: true }, ""); } catch(_) {}
-  }
-  window.addEventListener("popstate", () => {
-    if (overlay.classList.contains("show")) closeScanner();
-  });
-
-  btnTorch?.addEventListener("click", toggleTorch);
-  window.addEventListener("pagehide", stop);
-})();
-
-
-  // ===== Leitor por Câmera — integração com Scanner compartilhado + validação de status =====
-(function LeituraUseSharedScanner(){
+// ===== Leitor por Câmera — Unificado (ScannerService + contador UX) =====
+(function LeituraCameraUnificada() {
   const btnScan = document.getElementById("btnScan");
   const inputCodigo = document.getElementById("codigo");
   const btnRegistrar = document.getElementById("btnRegistrar");
 
-  // tenta verificar se o código foi coletado (ajuste URLs conforme backend)
-  async function checkCollected(code){
+  // --- Validação de status opcional (mantida do código anterior) ---
+  async function checkCollected(code) {
     if (!code) return false;
-
-    // respeito da flag global: quando false, permito registro sem checagem
     if (window.ENABLE_STATUS_CHECK === false) return true;
 
-    // usa helper global se existir
     if (typeof window.checkCodigoStatus === "function") {
       try {
         const r = await window.checkCodigoStatus(code);
-        if (typeof r === "boolean") return r;
         const st = (r && (r.status || r.data?.status || r.state)) || r;
         return String(st || "").toLowerCase() === "coletado";
-      } catch(e){
+      } catch (e) {
         console.warn("checkCodigoStatus failed, permitindo registro por fallback", e);
-        return true; // permissivo em caso de falha do helper
+        return true;
       }
     }
 
-    // se não houver endpoint configurado, permitir (modo dev/offline)
     if (!window.TRACK_API_URL) return true;
 
     const urls = [
@@ -607,45 +422,43 @@ if (/^TIME\d{6}$/i.test(raw)) {
     for (const u of urls) {
       try {
         const res = await fetch(u, { credentials: "include" });
-        if (!res.ok) {
-          // tenta próxima rota; não bloqueia por falha HTTP
-          console.warn('status-check non-ok', u, res.status);
-          continue;
-        }
-        const j = await res.json().catch(()=>null);
-        if (typeof j === "boolean") return j;
+        if (!res.ok) continue;
+        const j = await res.json().catch(() => null);
         const status = (j.status || j.data?.status || j.state || j.result || "").toString();
         if (status.toLowerCase() === "coletado") return true;
-        return false; // backend confirmou NÃO coletado
+        return false;
       } catch (err) {
-        console.warn('status-check failed (network), permitindo registro por fallback', err);
-        return true; // permissivo em caso de erro de rede
+        console.warn("status-check failed (network), permitindo registro por fallback", err);
+        return true;
       }
     }
 
-    // se nenhuma rota confirmou "Coletado", não bloqueia por padrão
     return true;
   }
 
-  function showNotCollectedAlert(code){
+  function showNotCollectedAlert(code) {
     const title = "Coleta não realizada";
-    const text = `O código "${String(code||'')}" não foi coletado.`;
+    const text = `O código "${String(code || "")}" não foi coletado.`;
     if (window.Swal && typeof Swal.fire === "function") {
       Swal.fire({ icon: "warning", title, text, confirmButtonText: "Ok" });
     } else {
-      alert(title + "\n\n" + text);
+      alert(`${title}\n\n${text}`);
     }
   }
 
-  async function handleScanResult(text){
-    const code = String(text || "").trim();
-    if (!code) return;
-    if (inputCodigo) inputCodigo.value = code;
+  // --- Quando um código é lido com sucesso ---
+async function handleScanResult(text) {
+  // 🔹 Garante que o contador sempre aparece ao abrir o scanner
+  if (Scanner.getCount() === 0) Scanner.updateCountUI();
+
+  const code = String(text || "").trim();
+  if (!code) return;
+  if (inputCodigo) inputCodigo.value = code;
 
     try {
       const ok = await checkCollected(code);
       if (ok) {
-        // chama a rotina de registro existente (registrar ou registrarCodigo)
+        // Chama o mesmo fluxo já usado pelo botão "Registrar"
         if (typeof registrarCodigo === "function") {
           registrarCodigo(true);
         } else if (typeof registrar === "function") {
@@ -653,6 +466,15 @@ if (/^TIME\d{6}$/i.test(raw)) {
         } else if (btnRegistrar) {
           btnRegistrar.click();
         }
+
+        // Incrementa contador e atualiza UI
+        Scanner.incCount(1);
+        const el = document.getElementById("scanFSCount");
+        if (el) {
+          const total = Scanner.getCount();
+          el.textContent = `${total} ${total === 1 ? "Pacote Lido" : "Pacotes Lidos"}`;
+        }
+
       } else {
         showNotCollectedAlert(code);
       }
@@ -662,27 +484,38 @@ if (/^TIME\d{6}$/i.test(raw)) {
     }
   }
 
+  // --- Inicializa o botão da câmera ---
   if (btnScan) {
-    // remove binds antigos substituindo o nó (seguro)
+    // Remove binds antigos (caso existam)
     const newBtn = btnScan.cloneNode(true);
     btnScan.parentNode.replaceChild(newBtn, btnScan);
-    newBtn.addEventListener("click", function(ev){
-      ev && ev.preventDefault && ev.preventDefault();
+
+    newBtn.addEventListener("click", (ev) => {
+      ev.preventDefault();
       if (!window.Scanner || typeof window.Scanner.open !== "function") {
         (window.toast && window.toast("Scanner indisponível.", false)) || console.warn("Scanner não encontrado");
         return;
       }
-      window.Scanner.open({
-        autoClose: true,
-        onScan: function(txt){
-          handleScanResult(txt);
-        }
-      }).catch(err => {
+
+      // Zera contador local
+      Scanner.setCount(0);
+
+      // Abre scanner overlay
+      Scanner.open({
+        autoClose: false, // mantém câmera aberta entre leituras
+        onScan: (txt) => handleScanResult(txt),
+      }).catch((err) => {
         console.error("Scanner.open erro:", err);
         (window.toast && window.toast("Não foi possível abrir o scanner.", false)) || null;
       });
     });
   }
+
+  // --- Limpa contador ao sair da página ---
+  window.addEventListener("beforeunload", () => {
+    Scanner.setCount(0);
+    Scanner.close();
+  });
 })();
 
 

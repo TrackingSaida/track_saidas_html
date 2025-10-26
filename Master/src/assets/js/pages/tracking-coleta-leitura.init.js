@@ -244,42 +244,64 @@ document.addEventListener("DOMContentLoaded", async () => {
   atualizarResumo();
 });
 
-/* ======= Normalize scanner binding: desativa inits antigos e usa Scanner compartilhado ======= */
-(function replaceLocalScannerInit(){
-  // neutraliza helper/debug antigo (se existir)
-  try {
-    if (window.__scannerDebug) {
-      window.__scannerDebug.openScanner = async function(){ console.warn('old scanner disabled'); };
-      window.__scannerDebug.stopScanner = function(){ /* noop */ };
-    }
-  } catch(e){ console.warn('Não foi possível neutralizar __scannerDebug', e); }
+/* ======= Leitor por Câmera — Coleta (ScannerService + contador UX) ======= */
+(function LeituraCameraUnificadaColeta() {
+  const btnScan = document.getElementById('btnScan');
+  const inputCodigo = document.getElementById('codigo');
 
-  const btn = document.getElementById('btnScan');
-  if (!btn) return;
+  if (!btnScan) return;
 
-  // remove listeners antigos clonando o botão (prática simples e segura)
-  const newBtn = btn.cloneNode(true);
-  btn.parentNode.replaceChild(newBtn, btn);
+  // Remove binds antigos clonando o botão
+  const newBtn = btnScan.cloneNode(true);
+  btnScan.parentNode.replaceChild(newBtn, btnScan);
 
-  newBtn.addEventListener('click', function(ev){
+  newBtn.addEventListener('click', (ev) => {
     ev.preventDefault();
+
     if (!window.Scanner || typeof window.Scanner.open !== 'function') {
-      toast && toast('Scanner não disponível no momento.', false);
-      console.warn('Scanner service não encontrado.');
+      (window.toast && window.toast('Scanner não disponível no momento.', false)) || console.warn('Scanner service não encontrado.');
       return;
     }
 
+    // 🔹 Reinicia contador local antes de abrir o scanner
+    Scanner.setCount(0);
+    Scanner.updateCountUI();
+
+    // Abre scanner overlay
     window.Scanner.open({
-      autoClose: true,
-      onScan: function(text){
-        const inp = document.getElementById('codigo');
-        if (inp) inp.value = String(text || '').trim();
-        try { if (typeof registrarCodigo === 'function') registrarCodigo(true); }
-        catch(e){ console.error('Erro ao registrar código após scan:', e); }
-      }
-    }).catch(function(err){
+      autoClose: false, // mantém câmera aberta para leituras contínuas
+      onScan: function (text) {
+        // 🔹 Garante que o contador aparece mesmo antes da primeira leitura
+        if (Scanner.getCount() === 0) Scanner.updateCountUI();
+
+        const code = String(text || '').trim();
+        if (!code) return;
+
+        // preenche o campo e registra automaticamente
+        if (inputCodigo) inputCodigo.value = code;
+        try {
+          if (typeof registrarCodigo === 'function') registrarCodigo(true);
+        } catch (e) {
+          console.error('Erro ao registrar código após scan:', e);
+        }
+
+        // Atualiza contador UX ("3 Pacotes Lidos")
+        Scanner.incCount(1);
+        const el = document.getElementById('scanFSCount');
+        if (el) {
+          const total = Scanner.getCount();
+          el.textContent = `${total} ${total === 1 ? 'Pacote Lido' : 'Pacotes Lidos'}`;
+        }
+      },
+    }).catch((err) => {
       console.error('Scanner.open erro:', err);
-      toast && toast('Não foi possível abrir o scanner.', false);
+      (window.toast && window.toast('Não foi possível abrir o scanner.', false)) || null;
     });
+  });
+
+  // 🔹 Reseta contador ao sair da página
+  window.addEventListener('beforeunload', () => {
+    Scanner.setCount(0);
+    Scanner.close();
   });
 })();

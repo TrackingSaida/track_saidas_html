@@ -200,24 +200,33 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   pointer-events: none;
 
-  .scan-hint { font-size: 1rem; color: #fff; font-weight: 600; }
+  .scan-hint {
+    font-size: 1rem;
+    color: #fff;
+    font-weight: 600;
+    opacity: 0.8;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
 
   .scan-packages-count {
     pointer-events: auto;
-    background: rgba(255,255,255,0.06);
+    background: rgba(0, 0, 0, 0.55);
     color: #fff;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-weight: 700;
-    font-size: .875rem;
-    min-width: 56px;
+    padding: 6px 14px;
+    border-radius: 16px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    min-width: 120px;
     text-align: center;
-    box-shadow: 0 6px 18px rgba(0,0,0,.35);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(4px);
+    transition: all 0.25s ease;
   }
 }
+
 
 /* ===============================================
 Estilos personalizados - Resumo de Coletas
