@@ -331,7 +331,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }).then(() => {
       // muda a dica de texto do overlay
       const hint = document.querySelector('.scan-hint');
-      if (hint) hint.textContent = "Escaneando...";
+      if (hint) hint.textContent = "Escanei o código";
     }).catch((err) => {
       console.error("Scanner.open erro:", err);
       toast && toast("Não foi possível abrir o scanner.", false);
