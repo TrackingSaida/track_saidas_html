@@ -243,7 +243,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   atualizarResumo();
 });
 
-//* ======= Scanner unificado (com showMsgIcon e contador isolado) ======= */
+/* ======= Scanner unificado (com showMsgIcon e contador isolado) ======= */
 (function coletaScannerIntegrado() {
   try {
     if (window.__scannerDebug) {
@@ -260,9 +260,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // garante que o overlay existe
   if (!document.getElementById("scanFS")) {
-    console.warn(
-      "⚠️ Overlay scanner (scanFS) não encontrado — verifique se scan.html foi incluído antes do fechamento do <body>."
-    );
+    console.warn("⚠️ Overlay scanner (scanFS) não encontrado — verifique se scan.html foi incluído antes do fechamento do <body>.");
     return;
   }
 
@@ -272,13 +270,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // contador isolado da página
   let totalLidos = 0;
+  const contadorEl = document.getElementById("scan-packages-count");
 
   function atualizarContador() {
-    const contadorEl = document.getElementById("scan-packages-count");
     if (!contadorEl) return;
-    contadorEl.textContent = `${totalLidos} ${
-      totalLidos === 1 ? "Pacote Lido" : "Pacotes Lidos"
-    }`;
+    contadorEl.textContent = `${totalLidos} ${totalLidos === 1 ? "Pacote Lido" : "Pacotes Lidos"}`;
   }
 
   // leitura e validação
@@ -286,20 +282,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const codigo = String(text || "").trim();
     if (!codigo) return;
 
-    // 🔹 Garante que a câmera segue ativa (corrige black screen)
+    // 🔹 garante que a câmera segue ativa (corrige black screen em Android)
     const video = document.getElementById("scanFSVideo");
-    if (
-      video &&
-      (!video.srcObject ||
-        video.srcObject.getTracks().every((t) => t.readyState === "ended"))
-    ) {
+    if (video && (!video.srcObject || video.srcObject.getTracks().every(t => t.readyState === "ended"))) {
       navigator.mediaDevices
-        .getUserMedia({ video: { facingMode: "environment" } })
-        .then((stream) => {
-          video.srcObject = stream;
-          video.play();
-        })
-        .catch((err) => console.error("Erro ao reabrir câmera:", err));
+        .getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false })
+        .then(stream => { video.srcObject = stream; video.play(); })
+        .catch(err => console.error("Erro ao reabrir câmera:", err));
     }
 
     if (inputCodigo) inputCodigo.value = codigo;
@@ -318,25 +307,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const duplicado = COLETAS.some((c) => c.codigo === parsed.codigo);
+    const duplicado = COLETAS.some(c => c.codigo === parsed.codigo);
     if (duplicado) {
-      COLETAS.push({
-        base: baseSel,
-        codigo: parsed.codigo,
-        servico: parsed.servico,
-        status: "duplicado",
-        tentativas: 0,
-      });
+      COLETAS.push({ base: baseSel, codigo: parsed.codigo, servico: parsed.servico, status: "duplicado", tentativas: 0 });
       showMsgIcon("alerta", "Duplicado");
       Sound.play("warn");
     } else {
-      COLETAS.push({
-        base: baseSel,
-        codigo: parsed.codigo,
-        servico: parsed.servico,
-        status: "pendente",
-        tentativas: 0,
-      });
+      COLETAS.push({ base: baseSel, codigo: parsed.codigo, servico: parsed.servico, status: "pendente", tentativas: 0 });
       totalLidos++;
       atualizarContador();
       showMsgIcon("info", `Registrado ✓ (${totalLidos})`);
@@ -346,23 +323,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (inputCodigo) inputCodigo.value = "";
     renderTabela();
 
-    // 🔹 Impede que o overlay seja ocultado após renderizações
+    // 🔹 reforço para manter overlay visível
     const ov = document.getElementById("scanFS");
-    if (ov && ov.style.display === "none") {
-      ov.style.display = "block";
+    if (ov && !ov.classList.contains("show")) {
       ov.classList.add("show");
+      ov.style.display = "block";
     }
   }
 
   // inicializa scanner
   newBtn.addEventListener("click", (ev) => {
     ev.preventDefault();
+
     if (!window.Scanner || typeof window.Scanner.open !== "function") {
       toast && toast("Scanner não disponível.", false);
       return;
     }
 
-    // zera contador e atualiza label
     totalLidos = 0;
     atualizarContador();
 
