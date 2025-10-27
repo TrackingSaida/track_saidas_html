@@ -243,7 +243,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   atualizarResumo();
 });
 
-/* ======= Scanner unificado (com showMsgIcon e contador) ======= */
+/* ======= Scanner unificado (com showMsgIcon e contador isolado) ======= */
 (function coletaScannerIntegrado(){
   try {
     if (window.__scannerDebug) {
@@ -256,15 +256,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   const inputCodigo = document.getElementById('codigo');
   if (!btn) return;
 
+  // garante que o overlay existe
+  if (!document.getElementById('scanFS')) {
+    console.warn('⚠️ Overlay scanner (scanFS) não encontrado — verifique se scan.html foi incluído antes do fechamento do <body>.');
+    return;
+  }
+
   // substitui botão antigo
   const newBtn = btn.cloneNode(true);
   btn.parentNode.replaceChild(newBtn, btn);
 
-  // contador
+  // contador isolado da página
   let totalLidos = 0;
-  const contadorEl = document.getElementById("scan-packages-count");
 
   function atualizarContador() {
+    const contadorEl = document.getElementById("scan-packages-count");
     if (!contadorEl) return;
     contadorEl.textContent = `${totalLidos} ${totalLidos === 1 ? "Pacote Lido" : "Pacotes Lidos"}`;
   }
@@ -307,6 +313,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderTabela();
   }
 
+  // inicializa scanner
   newBtn.addEventListener("click", (ev) => {
     ev.preventDefault();
     if (!window.Scanner || typeof window.Scanner.open !== "function") {
@@ -314,19 +321,24 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    // zera contador
+    // zera contador e atualiza label
     totalLidos = 0;
     atualizarContador();
 
     window.Scanner.open({
       autoClose: false,
       onScan: handleScanResult
+    }).then(() => {
+      // muda a dica de texto do overlay
+      const hint = document.querySelector('.scan-hint');
+      if (hint) hint.textContent = "Escaneando...";
     }).catch((err) => {
       console.error("Scanner.open erro:", err);
       toast && toast("Não foi possível abrir o scanner.", false);
     });
   });
 
+  // limpa contador ao sair da página
   window.addEventListener("beforeunload", () => {
     totalLidos = 0;
     atualizarContador();
