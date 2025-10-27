@@ -13,13 +13,27 @@
   &-title { font-weight: 700; }
   &-bottom { bottom: 0; text-align: center; padding: 18px; background: rgba(0,0,0,.35); font-weight: 600; }
 
-  &-frame { position: absolute; inset: 12% 10%; border-radius: 16px;
-    .corner { position: absolute; width: 52px; height: 52px; border: 4px solid #fff; }
+   &-frame {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 280px;           /* largura visível do foco */
+    height: 280px;          /* altura visível do foco */
+    transform: translate(-50%, -50%);
+    border-radius: 16px;
+
+    .corner {
+      position: absolute;
+      width: 48px;
+      height: 48px;
+      border: 4px solid #fff;
+    }
     .tl { top: 0; left: 0; border-right: none; border-bottom: none; border-radius: 16px 0 0 0; }
     .tr { top: 0; right: 0; border-left: none; border-bottom: none; border-radius: 0 16px 0 0; }
     .bl { bottom: 0; left: 0; border-right: none; border-top: none; border-radius: 0 0 0 16px; }
     .br { bottom: 0; right: 0; border-left: none; border-top: none; border-radius: 0 0 16px 0; }
   }
+
 }
 
 /* Mensagens dentro do overlay do scanner */

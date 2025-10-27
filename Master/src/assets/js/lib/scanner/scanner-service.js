@@ -5,7 +5,6 @@
   const el = id => document.getElementById(id);
   const overlayEl = () => el('scanFS') || document.querySelector('.scanfs');
   const videoEl = () => el('scanFSVideo') || (overlayEl() && overlayEl().querySelector('video'));
-  const countEl = () => el('scan-packages-count');
 
   // ---------- VARIÁVEIS ----------
   let backend = null;
@@ -15,7 +14,6 @@
   let _keydownHandler = null;
   let _backBtnHandler = null;
   let scanLocked = false;
-  let sessionCount = 0;
 
   // ---------- FUNÇÕES DE CONTROLE ----------
   function safeStopStream(s) {
@@ -28,18 +26,6 @@
       if (Array.isArray(s)) s.forEach(t => { try { if (t && typeof t.stop === 'function') t.stop(); } catch (_) {} });
       if (s && typeof s.stop === 'function') s.stop();
     } catch (_) {}
-  }
-
-  function getCount() { return sessionCount; }
-  function setCount(n) { sessionCount = Math.max(0, n || 0); updateCountUI(); }
-  function incCount(n = 1) { setCount(getCount() + (n || 1)); }
-
-  function updateCountUI() {
-    const c = countEl();
-    if (c) {
-      const total = getCount();
-      c.textContent = `${total} ${total === 1 ? 'Pacote Lido' : 'Pacotes Lidos'}`;
-    }
   }
 
   // ---------- FECHAR ----------
@@ -88,12 +74,11 @@
     const v = videoEl();
     if (!ov || !v) throw new Error('Scanner overlay/video not found in DOM');
 
-    // Exibe overlay e reseta contador
+    // Exibe overlay
     ov.classList.add('show');
     try { ov.style.display = 'block'; } catch (_) {}
     try { ov.setAttribute('tabindex', '-1'); ov.focus(); } catch (_) {}
     running = true;
-    setCount(0); // mostra 0 Pacotes Lidos ao abrir
 
     // tecla ESC
     if (cfg.closeOnEsc) {
@@ -140,8 +125,6 @@
           if (result && (result.getText || result.text)) {
             const txt = result.getText ? result.getText() : (result.text || '');
             scanLocked = true;
-            incCount(1);
-            updateCountUI();
             if (onScanCallback) onScanCallback(String(txt || ''));
             if (options.autoClose !== false) stop();
             setTimeout(() => { scanLocked = false; }, 800);
@@ -172,8 +155,6 @@
             if (barcodes && barcodes.length) {
               const raw = barcodes[0].rawValue || barcodes[0].rawtext || '';
               scanLocked = true;
-              incCount(1);
-              updateCountUI();
               if (onScanCallback) onScanCallback(String(raw || ''));
               if (options.autoClose !== false) stop();
               setTimeout(() => { scanLocked = false; }, 800);
@@ -198,15 +179,23 @@
     if (ev.target === ov) stop();
   });
 
-  // ---------- API ----------
-  window.Scanner = {
-    open,
-    close: stop,
-    getCount,
-    setCount,
-    incCount,
-    updateCountUI
-  };
+  // ---------- PREVINE SAÍDA COM BOTÃO VOLTAR ----------
+  window.addEventListener('popstate', (e) => {
+    const ov = overlayEl();
+    if (ov && ov.classList.contains('show')) {
+      e.preventDefault();
+      stop();
+      history.pushState(null, '', location.href);
+    }
+  });
 
-  document.addEventListener('DOMContentLoaded', updateCountUI, { once: true });
+  window.addEventListener('keydown', (e) => {
+    if ((e.key === 'Escape' || e.key === 'Backspace') && overlayEl()?.classList?.contains('show')) {
+      e.preventDefault();
+      stop();
+    }
+  });
+
+  // ---------- API ----------
+  window.Scanner = { open, close: stop };
 })();
