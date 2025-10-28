@@ -117,23 +117,28 @@
 
     const ZX = window.ZXingBrowser || window.ZXing || window.ZXingJs || null;
 
-    // ---------- ZXing ----------
+    // ---------- ZXing (mantém câmera ativa) ----------
     if (ZX && (ZX.BrowserMultiFormatReader || ZX.BrowserQRCodeReader || ZX.BrowserBarcodeReader)) {
       try {
         const Reader = ZX.BrowserMultiFormatReader || ZX.BrowserQRCodeReader || ZX.BrowserBarcodeReader;
         backend = new Reader();
+
         backend.decodeFromVideoDevice(undefined, v, (result, err) => {
           if (scanLocked) return;
           if (result && (result.getText || result.text)) {
             const txt = result.getText ? result.getText() : (result.text || '');
             scanLocked = true;
-
-            // ✅ envia o código lido para a função da página
             if (onScanCallback) onScanCallback(String(txt || ''));
-
-            // 🚫 NÃO fecha o scanner automaticamente
-            setTimeout(() => { scanLocked = false; }, 700);
+            setTimeout(() => { scanLocked = false; }, 500);
           }
+
+          // 🔁 mantém stream ativo (corrige Android/iPhone)
+          if (v && v.srcObject && v.paused) {
+            v.play().catch(() => {});
+          }
+          requestAnimationFrame(() => {
+            if (running && v && v.srcObject) v.play().catch(()=>{});
+          });
         });
         return;
       } catch (e) {
@@ -143,7 +148,7 @@
       }
     }
 
-    // ---------- Fallback: BarcodeDetector ----------
+    // ---------- Fallback: BarcodeDetector (mantém vídeo ativo) ----------
     if (window.BarcodeDetector) {
       try {
         const formats = ['qr_code', 'ean_13', 'ean_8', 'code_128', 'code_39', 'itf', 'upc_a', 'upc_e'];
@@ -163,15 +168,14 @@
             if (barcodes && barcodes.length) {
               const raw = barcodes[0].rawValue || barcodes[0].rawtext || '';
               scanLocked = true;
-
-              // ✅ envia o código lido
               if (onScanCallback) onScanCallback(String(raw || ''));
-
-              // 🚫 NÃO fecha a câmera
-              setTimeout(() => { scanLocked = false; }, 700);
+              setTimeout(() => { scanLocked = false; }, 500);
             }
-          } catch (_) {}
-        }, 160);
+          } catch (err) {
+            // 🔁 garante que o vídeo nunca pare
+            if (v && v.srcObject && v.paused) v.play().catch(()=>{});
+          }
+        }, 140);
         return;
       } catch (e) {
         console.warn('Scanner: BarcodeDetector init falhou', e);
@@ -191,8 +195,5 @@
   });
 
   // ---------- EXPÕE API ----------
-  window.Scanner = {
-    open,
-    close: stop
-  };
+  window.Scanner = { open, close: stop };
 })();
