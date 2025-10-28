@@ -385,9 +385,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     startScanner();
   });
 
-  // ---------- Botão voltar fecha ----------
-  const back = document.getElementById("scanFSBack");
-  if (back) back.addEventListener("click", stopScanner);
+// ---------- Botão voltar fecha apenas o overlay ----------
+const back = document.getElementById("scanFSBack");
+if (back) {
+  back.addEventListener("click", (ev) => {
+    ev.preventDefault(); // 🔹 impede o navegador de voltar à home
+    ev.stopPropagation();
+
+    // encerra o scanner de forma segura
+    if (interval) clearInterval(interval);
+    if (stream) {
+      try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+    }
+    stream = null;
+    scanLocked = false;
+
+    // fecha apenas o overlay
+    overlay.classList.remove("show");
+    overlay.style.display = "none";
+  });
+}
+
 
   window.addEventListener("beforeunload", stopScanner);
 })();
