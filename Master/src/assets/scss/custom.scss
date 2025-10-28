@@ -30,17 +30,21 @@
     pointer-events: none;
   }
 
-  /* máscara: bordas escuras e centro iluminado */
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    mask: radial-gradient(circle at center, transparent 140px, black 200px);
-    -webkit-mask: radial-gradient(circle at center, transparent 140px, black 200px);
-    pointer-events: none;
-    z-index: 2;
-  }
+ /* camada superior: efeito vinheta sem transparência real */
+&::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at center,
+    rgba(0, 0, 0, 0.1) 0%,
+    rgba(0, 0, 0, 0.3) 40%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
 
   /* Moldura central com laser */
   &-frame {
