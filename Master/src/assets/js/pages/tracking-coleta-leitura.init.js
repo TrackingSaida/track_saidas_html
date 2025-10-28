@@ -308,6 +308,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       overlay.classList.remove("show");
       overlay.style.display = "none";
     }
+    document.body.style.overflow = ""; // 🔓 libera scroll
     console.info("📴 Scanner encerrado manualmente.");
   }
 
@@ -318,6 +319,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     overlay.classList.add("show");
     overlay.style.display = "block";
+    document.body.style.overflow = "hidden"; // 🔒 trava scroll da página
 
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -329,6 +331,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (err) {
       console.error("Erro ao acessar câmera:", err);
       showMsg("erro", "Câmera não disponível");
+      document.body.style.overflow = ""; // 🔓 libera scroll em caso de erro
       return;
     }
 
@@ -338,6 +341,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     } catch (err) {
       showMsg("erro", "Leitor não suportado neste dispositivo.");
+      document.body.style.overflow = ""; // 🔓 libera scroll
       return;
     }
 
@@ -430,3 +434,4 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ---------- Fecha scanner ao sair da página ----------
   window.addEventListener("beforeunload", stopScanner);
 })();
+

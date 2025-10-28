@@ -1,10 +1,10 @@
 /* ===================================================
-   SCANNER FULLSCREEN — EFEITO PROFISSIONAL AJUSTADO
+   SCANNER FULLSCREEN — EFEITO PROFISSIONAL FINAL
    =================================================== */
 .scanfs {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6); /* fundo ligeiramente translúcido */
+  background: #000; /* fundo sólido, bloqueia totalmente a página */
   z-index: 2000;
   display: none;
   overflow: hidden;
@@ -18,33 +18,31 @@
     animation: fadeIn .35s ease forwards;
   }
 
-  /* vídeo da câmera mais claro */
+  /* vídeo da câmera */
   video {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    opacity: 0.8; /* antes 0.35 */
+    opacity: 0.9; /* mais visível */
     z-index: 1;
     pointer-events: none;
   }
 
- /* camada superior: efeito vinheta sem transparência real */
-&::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    circle at center,
-    rgba(0, 0, 0, 0.1) 0%,
-    rgba(0, 0, 0, 0.3) 40%,
-    rgba(0, 0, 0, 0.55) 100%
-  );
-  pointer-events: none;
-  z-index: 2;
-}
-
+  /* camada superior: vinheta suave, sem transparência real */
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      circle at center,
+      rgba(0, 0, 0, 0.25) 0%,
+      rgba(0, 0, 0, 0.55) 100%
+    );
+    z-index: 2;
+    pointer-events: none;
+  }
 
   /* Moldura central com laser */
   &-frame {
