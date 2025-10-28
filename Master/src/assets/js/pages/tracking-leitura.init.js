@@ -428,17 +428,11 @@ async function registrar() {
 
 
 
-// ===== Leitor por Câmera — Full-screen (BarcodeDetector nativo) =====
+// ===== Leitor por Câmera — Full-screen (híbrido BarcodeDetector + ZXing) =====
 (function leituraScannerIntegrado() {
   const btnScan = document.getElementById("btnScan");
   const inputCodigo = document.getElementById("codigo");
   if (!btnScan) return;
-
-  let scanLocked = false;
-  let detector = null;
-  let stream = null;
-  let interval = null;
-  let totalLidos = 0;
 
   const overlay = document.getElementById("scanFS");
   const video = document.getElementById("scanFSVideo");
@@ -446,338 +440,128 @@ async function registrar() {
   const contadorEl = document.getElementById("scan-packages-count");
   const closeBtn = document.getElementById("scanCloseBtn");
 
-  // ---------- Atualiza contador ----------
-  function atualizarContador() {
-    if (contadorEl)
-      contadorEl.textContent = `${totalLidos} ${totalLidos === 1 ? "Saída Lida" : "Saídas Lidas"}`;
-  }
-
-  // ---------- HUD de mensagens ----------
-  function showMsg(tipo, msg) {
-    if (!hud) return;
-    hud.textContent = msg;
-    hud.classList.remove("info", "warning", "danger", "show");
-    hud.classList.add(
-      tipo === "erro" ? "danger" :
-      tipo === "alerta" ? "warning" : "info",
-      "show"
-    );
-    clearTimeout(hud._t);
-    hud._t = setTimeout(() => hud.classList.remove("show"), tipo === "erro" ? 3000 : 2000);
-  }
-
-  // ---------- Fechar scanner ----------
-  function stopScanner() {
-    if (interval) clearInterval(interval);
-    if (stream) {
-      try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
-    }
-    stream = null;
-    scanLocked = false;
-    if (overlay) {
-      overlay.classList.remove("show");
-      overlay.style.display = "none";
-    }
-    document.body.style.overflow = ""; // 🔓 libera scroll
-    console.info("📴 Scanner encerrado manualmente.");
-  }
-
-  // ---------- Inicializa leitor ----------
-  async function startScanner() {
-    totalLidos = 0;
-    atualizarContador();
-
-    overlay.classList.add("show");
-    overlay.style.display = "block";
-    document.body.style.overflow = "hidden"; // 🔒 trava scroll da página
-
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-        audio: false
-      });
-      video.srcObject = stream;
-      await video.play();
-    } catch (err) {
-      console.error("Erro ao acessar câmera:", err);
-      showMsg("erro", "Câmera não disponível");
-      document.body.style.overflow = ""; // 🔓 libera scroll em erro
-      return;
-    }
-
-    try {
-      detector = new BarcodeDetector({
-        formats: ["qr_code", "ean_13", "code_128", "code_39", "itf", "upc_a", "upc_e"]
-      });
-    } catch (err) {
-      showMsg("erro", "Leitor não suportado neste dispositivo.");
-      document.body.style.overflow = ""; // 🔓 libera scroll
-      return;
-    }
-
-    interval = setInterval(async () => {
-      if (scanLocked) return;
-      try {
-        const barcodes = await detector.detect(video);
-        if (!barcodes.length) return;
-        const code = barcodes[0].rawValue || barcodes[0].rawtext || "";
-        if (!code) return;
-
-        scanLocked = true;
-        handleScanResult(code);
-        setTimeout(() => (scanLocked = false), 600);
-      } catch (e) {
-        console.warn("Erro ao detectar código:", e);
-      }
-    }, 180);
-
-    // adiciona listener do botão Fechar (uma única vez)
-    if (closeBtn && !closeBtn._listenerAdded) {
-      closeBtn.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        stopScanner();
-      });
-      closeBtn._listenerAdded = true;
-    }
-  }
-
-  // ---------- Processa leitura ----------
-  function handleScanResult(text) {
-    const codigo = String(text || "").trim();
-    if (!codigo) return;
-
-    if (inputCodigo) inputCodigo.value = codigo;
-
-    const cls = classifyCodigo(codigo);
-    if (!cls.ok) {
-      showMsg("erro", `Código inválido: ${cls.motivo || ""}`);
-      Sound.play("err");
-      return;
-    }
-
-    const entregador = document.getElementById("entregador")?.value;
-    if (!entregador) {
-      showMsg("alerta", "Selecione o entregador antes de escanear.");
-      Sound.play("warn");
-      return;
-    }
-
-    const k = `${entregador.toUpperCase()}||${cls.codigo.toUpperCase()}`;
-    if (rowsByKey.has(k)) {
-      showMsg("alerta", `DUPLICADO • ${cls.codigo}`);
-      Sound.play("warn");
-      return;
-    }
-
-    totalLidos++;
-    atualizarContador();
-    showMsg("info", `Registrado ✓ (${totalLidos})`);
-    Sound.play("ok");
-
-    // dispara o mesmo fluxo do botão "Registrar"
-    if (inputCodigo) inputCodigo.value = cls.codigo;
-    if (typeof registrar === "function") registrar();
-  }
-
-  // ---------- Botão de abrir câmera ----------
-  const newBtn = btnScan.cloneNode(true);
-  btnScan.parentNode.replaceChild(newBtn, btnScan);
-  newBtn.addEventListener("click", (ev) => {
-    ev.preventDefault();
-    startScanner();
-  });
-
-  // ---------- Botão voltar fecha overlay ----------
-  const back = document.getElementById("scanFSBack");
-  if (back && !back._listenerAdded) {
-    back.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      stopScanner();
-    });
-    back._listenerAdded = true;
-  }// ===== Leitor por Câmera — Full-screen (BarcodeDetector nativo) =====
-(function leituraScannerIntegrado() {
-  const btnScan = document.getElementById("btnScan");
-  const inputCodigo = document.getElementById("codigo");
-  if (!btnScan) return;
-
-  let scanLocked = false;
-  let detector = null;
-  let stream = null;
-  let interval = null;
   let totalLidos = 0;
+  let scanLocked = false;
+  let interval = null;
+  let stream = null;
 
-  const overlay = document.getElementById("scanFS");
-  const video = document.getElementById("scanFSVideo");
-  const hud = document.getElementById("scanFSMsg");
-  const contadorEl = document.getElementById("scan-packages-count");
-  const closeBtn = document.getElementById("scanCloseBtn");
-
-  // ---------- Atualiza contador ----------
+  // Atualiza contador
   function atualizarContador() {
-    if (contadorEl)
-      contadorEl.textContent = `${totalLidos} ${totalLidos === 1 ? "Saída Lida" : "Saídas Lidas"}`;
+    contadorEl.textContent = `${totalLidos} ${totalLidos === 1 ? "Saída Lida" : "Saídas Lidas"}`;
   }
 
-  // ---------- HUD de mensagens ----------
+  // HUD de mensagens
   function showMsg(tipo, msg) {
-    if (!hud) return;
     hud.textContent = msg;
     hud.classList.remove("info", "warning", "danger", "show");
-    hud.classList.add(
-      tipo === "erro" ? "danger" :
-      tipo === "alerta" ? "warning" : "info",
-      "show"
-    );
+    hud.classList.add(tipo === "erro" ? "danger" : tipo === "alerta" ? "warning" : "info", "show");
     clearTimeout(hud._t);
     hud._t = setTimeout(() => hud.classList.remove("show"), tipo === "erro" ? 3000 : 2000);
   }
 
-  // ---------- Fechar scanner ----------
+  // Fecha scanner
   function stopScanner() {
     if (interval) clearInterval(interval);
-    if (stream) {
-      try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
-    }
+    if (stream) { try { stream.getTracks().forEach(t => t.stop()); } catch (_) {} }
     stream = null;
     scanLocked = false;
-    if (overlay) {
-      overlay.classList.remove("show");
-      overlay.style.display = "none";
-    }
-    document.body.style.overflow = ""; // 🔓 libera scroll
-    console.info("📴 Scanner encerrado manualmente.");
+    overlay.classList.remove("show");
+    overlay.style.display = "none";
+    document.body.style.overflow = "";
   }
 
-  // ---------- Inicializa leitor ----------
   async function startScanner() {
     totalLidos = 0;
     atualizarContador();
-
     overlay.classList.add("show");
     overlay.style.display = "block";
-    document.body.style.overflow = "hidden"; // 🔒 trava scroll da página
+    document.body.style.overflow = "hidden";
 
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-        audio: false
-      });
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
       video.srcObject = stream;
       await video.play();
     } catch (err) {
-      console.error("Erro ao acessar câmera:", err);
       showMsg("erro", "Câmera não disponível");
-      document.body.style.overflow = ""; // 🔓 libera scroll em erro
+      document.body.style.overflow = "";
       return;
     }
 
-    try {
-      detector = new BarcodeDetector({
-        formats: ["qr_code", "ean_13", "code_128", "code_39", "itf", "upc_a", "upc_e"]
-      });
-    } catch (err) {
-      showMsg("erro", "Leitor não suportado neste dispositivo.");
-      document.body.style.overflow = ""; // 🔓 libera scroll
-      return;
-    }
-
-    interval = setInterval(async () => {
-      if (scanLocked) return;
+    // --- Verifica suporte nativo ---
+    if ("BarcodeDetector" in window) {
       try {
-        const barcodes = await detector.detect(video);
-        if (!barcodes.length) return;
-        const code = barcodes[0].rawValue || barcodes[0].rawtext || "";
-        if (!code) return;
-
-        scanLocked = true;
-        handleScanResult(code);
-        setTimeout(() => (scanLocked = false), 600);
+        const detector = new BarcodeDetector({ formats: ["qr_code", "ean_13", "code_128", "code_39", "itf", "upc_a", "upc_e"] });
+        interval = setInterval(async () => {
+          if (scanLocked) return;
+          const barcodes = await detector.detect(video);
+          if (!barcodes.length) return;
+          const code = barcodes[0].rawValue || "";
+          processarCodigo(code);
+        }, 180);
+        return;
       } catch (e) {
-        console.warn("Erro ao detectar código:", e);
+        console.warn("Erro BarcodeDetector, fallback ZXing:", e);
       }
-    }, 180);
+    }
 
-    // adiciona listener do botão Fechar (uma única vez)
-    if (closeBtn && !closeBtn._listenerAdded) {
-      closeBtn.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
+    // --- Fallback ZXing para iPhone ---
+    if (window.ZXingBrowser) {
+      const reader = new ZXingBrowser.BrowserMultiFormatReader();
+      try {
+        await reader.decodeFromVideoDevice(null, video, (result, err) => {
+          if (!result) return;
+          processarCodigo(result.getText());
+        });
+      } catch (e) {
+        console.error("Erro ZXing fallback:", e);
+        showMsg("erro", "Leitor não suportado neste dispositivo.");
+      }
+    } else {
+      showMsg("erro", "Leitor não suportado neste dispositivo.");
+    }
+
+    // Listener do botão Fechar
+    if (closeBtn) {
+      closeBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         stopScanner();
-      });
-      closeBtn._listenerAdded = true;
+      };
     }
   }
 
-  // ---------- Processa leitura ----------
-  function handleScanResult(text) {
+  function processarCodigo(text) {
     const codigo = String(text || "").trim();
-    if (!codigo) return;
-
-    if (inputCodigo) inputCodigo.value = codigo;
-
-    const cls = classifyCodigo(codigo);
-    if (!cls.ok) {
-      showMsg("erro", `Código inválido: ${cls.motivo || ""}`);
-      Sound.play("err");
-      return;
-    }
+    if (!codigo || scanLocked) return;
+    scanLocked = true;
 
     const entregador = document.getElementById("entregador")?.value;
     if (!entregador) {
       showMsg("alerta", "Selecione o entregador antes de escanear.");
       Sound.play("warn");
+      scanLocked = false;
       return;
     }
 
-    const k = `${entregador.toUpperCase()}||${cls.codigo.toUpperCase()}`;
-    if (rowsByKey.has(k)) {
-      showMsg("alerta", `DUPLICADO • ${cls.codigo}`);
-      Sound.play("warn");
-      return;
-    }
-
+    if (inputCodigo) inputCodigo.value = codigo;
     totalLidos++;
     atualizarContador();
     showMsg("info", `Registrado ✓ (${totalLidos})`);
     Sound.play("ok");
 
-    // dispara o mesmo fluxo do botão "Registrar"
-    if (inputCodigo) inputCodigo.value = cls.codigo;
     if (typeof registrar === "function") registrar();
+    setTimeout(() => (scanLocked = false), 800);
   }
 
-  // ---------- Botão de abrir câmera ----------
-  const newBtn = btnScan.cloneNode(true);
-  btnScan.parentNode.replaceChild(newBtn, btnScan);
-  newBtn.addEventListener("click", (ev) => {
-    ev.preventDefault();
-    startScanner();
-  });
+  // botão principal
+  btnScan.onclick = (ev) => { ev.preventDefault(); startScanner(); };
 
-  // ---------- Botão voltar fecha overlay ----------
+  // botão fechar
   const back = document.getElementById("scanFSBack");
-  if (back && !back._listenerAdded) {
-    back.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      stopScanner();
-    });
-    back._listenerAdded = true;
-  }
+  back?.addEventListener("click", (ev) => { ev.preventDefault(); stopScanner(); });
 
-  // ---------- Fecha scanner ao sair da página ----------
   window.addEventListener("beforeunload", stopScanner);
 })();
-
-
-  // ---------- Fecha scanner ao sair da página ----------
-  window.addEventListener("beforeunload", stopScanner);
-})();
-
-
 
   // ---------- eventos ----------
   selEnt?.addEventListener("change", onEntregadorChange);

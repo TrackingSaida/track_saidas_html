@@ -259,39 +259,33 @@ document.addEventListener("DOMContentLoaded", async () => {
   atualizarResumo();
 });
 
-/* ======= Coleta — Scanner independente (sem scanner-service.js) ======= */
+/* ======= Coleta — Scanner híbrido (BarcodeDetector + ZXing) ======= */
 (function coletaScannerIntegrado() {
   const btnScan = document.getElementById("btnScan");
   const inputCodigo = document.getElementById("codigo");
   if (!btnScan) return;
 
-  let totalLidos = 0;
-  let scanLocked = false;
-  let detector = null;
-  let stream = null;
-  let interval = null;
-
   const contadorEl = document.getElementById("scan-packages-count");
   const hud = document.getElementById("scanFSMsg");
   const overlay = document.getElementById("scanFS");
   const video = document.getElementById("scanFSVideo");
+  const closeBtn = document.getElementById("scanCloseBtn");
+
+  let totalLidos = 0;
+  let scanLocked = false;
+  let stream = null;
+  let interval = null;
 
   // ---------- Atualiza contador ----------
   function atualizarContador() {
-    if (!contadorEl) return;
     contadorEl.textContent = `${totalLidos} ${totalLidos === 1 ? "Pacote Lido" : "Pacotes Lidos"}`;
   }
 
-  // ---------- HUD de mensagens ----------
+  // ---------- HUD ----------
   function showMsg(tipo, msg) {
-    if (!hud) return;
     hud.textContent = msg;
     hud.classList.remove("info", "warning", "danger", "show");
-    hud.classList.add(
-      tipo === "erro" ? "danger" :
-      tipo === "alerta" ? "warning" : "info",
-      "show"
-    );
+    hud.classList.add(tipo === "erro" ? "danger" : tipo === "alerta" ? "warning" : "info", "show");
     clearTimeout(hud._t);
     hud._t = setTimeout(() => hud.classList.remove("show"), tipo === "erro" ? 3000 : 2000);
   }
@@ -304,12 +298,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     stream = null;
     scanLocked = false;
-    if (overlay) {
-      overlay.classList.remove("show");
-      overlay.style.display = "none";
-    }
-    document.body.style.overflow = ""; // 🔓 libera scroll
-    console.info("📴 Scanner encerrado manualmente.");
+    overlay.classList.remove("show");
+    overlay.style.display = "none";
+    document.body.style.overflow = "";
   }
 
   // ---------- Inicializa leitor ----------
@@ -319,7 +310,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     overlay.classList.add("show");
     overlay.style.display = "block";
-    document.body.style.overflow = "hidden"; // 🔒 trava scroll da página
+    document.body.style.overflow = "hidden";
 
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -329,54 +320,63 @@ document.addEventListener("DOMContentLoaded", async () => {
       video.srcObject = stream;
       await video.play();
     } catch (err) {
-      console.error("Erro ao acessar câmera:", err);
       showMsg("erro", "Câmera não disponível");
-      document.body.style.overflow = ""; // 🔓 libera scroll em caso de erro
+      document.body.style.overflow = "";
       return;
     }
 
-    try {
-      detector = new BarcodeDetector({
-        formats: ["qr_code", "ean_13", "code_128", "code_39", "itf", "upc_a", "upc_e"]
-      });
-    } catch (err) {
-      showMsg("erro", "Leitor não suportado neste dispositivo.");
-      document.body.style.overflow = ""; // 🔓 libera scroll
-      return;
-    }
-
-    interval = setInterval(async () => {
-      if (scanLocked) return;
+    // --- tenta BarcodeDetector ---
+    if ("BarcodeDetector" in window) {
       try {
-        const barcodes = await detector.detect(video);
-        if (!barcodes.length) return;
-        const code = barcodes[0].rawValue || barcodes[0].rawtext || "";
-        if (!code) return;
+        const detector = new BarcodeDetector({
+          formats: ["qr_code", "ean_13", "code_128", "code_39", "itf", "upc_a", "upc_e"]
+        });
 
-        scanLocked = true;
-        handleScanResult(code);
-        setTimeout(() => (scanLocked = false), 600);
+        interval = setInterval(async () => {
+          if (scanLocked) return;
+          try {
+            const barcodes = await detector.detect(video);
+            if (!barcodes.length) return;
+            const code = barcodes[0].rawValue || "";
+            processarCodigo(code);
+          } catch (e) {
+            console.warn("Erro ao detectar código:", e);
+          }
+        }, 180);
+
+        // Listener botão fechar
+        if (closeBtn) closeBtn.onclick = () => stopScanner();
+        return;
       } catch (e) {
-        console.warn("Erro ao detectar código:", e);
+        console.warn("BarcodeDetector não disponível, fallback ZXing...");
       }
-    }, 180);
-
-    // 🔹 Listener do botão Fechar (adicionado apenas uma vez)
-    const closeBtn = document.getElementById("scanCloseBtn");
-    if (closeBtn && !closeBtn._listenerAdded) {
-      closeBtn.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        stopScanner();
-      });
-      closeBtn._listenerAdded = true;
     }
+
+    // --- fallback ZXing ---
+    if (window.ZXingBrowser) {
+      const reader = new ZXingBrowser.BrowserMultiFormatReader();
+      try {
+        await reader.decodeFromVideoDevice(null, video, (result, err) => {
+          if (!result) return;
+          processarCodigo(result.getText());
+        });
+      } catch (err) {
+        console.error("Erro ZXing fallback:", err);
+        showMsg("erro", "Leitor não suportado neste dispositivo.");
+      }
+    } else {
+      showMsg("erro", "Leitor não suportado neste dispositivo.");
+    }
+
+    // Listener botão fechar
+    if (closeBtn) closeBtn.onclick = () => stopScanner();
   }
 
   // ---------- Processa leitura ----------
-  function handleScanResult(text) {
+  function processarCodigo(text) {
     const codigo = String(text || "").trim();
-    if (!codigo) return;
+    if (!codigo || scanLocked) return;
+    scanLocked = true;
 
     if (inputCodigo) inputCodigo.value = codigo;
 
@@ -384,6 +384,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!parsed.ok) {
       showMsg("erro", "Código inválido");
       Sound.play("error");
+      scanLocked = false;
       return;
     }
 
@@ -391,6 +392,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!baseSel) {
       showMsg("alerta", "Selecione a base");
       Sound.play("warn");
+      scanLocked = false;
       return;
     }
 
@@ -409,12 +411,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (inputCodigo) inputCodigo.value = "";
     renderTabela();
+
+    setTimeout(() => (scanLocked = false), 800);
   }
 
-  // ---------- Botão de abrir câmera ----------
+  // ---------- Botão abrir câmera ----------
   const newBtn = btnScan.cloneNode(true);
   btnScan.parentNode.replaceChild(newBtn, btnScan);
-
   newBtn.addEventListener("click", (ev) => {
     ev.preventDefault();
     startScanner();
@@ -422,16 +425,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ---------- Botão voltar fecha overlay ----------
   const back = document.getElementById("scanFSBack");
-  if (back && !back._listenerAdded) {
-    back.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      stopScanner();
-    });
-    back._listenerAdded = true;
-  }
+  back?.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    stopScanner();
+  });
 
-  // ---------- Fecha scanner ao sair da página ----------
   window.addEventListener("beforeunload", stopScanner);
 })();
 
