@@ -97,16 +97,17 @@ if (/^TIME\d{6}$/i.test(raw)) {
 
 /* =============== Atualiza Resumo ============= */
 function atualizarResumo() {
-  const shopee = COLETAS.filter(c => c.servico === "Shopee").length;
-  const ml = COLETAS.filter(c => c.servico === "Mercado Livre" || c.servico === "ML").length;
-  const avulso = COLETAS.filter(c => c.servico === "Avulso").length;
-  const total = COLETAS.length;
+  const shopee = COLETAS.filter(c => c.servico === "Shopee" && c.status !== "Duplicado").length;
+  const ml = COLETAS.filter(c => (c.servico === "Mercado Livre" || c.servico === "ML") && c.status !== "Duplicado").length;
+  const avulso = COLETAS.filter(c => c.servico === "Avulso" && c.status !== "Duplicado").length;
+  const total = COLETAS.filter(c => c.status !== "Duplicado").length;
 
   qs("#sum-shopee").textContent = shopee;
   qs("#sum-ml").textContent = ml;
   qs("#sum-avulso").textContent = avulso;
   qs("#sum-total").textContent = total;
 }
+
 
 /* =============== Renderização da Tabela ============= */
 function renderTabela() {

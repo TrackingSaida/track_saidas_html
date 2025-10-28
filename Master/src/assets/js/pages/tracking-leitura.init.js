@@ -1,15 +1,8 @@
 // assets/js/pages/tracking-leitura.init.js
-// Leitura: classificação, fila local, sons, "Dup?" como checkbox
-// Regras:
-//  - Não lembrar último entregador (select inicia vazio)
-//  - Se já existir NA SESSÃO: não cria linha e não envia; só avisa
-//  - Se for DUPLICADO no BACK (409): mantém a linha e marca Status="Duplicado" (checkbox checado)
+
   (async function () {
   "use strict";
-
-  // Certifica que a sessão está válida antes de iniciar a leitura. Aguarda a
-  // resolução de ensureAuth() para evitar que a lógica da página rode
-  // enquanto a autenticação ainda não foi checada.
+  // ---------- autenticação ----------
   if (typeof window !== 'undefined' && typeof window.ensureAuth === 'function') {
     try { await window.ensureAuth(); } catch (_) {}
   }
@@ -23,39 +16,39 @@
   const tbLast = $("ultimos-rows");
 
   // ---------- resumo dos últimos registros ----------
-  // Elementos para mostrar o total de registros por serviço (Shopee, Mercado Livre, Avulso) e o total geral.
-  const sumShopeeEl   = document.getElementById('ult-sum-shopee');
-  const sumMercadoEl  = document.getElementById('ult-sum-ml');
-  const sumAvulsoEl   = document.getElementById('ult-sum-avulso');
-  const sumTotalEl    = document.getElementById('ult-sum-total');
+// Elementos para mostrar o total de registros por serviço (Shopee, Mercado Livre, Avulso) e o total geral.
+const sumShopeeEl   = document.getElementById('ult-sum-shopee');
+const sumMercadoEl  = document.getElementById('ult-sum-ml');
+const sumAvulsoEl   = document.getElementById('ult-sum-avulso');
+const sumTotalEl    = document.getElementById('ult-sum-total');
 
-  /**
-   * Atualiza o resumo visível dos últimos registros. Percorre todas as linhas
-   * atualmente exibidas no card "Últimos registros" (mantidas em rowsByKey)
-   * e contabiliza quantos códigos pertencem a cada serviço. O resultado
-   * alimenta os elementos definidos no HTML. Chamado sempre que uma linha
-   * é criada ou atualizada e quando o quadro é limpo.
-   */
-  function updateSummary() {
-    // Se os elementos do resumo não existirem, não faz nada. Permite manter
-    // compatibilidade caso o HTML não tenha os IDs esperados.
-    if (!sumShopeeEl || !sumMercadoEl || !sumAvulsoEl || !sumTotalEl) return;
-    let shopee = 0, mercado = 0, avulso = 0, total = 0;
-    for (const tr of rowsByKey.values()) {
-      const srvCell = tr.querySelector('.srv');
-      const servico = (srvCell?.textContent || '').trim().toLowerCase();
-      if (!servico) continue;
-      total++;
-      if (servico === 'shopee') shopee++;
-      else if (servico === 'mercado livre') mercado++;
-      else if (servico === 'mercado_livre' || servico === 'mercadolivre') mercado++;
-      else if (servico === 'avulso') avulso++;
-    }
-    sumShopeeEl.textContent  = shopee;
-    sumMercadoEl.textContent = mercado;
-    sumAvulsoEl.textContent  = avulso;
-    sumTotalEl.textContent   = total;
+function updateSummary() {
+  if (!sumShopeeEl || !sumMercadoEl || !sumAvulsoEl || !sumTotalEl) return;
+
+  let shopee = 0, mercado = 0, avulso = 0, total = 0;
+
+  for (const tr of rowsByKey.values()) {
+    const srvCell = tr.querySelector('.srv');
+    const statusCell = tr.querySelector('.status'); // garante captura do status, se existir
+    const servico = (srvCell?.textContent || '').trim().toLowerCase();
+    const status  = (statusCell?.textContent || '').trim().toLowerCase();
+
+    // Ignora linhas sem serviço ou com status duplicado
+    if (!servico || status === 'duplicado') continue;
+
+    total++;
+    if (servico === 'shopee') shopee++;
+    else if (servico === 'mercado livre') mercado++;
+    else if (servico === 'mercado_livre' || servico === 'mercadolivre') mercado++;
+    else if (servico === 'avulso') avulso++;
   }
+
+  sumShopeeEl.textContent  = shopee;
+  sumMercadoEl.textContent = mercado;
+  sumAvulsoEl.textContent  = avulso;
+  sumTotalEl.textContent   = total;
+}
+
 
   // ---------- mapa de linhas visíveis (evitar duplicar visualmente) ----------
   const rowsByKey = new Map(); // key(ent,cod) -> <tr>
@@ -77,15 +70,15 @@
   const Sound = (() => {
     let ctx;
     function ensure(){ if (!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); if (ctx.state==='suspended') ctx.resume(); return ctx; }
-    function beep({ freq=880, dur=120, type="sine", vol=1.5, when=0 }){
+    function beep({ freq=880, dur=120, type="sine", vol=0.06, when=0 }){
       const c=ensure(), t0=c.currentTime+when/1000, o=c.createOscillator(), g=c.createGain();
       o.type=type; o.frequency.value=freq; g.gain.setValueAtTime(vol,t0); g.gain.linearRampToValueAtTime(0.0001,t0+dur/1000);
       o.connect(g).connect(c.destination); o.start(t0); o.stop(t0+dur/1000+0.02); return dur;
     }
     function play(kind){
-      if (kind==="ok"){ let d=0; d+=beep({freq:1046,dur:90, type:"sine",vol:1.5,when:d}); beep({freq:1318,dur:140,type:"sine",vol:1.5,when:d+60}); }
-      else if (kind==="warn"){ let d=0; d+=beep({freq:660,dur:120,type:"triangle",vol:1.5,when:d}); beep({freq:660,dur:120,type:"triangle",vol:1.5,when:d+160}); }
-      else { beep({freq:220,dur:240,type:"square",vol:1.5,when:0}); beep({freq:180,dur:220,type:"square",vol:1.5,when:260}); }
+      if (kind==="ok"){ let d=0; d+=beep({freq:1046,dur:90, type:"sine",vol:0.05,when:d}); beep({freq:1318,dur:140,type:"sine",vol:0.05,when:d+60}); }
+      else if (kind==="warn"){ let d=0; d+=beep({freq:660,dur:120,type:"triangle",vol:0.05,when:d}); beep({freq:660,dur:120,type:"triangle",vol:0.05,when:d+160}); }
+      else { beep({freq:220,dur:240,type:"square",vol:0.06,when:0}); beep({freq:180,dur:220,type:"square",vol:0.06,when:260}); }
     }
     return { play };
   })();
@@ -152,13 +145,6 @@ function showMsgIcon(tipo, texto) {
     // Avulso (CEP): primeira ocorrência de 8 dígitos
     const cep = (allDigits.match(/\d{8}/) || [null])[0];
     if (cep)   return { ok:true, servico:"Avulso", codigo: cep };
-
-
-    // TIME + 6 dígitos → Avulso (Time)
-if (/^TIME\d{6}$/i.test(raw)) {
-  return { ok:true, servico:"Avulso", codigo:raw };
-}
-
 
     return { ok:false, motivo:"Padrão não configurado" };
   }
@@ -390,132 +376,167 @@ if (/^TIME\d{6}$/i.test(raw)) {
     if (inpCod) { inpCod.value = ""; inpCod.focus(); }
   }
 
-// ===== Leitor por Câmera — Unificado (ScannerService + contador UX) =====
-(function LeituraCameraUnificada() {
+// ===== Leitor por Câmera — Full-screen (BarcodeDetector nativo) =====
+(function leituraScannerIntegrado() {
   const btnScan = document.getElementById("btnScan");
   const inputCodigo = document.getElementById("codigo");
-  const btnRegistrar = document.getElementById("btnRegistrar");
+  if (!btnScan) return;
 
-  // --- Validação de status opcional (mantida do código anterior) ---
-  async function checkCollected(code) {
-    if (!code) return false;
-    if (window.ENABLE_STATUS_CHECK === false) return true;
+  let scanLocked = false;
+  let detector = null;
+  let stream = null;
+  let interval = null;
+  let totalLidos = 0;
 
-    if (typeof window.checkCodigoStatus === "function") {
-      try {
-        const r = await window.checkCodigoStatus(code);
-        const st = (r && (r.status || r.data?.status || r.state)) || r;
-        return String(st || "").toLowerCase() === "coletado";
-      } catch (e) {
-        console.warn("checkCodigoStatus failed, permitindo registro por fallback", e);
-        return true;
-      }
-    }
+  const overlay = document.getElementById("scanFS");
+  const video = document.getElementById("scanFSVideo");
+  const hud = document.getElementById("scanFSMsg");
+  const contadorEl = document.getElementById("scan-packages-count");
+  const closeBtn = document.getElementById("scanCloseBtn");
 
-    if (!window.TRACK_API_URL) return true;
-
-    const urls = [
-      `${window.TRACK_API_URL}/coletas/status?codigo=${encodeURIComponent(code)}`,
-      `${window.TRACK_API_URL}/packages/status?codigo=${encodeURIComponent(code)}`
-    ];
-
-    for (const u of urls) {
-      try {
-        const res = await fetch(u, { credentials: "include" });
-        if (!res.ok) continue;
-        const j = await res.json().catch(() => null);
-        const status = (j.status || j.data?.status || j.state || j.result || "").toString();
-        if (status.toLowerCase() === "coletado") return true;
-        return false;
-      } catch (err) {
-        console.warn("status-check failed (network), permitindo registro por fallback", err);
-        return true;
-      }
-    }
-
-    return true;
+  function atualizarContador() {
+    if (contadorEl)
+      contadorEl.textContent = `${totalLidos} ${totalLidos === 1 ? "Saída Lida" : "Saídas Lidas"}`;
   }
 
-  function showNotCollectedAlert(code) {
-    const title = "Coleta não realizada";
-    const text = `O código "${String(code || "")}" não foi coletado.`;
-    if (window.Swal && typeof Swal.fire === "function") {
-      Swal.fire({ icon: "warning", title, text, confirmButtonText: "Ok" });
-    } else {
-      alert(`${title}\n\n${text}`);
-    }
+  function showMsg(tipo, msg) {
+    if (!hud) return;
+    hud.textContent = msg;
+    hud.classList.remove("info", "warning", "danger", "show");
+    hud.classList.add(
+      tipo === "erro" ? "danger" :
+      tipo === "alerta" ? "warning" : "info",
+      "show"
+    );
+    clearTimeout(hud._t);
+    hud._t = setTimeout(() => hud.classList.remove("show"), tipo === "erro" ? 3000 : 2000);
   }
 
-  // --- Quando um código é lido com sucesso ---
-async function handleScanResult(text) {
-  // 🔹 Garante que o contador sempre aparece ao abrir o scanner
-  if (Scanner.getCount() === 0) Scanner.updateCountUI();
+  function stopScanner() {
+    if (interval) clearInterval(interval);
+    if (stream) {
+      try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+    }
+    stream = null;
+    scanLocked = false;
+    if (overlay) {
+      overlay.classList.remove("show");
+      overlay.style.display = "none";
+    }
+    console.info("📴 Scanner encerrado manualmente.");
+  }
 
-  const code = String(text || "").trim();
-  if (!code) return;
-  if (inputCodigo) inputCodigo.value = code;
+  async function startScanner() {
+    totalLidos = 0;
+    atualizarContador();
+
+    overlay.classList.add("show");
+    overlay.style.display = "block";
 
     try {
-      const ok = await checkCollected(code);
-      if (ok) {
-        // Chama o mesmo fluxo já usado pelo botão "Registrar"
-        if (typeof registrarCodigo === "function") {
-          registrarCodigo(true);
-        } else if (typeof registrar === "function") {
-          registrar();
-        } else if (btnRegistrar) {
-          btnRegistrar.click();
-        }
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false
+      });
+      video.srcObject = stream;
+      await video.play();
+    } catch (err) {
+      console.error("Erro ao acessar câmera:", err);
+      showMsg("erro", "Câmera não disponível");
+      return;
+    }
 
-        // Incrementa contador e atualiza UI
-        Scanner.incCount(1);
-        const el = document.getElementById("scanFSCount");
-        if (el) {
-          const total = Scanner.getCount();
-          el.textContent = `${total} ${total === 1 ? "Pacote Lido" : "Pacotes Lidos"}`;
-        }
+    try {
+      detector = new BarcodeDetector({
+        formats: ["qr_code", "ean_13", "code_128", "code_39", "itf", "upc_a", "upc_e"]
+      });
+    } catch (err) {
+      showMsg("erro", "Leitor não suportado neste dispositivo.");
+      return;
+    }
 
-      } else {
-        showNotCollectedAlert(code);
+    interval = setInterval(async () => {
+      if (scanLocked) return;
+      try {
+        const barcodes = await detector.detect(video);
+        if (!barcodes.length) return;
+        const code = barcodes[0].rawValue || barcodes[0].rawtext || "";
+        if (!code) return;
+
+        scanLocked = true;
+        handleScanResult(code);
+        setTimeout(() => (scanLocked = false), 600);
+      } catch (e) {
+        console.warn("Erro ao detectar código:", e);
       }
-    } catch (e) {
-      console.error("Erro ao validar status:", e);
-      showNotCollectedAlert(code);
+    }, 180);
+
+    // adiciona listener do botão Fechar (uma única vez)
+    if (closeBtn && !closeBtn._listenerAdded) {
+      closeBtn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        stopScanner();
+      });
+      closeBtn._listenerAdded = true;
     }
   }
 
-  // --- Inicializa o botão da câmera ---
-  if (btnScan) {
-    // Remove binds antigos (caso existam)
-    const newBtn = btnScan.cloneNode(true);
-    btnScan.parentNode.replaceChild(newBtn, btnScan);
+  function handleScanResult(text) {
+    const codigo = String(text || "").trim();
+    if (!codigo) return;
 
-    newBtn.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      if (!window.Scanner || typeof window.Scanner.open !== "function") {
-        (window.toast && window.toast("Scanner indisponível.", false)) || console.warn("Scanner não encontrado");
-        return;
-      }
+    if (inputCodigo) inputCodigo.value = codigo;
 
-      // Zera contador local
-      Scanner.setCount(0);
+    const cls = classifyCodigo(codigo);
+    if (!cls.ok) {
+      showMsg("erro", `Código inválido: ${cls.motivo || ""}`);
+      Sound.play("err");
+      return;
+    }
 
-      // Abre scanner overlay
-      Scanner.open({
-        autoClose: false, // mantém câmera aberta entre leituras
-        onScan: (txt) => handleScanResult(txt),
-      }).catch((err) => {
-        console.error("Scanner.open erro:", err);
-        (window.toast && window.toast("Não foi possível abrir o scanner.", false)) || null;
-      });
-    });
+    const entregador = document.getElementById("entregador")?.value;
+    if (!entregador) {
+      showMsg("alerta", "Selecione o entregador antes de escanear.");
+      Sound.play("warn");
+      return;
+    }
+
+    const k = `${entregador.toUpperCase()}||${cls.codigo.toUpperCase()}`;
+    if (rowsByKey.has(k)) {
+      showMsg("alerta", `DUPLICADO • ${cls.codigo}`);
+      Sound.play("warn");
+      return;
+    }
+
+    totalLidos++;
+    atualizarContador();
+    showMsg("info", `Registrado ✓ (${totalLidos})`);
+    Sound.play("ok");
+
+    // dispara o mesmo fluxo do botão "Registrar"
+    if (inputCodigo) inputCodigo.value = cls.codigo;
+    if (typeof registrar === "function") registrar();
   }
 
-  // --- Limpa contador ao sair da página ---
-  window.addEventListener("beforeunload", () => {
-    Scanner.setCount(0);
-    Scanner.close();
+  const newBtn = btnScan.cloneNode(true);
+  btnScan.parentNode.replaceChild(newBtn, btnScan);
+  newBtn.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    startScanner();
   });
+
+  const back = document.getElementById("scanFSBack");
+  if (back && !back._listenerAdded) {
+    back.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      stopScanner();
+    });
+    back._listenerAdded = true;
+  }
+
+  window.addEventListener("beforeunload", stopScanner);
 })();
 
 
