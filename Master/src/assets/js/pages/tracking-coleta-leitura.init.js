@@ -243,7 +243,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   atualizarResumo();
 });
 
-/* ======= Scanner unificado (com showMsgIcon e contador isolado) ======= */
+/* ======= Scanner unificado (com showMsgIcon e contador isolado, fluxo leve igual ao de leitura) ======= */
 (function coletaScannerIntegrado() {
   try {
     if (window.__scannerDebug) {
@@ -258,9 +258,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const inputCodigo = document.getElementById("codigo");
   if (!btn) return;
 
-  // garante que o overlay existe
+  // garante overlay ativo
   if (!document.getElementById("scanFS")) {
-    console.warn("⚠️ Overlay scanner (scanFS) não encontrado — verifique se scan.html foi incluído antes do fechamento do <body>.");
+    console.warn("⚠️ Overlay scanner (scanFS) não encontrado — verifique se scan.html foi incluído antes do </body>.");
     return;
   }
 
@@ -277,19 +277,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     contadorEl.textContent = `${totalLidos} ${totalLidos === 1 ? "Pacote Lido" : "Pacotes Lidos"}`;
   }
 
-  // leitura e validação
+  // leitura e validação leve (sem re-render tabela)
   function handleScanResult(text) {
     const codigo = String(text || "").trim();
     if (!codigo) return;
-
-    // 🔹 garante que a câmera segue ativa (corrige black screen em Android)
-    const video = document.getElementById("scanFSVideo");
-    if (video && (!video.srcObject || video.srcObject.getTracks().every(t => t.readyState === "ended"))) {
-      navigator.mediaDevices
-        .getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false })
-        .then(stream => { video.srcObject = stream; video.play(); })
-        .catch(err => console.error("Erro ao reabrir câmera:", err));
-    }
 
     if (inputCodigo) inputCodigo.value = codigo;
 
@@ -308,31 +299,59 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const duplicado = COLETAS.some(c => c.codigo === parsed.codigo);
+
     if (duplicado) {
-      COLETAS.push({ base: baseSel, codigo: parsed.codigo, servico: parsed.servico, status: "duplicado", tentativas: 0 });
-      showMsgIcon("alerta", "Duplicado");
+      showMsgIcon("alerta", `DUPLICADO • ${parsed.codigo}`);
       Sound.play("warn");
     } else {
-      COLETAS.push({ base: baseSel, codigo: parsed.codigo, servico: parsed.servico, status: "pendente", tentativas: 0 });
+      // adiciona registro leve (sem reconstruir tabela)
+      COLETAS.push({
+        base: baseSel,
+        codigo: parsed.codigo,
+        servico: parsed.servico,
+        status: "pendente",
+        tentativas: 0
+      });
+
       totalLidos++;
       atualizarContador();
-      showMsgIcon("info", `Registrado ✓ (${totalLidos})`);
+
+      showMsgIcon("info", `Registrado ✓ ${parsed.codigo}`);
       Sound.play("ok");
+
+      // 🔹 adiciona linha nova à tabela sem recriar
+      const tbody = document.querySelector("#tabelaColetas tbody");
+      if (tbody) {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${baseSel}</td>
+          <td>${parsed.codigo}</td>
+          <td>${parsed.servico || "-"}</td>
+          <td>Pendente</td>
+        `;
+        tbody.prepend(row);
+      }
     }
 
     if (inputCodigo) inputCodigo.value = "";
-    renderTabela();
 
-    // 🔹 reforço para manter overlay visível
+    // 🔹 garante overlay ativo e vídeo contínuo
     const ov = document.getElementById("scanFS");
+    const video = document.getElementById("scanFSVideo");
     if (ov && !ov.classList.contains("show")) {
       ov.classList.add("show");
       ov.style.display = "block";
     }
+    if (video && (!video.srcObject || video.srcObject.getTracks().every(t => t.readyState === "ended"))) {
+      navigator.mediaDevices
+        .getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false })
+        .then(stream => { video.srcObject = stream; video.play(); })
+        .catch(err => console.error("Erro ao reabrir câmera:", err));
+    }
   }
 
   // inicializa scanner
-  newBtn.addEventListener("click", (ev) => {
+  newBtn.addEventListener("click", ev => {
     ev.preventDefault();
 
     if (!window.Scanner || typeof window.Scanner.open !== "function") {
@@ -344,20 +363,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     atualizarContador();
 
     window.Scanner.open({
-      autoClose: false, // 🔹 mantém a câmera aberta continuamente
-      onScan: handleScanResult,
+      autoClose: false, // mantém câmera aberta
+      onScan: handleScanResult
     })
       .then(() => {
         const hint = document.querySelector(".scan-hint");
         if (hint) hint.textContent = "Escaneie o código";
       })
-      .catch((err) => {
+      .catch(err => {
         console.error("Scanner.open erro:", err);
         toast && toast("Não foi possível abrir o scanner.", false);
       });
   });
 
-  // limpa contador ao sair da página
+  // reseta contador e fecha scanner ao sair
   window.addEventListener("beforeunload", () => {
     totalLidos = 0;
     atualizarContador();
