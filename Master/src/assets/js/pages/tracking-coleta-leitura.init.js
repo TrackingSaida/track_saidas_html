@@ -260,6 +260,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const overlay = document.getElementById("scanFS");
   const video = document.getElementById("scanFSVideo");
 
+  // ---------- Atualiza contador ----------
   function atualizarContador() {
     if (!contadorEl) return;
     contadorEl.textContent = `${totalLidos} ${totalLidos === 1 ? "Pacote Lido" : "Pacotes Lidos"}`;
@@ -287,8 +288,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     stream = null;
     scanLocked = false;
-    overlay.classList.remove("show");
-    overlay.style.display = "none";
+    if (overlay) {
+      overlay.classList.remove("show");
+      overlay.style.display = "none";
+    }
+    console.info("📴 Scanner encerrado manualmente.");
   }
 
   // ---------- Inicializa leitor ----------
@@ -336,6 +340,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.warn("Erro ao detectar código:", e);
       }
     }, 180);
+
+    // 🔹 Listener do botão Fechar (adicionado apenas uma vez)
+    const closeBtn = document.getElementById("scanCloseBtn");
+    if (closeBtn && !closeBtn._listenerAdded) {
+      closeBtn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        stopScanner();
+      });
+      closeBtn._listenerAdded = true;
+    }
   }
 
   // ---------- Processa leitura ----------
@@ -385,25 +400,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     startScanner();
   });
 
-  // ---------- Botão voltar fecha apenas o overlay ----------
+  // ---------- Botão voltar fecha overlay ----------
   const back = document.getElementById("scanFSBack");
-  if (back) {
+  if (back && !back._listenerAdded) {
     back.addEventListener("click", (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
       stopScanner();
     });
+    back._listenerAdded = true;
   }
 
-  // ---------- Novo botão "Fechar" no overlay ----------
-  const closeBtn = document.getElementById("scanCloseBtn");
-  if (closeBtn) {
-    closeBtn.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      stopScanner();
-    });
-  }
-
+  // ---------- Fecha scanner ao sair da página ----------
   window.addEventListener("beforeunload", stopScanner);
 })();
