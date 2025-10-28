@@ -146,6 +146,11 @@ function showMsgIcon(tipo, texto) {
     const cep = (allDigits.match(/\d{8}/) || [null])[0];
     if (cep)   return { ok:true, servico:"Avulso", codigo: cep };
 
+         // TIME + 6 dígitos → Avulso (Time)
+if (/^TIME\d{6}$/i.test(raw)) {
+  return { ok:true, servico:"Avulso", codigo:raw };
+} 
+
     return { ok:false, motivo:"Padrão não configurado" };
   }
 
@@ -331,50 +336,97 @@ function showMsgIcon(tipo, texto) {
     }
   }
 
-  // ---------- registrar ----------
-  async function registrar(){
-    const entregador = selEnt?.value?.trim() || "";
-    if (!entregador) { showMsgIcon("erro","Selecione o entregador."); Sound.play("err"); return; }
+// ---------- registrar ----------
+async function registrar() {
+  const entregador = selEnt?.value?.trim() || "";
+  if (!entregador) { showMsgIcon("erro", "Selecione o entregador."); Sound.play("err"); return; }
 
-    const rawInput = inpCod?.value || "";
-    if (!rawInput.trim()) { showMsgIcon("erro","Informe o código."); Sound.play("err"); return; }
+  const rawInput = inpCod?.value || "";
+  if (!rawInput.trim()) { showMsgIcon("erro", "Informe o código."); Sound.play("err"); return; }
 
-    // Classificação (bloqueia NF-e e padrões inválidos)
-    const cls = classifyCodigo(rawInput);
-    if (!cls.ok) {
-      showMsgIcon("erro", `Código inválido: ${cls.motivo}.`);
-      Sound.play("err");
-      inpCod && inpCod.select();
-      return;
-    }
-
-    const codigoFinal = cls.codigo;
-    const servico     = cls.servico;
-    const k = keyFor(entregador, codigoFinal);
-
-    // Já existe NA SESSÃO → não cria linha, não envia; só mensagem
-    if (rowsByKey.has(k)) {
-      showMsgIcon("alerta", `DUPLICADO • ${codigoFinal}`);
-      Sound.play("warn");
-      if (inpCod) { inpCod.value = ""; inpCod.focus(); }
-      return;
-    }
-
-    // cria linha "Enviando…" e adiciona à fila local
-    const pending = { id: genId(), ts: Date.now(), entregador, codigo: codigoFinal, servico };
-    addPending(pending);
-
-    const tr = appendOrUpdateRow({
-      tsFmt: new Date().toLocaleString("pt-BR"),
-      entregador, codigo: codigoFinal, servico, status:"Enviando…", duplicado:false
-    });
-    rowsById.set(pending.id, tr);
-
-    // envia (assíncrono); se 409 duplicado no back, marcará a linha como Duplicado
-    attemptSend(pending);
-
-    if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+  const cls = classifyCodigo(rawInput);
+  if (!cls.ok) {
+    showMsgIcon("erro", `Código inválido: ${cls.motivo}.`);
+    Sound.play("err");
+    inpCod && inpCod.select();
+    return;
   }
+
+  const codigoFinal = cls.codigo;
+  const servico     = cls.servico;
+  const k = keyFor(entregador, codigoFinal);
+
+  // Já existe nesta sessão
+  if (rowsByKey.has(k)) {
+    showMsgIcon("alerta", `DUPLICADO • ${codigoFinal}`);
+    Sound.play("warn");
+    if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+    return;
+  }
+
+  try {
+    // 1️⃣ Verifica se o código já existe em Saídas com status "Coletado"
+    const saidaExistente = await TrackAPI.getSaidaPorCodigo(codigoFinal);
+
+    if (saidaExistente && saidaExistente.status === "coletado") {
+      // 🔄 Atualiza via PATCH -> status "Saiu"
+      const res = await TrackAPI.updateSaida(saidaExistente.id_saida, {
+        entregador,
+        status: "Saiu",
+        codigo: codigoFinal
+      });
+
+      if (!res.ok) throw new Error("Falha ao atualizar saída");
+      showMsgIcon("info", `Saída atualizada: ${codigoFinal}`);
+      Sound.play("ok");
+
+      appendOrUpdateRow({
+        tsFmt: new Date().toLocaleString("pt-BR"),
+        entregador, codigo: codigoFinal, servico, status: "Saiu", duplicado: false
+      });
+      updateSummary();
+
+    } else {
+      // 🚨 Código não coletado — alerta antes de registrar
+      const confirm = await Swal.fire({
+        icon: "warning",
+        title: "Código não coletado",
+        text: "O código informado não foi coletado. Deseja registrar mesmo assim?",
+        showCancelButton: true,
+        confirmButtonText: "Sim, registrar",
+        cancelButtonText: "Cancelar"
+      });
+
+      if (confirm.isConfirmed) {
+        const res = await TrackAPI.registerSaida({
+          entregador,
+          codigo: codigoFinal,
+          servico,
+          status: "Não Coletado"
+        });
+
+        if (!res.ok) throw new Error("Falha ao registrar saída");
+        showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
+        Sound.play("warn");
+
+        appendOrUpdateRow({
+          tsFmt: new Date().toLocaleString("pt-BR"),
+          entregador, codigo: codigoFinal, servico, status: "Não Coletado", duplicado: false
+        });
+        updateSummary();
+      }
+    }
+
+  } catch (err) {
+    console.error("Erro ao registrar leitura:", err);
+    showMsgIcon("erro", err.message || "Erro ao registrar leitura.");
+    Sound.play("err");
+  }
+
+  if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+}
+
+
 
 // ===== Leitor por Câmera — Full-screen (BarcodeDetector nativo) =====
 (function leituraScannerIntegrado() {
