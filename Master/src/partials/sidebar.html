@@ -56,8 +56,8 @@
     <div class="container-fluid">
       <div id="two-column-menu"></div>
 
-      <!-- MENU dinâmico: esconde até montar para evitar FOUC -->
-      <ul class="navbar-nav" id="navbar-nav" style="display:none;">
+      <!-- MENU dinâmico: invisível até montar (mantém no DOM p/ mobile) -->
+      <ul class="navbar-nav" id="navbar-nav" style="visibility:hidden;opacity:0;">
         <li class="menu-title"><span data-key="t-menu">Menu</span></li>
         <!-- Os itens virão via JS -->
       </ul>
@@ -200,8 +200,30 @@
               }
             }
 
-            // Exibe menu depois de montar
-            nav.style.display = "";
+            // ===== MOBILE FIX =====
+            // 1) Torna o menu visível (sem piscar)
+            nav.style.visibility = "visible";
+            nav.style.opacity = "1";
+
+            // 2) Notifica o Bootstrap/Velzon de mudanças de layout
+            if (window.dispatchEvent) {
+              window.dispatchEvent(new Event("resize"));
+            }
+
+            // 3) Se o usuário já tinha aberto o hambúrguer antes de carregar o menu,
+            // forçamos um "re-toggle" para o conteúdo aparecer.
+            const isMobile = window.matchMedia("(max-width: 991.98px)").matches;
+            if (isMobile) {
+              const overlay   = document.querySelector(".vertical-overlay");
+              const hamburger = document.getElementById("topnav-hamburger-icon") || document.getElementById("vertical-hover");
+              // Se a overlay está visível (menu aberto) e temos o botão, fechamos e abrimos de novo rapidamente
+              if (overlay && overlay.classList.contains("show") && hamburger) {
+                hamburger.click(); // fecha
+                setTimeout(() => hamburger.click(), 60); // reabre com o conteúdo já montado
+              }
+            }
+            // ===== FIM MOBILE FIX =====
+
           } catch (e) {
             console.error("Erro ao montar sidebar:", e);
           }
