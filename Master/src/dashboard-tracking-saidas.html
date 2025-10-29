@@ -72,16 +72,23 @@
   @@include("partials/vendor-scripts.html")
 
   <!-- ECharts -->
-  <script src="assets/libs/echarts/echarts.min.js"></script>
+<script src="assets/libs/echarts/echarts.min.js"></script>
 
-  <!-- API wrapper (define window.TrackAPI) -->
-  <script src="assets/js/pages/tracking-api-leitura-registros.init.js"></script>
+<!-- 🔧 Definir URL base da API (precisa vir antes do script de API) -->
+<script>
+  // Substitua pela URL real da sua API (exemplo):
+  window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+</script>
 
-  <!-- Página init -->
-  <script src="assets/js/pages/dashboard-tracking-saidas.init.js"></script>
+<!-- API wrapper (define window.TrackAPI) -->
+<script src="assets/js/pages/tracking-api-leitura-registros.init.js"></script>
 
-  <!-- App js -->
-  <script src="assets/js/app.js"></script>
+<!-- Página init -->
+<script src="assets/js/pages/dashboard-tracking-saidas.init.js"></script>
+
+<!-- App js -->
+<script src="assets/js/app.js"></script>
+
 </body>
 
 </html>
