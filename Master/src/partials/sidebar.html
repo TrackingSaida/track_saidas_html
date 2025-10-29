@@ -52,138 +52,97 @@
     <div id="scrollbar">
         <div class="container-fluid">
 
+            <div id="two-column-menu"></div>
 
-            <div id="two-column-menu">
-            </div>
-            <ul class="navbar-nav" id="navbar-nav">
+            <!-- ======= MENU DINÂMICO (única alteração) ======= -->
+            <ul class="navbar-nav" id="navbar-nav" style="display:none;">
                 <li class="menu-title"><span data-key="t-menu">Menu</span></li>
-                <li class="nav-item">
-  <a class="nav-link menu-link" href="#sidebarTrackOps" data-bs-toggle="collapse" role="button"
-     aria-expanded="false" aria-controls="sidebarTrackOps">
-    <i class="las la-motorcycle"></i> <span>Operação</span>
-  </a>
-
-  <div class="collapse menu-dropdown" id="sidebarTrackOps">
-    <ul class="nav nav-sm flex-column">
-
-      <!-- Coletas -->
-      <li class="nav-item">
-        <a href="#sidebarColetas" class="nav-link" data-bs-toggle="collapse" role="button"
-           aria-expanded="false" aria-controls="sidebarColetas">
-          <i class="ri-box-3-line me-1"></i> <span>Coletas</span>
-        </a>
-        <div class="collapse menu-dropdown" id="sidebarColetas">
-          <ul class="nav nav-sm flex-column">
-            <li class="nav-item">
-              <a href="tracking-coleta-leitura.html" class="nav-link">Leitura de Coletas</a>
-            </li>
-            <li class="nav-item">
-              <a href="tracking-coletas-resumo.html" class="nav-link">Resumo de Coletas</a>
-            </li>
-          </ul>
-        </div>
-      </li>
-
-      <!-- Saídas -->
-      <li class="nav-item">
-        <a href="#sidebarSaidas" class="nav-link" data-bs-toggle="collapse" role="button"
-           aria-expanded="false" aria-controls="sidebarSaidas">
-          <i class="ri-truck-line me-1"></i> <span>Saídas</span>
-        </a>
-        <div class="collapse menu-dropdown" id="sidebarSaidas">
-          <ul class="nav nav-sm flex-column">
-            <li class="nav-item">
-              <a href="tracking-leitura.html" class="nav-link">Leitura de Saídas</a>
-            </li>
-            <li class="nav-item">
-              <a href="tracking-registros.html" class="nav-link">Registros de Saídas</a>
-            </li>
-          </ul>
-        </div>
-      </li>
-
-    </ul>
-  </div>
-</li>
-
-
-
-     <a class="nav-link menu-link" href="#sidebarDashboards" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarDashboards">
-                        <i class="ri-dashboard-2-line"></i> <span data-key="t-dashboards">Dashboards</span>
-                    </a>
-                    <div class="collapse menu-dropdown" id="sidebarDashboards">
-                        <ul class="nav nav-sm flex-column">
-                             <li class="nav-item">
-                                <a href="dashboard-tracking-saidas.html" class="nav-link" data-key="t-tracking"> Tracking </a>
-                            
-                        </ul>
-                    </div>
-                </li>
-
-  <a class="nav-link menu-link" href="#sidebarTrackCfg" data-bs-toggle="collapse" role="button"
-     aria-expanded="false" aria-controls="sidebarTrackCfg">
-    <i class="ri-settings-3-line"></i> <span>Configurações</span>
-  </a>
-  <div class="collapse menu-dropdown" id="sidebarTrackCfg">
-    <ul class="nav nav-sm flex-column">
-      <li class="nav-item"><a href="tracking-entregador.html" class="nav-link">Entregadores</a></li>
-      <li class="nav-item"><a href="tracking-base.html" class="nav-link">Bases</a></li>
-  
-<!--    <li class="nav-item"><a href="tracking-servico.html" class="nav-link">Padrões de Código</a></li> -->
-
-    </ul>
-  </div>
-</li>
-                <!-- end Dashboard Menu -->
-               
-                            
-
-
-
-             
-
-              <!--  <li class="nav-item">
-                    <a class="nav-link menu-link" href="#sidebarMultilevel" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarMultilevel">
-                        <i class="ri-share-line"></i> <span data-key="t-multi-level">Multi Level</span>
-                    </a>
-                    <div class="collapse menu-dropdown" id="sidebarMultilevel">
-                        <ul class="nav nav-sm flex-column">
-                            <li class="nav-item">
-                                <a href="#" class="nav-link" data-key="t-level-1.1"> Level 1.1 </a>
-                            </li>
-                            <li class="nav-item">
-                                <a href="#sidebarAccount" class="nav-link" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarAccount" data-key="t-level-1.2"> Level
-                                    1.2
-                                </a>
-                                <div class="collapse menu-dropdown" id="sidebarAccount">
-                                    <ul class="nav nav-sm flex-column">
-                                        <li class="nav-item">
-                                            <a href="#" class="nav-link" data-key="t-level-2.1"> Level 2.1 </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#sidebarCrm" class="nav-link" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarCrm" data-key="t-level-2.2"> Level 2.2
-                                            </a>
-                                            <div class="collapse menu-dropdown" id="sidebarCrm">
-                                                <ul class="nav nav-sm flex-column">
-                                                    <li class="nav-item">
-                                                        <a href="#" class="nav-link" data-key="t-level-3.1"> Level 3.1
-                                                        </a>
-                                                    </li>
-                                                    <li class="nav-item">
-                                                        <a href="#" class="nav-link" data-key="t-level-3.2"> Level 3.2
-                                                        </a>
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
-                </li> -->
-
+                <!-- Os itens serão inseridos via JS -->
             </ul>
+
+            <script>
+            (async function montarSidebar() {
+              const nav = document.getElementById("navbar-nav");
+              if (!nav) return;
+
+              // Se o HTML estiver em outro domínio (Netlify/Render static), use a URL absoluta da API:
+              const API_BASE  = "https://track-saidas-api.onrender.com";
+              const LOGIN_URL = "auth-login-tracking.html"; // ajuste se seu arquivo de login tiver outro nome
+
+              // Primeiro tenta Bearer salvo; se não houver, cai para cookie (credentials: include)
+              const token   = localStorage.getItem("token");
+              const headers = token ? { "Authorization": "Bearer " + token } : {};
+              const fetchOpts = {
+                method: "GET",
+                headers,
+                credentials: token ? "omit" : "include"
+              };
+
+              try {
+                const resp = await fetch(`${API_BASE}/ui/menu`, fetchOpts);
+                if (resp.status === 401) { window.location.href = LOGIN_URL; return; }
+                if (!resp.ok) { console.error("Falha ao carregar menu:", resp.status); return; }
+
+                const data = await resp.json();
+                const menu = data.menu || [];
+
+                // Remove tudo menos o título
+                nav.querySelectorAll(":scope > li:not(.menu-title)").forEach(el => el.remove());
+
+                // Função para id de colapso
+                const toId = (label) => ("sidebar-" + String(label || "")
+                  .toLowerCase()
+                  .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                  .replace(/[^a-z0-9]+/g, "")
+                );
+
+                // Marca ativo baseado no arquivo atual
+                const currentFile = (location.pathname.split("/").pop() || "").toLowerCase();
+
+                for (const sec of menu) {
+                  const secId = toId(sec.section);
+                  const li = document.createElement("li");
+                  li.className = "nav-item";
+                  li.innerHTML = `
+                    <a class="nav-link menu-link" href="#${secId}" data-bs-toggle="collapse" role="button"
+                       aria-expanded="false" aria-controls="${secId}">
+                      <i class="${sec.icon || ""}"></i> <span>${sec.section}</span>
+                    </a>
+                    <div class="collapse menu-dropdown" id="${secId}">
+                      <ul class="nav nav-sm flex-column">
+                        ${(sec.items || []).map(i => {
+                          const href = i.href || "#";
+                          const isActive = currentFile && href.toLowerCase().endsWith(currentFile);
+                          return `
+                            <li class="nav-item">
+                              <a href="${href}" class="nav-link ${isActive ? "active" : ""}">${i.label}</a>
+                            </li>
+                          `;
+                        }).join("")}
+                      </ul>
+                    </div>
+                  `;
+                  nav.appendChild(li);
+                }
+
+                // Abre a seção do item ativo (se houver)
+                const activeLink = nav.querySelector(".nav-link.active");
+                if (activeLink) {
+                  const collapse = activeLink.closest(".menu-dropdown");
+                  if (collapse && typeof bootstrap !== "undefined") {
+                    new bootstrap.Collapse(collapse, { toggle: true });
+                  }
+                }
+
+                // Exibe o menu somente após montar (evita FOUC)
+                nav.style.display = "";
+              } catch (e) {
+                console.error("Erro ao montar sidebar:", e);
+              }
+            })();
+            </script>
+            <!-- ======= FIM MENU DINÂMICO ======= -->
+
         </div>
         <!-- Sidebar -->
     </div>
