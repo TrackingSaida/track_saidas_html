@@ -56,42 +56,62 @@
     <div class="container-fluid">
       <div id="two-column-menu"></div>
 
-      <!-- MENU dinâmico: invisível até montar (mantém no DOM p/ mobile) -->
+      <!-- MENU dinâmico: invisível até montar (presente no DOM p/ mobile) -->
       <ul class="navbar-nav" id="navbar-nav" style="visibility:hidden;opacity:0;">
         <li class="menu-title"><span data-key="t-menu">Menu</span></li>
         <!-- Os itens virão via JS -->
       </ul>
 
       <script>
-        (async function montarSidebar() {
+        // --- FLAG global p/ evitar montagem dupla (includes/partials repetidos) ---
+        if (!window.__SIDEBAR_BUILT__) {
+          window.__SIDEBAR_BUILT__ = false;
+        }
+
+        // Agenda de montagem: espera DOM + Bootstrap
+        (function scheduleMount() {
+          const readyDOM = document.readyState === "interactive" || document.readyState === "complete";
+          const readyBS  = (typeof window.bootstrap !== "undefined");
+
+          if (readyDOM && readyBS) {
+            // pequeno defer para garantir que scripts como app.js tenham rodado
+            setTimeout(montarSidebar, 50);
+          } else {
+            // Prende nos eventos e tenta de novo
+            if (!readyDOM) document.addEventListener("DOMContentLoaded", () => setTimeout(scheduleMount, 0), { once: true });
+            if (!readyBS)  window.addEventListener("load",           () => setTimeout(scheduleMount, 0), { once: true });
+            // fallback: tenta de novo em 200ms (evita ficar preso se eventos já passaram)
+            setTimeout(() => {
+              if (!window.__SIDEBAR_BUILT__) scheduleMount();
+            }, 200);
+          }
+        })();
+
+        async function montarSidebar() {
+          if (window.__SIDEBAR_BUILT__) return; // idempotente
           const nav = document.getElementById("navbar-nav");
           if (!nav) return;
 
-          // Ajuste aqui, se necessário
           const API_BASE  = "https://track-saidas-api.onrender.com";
           const LOGIN_URL = "auth-login-tracking.html";
 
-          // Tenta Bearer salvo; se não houver, cai para cookie (include)
           const token   = localStorage.getItem("token");
           const headers = token ? { "Authorization": "Bearer " + token } : {};
           const fetchOpts = { method: "GET", headers, credentials: token ? "omit" : "include" };
 
-          // util: normaliza label para id de collapse
           const toId = (label) => ("sidebar-" + String(label || "")
             .toLowerCase()
             .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
             .replace(/[^a-z0-9]+/g, "")
           );
 
-          // arquivo atual para “active”
           const currentFile = (location.pathname.split("/").pop() || "").toLowerCase();
 
-          // helpers de render
           const makeItem = (href, label) => {
-            const isActive = currentFile && href.toLowerCase().endsWith(currentFile);
+            const isActive = currentFile && href && href.toLowerCase().endsWith(currentFile);
             return `
               <li class="nav-item">
-                <a href="${href}" class="nav-link ${isActive ? "active" : ""}">${label}</a>
+                <a href="${href || '#'}" class="nav-link ${isActive ? "active" : ""}">${label}</a>
               </li>`;
           };
 
@@ -109,36 +129,43 @@
             </li>
           `);
 
-          try {
-            const resp = await fetch(`${API_BASE}/ui/menu`, fetchOpts);
-            if (resp.status === 401) { window.location.href = LOGIN_URL; return; }
-            if (!resp.ok) { console.error("Falha ao carregar menu:", resp.status); return; }
+          // retry leve para rede lenta/cache frio
+          async function fetchMenuWithRetry(url, opts, tries = 2) {
+            try {
+              const r = await fetch(url, opts);
+              if (r.status === 401) { window.location.href = LOGIN_URL; return null; }
+              if (!r.ok) throw new Error("HTTP " + r.status);
+              return await r.json();
+            } catch (err) {
+              if (tries > 0) {
+                await new Promise(res => setTimeout(res, 120));
+                return fetchMenuWithRetry(url, opts, tries - 1);
+              }
+              console.error("Falha ao carregar /ui/menu:", err);
+              return null;
+            }
+          }
 
-            const data = await resp.json();
+          try {
+            const data = await fetchMenuWithRetry(`${API_BASE}/ui/menu`, fetchOpts);
+            if (!data) return;
+
             const serverMenu = Array.isArray(data.menu) ? data.menu : [];
 
             // Limpa (mantendo o título)
             nav.querySelectorAll(":scope > li:not(.menu-title)").forEach(el => el.remove());
 
-            // === TRANSFORMAÇÃO/“MESCLA” ===
-            // 1) Encontrar seção Operação
+            // === organização (Coletas/Saídas), Dashboards e Configurações com fallbacks ===
             let operacao = serverMenu.find(s => (s.section || "").toLowerCase() === "operação" || (s.section || "").toLowerCase() === "operacao");
-            // Se não existir, cria vazia com ícone padrão
             if (!operacao) operacao = { section: "Operação", icon: "las la-motorcycle", items: [] };
-
-            // Garantir ícone “moto” para operação
             operacao.icon = operacao.icon || "las la-motorcycle";
-
             const opItems = operacao.items || [];
 
-            // 2) Detectar itens de coletas/saídas vindos da API
             const isColeta = (i) => /coleta/i.test(i.href || "") || /coleta/i.test(i.label || "");
             const isSaida  = (i) => /tracking-(leitura|registros)/i.test(i.href || "") || /sa[ií]da/i.test(i.label || "");
-
             const coletasAPI = opItems.filter(isColeta);
             const saidasAPI  = opItems.filter(isSaida);
 
-            // 3) Itens “extras” garantidos (caso API ainda não envie)
             const extrasColetas = [
               { label: "Leitura de Coletas", href: "tracking-coleta-leitura.html" },
               { label: "Resumo de Coletas",  href: "tracking-coletas-resumo.html" },
@@ -148,41 +175,33 @@
               { label: "Registros de Saídas", href: "tracking-registros.html" },
             ];
 
-            // 4) Monta submenus Operação (Coletas / Saídas)
             const grupoColetas = [...coletasAPI];
             extrasColetas.forEach(e => { if (!grupoColetas.some(i => (i.href||"").toLowerCase() === e.href.toLowerCase())) grupoColetas.push(e); });
-
             const grupoSaidas  = [...saidasAPI];
             extrasSaidas.forEach(e => { if (!grupoSaidas.some(i => (i.href||"").toLowerCase() === e.href.toLowerCase())) grupoSaidas.push(e); });
 
             const opHTML =
-              // Coletas
               makeGroup(toId("Coletas"), "ri-box-3-line me-1", "Coletas",
                 grupoColetas.map(i => makeItem(i.href, i.label)).join("")
               )
               +
-              // Saídas
               makeGroup(toId("Saídas"), "ri-truck-line me-1", "Saídas",
                 grupoSaidas.map(i => makeItem(i.href, i.label)).join("")
               );
 
-            // 5) Dashboards (do servidor como está)
             const dashboards = serverMenu.find(s => (s.section || "").toLowerCase() === "dashboards") || { section:"Dashboards", icon:"ri-dashboard-2-line", items:[] };
             dashboards.icon = dashboards.icon || "ri-dashboard-2-line";
             const dashHTML = dashboards.items && dashboards.items.length
               ? dashboards.items.map(i => makeItem(i.href, i.label)).join("")
               : makeItem("dashboard-tracking-saidas.html","Tracking");
 
-            // 6) Configurações (+ garante “Bases”)
             const config = serverMenu.find(s => (s.section || "").toLowerCase() === "configurações" || (s.section || "").toLowerCase() === "configuracoes")
               || { section:"Configurações", icon:"ri-settings-3-line", items:[] };
             config.icon = config.icon || "ri-settings-3-line";
             const temBases = (config.items||[]).some(i => /tracking-base\.html$/i.test(i.href||""));
             if (!temBases) (config.items = config.items || []).push({ label:"Bases", href:"tracking-base.html" });
-
             const cfgHTML = (config.items || []).map(i => makeItem(i.href, i.label)).join("");
 
-            // 7) Render final das seções
             nav.insertAdjacentHTML("beforeend",
               makeGroup(toId(operacao.section), operacao.icon, operacao.section, opHTML) +
               makeGroup(toId(dashboards.section), dashboards.icon, dashboards.section, dashHTML) +
@@ -191,43 +210,36 @@
 
             // Abre a seção do item ativo (se houver)
             const activeLink = nav.querySelector(".nav-link.active");
-            if (activeLink) {
+            if (activeLink && typeof bootstrap !== "undefined") {
               const collapse = activeLink.closest(".menu-dropdown");
-              if (collapse && typeof bootstrap !== "undefined") {
-                new bootstrap.Collapse(collapse, { toggle: true });
-                const parentCollapse = collapse.closest(".menu-dropdown"); // caso de submenu
-                if (parentCollapse) new bootstrap.Collapse(parentCollapse, { toggle: true });
-              }
+              if (collapse) new bootstrap.Collapse(collapse, { toggle: true });
+              const parentCollapse = collapse && collapse.closest(".menu-dropdown");
+              if (parentCollapse) new bootstrap.Collapse(parentCollapse, { toggle: true });
             }
 
-            // ===== MOBILE FIX =====
-            // 1) Torna o menu visível (sem piscar)
+            // ===== MOBILE + RACE FIX =====
+            // Torna visível sem piscar
             nav.style.visibility = "visible";
-            nav.style.opacity = "1";
+            nav.style.opacity    = "1";
 
-            // 2) Notifica o Bootstrap/Velzon de mudanças de layout
-            if (window.dispatchEvent) {
-              window.dispatchEvent(new Event("resize"));
-            }
+            // Notifica reflow
+            if (window.dispatchEvent) window.dispatchEvent(new Event("resize"));
 
-            // 3) Se o usuário já tinha aberto o hambúrguer antes de carregar o menu,
-            // forçamos um "re-toggle" para o conteúdo aparecer.
+            // Se o menu lateral já estiver aberto, re-toggles rápido para sincronizar
             const isMobile = window.matchMedia("(max-width: 991.98px)").matches;
-            if (isMobile) {
-              const overlay   = document.querySelector(".vertical-overlay");
-              const hamburger = document.getElementById("topnav-hamburger-icon") || document.getElementById("vertical-hover");
-              // Se a overlay está visível (menu aberto) e temos o botão, fechamos e abrimos de novo rapidamente
-              if (overlay && overlay.classList.contains("show") && hamburger) {
-                hamburger.click(); // fecha
-                setTimeout(() => hamburger.click(), 60); // reabre com o conteúdo já montado
-              }
+            const overlay   = document.querySelector(".vertical-overlay");
+            const hamburger = document.getElementById("topnav-hamburger-icon") || document.getElementById("vertical-hover");
+            if (isMobile && overlay && overlay.classList.contains("show") && hamburger) {
+              hamburger.click();
+              setTimeout(() => hamburger.click(), 80);
             }
-            // ===== FIM MOBILE FIX =====
+            // ===== FIM FIX =====
 
+            window.__SIDEBAR_BUILT__ = true; // marca como montado
           } catch (e) {
             console.error("Erro ao montar sidebar:", e);
           }
-        })();
+        }
       </script>
       <!-- ======= FIM MENU DINÂMICO ======= -->
 
