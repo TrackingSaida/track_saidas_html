@@ -1,7 +1,9 @@
 /* =================== Config =================== */
 const API_URL = `${window.TRACK_API_URL}/coletas/lote`;
 const API_BASES = `${window.TRACK_API_URL}/base`;
-const STORAGE_KEY = "coletasPendentes";
+
+// ⚙️ Agora a chave do localStorage é dinâmica por base
+let STORAGE_KEY = null;
 
 /* =============== Helpers / UI ================= */
 const qs  = (s) => document.querySelector(s);
@@ -38,7 +40,7 @@ const toast = (msg, ok = true) => {
 };
 
 /* =============== Estado ============= */
-let COLETAS = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+let COLETAS = [];
 let BASE_ATUAL = null;
 
 /* =============== API ================= */
@@ -72,57 +74,34 @@ function classifyCodigo(rawInput){
   const raw = toAsciiDigits(String(rawInput || "")).toUpperCase().trim();
   const allDigits = raw.replace(/\D+/g, "");
 
-  // 🚫 NF-e (44 dígitos)
   if (/^\d{44}$/.test(allDigits)) return { ok:false, motivo:"NF-e (44 dígitos)" };
 
-  // Shopee: BR + 13 dígitos OU 12 dígitos + 1 letra (total 15)
   const sh = raw.match(/(?:^|[^A-Z0-9])(BR(?:\d{13}|\d{12}[A-Z]))(?=$|[^A-Z0-9])/i);
   if (sh) return { ok:true, servico:"Shopee", codigo: sh[1].toUpperCase() };
 
-  // Mercado Livre: primeiro bloco começando por 45, retorna 11 dígitos
   const mlRun = allDigits.match(/45\d{9,}/);
   if (mlRun) return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11) };
 
-  // Avulso (CEP): primeira ocorrência de 8 dígitos
   const cep = (allDigits.match(/\d{8}/) || [null])[0];
   if (cep)   return { ok:true, servico:"Avulso", codigo: cep };
 
-      // TIME + 6 dígitos → Avulso (Time)
-if (/^TIME\d{6}$/i.test(raw)) {
-  return { ok:true, servico:"Avulso", codigo:raw };
-}
+  if (/^TIME\d{6}$/i.test(raw)) return { ok:true, servico:"Avulso", codigo:raw };
 
   return { ok:false, motivo:"Padrão não configurado" };
 }
 
 /* =============== Atualiza Resumo ============= */
 function atualizarResumo() {
-  const shopee = COLETAS.filter(c =>
-    c.servico === "Shopee" &&
-    !(c.status || "").toLowerCase().includes("duplicado")
-  ).length;
-
-  const ml = COLETAS.filter(c =>
-    (c.servico === "Mercado Livre" || c.servico === "ML") &&
-    !(c.status || "").toLowerCase().includes("duplicado")
-  ).length;
-
-  const avulso = COLETAS.filter(c =>
-    c.servico === "Avulso" &&
-    !(c.status || "").toLowerCase().includes("duplicado")
-  ).length;
-
-  const total = COLETAS.filter(c =>
-    !(c.status || "").toLowerCase().includes("duplicado")
-  ).length;
+  const shopee = COLETAS.filter(c => c.servico === "Shopee" && !(c.status || "").toLowerCase().includes("duplicado")).length;
+  const ml = COLETAS.filter(c => (c.servico === "Mercado Livre" || c.servico === "ML") && !(c.status || "").toLowerCase().includes("duplicado")).length;
+  const avulso = COLETAS.filter(c => c.servico === "Avulso" && !(c.status || "").toLowerCase().includes("duplicado")).length;
+  const total = COLETAS.filter(c => !(c.status || "").toLowerCase().includes("duplicado")).length;
 
   qs("#sum-shopee").textContent = shopee;
   qs("#sum-ml").textContent = ml;
   qs("#sum-avulso").textContent = avulso;
   qs("#sum-total").textContent = total;
 }
-
-
 
 /* =============== Renderização da Tabela ============= */
 function renderTabela() {
@@ -146,15 +125,15 @@ function renderTabela() {
           ? '<span class="badge bg-danger">Erro</span>'
           : item.status === "reenviando"
           ? '<span class="badge bg-info text-dark">Reenviando</span>'
-          : '<span class="badge bg-secondary">Pendente</span>'
-        }
+          : '<span class="badge bg-secondary">Pendente</span>'}
       </td>
       <td><button class="btn btn-sm btn-link text-danger" data-remove="${item.codigo}"><i class="ri-delete-bin-line"></i></button></td>
     `;
     tbody.appendChild(row);
   });
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(COLETAS));
+  // 💾 Salva os dados no localStorage da base atual
+  if (STORAGE_KEY) localStorage.setItem(STORAGE_KEY, JSON.stringify(COLETAS));
   atualizarResumo();
 }
 
@@ -185,7 +164,6 @@ function registrarCodigo() {
     Sound.play("ok");
   }
 
- 
   qs("#codigo").value = "";
   qs("#codigo")?.focus();
   renderTabela();
@@ -216,9 +194,6 @@ async function enviarLote() {
       if (["pendente", "reenviando", "erro"].includes(c.status)) {
         c.tentativas = (c.tentativas || 0) + 1;
         c.status = "erro";
-        if (c.tentativas >= 3) {
-          toast("Entre em contato com o responsável do sistema.", false);
-        }
       }
     });
     toast("Falha ao enviar. Tente novamente.", false);
@@ -235,16 +210,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     const sel = qs("#selBase");
     sel.innerHTML = '<option value="" disabled selected>Selecione...</option>' + 
       bases.map(b => `<option value="${b.base}">${b.base}</option>`).join("");
-    sel.addEventListener("change", e => BASE_ATUAL = e.target.value);
+
+    // 🔁 Quando muda a base, atualiza STORAGE_KEY e carrega coletas dessa base
+    sel.addEventListener("change", e => {
+      BASE_ATUAL = e.target.value;
+      STORAGE_KEY = `coletasPendentes_${BASE_ATUAL}`; // chave única por base
+      COLETAS = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+
+      renderTabela();
+      atualizarResumo();
+      toast(`Base alterada para ${BASE_ATUAL}.`, true);
+    });
   } catch {
     toast("Falha ao carregar bases.", false);
   }
 
   qs("#btnRegistrar")?.addEventListener("click", registrarCodigo);
   qs("#codigo")?.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") {e.preventDefault();
-      registrarCodigo();
-    }
+    if (e.key === "Enter") { e.preventDefault(); registrarCodigo(); }
   });
   qs("#btnIrParaLote")?.addEventListener("click", enviarLote);
   qs("#tbody-coletas")?.addEventListener("click", e => {
@@ -258,6 +241,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderTabela();
   atualizarResumo();
 });
+
 
 /* ======= Coleta — Scanner híbrido (BarcodeDetector + ZXing) ======= */
 (function coletaScannerIntegrado() {
