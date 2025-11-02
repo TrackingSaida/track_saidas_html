@@ -7,7 +7,6 @@
 
   <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
 
-    <!-- Begin page -->
     <div id="layout-wrapper">
 
       <!-- ========== Topbar + Sidebar ========== -->
@@ -23,11 +22,11 @@
             <!-- Título da página -->
             @@include("partials/page-title.html", {"pagetitle": "Operação", "title": "Resumo de Coletas"})
 
-            <!-- Conteúdo principal -->
+            <!-- ======================== CONTEÚDO PRINCIPAL ======================== -->
             <div class="row">
               <div class="col-12">
                 <div class="card">
-                  
+
                   <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="card-title mb-0">Resumo de Coletas</h4>
                     <div class="d-flex gap-2">
@@ -41,32 +40,97 @@
                   </div>
 
                   <div class="card-body">
-                    <div id="resumoMsg" class="mb-2"></div>
+                    <!-- Mensagens -->
+                    <div id="resumoMsg" class="mb-3"></div>
 
-                    <div class="table-responsive">
-                      <table id="coletas-resumo-table" class="table table-striped align-middle table-hover">
-                        <thead class="table-light">
-                          <tr>
-                            <th>Base</th>
-                            <th>Entregador</th>
-                            <th class="text-center">Shopee</th>
-                            <th class="text-center">Mercado Livre</th>
-                            <th class="text-center">Avulso</th>
-                            <th class="text-center">Valor Total</th>
-                          </tr>
-                        </thead>
-                        <tbody></tbody>
-                        <tfoot class="table-secondary fw-semibold">
-                          <tr>
-                            <th colspan="2" class="text-end">Totais:</th>
-                            <th id="sumShopee" class="text-center">0</th>
-                            <th id="sumMl" class="text-center">0</th>
-                            <th id="sumAvulso" class="text-center">0</th>
-                            <th id="sumValor" class="text-center">0</th>
-                          </tr>
-                        </tfoot>
-                      </table>
+                    <!-- 🔹 Filtros -->
+                    <div class="row g-3 align-items-end mb-4">
+                      <div class="col-md-3">
+                        <label class="form-label">De</label>
+                        <input type="date" id="flt-from" class="form-control">
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label">Até</label>
+                        <input type="date" id="flt-to" class="form-control">
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label">Base</label>
+                        <select id="flt-base" class="form-select">
+                          <option value="">(Todas)</option>
+                        </select>
+                      </div>
+                      <div class="col-md-3 d-flex gap-2">
+                        <button id="btnFilter" class="btn btn-primary w-100">
+                          <i class="ri-search-line"></i> Filtrar
+                        </button>
+                        <button id="btnClear" class="btn btn-outline-secondary w-100">
+                          <i class="ri-refresh-line"></i> Limpar
+                        </button>
+                          <button id="btnGerarCobranca" class="btn btn-success w-100">
+                            <i class="ri-file-text-line"></i> Gerar Cobrança
+                         </button>
+
+                      </div>
                     </div>
+
+                    <!-- 🔹 Cards de resumo -->
+                    <div class="row g-3 mb-4">
+
+                      <div class="col-md-2">
+                        <div class="p-3 rounded card-shopee text-center">
+                          <span class="fw-semibold">Shopee</span>
+                          <div class="fs-5 fw-semibold" id="sum-shopee">0</div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-2">
+                        <div class="p-3 rounded card-ml text-center">
+                          <span class="fw-semibold">Mercado Livre</span>
+                          <div class="fs-5 fw-semibold" id="sum-ml">0</div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-2">
+                        <div class="p-3 rounded card-avulso text-center">
+                          <span class="fw-semibold">Avulso</span>
+                          <div class="fs-5 fw-semibold" id="sum-avulso">0</div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-2">
+                        <div class="p-3 rounded card-total text-center">
+                          <span class="fw-semibold">Total Coletas</span>
+                          <div class="fs-5 fw-semibold" id="sum-total">0</div>
+                        </div>
+                      </div>
+
+                      <!-- 🆕 Novo card: Valor total em R$ -->
+                      <div class="col-md-4">
+                        <div class="p-3 rounded card-valor-total text-center">
+                          <span class="fw-semibold">Valor Total (R$)</span>
+                          <div class="fs-5 fw-semibold" id="sum-total-valor">R$ 0,00</div>
+                        </div>
+                      </div>
+
+                    </div>
+
+                <!-- 🔹 Tabela -->
+<div class="table-responsive">
+  <table id="coletas-resumo-table" class="table table-striped align-middle table-hover">
+    <thead class="table-light">
+      <tr>
+        <th>Data</th>
+        <th>Base</th>
+        <th>Entregador</th>
+        <th class="text-center">Shopee</th>
+        <th class="text-center">Mercado Livre</th>
+        <th class="text-center">Avulso</th>
+        <th class="text-center">Valor Total</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
                   </div>
 
                 </div>
@@ -82,24 +146,28 @@
       </div> <!-- main-content -->
     </div> <!-- layout-wrapper -->
 
-    <!-- Overlay de carregamento (opcional, mesmo padrão das outras telas) -->
     <div class="vertical-overlay"></div>
 
-    <!-- ========== JS Vendors + App Scripts ========== -->
     @@include("partials/vendor-scripts.html")
 
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 
-    <!-- URL padrão da API -->
-    <script>
-      window.TRACK_API_URL = window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api";
-    </script>
+   <!-- URL padrão da API -->
+<script>
+  if (!window.TRACK_API_URL)
+    window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+</script>
+
 
     <!-- Script específico da página -->
     <script src="assets/js/pages/tracking-coletas-resumo.init.js"></script>
 
     <!-- Script base do app -->
     <script src="assets/js/app.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.min.js"></script>
+
   </body>
 </html>
