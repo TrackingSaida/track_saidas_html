@@ -61,6 +61,27 @@ async function enviarColetasLote(base, itens) {
   return r;
 }
 
+/* 🆕 Envia automaticamente uma coleta individual ao registrar */
+async function enviarColetaUnica(item) {
+  try {
+    const r = await enviarColetasLote(item.base, [item]);
+    if (r.status === 201) {
+      item.status = "enviado";
+      toast(`Código ${item.codigo} enviado com sucesso.`);
+      Sound.play("ok");
+    } else {
+      throw new Error(`Status ${r.status}`);
+    }
+  } catch (err) {
+    console.warn("Falha no envio imediato:", err);
+    item.status = "erro";
+    toast(`Falha ao enviar ${item.codigo}, salvo como pendente.`, false);
+    Sound.play("warn");
+  } finally {
+    renderTabela();
+  }
+}
+
 /* =================== Normalização / Classificação =================== */
 function toAsciiDigits(s){
   if (!s) return "";
@@ -132,7 +153,6 @@ function renderTabela() {
     tbody.appendChild(row);
   });
 
-  // 💾 Salva os dados no localStorage da base atual
   if (STORAGE_KEY) localStorage.setItem(STORAGE_KEY, JSON.stringify(COLETAS));
   atualizarResumo();
 }
@@ -162,6 +182,10 @@ function registrarCodigo() {
     COLETAS.push({ base: baseSel, codigo, servico, status: "pendente", tentativas: 0 });
     toast("Código registrado.");
     Sound.play("ok");
+
+    // 🆕 Envio automático do item recém-adicionado
+    const novoItem = COLETAS[COLETAS.length - 1];
+    enviarColetaUnica(novoItem);
   }
 
   qs("#codigo").value = "";
@@ -169,35 +193,26 @@ function registrarCodigo() {
   renderTabela();
 }
 
-async function enviarLote() {
-  if (!BASE_ATUAL) return toast("Selecione uma base antes de enviar.", false);
+/* 🆕 Reenvio manual dos pendentes */
+async function reenviarPendentes() {
+  if (!BASE_ATUAL) return toast("Selecione uma base antes de reenviar.", false);
   const pendentes = COLETAS.filter(c => ["pendente", "erro"].includes(c.status));
-  if (!pendentes.length) return toast("Nenhuma coleta pendente ou com erro para enviar.", false);
+  if (!pendentes.length) return toast("Nenhum item pendente para reenviar.", false);
 
-  toast(`Tentando enviar ${pendentes.length} coletas da base ${BASE_ATUAL}...`);
+  toast(`Reenviando ${pendentes.length} pendentes...`);
+  Sound.play("warn");
 
   try {
-    pendentes.forEach(c => c.status = "reenviando");
-    renderTabela();
-
     const r = await enviarColetasLote(BASE_ATUAL, pendentes);
     if (r.status === 201) {
-      COLETAS = COLETAS.map(c => ({ ...c, status: "enviado", tentativas: c.tentativas || 0 }));
-      toast("Coleta realizada com sucesso!");
+      COLETAS.forEach(c => { if (["pendente", "erro"].includes(c.status)) c.status = "enviado"; });
+      toast("Pendentes reenviados com sucesso!");
       Sound.play("ok");
-    } else {
-      throw new Error(`Erro: ${r.status}`);
-    }
+    } else throw new Error(`Status ${r.status}`);
   } catch (err) {
-    console.error(err);
-    COLETAS.forEach(c => {
-      if (["pendente", "reenviando", "erro"].includes(c.status)) {
-        c.tentativas = (c.tentativas || 0) + 1;
-        c.status = "erro";
-      }
-    });
-    toast("Falha ao enviar. Tente novamente.", false);
-    Sound.play('error');
+    console.error("Falha ao reenviar pendentes:", err);
+    toast("Erro ao reenviar pendentes.", false);
+    Sound.play("error");
   } finally {
     renderTabela();
   }
@@ -211,10 +226,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     sel.innerHTML = '<option value="" disabled selected>Selecione...</option>' + 
       bases.map(b => `<option value="${b.base}">${b.base}</option>`).join("");
 
-    // 🔁 Quando muda a base, atualiza STORAGE_KEY e carrega coletas dessa base
     sel.addEventListener("change", e => {
       BASE_ATUAL = e.target.value;
-      STORAGE_KEY = `coletasPendentes_${BASE_ATUAL}`; // chave única por base
+      STORAGE_KEY = `coletasPendentes_${BASE_ATUAL}`;
       COLETAS = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
 
       renderTabela();
@@ -229,7 +243,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   qs("#codigo")?.addEventListener("keydown", function (e) {
     if (e.key === "Enter") { e.preventDefault(); registrarCodigo(); }
   });
-  qs("#btnIrParaLote")?.addEventListener("click", enviarLote);
+
+  // 🔄 Botão agora é "Reenviar Pendentes"
+  const btnReenvio = qs("#btnIrParaLote");
+  if (btnReenvio) {
+    btnReenvio.innerHTML = '<i class="ri-refresh-line"></i> Reenviar Pendentes';
+    btnReenvio.addEventListener("click", reenviarPendentes);
+  }
+
   qs("#tbody-coletas")?.addEventListener("click", e => {
     const btn = e.target.closest("[data-remove]");
     if (!btn) return;
