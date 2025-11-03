@@ -339,10 +339,18 @@ if (/^TIME\d{6}$/i.test(raw)) {
 // ---------- registrar ----------
 async function registrar() {
   const entregador = selEnt?.value?.trim() || "";
-  if (!entregador) { showMsgIcon("erro", "Selecione o entregador."); Sound.play("err"); return; }
+  if (!entregador) {
+    showMsgIcon("erro", "Selecione o entregador.");
+    Sound.play("err");
+    return;
+  }
 
   const rawInput = inpCod?.value || "";
-  if (!rawInput.trim()) { showMsgIcon("erro", "Informe o código."); Sound.play("err"); return; }
+  if (!rawInput.trim()) {
+    showMsgIcon("erro", "Informe o código.");
+    Sound.play("err");
+    return;
+  }
 
   const cls = classifyCodigo(rawInput);
   if (!cls.ok) {
@@ -353,90 +361,105 @@ async function registrar() {
   }
 
   const codigoFinal = cls.codigo;
-  const servico     = cls.servico;
+  const servico = cls.servico;
   const k = keyFor(entregador, codigoFinal);
 
   // Já existe nesta sessão
   if (rowsByKey.has(k)) {
     showMsgIcon("alerta", `DUPLICADO • ${codigoFinal}`);
     Sound.play("warn");
-    if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+    if (inpCod) {
+      inpCod.value = "";
+      inpCod.focus();
+    }
     return;
   }
 
   // 🔹 Consulta o código nas saídas e atualiza status se necessário
- try {
-  const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
-  const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { "Authorization": `Bearer ${token}` } : {})
-    },
-    credentials: "include"
-  });
-
-  if (!resp.ok) {
-    if (resp.status === 401) {
-      showMsgIcon("erro", "Sessão expirada. Faça login novamente.");
-      Sound.play("err");
-      return;
-    }
-    throw new Error(`Falha na requisição: ${resp.status}`);
-  }
-
-  // ✅ Agora 'dados' sempre existe
-  const dados = await resp.json();
-
-  if (!Array.isArray(dados) || dados.length === 0) {
-    showMsgIcon("erro", `O código ${codigoFinal} ainda não foi coletado.`);
-    Sound.play("err");
-    return;
-  }
-
-  const registro = dados[0];
-  const statusAtual = (registro.status || "").toLowerCase();
-
-  if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
-    showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
-    Sound.play("warn");
-    return;
-  }
-
-  if (statusAtual === "coletado") {
-    const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registro.id_saida}`, {
-      method: "PATCH",
+  try {
+    const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
+    const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`, {
       headers: {
         "Content-Type": "application/json",
         ...(token ? { "Authorization": `Bearer ${token}` } : {})
       },
-      body: JSON.stringify({ status: "Saiu para entrega", entregador })
+      credentials: "include"
     });
 
-    if (!patchResp.ok) throw new Error("Falha ao atualizar status para 'Saiu para entrega'.");
+    if (!resp.ok) {
+      if (resp.status === 401) {
+        showMsgIcon("erro", "Sessão expirada. Faça login novamente.");
+        Sound.play("err");
+        return;
+      }
+      throw new Error(`Falha na requisição: ${resp.status}`);
+    }
 
-    showMsgIcon("info", `Registrado ✓ ${codigoFinal} • Saiu para entrega`);
-    Sound.play("ok");
+    // ✅ Agora 'dados' sempre existe
+    const dados = await resp.json();
 
-    appendOrUpdateRow({
-      tsFmt: new Date().toLocaleString("pt-BR"),
-      entregador,
-      codigo: codigoFinal,
-      servico,
-      status: "Saiu para entrega",
-      duplicado: false
-    });
-    updateSummary();
-    return;
+    if (!Array.isArray(dados) || dados.length === 0) {
+      showMsgIcon("erro", `O código ${codigoFinal} ainda não foi coletado.`);
+      Sound.play("err");
+      return;
+    }
+
+    const registro = dados[0];
+    const statusAtual = (registro.status || "").toLowerCase();
+
+    // ⚠️ Se já saiu (cobre "saiu" e "saiu para entrega")
+    if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
+      showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
+      Sound.play("warn");
+      return;
+    }
+
+    // 🚀 Se coletado → atualiza para "Saiu para entrega"
+    if (statusAtual === "coletado") {
+      const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registro.id_saida}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          status: "Saiu para entrega",
+          entregador
+        })
+      });
+
+      if (!patchResp.ok) {
+        const errText = await patchResp.text();
+        console.error("PATCH falhou:", patchResp.status, errText);
+        throw new Error(`Falha ao atualizar status (${patchResp.status})`);
+      }
+
+      showMsgIcon("info", `Registrado ✓ ${codigoFinal} • Saiu para entrega`);
+      Sound.play("ok");
+
+      appendOrUpdateRow({
+        tsFmt: new Date().toLocaleString("pt-BR"),
+        entregador,
+        codigo: codigoFinal,
+        servico,
+        status: "Saiu para entrega",
+        duplicado: false
+      });
+
+      updateSummary();
+      return;
+    }
+
+    // ❌ Outros status não esperados
+    showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
+    Sound.play("err");
+
+  } catch (err) {
+    console.error("Erro ao consultar/atualizar:", err);
+    showMsgIcon("erro", "Erro ao verificar ou atualizar o status.");
+    Sound.play("err");
   }
-
-  showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
-  Sound.play("err");
-
-} catch (err) {
-  console.error("Erro ao consultar/atualizar:", err);
-  showMsgIcon("erro", "Erro ao verificar ou atualizar o status.");
-  Sound.play("err");
-}
 }
 
 
