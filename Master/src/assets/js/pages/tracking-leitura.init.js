@@ -105,7 +105,8 @@ function showMsgIcon(tipo, texto) {
   // 2) Espelha a mensagem dentro do overlay da câmera, se estiver aberto
   const overlay = document.getElementById('scanFS');
   const hud = document.getElementById('scanFSMsg');
-  if (overlay && hud && overlay.classList.contains('show')) {
+  if (overlay && hud && (overlay.classList.contains('show') || overlay.style.display === 'block')) {
+
     hud.textContent = String(texto || '');
     hud.classList.remove('info', 'warning', 'danger', 'show');
     hud.classList.add(m.klass || 'info', 'show');
