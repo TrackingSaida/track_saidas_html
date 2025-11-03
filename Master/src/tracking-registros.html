@@ -31,6 +31,13 @@
                   <input type="date" id="flt-to" class="form-control" />
                 </div>
                 <div class="col-md-2">
+                <label class="form-label">Base</label>
+                 <select id="flt-base" class="form-control">
+                   <option value="">(Todas)</option>
+                 </select>
+                  </div>
+
+                <div class="col-md-2">
                   <label class="form-label">Entregador</label>
                   <select id="flt-entregador" class="form-control">
                     <option value="">(Todos)</option>
@@ -40,15 +47,22 @@
                   <label class="form-label">Status</label>
                   <select id="flt-status" class="form-control">
                     <option value="">(Todos)</option>
-                    <option value="Saiu">Saiu</option>
-                    <option value="Pendente">Pendente</option>
+                    <option value="Saiu para entrega">Saiu para entrega</option>
+                    <option value="Coletado">Coletado</option>
+                    <option value="Não Coletado">Não Coletado</option>
                     <option value="Cancelado">Cancelado</option>
                   </select>
                 </div>
                 <div class="col-md-2">
-                  <label class="form-label">Código (contém)</label>
-                  <input id="flt-codigo" class="form-control" placeholder="Ex.: BR... ou números" />
-                </div>
+  <label class="form-label">Código (contém)</label>
+  <div class="input-group">
+    <input id="flt-codigo" class="form-control" placeholder="Ex.: BR... ou números" />
+    <button id="btnScan" class="btn btn-outline-secondary" type="button" title="Escanear código">
+      <i class="ri-camera-line"></i>
+    </button>
+  </div>
+</div>
+
                 <div class="col-md-1">
                   <label class="form-label">Ordenar</label>
                   <select id="flt-sort" class="form-control">
@@ -120,12 +134,11 @@
                     <tr>
                       <th style="width:36px"><input id="chk-all" type="checkbox" class="form-check-input" /></th>
                       <th>Data Hora</th>
+                      <th>Base</th>
                       <th>Entregador</th>
                       <th>Código</th>
                       <th>Serviço</th>
                       <th>Status</th>
-                      <th>Dup?</th>
-                      <th class="text-end">Lido</th>
                     </tr>
                   </thead>
                   <tbody id="reg-rows">
@@ -195,6 +208,8 @@
       @@include("partials/footer.html")
     </div>
   </div>
+
+   @@include("partials/scan-overlay.html")
 
   @@include("partials/customizer.html")
   @@include("partials/vendor-scripts.html")

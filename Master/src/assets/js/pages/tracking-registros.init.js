@@ -130,19 +130,51 @@ function classifyCodigo(rawInput){
     fillEntregadores((augmentEntregadoresFromRows._base||[]).concat(nomesLista));
   }
 
+async function carregarBases() {
+  const sel = document.getElementById("flt-base");
+  try {
+    const res = await fetch(`${window.TRACK_API_URL}/base`, { credentials: "include" });
+    const bases = await res.json();
+    sel.innerHTML = '<option value="">(Todas)</option>';
+    bases.forEach(b => {
+      sel.innerHTML += `<option value="${b.base}">${b.base}</option>`;
+    });
+  } catch (err) {
+    console.error("Erro ao carregar bases:", err);
+  }
+}
+carregarBases();
+
+
   // ================== helpers ==================
 function readFilters(){
+  // Lê os valores dos campos
+  let from = (f.from && f.from.value) || "";
+  let to = (f.to && f.to.value) || "";
+  let base = (document.getElementById("flt-base")?.value) || "";
+  let entregador = (f.entregador && f.entregador.value) || "";
+  let status = (f.status && f.status.value) || "";
+  let codigo = (f.codigo && f.codigo.value) || "";
+  let sort = (f.sort && f.sort.value) || "-ts";
+
+  // 🔄 Ajusta mapeamento para os nomes esperados pela API
+  if (status === "Saiu para entrega") status = "Saiu";
+  if (status === "Coletado") status = "coletado";
+  if (status === "Não Coletado") status = "Nao Coletado";
+
   return {
     page: state.page,
     pageSize: parseInt((f.pageSize && f.pageSize.value) || "200", 10),
-    from: (f.from && f.from.value) || "",
-    to: (f.to && f.to.value) || "",
-    entregador: (f.entregador && f.entregador.value) || "",
-    status: (f.status && f.status.value) || "",
-    codigo: (f.codigo && f.codigo.value) || "",
-    sort: (f.sort && f.sort.value) || "-ts"
+    from,
+    to,
+    base,
+    entregador,
+    status,
+    codigo,
+    sort
   };
 }
+
   function getRowId(r){ return (r && (r.id || r.id_saida || r.idSaida || r._id || r.uuid)) || ''; }
 
   function normalizeRow(r){
@@ -174,13 +206,11 @@ function readFilters(){
         '<tr data-id="'+rid+'"' + (isCancelado ? ' class="table-danger-subtle bg-danger-subtle"' : '') + '>' +
           '<td><input type="checkbox" class="rowchk form-check-input" /></td>' +
           '<td>'+(r.tsFmt||"")+'</td>' +
-          '<td>'+(r.entregador||"")+'</td>' +
-          '<td>'+(r.codigo||"")+'</td>' +
-          '<td>'+(r.servico||"")+'</td>' +
-          '<td>'+(r.status||"")+'</td>' +
-          '<td>'+(r.duplicado ? "Sim" : "Não")+'</td>' +
-          '<td>'+(r.base||"")+'</td>' +
-          '<td class="text-end">'+(r.lido_por||r.lido||"")+'</td>' +
+            '<td>'+ (r.base || "-") +'</td>' +
+            '<td>'+ (r.entregador || "-") +'</td>' +
+            '<td>'+ (r.codigo || "-") +'</td>' +
+            '<td>'+ (r.servico || "-") +'</td>' +
+            '<td>'+ (r.status || "-") +'</td>' +
         '</tr>'
       );
     }).join("");
