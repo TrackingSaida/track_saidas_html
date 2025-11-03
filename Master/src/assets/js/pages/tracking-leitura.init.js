@@ -567,14 +567,24 @@ function processarCodigo(text) {
   }
 }
 
+// ======== Botões e listeners fixos ========
 
-  // botão principal
-  btnScan.onclick = (ev) => { ev.preventDefault(); startScanner(); };
+  // Botão principal para abrir o scanner
+  btnScan.onclick = (ev) => {
+    ev.preventDefault();
+    startScanner();
+  };
 
-  // botão fechar
-  const back = document.getElementById("scanFSBack");
-  back?.addEventListener("click", (ev) => { ev.preventDefault(); stopScanner(); });
+  // Botão fechar (X)
+  if (closeBtn) {
+    closeBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      stopScanner();
+    });
+  }
 
+  // Fecha a câmera ao sair da página
   window.addEventListener("beforeunload", stopScanner);
 })();
 
