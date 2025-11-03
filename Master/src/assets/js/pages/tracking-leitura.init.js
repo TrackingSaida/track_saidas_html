@@ -105,8 +105,7 @@ function showMsgIcon(tipo, texto) {
   // 2) Espelha a mensagem dentro do overlay da câmera, se estiver aberto
   const overlay = document.getElementById('scanFS');
   const hud = document.getElementById('scanFSMsg');
-  if (overlay && hud && (overlay.classList.contains('show') || overlay.style.display === 'block')) {
-
+  if (overlay && hud && overlay.classList.contains('show')) {
     hud.textContent = String(texto || '');
     hud.classList.remove('info', 'warning', 'danger', 'show');
     hud.classList.add(m.klass || 'info', 'show');
@@ -400,69 +399,120 @@ async function registrar() {
     const dados = await resp.json();
 
     if (!Array.isArray(dados) || dados.length === 0) {
-      showMsgIcon("erro", `O código ${codigoFinal} ainda não foi coletado.`);
-      Sound.play("err");
-      return;
-    }
+  const overlay = document.getElementById("scanFS");
+  const wasActive = overlay?.classList.contains("show");
+  if (wasActive) overlay.style.display = "none";
 
-    const registro = dados[0];
-    const statusAtual = (registro.status || "").toLowerCase();
+  try {
+    const confirm = await Swal.fire({
+      icon: "warning",
+      title: "Código não coletado",
+      html: `<p>O código <strong>${codigoFinal}</strong> ainda não foi coletado.</p>
+             <p>Deseja registrar mesmo assim?</p>`,
+      showCancelButton: true,
+      confirmButtonText: "Sim, registrar",
+      cancelButtonText: "Cancelar",
+      allowOutsideClick: false,
+      backdrop: true
+    });
 
-    // ⚠️ Se já saiu (cobre "saiu" e "saiu para entrega")
-    if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
-      showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
-      Sound.play("warn");
-      if (inpCod) {
-        inpCod.value = "";
-        inpCod.focus();
-      }
-      return;
-    }
-
-    // 🚀 Se coletado → atualiza para "Saiu para entrega"
-    if (statusAtual === "coletado") {
-      const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registro.id_saida}`, {
-        method: "PATCH",
+    if (confirm.isConfirmed) {
+      const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
+      const postResp = await fetch(`${window.TRACK_API_URL}/saidas`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
         credentials: "include",
         body: JSON.stringify({
-          status: "Saiu para entrega",
-          entregador
+          codigo: codigoFinal,
+          entregador,
+          servico,
+          status: "Não Coletado"
         })
       });
 
-      if (!patchResp.ok) {
-        const errText = await patchResp.text();
-        console.error("PATCH falhou:", patchResp.status, errText);
-        throw new Error(`Falha ao atualizar status (${patchResp.status})`);
-      }
+      if (!postResp.ok) throw new Error("Falha ao registrar saída não coletada.");
 
-      showMsgIcon("info", `Registrado ✓ ${codigoFinal} • Saiu para entrega`);
-      Sound.play("ok");
+      showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
+      Sound.play("warn");
 
       appendOrUpdateRow({
         tsFmt: new Date().toLocaleString("pt-BR"),
-        entregador,
-        codigo: codigoFinal,
-        servico,
-        status: "Saiu para entrega",
-        duplicado: false
+        entregador, codigo: codigoFinal, servico, status: "Não Coletado", duplicado: false
       });
 
       updateSummary();
-      if (inpCod) {
-        inpCod.value = "";
-        inpCod.focus();
-      } 
-      return;
+      return true; // ✅ sucesso real
+    } else {
+      if (wasActive) overlay.style.display = "block";
+      return false; // cancelado
     }
+  } finally {
+    const overlay2 = document.getElementById("scanFS");
+    if (overlay2 && overlay2.style.display === "none") overlay2.style.display = "block";
+  }
+  return false; // 🚫 evita seguir
+}
 
-    // ❌ Outros status não esperados
-    showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
-    Sound.play("err");
+const registro = dados[0];
+const statusAtual = (registro.status || "").toLowerCase();
+
+if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
+  showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
+  Sound.play("warn");
+  if (inpCod) {
+    inpCod.value = "";
+    inpCod.focus();
+  }
+  return false;
+}
+
+if (statusAtual === "coletado") {
+  const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registro.id_saida}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {})
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      status: "Saiu para entrega",
+      entregador
+    })
+  });
+
+  if (!patchResp.ok) {
+    const errText = await patchResp.text();
+    console.error("PATCH falhou:", patchResp.status, errText);
+    throw new Error(`Falha ao atualizar status (${patchResp.status})`);
+  }
+
+  showMsgIcon("info", `Registrado ✓ ${codigoFinal} • Saiu para entrega`);
+  Sound.play("ok");
+
+  appendOrUpdateRow({
+    tsFmt: new Date().toLocaleString("pt-BR"),
+    entregador,
+    codigo: codigoFinal,
+    servico,
+    status: "Saiu para entrega",
+    duplicado: false
+  });
+
+  updateSummary();
+  if (inpCod) {
+    inpCod.value = "";
+    inpCod.focus();
+  } 
+  return true;
+}
+
+showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
+Sound.play("err");
+return false;
+
 
   } catch (err) {
     console.error("Erro ao consultar/atualizar:", err);
@@ -589,14 +639,20 @@ async function processarCodigo(text) {
   }
 
   if (inputCodigo) inputCodigo.value = codigo;
-  totalLidos++;
-  atualizarContador();
 
   try {
     if (typeof registrar === "function") {
-      await registrar(); // ⏳ agora isso é válido
-      showMsg("info", `Registrado ✓ (${totalLidos})`);
-      Sound.play("ok");
+      const ok = await registrar(); // retorna true (sucesso) ou false (erro, duplicado etc.)
+
+      if (ok) {
+        totalLidos++;
+        atualizarContador();
+        showMsg("info", `Registrado ✓ (${totalLidos})`);
+        Sound.play("ok");
+      } else {
+        showMsg("alerta", "Leitura ignorada ou já registrada.");
+        Sound.play("warn");
+      }
     }
   } catch (err) {
     console.error("Erro ao registrar (camera):", err);
@@ -606,7 +662,6 @@ async function processarCodigo(text) {
     setTimeout(() => (scanLocked = false), 800);
   }
 }
-
 
 
 // ======== Botões e listeners fixos ========
