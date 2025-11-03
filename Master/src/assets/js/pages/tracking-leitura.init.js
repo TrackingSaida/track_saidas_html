@@ -366,8 +366,15 @@ async function registrar() {
 
   // 🔹 Consulta o código nas saídas e atualiza status se necessário
   try {
-    const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`);
-    const dados = await resp.json();
+   const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
+   const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`, {
+  headers: {
+    "Content-Type": "application/json",
+    ...(token ? { "Authorization": `Bearer ${token}` } : {})
+  },
+  credentials: "include"
+});
+;
 
     // Nenhum registro encontrado → ainda não foi coletado
     if (!Array.isArray(dados) || dados.length === 0) {
