@@ -205,6 +205,16 @@ async function carregarResumo() {
 }
 
 
+   // ====== Atualiza os cards superiores ======
+   function atualizarCards(shopee, ml, avulso, valor) {
+    const totalColetas = shopee + ml + avulso;
+    qs("#sum-shopee").textContent = shopee;
+    qs("#sum-ml").textContent = ml;
+    qs("#sum-avulso").textContent = avulso;
+    qs("#sum-total").textContent = totalColetas;
+    qs("#sum-total-valor").textContent = formatarMoeda(valor);
+  }
+
   // ====== Gerar cobrança (PDF) ======
   async function gerarCobranca() {
   // impede gerar se a base for "(Todas)" ou vazia
