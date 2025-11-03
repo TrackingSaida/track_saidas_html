@@ -364,59 +364,62 @@ async function registrar() {
     return;
   }
 
-  // 🚨 Código não coletado — alerta antes de registrar
-try {
-  // 🔹 Esconde temporariamente o overlay da câmera (se estiver ativo)
-  const overlay = document.getElementById("scanFS");
-  const wasActive = overlay?.classList.contains("show");
-  if (wasActive) {
-    overlay.style.display = "none";
-  }
+  // 🔹 Consulta o código nas saídas e atualiza status se necessário
+  try {
+    const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`);
+    const dados = await resp.json();
 
-  const confirm = await Swal.fire({
-    icon: "warning",
-    title: "Código não coletado",
-    html: `<p>O código <strong>${codigoFinal}</strong> não foi coletado.</p><p>Deseja registrar mesmo assim?</p>`,
-    showCancelButton: true,
-    confirmButtonText: "Sim, registrar",
-    cancelButtonText: "Cancelar",
-    allowOutsideClick: false,
-    backdrop: true
-  });
+    // Nenhum registro encontrado → ainda não foi coletado
+    if (!Array.isArray(dados) || dados.length === 0) {
+      showMsgIcon("erro", `O código ${codigoFinal} ainda não foi coletado.`);
+      Sound.play("err");
+      return;
+    }
 
-  // 🔹 Se o usuário cancelar e a câmera estava ativa, reexibe o overlay
-  if (!confirm.isConfirmed && wasActive) {
-    overlay.style.display = "block";
-  }
+    const registro = dados[0];
+    const statusAtual = (registro.status || "").toLowerCase();
 
-  if (confirm.isConfirmed) {
-    const res = await TrackAPI.registerSaida({
-      entregador,
-      codigo: codigoFinal,
-      servico,
-      status: "Não Coletado"
-    });
+    // Já saiu (cobre ambos os formatos)
+    if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
+      showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
+      Sound.play("warn");
+      return;
+    }
 
-    if (!res.ok) throw new Error("Falha ao registrar saída");
-    showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
-    Sound.play("warn");
+    // Se coletado → atualiza para "Saiu para entrega"
+    if (statusAtual === "coletado") {
+      const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registro.id_saida}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Saiu para entrega", entregador })
+      });
 
-    appendOrUpdateRow({
-      tsFmt: new Date().toLocaleString("pt-BR"),
-      entregador, codigo: codigoFinal, servico, status: "Não Coletado", duplicado: false
-    });
-    updateSummary();
-  }
-} finally {
-  // 🔹 Garante que o overlay volte se o usuário cancelar ou fechar o alerta
-  const overlay = document.getElementById("scanFS");
-  if (overlay && overlay.style.display === "none") {
-    overlay.style.display = "block";
+      if (!patchResp.ok) throw new Error("Falha ao atualizar status para 'Saiu para entrega'.");
+
+      showMsgIcon("info", `Registrado ✓ ${codigoFinal} • Saiu para entrega`);
+      Sound.play("ok");
+
+      appendOrUpdateRow({
+        tsFmt: new Date().toLocaleString("pt-BR"),
+        entregador,
+        codigo: codigoFinal,
+        servico,
+        status: "Saiu para entrega",
+        duplicado: false
+      });
+      updateSummary();
+      return;
+    }
+
+    // Outros status não esperados (ex.: Cancelado, Pendente, etc.)
+    showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
+    Sound.play("err");
+  } catch (err) {
+    console.error("Erro ao consultar/atualizar:", err);
+    showMsgIcon("erro", "Erro ao verificar ou atualizar o status.");
+    Sound.play("err");
   }
 }
-}
-
-
 
 
 // ===== Leitor por Câmera — Full-screen (híbrido BarcodeDetector + ZXing) =====
