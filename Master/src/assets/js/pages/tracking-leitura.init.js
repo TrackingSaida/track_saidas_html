@@ -365,67 +365,78 @@ async function registrar() {
   }
 
   // 🔹 Consulta o código nas saídas e atualiza status se necessário
-  try {
-   const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
-   const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`, {
-  headers: {
-    "Content-Type": "application/json",
-    ...(token ? { "Authorization": `Bearer ${token}` } : {})
-  },
-  credentials: "include"
-});
-;
+ try {
+  const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
+  const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {})
+    },
+    credentials: "include"
+  });
 
-    // Nenhum registro encontrado → ainda não foi coletado
-    if (!Array.isArray(dados) || dados.length === 0) {
-      showMsgIcon("erro", `O código ${codigoFinal} ainda não foi coletado.`);
+  if (!resp.ok) {
+    if (resp.status === 401) {
+      showMsgIcon("erro", "Sessão expirada. Faça login novamente.");
       Sound.play("err");
       return;
     }
-
-    const registro = dados[0];
-    const statusAtual = (registro.status || "").toLowerCase();
-
-    // Já saiu (cobre ambos os formatos)
-    if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
-      showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
-      Sound.play("warn");
-      return;
-    }
-
-    // Se coletado → atualiza para "Saiu para entrega"
-    if (statusAtual === "coletado") {
-      const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registro.id_saida}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "Saiu para entrega", entregador })
-      });
-
-      if (!patchResp.ok) throw new Error("Falha ao atualizar status para 'Saiu para entrega'.");
-
-      showMsgIcon("info", `Registrado ✓ ${codigoFinal} • Saiu para entrega`);
-      Sound.play("ok");
-
-      appendOrUpdateRow({
-        tsFmt: new Date().toLocaleString("pt-BR"),
-        entregador,
-        codigo: codigoFinal,
-        servico,
-        status: "Saiu para entrega",
-        duplicado: false
-      });
-      updateSummary();
-      return;
-    }
-
-    // Outros status não esperados (ex.: Cancelado, Pendente, etc.)
-    showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
-    Sound.play("err");
-  } catch (err) {
-    console.error("Erro ao consultar/atualizar:", err);
-    showMsgIcon("erro", "Erro ao verificar ou atualizar o status.");
-    Sound.play("err");
+    throw new Error(`Falha na requisição: ${resp.status}`);
   }
+
+  // ✅ Agora 'dados' sempre existe
+  const dados = await resp.json();
+
+  if (!Array.isArray(dados) || dados.length === 0) {
+    showMsgIcon("erro", `O código ${codigoFinal} ainda não foi coletado.`);
+    Sound.play("err");
+    return;
+  }
+
+  const registro = dados[0];
+  const statusAtual = (registro.status || "").toLowerCase();
+
+  if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
+    showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
+    Sound.play("warn");
+    return;
+  }
+
+  if (statusAtual === "coletado") {
+    const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registro.id_saida}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ status: "Saiu para entrega", entregador })
+    });
+
+    if (!patchResp.ok) throw new Error("Falha ao atualizar status para 'Saiu para entrega'.");
+
+    showMsgIcon("info", `Registrado ✓ ${codigoFinal} • Saiu para entrega`);
+    Sound.play("ok");
+
+    appendOrUpdateRow({
+      tsFmt: new Date().toLocaleString("pt-BR"),
+      entregador,
+      codigo: codigoFinal,
+      servico,
+      status: "Saiu para entrega",
+      duplicado: false
+    });
+    updateSummary();
+    return;
+  }
+
+  showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
+  Sound.play("err");
+
+} catch (err) {
+  console.error("Erro ao consultar/atualizar:", err);
+  showMsgIcon("erro", "Erro ao verificar ou atualizar o status.");
+  Sound.play("err");
+}
 }
 
 
