@@ -372,7 +372,7 @@ async function registrar() {
       // 🔄 Atualiza via PATCH -> status "Saiu"
       const res = await TrackAPI.updateSaida(saidaExistente.id_saida, {
         entregador,
-        status: "Saiu",
+        status: "Saiu Para Entrega",
         codigo: codigoFinal
       });
 
@@ -382,7 +382,7 @@ async function registrar() {
 
       appendOrUpdateRow({
         tsFmt: new Date().toLocaleString("pt-BR"),
-        entregador, codigo: codigoFinal, servico, status: "Saiu", duplicado: false
+        entregador, codigo: codigoFinal, servico, status: "Saiu Para Entrega", duplicado: false
       });
       updateSummary();
 
@@ -391,7 +391,7 @@ async function registrar() {
       const confirm = await Swal.fire({
         icon: "warning",
         title: "Código não coletado",
-        text: "O código informado não foi coletado. Deseja registrar mesmo assim?",
+        html: `<p>O código <strong>${codigoFinal}</strong> não foi coletado.</p><p>Deseja registrar mesmo assim?</p>`,
         showCancelButton: true,
         confirmButtonText: "Sim, registrar",
         cancelButtonText: "Cancelar"
@@ -530,28 +530,43 @@ async function registrar() {
     }
   }
 
-  function processarCodigo(text) {
-    const codigo = String(text || "").trim();
-    if (!codigo || scanLocked) return;
-    scanLocked = true;
+function processarCodigo(text) {
+  const codigo = String(text || "").trim();
+  if (!codigo || scanLocked) return;
+  scanLocked = true;
 
-    const entregador = document.getElementById("entregador")?.value;
-    if (!entregador) {
-      showMsg("alerta", "Selecione o entregador antes de escanear.");
-      Sound.play("warn");
-      scanLocked = false;
-      return;
-    }
+  const entregador = document.getElementById("entregador")?.value;
+  if (!entregador) {
+    showMsg("alerta", "Selecione o entregador antes de escanear.");
+    Sound.play("warn");
+    scanLocked = false;
+    return;
+  }
 
-    if (inputCodigo) inputCodigo.value = codigo;
-    totalLidos++;
-    atualizarContador();
-    showMsg("info", `Registrado ✓ (${totalLidos})`);
-    Sound.play("ok");
+  if (inputCodigo) inputCodigo.value = codigo;
+  totalLidos++;
+  atualizarContador();
 
-    if (typeof registrar === "function") registrar();
+  // 🔹 Agora aguarda o resultado do registrar()
+  if (typeof registrar === "function") {
+    registrar()
+      .then(() => {
+        showMsg("info", `Registrado ✓ (${totalLidos})`);
+        Sound.play("ok");
+      })
+      .catch((err) => {
+        console.error("Erro ao registrar (camera):", err);
+        showMsg("erro", "Falha ao registrar saída.");
+        Sound.play("err");
+      })
+      .finally(() => {
+        setTimeout(() => (scanLocked = false), 800);
+      });
+  } else {
     setTimeout(() => (scanLocked = false), 800);
   }
+}
+
 
   // botão principal
   btnScan.onclick = (ev) => { ev.preventDefault(); startScanner(); };
