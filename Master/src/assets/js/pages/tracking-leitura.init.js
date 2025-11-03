@@ -364,67 +364,58 @@ async function registrar() {
     return;
   }
 
-  try {
-    // 1️⃣ Verifica se o código já existe em Saídas com status "Coletado"
-    const saidaExistente = await TrackAPI.getSaidaPorCodigo(codigoFinal);
-
-    if (saidaExistente && saidaExistente.status === "coletado") {
-      // 🔄 Atualiza via PATCH -> status "Saiu"
-      const res = await TrackAPI.updateSaida(saidaExistente.id_saida, {
-        entregador,
-        status: "Saiu Para Entrega",
-        codigo: codigoFinal
-      });
-
-      if (!res.ok) throw new Error("Falha ao atualizar saída");
-      showMsgIcon("info", `Saída atualizada: ${codigoFinal}`);
-      Sound.play("ok");
-
-      appendOrUpdateRow({
-        tsFmt: new Date().toLocaleString("pt-BR"),
-        entregador, codigo: codigoFinal, servico, status: "Saiu Para Entrega", duplicado: false
-      });
-      updateSummary();
-
-    } else {
-      // 🚨 Código não coletado — alerta antes de registrar
-      const confirm = await Swal.fire({
-        icon: "warning",
-        title: "Código não coletado",
-        html: `<p>O código <strong>${codigoFinal}</strong> não foi coletado.</p><p>Deseja registrar mesmo assim?</p>`,
-        showCancelButton: true,
-        confirmButtonText: "Sim, registrar",
-        cancelButtonText: "Cancelar"
-      });
-
-      if (confirm.isConfirmed) {
-        const res = await TrackAPI.registerSaida({
-          entregador,
-          codigo: codigoFinal,
-          servico,
-          status: "Não Coletado"
-        });
-
-        if (!res.ok) throw new Error("Falha ao registrar saída");
-        showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
-        Sound.play("warn");
-
-        appendOrUpdateRow({
-          tsFmt: new Date().toLocaleString("pt-BR"),
-          entregador, codigo: codigoFinal, servico, status: "Não Coletado", duplicado: false
-        });
-        updateSummary();
-      }
-    }
-
-  } catch (err) {
-    console.error("Erro ao registrar leitura:", err);
-    showMsgIcon("erro", err.message || "Erro ao registrar leitura.");
-    Sound.play("err");
+  // 🚨 Código não coletado — alerta antes de registrar
+try {
+  // 🔹 Esconde temporariamente o overlay da câmera (se estiver ativo)
+  const overlay = document.getElementById("scanFS");
+  const wasActive = overlay?.classList.contains("show");
+  if (wasActive) {
+    overlay.style.display = "none";
   }
 
-  if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+  const confirm = await Swal.fire({
+    icon: "warning",
+    title: "Código não coletado",
+    html: `<p>O código <strong>${codigoFinal}</strong> não foi coletado.</p><p>Deseja registrar mesmo assim?</p>`,
+    showCancelButton: true,
+    confirmButtonText: "Sim, registrar",
+    cancelButtonText: "Cancelar",
+    allowOutsideClick: false,
+    backdrop: true
+  });
+
+  // 🔹 Se o usuário cancelar e a câmera estava ativa, reexibe o overlay
+  if (!confirm.isConfirmed && wasActive) {
+    overlay.style.display = "block";
+  }
+
+  if (confirm.isConfirmed) {
+    const res = await TrackAPI.registerSaida({
+      entregador,
+      codigo: codigoFinal,
+      servico,
+      status: "Não Coletado"
+    });
+
+    if (!res.ok) throw new Error("Falha ao registrar saída");
+    showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
+    Sound.play("warn");
+
+    appendOrUpdateRow({
+      tsFmt: new Date().toLocaleString("pt-BR"),
+      entregador, codigo: codigoFinal, servico, status: "Não Coletado", duplicado: false
+    });
+    updateSummary();
+  }
+} finally {
+  // 🔹 Garante que o overlay volte se o usuário cancelar ou fechar o alerta
+  const overlay = document.getElementById("scanFS");
+  if (overlay && overlay.style.display === "none") {
+    overlay.style.display = "block";
+  }
 }
+}
+
 
 
 
