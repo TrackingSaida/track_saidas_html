@@ -398,7 +398,7 @@ async function registrar() {
     // ✅ Agora 'dados' sempre existe
     const dados = await resp.json();
 
-    if (!Array.isArray(dados) || dados.length === 0) {
+   if (!Array.isArray(dados) || dados.length === 0) {
   const overlay = document.getElementById("scanFS");
   const wasActive = overlay?.classList.contains("show");
   if (wasActive) overlay.style.display = "none";
@@ -444,21 +444,22 @@ async function registrar() {
       });
 
       updateSummary();
-      return true; // ✅ sucesso real
+      return { ok: true, tipo: "nao_coletado_registrado" }; // ✅ sucesso real
     } else {
       if (wasActive) overlay.style.display = "block";
-      return false; // cancelado
+      return { ok: false, tipo: "nao_coletado_cancelado" }; // cancelado
     }
   } finally {
     const overlay2 = document.getElementById("scanFS");
     if (overlay2 && overlay2.style.display === "none") overlay2.style.display = "block";
   }
-  return false; // 🚫 evita seguir
+  return { ok: false, tipo: "nao_coletado_cancelado" }; // 🚫 evita seguir
 }
 
 const registro = dados[0];
 const statusAtual = (registro.status || "").toLowerCase();
 
+// ⚠️ Se já saiu (cobre "saiu" e "saiu para entrega")
 if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
   showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
   Sound.play("warn");
@@ -466,9 +467,10 @@ if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
     inpCod.value = "";
     inpCod.focus();
   }
-  return false;
+  return { ok: false, tipo: "ja_saiu" };
 }
 
+// 🚀 Se coletado → atualiza para "Saiu para entrega"
 if (statusAtual === "coletado") {
   const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registro.id_saida}`, {
     method: "PATCH",
@@ -506,12 +508,14 @@ if (statusAtual === "coletado") {
     inpCod.value = "";
     inpCod.focus();
   } 
-  return true;
+  return { ok: true, tipo: "coletado" };
 }
 
+// ❌ Outros status não esperados
 showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
 Sound.play("err");
-return false;
+return { ok: false, tipo: "status_desconhecido" };
+
 
 
   } catch (err) {
@@ -640,27 +644,56 @@ async function processarCodigo(text) {
 
   if (inputCodigo) inputCodigo.value = codigo;
 
-  try {
-    if (typeof registrar === "function") {
-      const ok = await registrar(); // retorna true (sucesso) ou false (erro, duplicado etc.)
+ try {
+  if (typeof registrar === "function") {
+    const result = await registrar(); // { ok, tipo }
 
-      if (ok) {
-        totalLidos++;
-        atualizarContador();
+    if (result?.ok) {
+      totalLidos++;
+      atualizarContador();
+
+      if (result.tipo === "coletado") {
+        showMsg("info", `Saiu para entrega ✓ (${totalLidos})`);
+        Sound.play("ok");
+      } else if (result.tipo === "nao_coletado_registrado") {
+        showMsg("alerta", `Registrado como Não Coletado (${totalLidos})`);
+        Sound.play("warn");
+      } else {
         showMsg("info", `Registrado ✓ (${totalLidos})`);
         Sound.play("ok");
-      } else {
-        showMsg("alerta", "Leitura ignorada ou já registrada.");
-        Sound.play("warn");
+      }
+    } else {
+      // 🔹 Exibe mensagem conforme tipo do erro
+      switch (result?.tipo) {
+        case "duplicado":
+          showMsg("alerta", "Duplicado — código já lido nesta sessão.");
+          Sound.play("warn");
+          break;
+        case "ja_saiu":
+          showMsg("alerta", "Código já saiu para entrega.");
+          Sound.play("warn");
+          break;
+        case "nao_coletado_cancelado":
+          showMsg("alerta", "Registro cancelado (não coletado).");
+          Sound.play("warn");
+          break;
+        case "status_desconhecido":
+          showMsg("erro", "Status do código desconhecido.");
+          Sound.play("err");
+          break;
+        default:
+          showMsg("erro", "Leitura ignorada ou erro não especificado.");
+          Sound.play("err");
       }
     }
-  } catch (err) {
-    console.error("Erro ao registrar (camera):", err);
-    showMsg("erro", "Falha ao registrar saída.");
-    Sound.play("err");
-  } finally {
-    setTimeout(() => (scanLocked = false), 800);
   }
+} catch (err) {
+  console.error("Erro ao registrar (camera):", err);
+  showMsg("erro", "Falha ao registrar saída.");
+  Sound.play("err");
+} finally {
+  setTimeout(() => (scanLocked = false), 800);
+}
 }
 
 
