@@ -411,6 +411,10 @@ async function registrar() {
     if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
       showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
       Sound.play("warn");
+      if (inpCod) {
+        inpCod.value = "";
+        inpCod.focus();
+      }
       return;
     }
 
@@ -448,6 +452,10 @@ async function registrar() {
       });
 
       updateSummary();
+      if (inpCod) {
+        inpCod.value = "";
+        inpCod.focus();
+      } 
       return;
     }
 
