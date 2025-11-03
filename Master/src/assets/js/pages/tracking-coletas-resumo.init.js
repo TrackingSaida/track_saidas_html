@@ -91,74 +91,119 @@ fltBase.addEventListener("change", () => {
 
 
   // ====== Busca e renderiza o resumo ======
-  async function carregarResumo() {
-    try {
-      qs("#resumoMsg").innerHTML = `<div class="text-muted">Carregando...</div>`;
-      tbody.innerHTML = "";
+async function carregarResumo() {
+  try {
+    qs("#resumoMsg").innerHTML = `<div class="text-muted">Carregando...</div>`;
+    tbody.innerHTML = "";
 
-      const params = new URLSearchParams();
-      if (fltBase.value) params.append("base", fltBase.value);
-      if (fltFrom.value) params.append("data_inicio", fltFrom.value);
-      if (fltTo.value) params.append("data_fim", fltTo.value);
+    const params = new URLSearchParams();
+    if (fltBase.value) params.append("base", fltBase.value);
+    if (fltFrom.value) params.append("data_inicio", fltFrom.value);
+    if (fltTo.value) params.append("data_fim", fltTo.value);
 
-     const res = await fetch(`${API_URL}?${params.toString()}`, {
-  credentials: "include"
-});
-const rows = await res.json();
+    const res = await fetch(`${API_URL}?${params.toString()}`, {
+      credentials: "include",
+    });
+    const rows = await res.json();
 
-      resumoAtual = rows;
+    if (!rows || rows.length === 0) {
+      qs("#resumoMsg").innerHTML = `<div class="text-muted">Nenhum dado encontrado.</div>`;
+      atualizarCards(0, 0, 0, 0);
+      resumoAtual = [];
+      return;
+    }
 
-      if (!rows || rows.length === 0) {
-        qs("#resumoMsg").innerHTML = `<div class="text-muted">Nenhum dado encontrado.</div>`;
-        atualizarCards(0, 0, 0, 0);
-        return;
+    // 🔹 1️⃣ Filtra registros com todos os valores zerados
+    const filtrados = rows.filter(
+      (r) =>
+        (r.shopee || 0) +
+          (r.mercado_livre || 0) +
+          (r.avulso || 0) +
+          (r.valor_total || 0) >
+        0
+    );
+
+    // 🔹 2️⃣ Agrupa por data e base, concatenando entregadores
+    const agrupado = {};
+
+    filtrados.forEach((r) => {
+      const data = formatarData(r.timestamp);
+      const chave = `${data}_${r.base}`;
+      if (!agrupado[chave]) {
+        agrupado[chave] = {
+          data,
+          base: r.base,
+          entregadores: new Set(),
+          shopee: 0,
+          mercado_livre: 0,
+          avulso: 0,
+          valor_total: 0,
+        };
       }
 
-      // Limpa msg
-      qs("#resumoMsg").innerHTML = "";
+      agrupado[chave].entregadores.add(r.username_entregador);
+      agrupado[chave].shopee += Number(r.shopee || 0);
+      agrupado[chave].mercado_livre += Number(r.mercado_livre || 0);
+      agrupado[chave].avulso += Number(r.avulso || 0);
+      agrupado[chave].valor_total += Number(r.valor_total || 0);
+    });
 
-      // Acumuladores
-      let totalShopee = 0,
-        totalML = 0,
-        totalAvulso = 0,
-        totalValor = 0;
+    // 🔹 3️⃣ Converte em array e concatena nomes de entregadores
+    const consolidados = Object.values(agrupado).map((r) => ({
+      data: r.data,
+      base: r.base,
+      username_entregador: Array.from(r.entregadores).join(" | "),
+      shopee: r.shopee,
+      mercado_livre: r.mercado_livre,
+      avulso: r.avulso,
+      valor_total: r.valor_total,
+    }));
 
-      rows.forEach((r) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${formatarData(r.timestamp)}</td>
-          <td>${r.base || "-"}</td>
-          <td>${r.username_entregador || "-"}</td>
-          <td class="text-center">${r.shopee || 0}</td>
-          <td class="text-center">${r.mercado_livre || 0}</td>
-          <td class="text-center">${r.avulso || 0}</td>
-          <td class="text-center">${formatarMoeda(r.valor_total || 0)}</td>
-        `;
-        tbody.appendChild(tr);
+    // 🔹 4️⃣ Ordena por data crescente
+    consolidados.sort((a, b) => {
+      const [d1, m1, y1] = a.data.split("/").map(Number);
+      const [d2, m2, y2] = b.data.split("/").map(Number);
+      return new Date(y1, m1 - 1, d1) - new Date(y2, m2 - 1, d2);
+    });
 
-        totalShopee += r.shopee || 0;
-        totalML += r.mercado_livre || 0;
-        totalAvulso += r.avulso || 0;
-        totalValor += Number(r.valor_total || 0);
-      });
+    resumoAtual = consolidados;
 
-      atualizarCards(totalShopee, totalML, totalAvulso, totalValor);
+    // 🔹 5️⃣ Monta a tabela no HTML
+    tbody.innerHTML = "";
+    let totalShopee = 0,
+      totalML = 0,
+      totalAvulso = 0,
+      totalValor = 0;
 
-    } catch (err) {
-      console.error("Erro ao carregar resumo:", err);
-      qs("#resumoMsg").innerHTML = `<div class="text-danger">Erro ao carregar dados.</div>`;
-    }
+    consolidados.forEach((r) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${r.data}</td>
+        <td>${r.base || "-"}</td>
+        <td>${r.username_entregador || "-"}</td>
+        <td class="text-center">${r.shopee}</td>
+        <td class="text-center">${r.mercado_livre}</td>
+        <td class="text-center">${r.avulso}</td>
+        <td class="text-center">${formatarMoeda(r.valor_total)}</td>
+      `;
+      tbody.appendChild(tr);
+
+      totalShopee += r.shopee;
+      totalML += r.mercado_livre;
+      totalAvulso += r.avulso;
+      totalValor += r.valor_total;
+    });
+
+    // 🔹 6️⃣ Atualiza os cards superiores
+    atualizarCards(totalShopee, totalML, totalAvulso, totalValor);
+    qs("#resumoMsg").innerHTML = "";
+
+  } catch (err) {
+    console.error("Erro ao carregar resumo:", err);
+    qs("#resumoMsg").innerHTML = `<div class="text-danger">Erro ao carregar dados.</div>`;
   }
+}
 
-  // ====== Atualiza os cards superiores ======
-  function atualizarCards(shopee, ml, avulso, valor) {
-    const totalColetas = shopee + ml + avulso;
-    qs("#sum-shopee").textContent = shopee;
-    qs("#sum-ml").textContent = ml;
-    qs("#sum-avulso").textContent = avulso;
-    qs("#sum-total").textContent = totalColetas;
-    qs("#sum-total-valor").textContent = formatarMoeda(valor);
-  }
 
   // ====== Gerar cobrança (PDF) ======
   async function gerarCobranca() {
