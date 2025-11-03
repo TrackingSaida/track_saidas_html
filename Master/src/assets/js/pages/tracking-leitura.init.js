@@ -530,7 +530,8 @@ async function registrar() {
     }
   }
 
-function processarCodigo(text) {
+// 🔹 Processa cada leitura detectada (agora assíncrona)
+async function processarCodigo(text) {
   const codigo = String(text || "").trim();
   if (!codigo || scanLocked) return;
   scanLocked = true;
@@ -547,25 +548,22 @@ function processarCodigo(text) {
   totalLidos++;
   atualizarContador();
 
-  // 🔹 Agora aguarda o resultado do registrar()
-  if (typeof registrar === "function") {
-    registrar()
-      .then(() => {
-        showMsg("info", `Registrado ✓ (${totalLidos})`);
-        Sound.play("ok");
-      })
-      .catch((err) => {
-        console.error("Erro ao registrar (camera):", err);
-        showMsg("erro", "Falha ao registrar saída.");
-        Sound.play("err");
-      })
-      .finally(() => {
-        setTimeout(() => (scanLocked = false), 800);
-      });
-  } else {
+  try {
+    if (typeof registrar === "function") {
+      await registrar(); // ⏳ agora isso é válido
+      showMsg("info", `Registrado ✓ (${totalLidos})`);
+      Sound.play("ok");
+    }
+  } catch (err) {
+    console.error("Erro ao registrar (camera):", err);
+    showMsg("erro", "Falha ao registrar saída.");
+    Sound.play("err");
+  } finally {
     setTimeout(() => (scanLocked = false), 800);
   }
 }
+
+
 
 // ======== Botões e listeners fixos ========
 
