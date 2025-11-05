@@ -149,7 +149,12 @@ function showMsgIcon(tipo, texto) {
          // TIME + 6 dígitos → Avulso (Time)
 if (/^TIME\d{6}$/i.test(raw)) {
   return { ok:true, servico:"Avulso", codigo:raw };
-} 
+};
+
+  // 🟢 Avulso (novo padrão: inicia com CP + 6 dígitos + BR opcional)
+  const cpMatch = raw.match(/^CP\d{6,}[A-Z]{0,2}$/i);
+  if (cpMatch)
+    return { ok: true, servico: "Avulso", codigo: cpMatch[0].toUpperCase() };
 
     return { ok:false, motivo:"Padrão não configurado" };
   }
