@@ -206,7 +206,8 @@
     const { from, to } = readDateRange("rank");
     setPeriodLabels(from, to);
     const saidas = await fetchSaidas(from, to);
-    const { names, values, details } = buildRanking(saidas);
+    const filtradas = saidas.filter(s => (s.status || "").toLowerCase() === "saiu para entrega");
+    const { names, values, details } = buildRanking(filtradas);
     renderRanking(names, values, details);
   }
 
@@ -214,8 +215,9 @@
     const { from, to } = readDateRange("daily");
     setPeriodLabels(from, to);
     const saidas = await fetchSaidas(from, to);
+    const filtradas = saidas.filter(s => (s.status || "").toLowerCase() === "saiu para entrega");
     const days = daysArrayInclusive(from, to);
-    const { shopee, ml, avulso, total } = buildSerieDiaria(saidas, days);
+    const { shopee, ml, avulso, total } = buildSerieDiaria(filtradas, days);
     renderDiario(days, shopee, ml, avulso, total);
   }
 
