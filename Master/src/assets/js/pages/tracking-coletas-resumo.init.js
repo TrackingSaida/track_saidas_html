@@ -23,7 +23,45 @@ document.addEventListener("DOMContentLoaded", async () => {
   const API_URL = `${window.TRACK_API_URL}/coletas`;
   const API_BASES = `${window.TRACK_API_URL}/base`;
 
-  // ... (restante do seu código aqui)
+  // 🔹 Função que ajusta a visibilidade por role
+  async function ajustarVisibilidadePorRole() {
+    try {
+      const token =
+        localStorage.getItem("token") ||
+        localStorage.getItem("trackingToken") ||
+        localStorage.getItem("access_token");
+
+      if (!token) return;
+
+      const resp = await fetch("https://track-saidas-api.onrender.com/ui/menu", {
+        headers: { "Authorization": "Bearer " + token },
+      });
+      const data = await resp.json();
+      const role = data?.role || 0;
+
+      if (role !== 1) {
+        // Esconde o card "Valor Total (R$)"
+        const cardValor = document.querySelector(".card-valor-total");
+        if (cardValor) cardValor.style.display = "none";
+
+        // Esconde a coluna "Valor Total" na tabela
+        const ths = document.querySelectorAll("#coletas-resumo-table thead th");
+        ths.forEach((th, idx) => {
+          if (th.textContent.trim().toLowerCase().includes("valor total")) {
+            th.style.display = "none";
+            document.querySelectorAll(
+              `#coletas-resumo-table tbody tr td:nth-child(${idx + 1})`
+            ).forEach(td => (td.style.display = "none"));
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Não foi possível ajustar visibilidade por role:", e);
+    }
+  }
+
+  // ✅ Chama a função imediatamente após definir
+  await ajustarVisibilidadePorRole();
 
 
   // ====== Helpers ======
