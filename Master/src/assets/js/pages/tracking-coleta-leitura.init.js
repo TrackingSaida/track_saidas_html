@@ -10,6 +10,7 @@ let STORAGE_KEY = null;
   try {
     const hoje = new Date().toISOString().slice(0, 10);
 
+    // Percorre todas as chaves que armazenam coletas locais
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (!key || !key.startsWith("coletasPendentes")) continue;
@@ -17,7 +18,7 @@ let STORAGE_KEY = null;
       const armazenadas = JSON.parse(localStorage.getItem(key) || "[]");
       if (!Array.isArray(armazenadas) || armazenadas.length === 0) continue;
 
-      // mantém itens de hoje ou sem data (para não apagar acidentalmente)
+      // Mantém apenas itens com data válida de hoje
       const atuais = armazenadas.filter(c => {
         const data = typeof c.data === "string" && c.data.length >= 10 ? c.data : hoje;
         return data.startsWith(hoje);
@@ -32,6 +33,7 @@ let STORAGE_KEY = null;
     console.warn("Falha ao limpar leituras antigas:", err);
   }
 })();
+
 
 /* =============== Helpers / UI ================= */
 const qs  = (s) => document.querySelector(s);
@@ -78,37 +80,57 @@ async function carregarBases() {
   return r.json();
 }
 
+/* =================== Envio em Lote =================== */
 async function enviarColetasLote(base, itens) {
-  const body = JSON.stringify({ base, itens: itens.map(i => ({ codigo: i.codigo, servico: i.servico })) });
+  const body = JSON.stringify({
+    base,
+    itens: itens.map(i => ({ codigo: i.codigo, servico: i.servico }))
+  });
+
   const r = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body
   });
+
   return r;
 }
 
-/* 🆕 Envia automaticamente uma coleta individual ao registrar */
+
+/* =================== Envio Imediato =================== */
 async function enviarColetaUnica(item) {
   try {
-    const r = await enviarColetasLote(item.base, [item]);
+    // 🔹 Monta corpo apenas com os campos esperados pela API
+    const body = JSON.stringify({
+      base: item.base,
+      itens: [{ codigo: item.codigo, servico: item.servico }]
+    });
+
+    const r = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body
+    });
+
     if (r.status === 201) {
       item.status = "enviado";
-      toast(`Código ${item.codigo} enviado com sucesso.`);
+      toast("Enviado com sucesso!");
       Sound.play("ok");
     } else {
       throw new Error(`Status ${r.status}`);
     }
   } catch (err) {
-    console.warn("Falha no envio imediato:", err);
+    console.error("Falha no envio imediato:", err);
     item.status = "erro";
-    toast(`Falha ao enviar ${item.codigo}, salvo como pendente.`, false);
-    Sound.play("warn");
+    toast("Erro ao enviar coleta.", false);
+    Sound.play("error");
   } finally {
     renderTabela();
   }
 }
+
 
 /* =================== Normalização / Classificação =================== */
 function toAsciiDigits(s){
@@ -233,7 +255,7 @@ function registrarCodigo() {
     toast("Código registrado.");
     Sound.play("ok");
 
-    // 🆕 Envio automático do item recém-adicionado
+    // Envio automático do item recém-adicionado (formato correto)
     const novoItem = COLETAS[COLETAS.length - 1];
     enviarColetaUnica(novoItem);
   }
@@ -272,7 +294,7 @@ async function reenviarPendentes() {
         if (["pendente", "erro"].includes(c.status)) c.status = "enviado";
       });
 
-      // 💾 atualiza o localStorage também
+      // 💾 Atualiza armazenamento local
       if (STORAGE_KEY) localStorage.setItem(STORAGE_KEY, JSON.stringify(COLETAS));
 
       toast("Pendentes reenviados com sucesso!");
@@ -286,6 +308,7 @@ async function reenviarPendentes() {
     renderTabela();
   }
 }
+
 
 /* =================== Init =================== */
 document.addEventListener("DOMContentLoaded", async () => {
