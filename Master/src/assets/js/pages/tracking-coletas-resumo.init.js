@@ -26,16 +26,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 🔹 Função que ajusta a visibilidade por role
   async function ajustarVisibilidadePorRole() {
     try {
-      const token =
-        localStorage.getItem("token") ||
-        localStorage.getItem("trackingToken") ||
-        localStorage.getItem("access_token");
-
-      if (!token) return;
-
-      const resp = await fetch("https://track-saidas-api.onrender.com/ui/menu", {
-        headers: { "Authorization": "Bearer " + token },
+      // 🔧 usa o mesmo domínio da API (sem /api) e envia cookie da sessão
+      const apiBase = (window.TRACK_API_URL || "").replace(/\/api$/, "");
+      const resp = await fetch(`${apiBase}/ui/menu`, {
+        credentials: "include", // 👈 essencial para enviar o cookie access_token
       });
+
+      if (!resp.ok) {
+        console.warn("Falha ao obter role:", resp.status);
+        return;
+      }
+
       const data = await resp.json();
       const role = data?.role || 0;
 
@@ -44,14 +45,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         const cardValor = document.querySelector(".card-valor-total");
         if (cardValor) cardValor.style.display = "none";
 
-        // Esconde a coluna "Valor Total" na tabela
+        // Esconde a coluna "Valor Total"
         const ths = document.querySelectorAll("#coletas-resumo-table thead th");
         ths.forEach((th, idx) => {
           if (th.textContent.trim().toLowerCase().includes("valor total")) {
             th.style.display = "none";
-            document.querySelectorAll(
-              `#coletas-resumo-table tbody tr td:nth-child(${idx + 1})`
-            ).forEach(td => (td.style.display = "none"));
+            document
+              .querySelectorAll(`#coletas-resumo-table tbody tr td:nth-child(${idx + 1})`)
+              .forEach(td => (td.style.display = "none"));
           }
         });
       }
