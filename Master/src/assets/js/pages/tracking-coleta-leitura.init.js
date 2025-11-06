@@ -5,6 +5,31 @@ const API_BASES = `${window.TRACK_API_URL}/base`;
 // ⚙️ Agora a chave do localStorage é dinâmica por base
 let STORAGE_KEY = null;
 
+
+
+/* 🔧 LIMPEZA AUTOMÁTICA DE LEITURAS ANTIGAS (ANTES DOS HELPERS) */
+(function limparLeiturasAntigasGlobais() {
+  try {
+    // Verifica todas as chaves do localStorage que contenham "coletasPendentes"
+    const hoje = new Date().toISOString().slice(0, 10);
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("coletasPendentes")) {
+        const armazenadas = JSON.parse(localStorage.getItem(key) || "[]");
+        if (!Array.isArray(armazenadas) || armazenadas.length === 0) continue;
+
+        const atuais = armazenadas.filter(c => (c.data || "").startsWith(hoje));
+        if (atuais.length !== armazenadas.length) {
+          localStorage.setItem(key, JSON.stringify(atuais));
+          console.info(`🧹 Limpei leituras antigas da chave ${key}`);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Falha ao limpar leituras antigas:", err);
+  }
+})();
+
 /* =============== Helpers / UI ================= */
 const qs  = (s) => document.querySelector(s);
 const qsa = (s) => Array.from(document.querySelectorAll(s));
@@ -166,25 +191,42 @@ function renderTabela() {
 function registrarCodigo() {
   const baseSel = qs("#selBase")?.value;
   const codRaw = qs("#codigo")?.value;
+
   if (!baseSel) return toast("Selecione a base antes de registrar.", false);
   if (!codRaw) return toast("Informe ou escaneie um código.", false);
 
   const parsed = classifyCodigo(codRaw);
   if (!parsed.ok) {
     toast(`Código inválido (${parsed.motivo})`, false);
-    Sound.play('error');
+    Sound.play("error");
     return;
   }
 
   const codigo = parsed.codigo;
   const servico = parsed.servico;
+  const hojeStr = new Date().toISOString().slice(0, 10); // ← data de hoje no formato AAAA-MM-DD
 
+  // 🔎 Verifica duplicado
   if (COLETAS.some(c => c.codigo === codigo)) {
-    COLETAS.push({ base: baseSel, codigo, servico, status: "duplicado", tentativas: 0 });
+    COLETAS.push({
+      base: baseSel,
+      codigo,
+      servico,
+      status: "duplicado",
+      tentativas: 0,
+      data: hojeStr // ← salva data também nos duplicados
+    });
     toast("Código duplicado.", false);
     Sound.play("warn");
   } else {
-    COLETAS.push({ base: baseSel, codigo, servico, status: "pendente", tentativas: 0 });
+    COLETAS.push({
+      base: baseSel,
+      codigo,
+      servico,
+      status: "pendente",
+      tentativas: 0,
+      data: hojeStr // ← salva data da leitura
+    });
     toast("Código registrado.");
     Sound.play("ok");
 
@@ -193,6 +235,7 @@ function registrarCodigo() {
     enviarColetaUnica(novoItem);
   }
 
+  // limpa o campo de entrada e volta o foco
   qs("#codigo").value = "";
   qs("#codigo")?.focus();
   renderTabela();
@@ -201,8 +244,10 @@ function registrarCodigo() {
 /* 🆕 Reenvio manual dos pendentes */
 async function reenviarPendentes() {
   if (!BASE_ATUAL) return toast("Selecione uma base antes de reenviar.", false);
+
   const pendentes = COLETAS.filter(c => ["pendente", "erro"].includes(c.status));
-  if (!pendentes.length) return toast("Nenhum item pendente para reenviar.", false);
+  if (!pendentes.length)
+    return toast("Nenhum item pendente para reenviar.", false);
 
   toast(`Reenviando ${pendentes.length} pendentes...`);
   Sound.play("warn");
@@ -210,7 +255,10 @@ async function reenviarPendentes() {
   try {
     const r = await enviarColetasLote(BASE_ATUAL, pendentes);
     if (r.status === 201) {
-      COLETAS.forEach(c => { if (["pendente", "erro"].includes(c.status)) c.status = "enviado"; });
+      // marca todos os pendentes como enviados
+      COLETAS.forEach(c => {
+        if (["pendente", "erro"].includes(c.status)) c.status = "enviado";
+      });
       toast("Pendentes reenviados com sucesso!");
       Sound.play("ok");
     } else throw new Error(`Status ${r.status}`);
@@ -222,6 +270,7 @@ async function reenviarPendentes() {
     renderTabela();
   }
 }
+
 
 /* =================== Init =================== */
 document.addEventListener("DOMContentLoaded", async () => {
