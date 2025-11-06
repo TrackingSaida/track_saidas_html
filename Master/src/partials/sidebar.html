@@ -97,20 +97,18 @@
           }
         })();
 
-        async function montarSidebar() {
+    async function montarSidebar() {
   if (window.__SIDEBAR_BUILT__ || window.__SIDEBAR_BUILDING__) return;
   window.__SIDEBAR_BUILDING__ = true;
   const nav = document.getElementById("navbar-nav");
   if (!nav) return;
 
-  // 🔹 Base da API e login
   const API_BASE = "https://track-saidas-api.onrender.com";
   const LOGIN_URL = "auth-login-tracking.html";
 
-  // Sempre envia cookies (autenticação via cookie HTTPOnly)
   const fetchOpts = {
     method: "GET",
-    credentials: "include"
+    credentials: "include" // 👈 envia cookie access_token
   };
 
   const toId = (label) => (
@@ -146,26 +144,52 @@
     const data = await resp.json();
     const serverMenu = Array.isArray(data.menu) ? data.menu : [];
 
-    // Limpa menu atual
+    // Limpa menu anterior
     nav.querySelectorAll(":scope > li:not(.menu-title)").forEach(el => el.remove());
 
-    // Cria dinamicamente os grupos retornados
-    const menuHTML = serverMenu.map(sec => {
-      const itemsHTML = (sec.items || []).map(i => makeItem(i.href, i.label)).join("");
-      return makeGroup(toId(sec.section), sec.icon, sec.section, itemsHTML);
-    }).join("");
+    // Procura seção "Operação"
+    const operacao = serverMenu.find(s => (s.section || "").toLowerCase().includes("opera"));
+    const dashboards = serverMenu.find(s => (s.section || "").toLowerCase() === "dashboards");
+    const config = serverMenu.find(s => (s.section || "").toLowerCase().includes("config"));
 
-    // Insere no DOM
-    nav.insertAdjacentHTML("beforeend", menuHTML);
+    // 🔹 Monta grupo Operação → Coletas / Saídas (se existir)
+    let opHTML = "";
+    if (operacao) {
+      const opItems = operacao.items || [];
+      const grupoColetas = opItems.filter(i => /coleta/i.test(i.href || "") || /coleta/i.test(i.label || ""));
+      const grupoSaidas  = opItems.filter(i => /saida/i.test(i.href || "") || /tracking-(leitura|registros)/i.test(i.href || ""));
 
-    // Abre automaticamente o grupo ativo
+      opHTML =
+        makeGroup(toId("Coletas"), "ri-box-3-line me-1", "Coletas",
+          grupoColetas.map(i => makeItem(i.href, i.label)).join("")) +
+        makeGroup(toId("Saídas"), "ri-truck-line me-1", "Saídas",
+          grupoSaidas.map(i => makeItem(i.href, i.label)).join(""));
+    }
+
+    // 🔹 Monta dashboards e config somente se vierem do backend
+    const dashHTML = dashboards
+      ? dashboards.items.map(i => makeItem(i.href, i.label)).join("")
+      : "";
+    const cfgHTML = config
+      ? (config.items || []).map(i => makeItem(i.href, i.label)).join("")
+      : "";
+
+    // 🔹 Monta HTML final, apenas se existir
+    let finalHTML = "";
+    if (operacao) finalHTML += makeGroup(toId(operacao.section), operacao.icon, operacao.section, opHTML);
+    if (dashboards) finalHTML += makeGroup(toId(dashboards.section), dashboards.icon, dashboards.section, dashHTML);
+    if (config) finalHTML += makeGroup(toId(config.section), config.icon, config.section, cfgHTML);
+
+    // Injeta no DOM
+    nav.insertAdjacentHTML("beforeend", finalHTML);
+
+    // Expande o grupo ativo
     const activeLink = nav.querySelector(".nav-link.active");
     if (activeLink && typeof bootstrap !== "undefined") {
       const collapse = activeLink.closest(".menu-dropdown");
       if (collapse) new bootstrap.Collapse(collapse, { toggle: true });
     }
 
-    // Exibe menu
     nav.style.visibility = "visible";
     nav.style.opacity = "1";
     if (window.dispatchEvent) window.dispatchEvent(new Event("resize"));
@@ -176,7 +200,6 @@
     console.error("Erro ao montar sidebar:", e);
   }
 }
-
       </script>
 
     </div>
