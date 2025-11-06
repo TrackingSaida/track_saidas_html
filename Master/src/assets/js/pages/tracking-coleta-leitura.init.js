@@ -5,24 +5,27 @@ const API_BASES = `${window.TRACK_API_URL}/base`;
 // ⚙️ Agora a chave do localStorage é dinâmica por base
 let STORAGE_KEY = null;
 
-
-
-/* 🔧 LIMPEZA AUTOMÁTICA DE LEITURAS ANTIGAS (ANTES DOS HELPERS) */
+/* 🔧 LIMPEZA SEGURA DE LEITURAS ANTIGAS (ANTES DOS HELPERS) */
 (function limparLeiturasAntigasGlobais() {
   try {
-    // Verifica todas as chaves do localStorage que contenham "coletasPendentes"
     const hoje = new Date().toISOString().slice(0, 10);
+
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && key.startsWith("coletasPendentes")) {
-        const armazenadas = JSON.parse(localStorage.getItem(key) || "[]");
-        if (!Array.isArray(armazenadas) || armazenadas.length === 0) continue;
+      if (!key || !key.startsWith("coletasPendentes")) continue;
 
-        const atuais = armazenadas.filter(c => (c.data || "").startsWith(hoje));
-        if (atuais.length !== armazenadas.length) {
-          localStorage.setItem(key, JSON.stringify(atuais));
-          console.info(`🧹 Limpei leituras antigas da chave ${key}`);
-        }
+      const armazenadas = JSON.parse(localStorage.getItem(key) || "[]");
+      if (!Array.isArray(armazenadas) || armazenadas.length === 0) continue;
+
+      // mantém itens de hoje ou sem data (para não apagar acidentalmente)
+      const atuais = armazenadas.filter(c => {
+        const data = typeof c.data === "string" && c.data.length >= 10 ? c.data : hoje;
+        return data.startsWith(hoje);
+      });
+
+      if (atuais.length !== armazenadas.length) {
+        localStorage.setItem(key, JSON.stringify(atuais));
+        console.info(`🧹 Limpei leituras antigas da chave ${key} — mantive ${atuais.length}`);
       }
     }
   } catch (err) {
@@ -204,7 +207,7 @@ function registrarCodigo() {
 
   const codigo = parsed.codigo;
   const servico = parsed.servico;
-  const hojeStr = new Date().toISOString().slice(0, 10); // ← data de hoje no formato AAAA-MM-DD
+  const hojeStr = new Date().toISOString().slice(0, 10);
 
   // 🔎 Verifica duplicado
   if (COLETAS.some(c => c.codigo === codigo)) {
@@ -214,7 +217,7 @@ function registrarCodigo() {
       servico,
       status: "duplicado",
       tentativas: 0,
-      data: hojeStr // ← salva data também nos duplicados
+      data: hojeStr
     });
     toast("Código duplicado.", false);
     Sound.play("warn");
@@ -225,7 +228,7 @@ function registrarCodigo() {
       servico,
       status: "pendente",
       tentativas: 0,
-      data: hojeStr // ← salva data da leitura
+      data: hojeStr
     });
     toast("Código registrado.");
     Sound.play("ok");
@@ -233,6 +236,15 @@ function registrarCodigo() {
     // 🆕 Envio automático do item recém-adicionado
     const novoItem = COLETAS[COLETAS.length - 1];
     enviarColetaUnica(novoItem);
+  }
+
+  // 💾 Salva imediatamente no localStorage
+  try {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const coletasComData = COLETAS.map(c => ({ ...c, data: c.data || hoje }));
+    if (STORAGE_KEY) localStorage.setItem(STORAGE_KEY, JSON.stringify(coletasComData));
+  } catch (err) {
+    console.warn("Falha ao salvar coletas localmente:", err);
   }
 
   // limpa o campo de entrada e volta o foco
@@ -259,6 +271,10 @@ async function reenviarPendentes() {
       COLETAS.forEach(c => {
         if (["pendente", "erro"].includes(c.status)) c.status = "enviado";
       });
+
+      // 💾 atualiza o localStorage também
+      if (STORAGE_KEY) localStorage.setItem(STORAGE_KEY, JSON.stringify(COLETAS));
+
       toast("Pendentes reenviados com sucesso!");
       Sound.play("ok");
     } else throw new Error(`Status ${r.status}`);
@@ -270,7 +286,6 @@ async function reenviarPendentes() {
     renderTabela();
   }
 }
-
 
 /* =================== Init =================== */
 document.addEventListener("DOMContentLoaded", async () => {
