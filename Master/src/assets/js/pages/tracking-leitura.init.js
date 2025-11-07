@@ -370,15 +370,28 @@ async function registrar() {
   const k = keyFor(entregador, codigoFinal);
 
   // Já existe nesta sessão
-  if (rowsByKey.has(k)) {
+if (rowsByKey.has(k)) {
+  Sound.play("warn");
+
+  // Detecta se a câmera está ativa (overlay visível)
+  const cameraAtiva = document.getElementById("scanFS")?.classList.contains("show");
+
+  if (cameraAtiva) {
+    // 🟡 Exibe no HUD (sobre o vídeo)
+    showMsg("alerta", `Duplicado • ${codigoFinal}`);
+  } else {
+    // 🟢 Exibe no toast padrão da tela
     showMsgIcon("alerta", `DUPLICADO • ${codigoFinal}`);
-    Sound.play("warn");
-    if (inpCod) {
-      inpCod.value = "";
-      inpCod.focus();
-    }
-    return;
   }
+
+  // Limpa o campo e retorna
+  if (inpCod) {
+    inpCod.value = "";
+    inpCod.focus();
+  }
+  return;
+}
+
 
   // 🔹 Consulta o código nas saídas e atualiza status se necessário
   try {
