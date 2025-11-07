@@ -36,13 +36,9 @@
   }
 
   function normalizeNome(nomeRaw = "") {
-    return nomeRaw
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(Boolean)
-      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ");
-  }
+  return nomeRaw.replace(/\s+/g, " ").trim().toUpperCase();
+}
+
 
   // =======================================================
   // API Helpers
