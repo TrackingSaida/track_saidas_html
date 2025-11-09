@@ -439,7 +439,7 @@ if (rowsByKey.has(k)) {
 
     if (confirm.isConfirmed) {
       const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
-      const postResp = await fetch(`${window.TRACK_API_URL}/saidas`, {
+      const postResp = await fetch(`${window.TRACK_API_URL}/saidas/registrar`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
