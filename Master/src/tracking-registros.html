@@ -63,20 +63,11 @@
   </div>
 </div>
 
-                <div class="col-md-1">
-                  <label class="form-label">Ordenar</label>
-                  <select id="flt-sort" class="form-control">
-                    <option value="-ts">Data/Hora ↓</option>
-                    <option value="ts">Data/Hora ↑</option>
-                    <option value="codigo">Código ↑</option>
-                    <option value="-codigo">Código ↓</option>
-                  </select>
-                </div>
-
+    
 
               <div class="d-flex gap-2 mt-3">
-                <button id="btn-search" class="btn btn-primary"><i class="ri-search-line"></i> Buscar</button>
-                <button id="btn-edit-selected" class="btn btn-success"><i class="ri-edit-2-line"></i> Editar</button>
+                <button id="btn-search" class="btn btn-primary"><i class="ri-search-line"></i> Filtrar </button>
+                <button id="btn-edit-selected" class="btn btn-primary" disabled>Editar</button>
                 <button id="btn-delete-selected" class="btn btn-danger"><i class="ri-delete-bin-line"></i> Excluir</button>
 
                 <!-- info antiga mantida para compatibilidade -->
@@ -163,47 +154,121 @@
         </div><!-- /.container-fluid -->
       </div><!-- /.page-content -->
 
-      <!-- Modal Editar -->
-      <div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog"><div class="modal-content">
-          <div class="modal-header p-3 bg-success-subtle">
-            <h5 class="modal-title">Editar Registro</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <input type="hidden" id="edit-id" />
-            <div class="row g-3">
-              <div class="col-md-6">
-                <label class="form-label">Entregador</label>
-                <!-- AGORA É SELECT: somente entregadores existentes -->
-                <select id="edit-entregador" class="form-control">
-                  <option value="">— selecione —</option>
-                </select>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">Código</label>
-                <input id="edit-codigo" class="form-control" />
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Serviço</label>
-                <input id="edit-servico" class="form-control" placeholder="Shopee / Mercado Livre / Avulso" / readonly aria-readonly="true">>
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Status</label>
-                <select id="edit-status" class="form-control">
-                  <option value="Saiu">Saiu</option>
-                  <option value="Pendente">Pendente</option>
-                  <option value="Cancelado">Cancelado</option>
-                </select>
-              </div>
+      <!-- Modal Editar (singular) -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header p-3 bg-success-subtle">
+      <h5 class="modal-title">Editar Registro</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id" />
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Entregador</label>
+          <select id="edit-entregador" class="form-control">
+            <option value="">— selecione —</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Código</label>
+          <input id="edit-codigo" class="form-control" />
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Serviço</label>
+          <input id="edit-servico" class="form-control" readonly />
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Status</label>
+          <select id="edit-status" class="form-control">
+            <option value="Saiu para entrega">Saiu para entrega</option>
+            <option value="Coletado">Coletado</option>
+            <option value="Não Coletado">Não Coletado</option>
+            <option value="Cancelado">Cancelado</option>
+          </select>
+        </div>
+
+        <!-- Base só quando "Não Coletado" -->
+        <div class="col-md-4 d-none" id="edit-base-group">
+          <label class="form-label">Base</label>
+          <select id="edit-base" class="form-control">
+            <option value="">— selecione —</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost-secondary" data-bs-dismiss="modal">Fechar</button>
+      <button id="edit-save" class="btn btn-primary">Salvar</button>
+    </div>
+  </div></div>
+</div>
+
+<div class="modal fade" id="bulkModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-primary-subtle border-0">
+        <h5 class="modal-title fw-semibold text-primary-emphasis">Editar em Lote</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body py-4 px-4">
+
+        <p id="bulk-count" class="small text-muted mb-3"></p>
+
+        <!-- Entregador -->
+        <div class="mb-4">
+          <label class="form-label fw-semibold">Entregador <small class="text-secondary">(De → Para)</small></label>
+          <div class="row g-2 align-items-center">
+            <div class="col-md-5">
+              <input id="bulk-entregador-from" type="text" class="form-control text-center bg-light border-0 fw-semibold" readonly>
+            </div>
+            <div class="col-auto">
+              <i class="bi bi-arrow-right text-muted fs-5"></i>
+            </div>
+            <div class="col-md-6">
+              <select id="bulk-entregador" class="form-select">
+                <option value="">(Manter)</option>
+              </select>
             </div>
           </div>
-          <div class="modal-footer">
-            <button class="btn btn-ghost-secondary" data-bs-dismiss="modal">Fechar</button>
-            <button id="edit-save" class="btn btn-primary">Salvar</button>
-          </div>
-        </div></div>
+          <div class="form-text">Troca permitida apenas se todos os registros forem do mesmo entregador e status “Saiu para entrega”.</div>
+        </div>
+
+        <!-- Status -->
+        <div class="mb-4">
+          <label class="form-label fw-semibold">Status</label>
+          <select id="bulk-status" class="form-select">
+            <option value="">(Manter)</option>
+            <option value="Saiu para entrega">Saiu para entrega</option>
+            <option value="Coletado">Coletado</option>
+            <option value="Não Coletado">Não Coletado</option>
+            <option value="Cancelado">Cancelado</option>
+          </select>
+        </div>
+
+        <!-- Base -->
+        <div class="mb-3 d-none" id="bulk-base-group">
+          <label class="form-label fw-semibold">Base</label>
+          <select id="bulk-base" class="form-select">
+            <option value="">(Manter)</option>
+          </select>
+        </div>
+
+        <p class="text-muted small mb-0">Use apenas os campos que deseja alterar. Os demais serão mantidos.</p>
       </div>
+
+      <div class="modal-footer border-0 bg-light-subtle">
+        <button class="btn btn-ghost-secondary px-3" data-bs-dismiss="modal">Fechar</button>
+        <button id="bulk-apply" class="btn btn-primary px-4">Aplicar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
 
       @@include("partials/footer.html")
     </div>

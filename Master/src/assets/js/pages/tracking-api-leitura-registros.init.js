@@ -2,7 +2,10 @@
 // Wrapper da API (lista/atualiza/exclui saídas) com paginação correta via limit+1.
 
 (function () {
-  const BASE = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+  // 🔹 Garante que sempre chame /api/... apenas uma vez
+  let baseUrl = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+  if (!baseUrl.endsWith("/api")) baseUrl += "/api";
+  const BASE = baseUrl;
 
   if (!window.TrackAPI) window.TrackAPI = {};
 
@@ -15,22 +18,24 @@
     return res;
   }
 
-  // -------- LISTAR SAÍDAS (usa limit/offset, com técnica "limit+1" p/ detectar próxima página)
+    // -------- LISTAR SAÍDAS --------
   window.TrackAPI.listSaidas = async function (params) {
     const page     = Number(params && params.page)     || 1;
     const pageSize = Number(params && params.pageSize) || 200;
 
     const hasFilter =
-      (params && (params.entregador || params.status || params.codigo || params.from || params.to));
+      (params && (params.entregador || params.status || params.codigo || params.base || params.de || params.ate));
 
     let offset = 0;
 
     const q = new URLSearchParams();
-    if (params && params.from)        q.set("de", params.from);
-    if (params && params.to)          q.set("ate", params.to);
+    if (params && params.de)          q.set("de", params.de);
+    if (params && params.ate)         q.set("ate", params.ate);
+    if (params && params.base)        q.set("base", params.base);
     if (params && params.entregador)  q.set("entregador", params.entregador);
     if (params && params.status)      q.set("status", params.status);
     if (params && params.codigo)      q.set("codigo", params.codigo);
+    if (params && params.sort)        q.set("sort", params.sort);
 
     if (!hasFilter) {
       const limitRequested = pageSize + 1;
@@ -79,6 +84,8 @@
       return { ok: false, status: 0, error: String((err && err.message) || err) };
     }
   };
+
+
 
   // -------- BUSCAR SAÍDA POR CÓDIGO (usado na Leitura)
   // GET /saidas/listar?codigo=XYZ
