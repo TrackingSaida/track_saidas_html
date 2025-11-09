@@ -142,19 +142,22 @@ function showMsgIcon(tipo, texto) {
     const mlRun = allDigits.match(/45\d{9,}/);
     if (mlRun) return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11) };
 
-    // Avulso (CEP): primeira ocorrência de 8 dígitos
-    const cep = (allDigits.match(/\d{8}/) || [null])[0];
-    if (cep)   return { ok:true, servico:"Avulso", codigo: cep };
+   // 🟢 Avulso — padrões conhecidos
+  if (
+    /^CP\d{3,}/.test(raw) ||
+    /^TIME\d{6}$/i.test(raw) ||
+    /^LM\d{5,}-[\w\d]+/i.test(raw)
+  ) {
+    return { ok: true, servico: "Avulso", codigo: raw };
+  }
 
-         // TIME + 6 dígitos → Avulso (Time)
-if (/^TIME\d{6}$/i.test(raw)) {
-  return { ok:true, servico:"Avulso", codigo:raw };
-};
-
-  // 🟢 Avulso (novo padrão: inicia com CP + 6 dígitos + BR opcional)
-  const cpMatch = raw.match(/^CP\d{6,}[A-Z]{0,2}$/i);
-  if (cpMatch)
-    return { ok: true, servico: "Avulso", codigo: cpMatch[0].toUpperCase() };
+  // 🟢 Avulso (telefone): fallback
+  // aceita (11)958406305, 11958406305, 011958406305, 11-95840-6305, etc.
+  const phone = raw.match(/0?(\d{2})[-\s]?(\d{4,5})[-\s]?(\d{4})/);
+  if (phone) {
+    const cod = `${phone[1]}${phone[2]}${phone[3]}`; // junta tudo
+    return { ok: true, servico: "Avulso", codigo: cod };
+  }
 
     return { ok:false, motivo:"Padrão não configurado" };
   }
