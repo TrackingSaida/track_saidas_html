@@ -87,16 +87,13 @@
     const contato = (user.contato || "").trim();
 
     // Nome exibido prioriza contato > username > email
-    const nomeExibicao = contato || username || email || "Usuário";
+    const nomeExibicao = username || "Usuário";
 
     // === Atualiza elementos da UI ===
     document.querySelectorAll(".user-name-text, .sidebar-user-name-text").forEach(el => {
       el.textContent = nomeExibicao;
     });
 
-    document.querySelectorAll(".user-name-sub-text, .sidebar-user-name-sub-text").forEach(el => {
-      el.textContent = email || "";
-    });
 
     const ddHeader = document.querySelector(".dropdown-menu .dropdown-header");
     if (ddHeader) ddHeader.textContent = `Bem-vindo(a) ${nomeExibicao}!`;
