@@ -64,94 +64,75 @@
   }
 
   async function carregarUsuarioLogado() {
-    try {
-      const resp = await fetch(`${API_ORIGIN}/api/auth/me`, {
-        credentials: "include",
-        headers: { Accept: "application/json" },
-      });
+  try {
+    const resp = await fetch(`${API_ORIGIN}/api/auth/me`, {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    });
 
-      if (resp.status === 401) {
-        redirectToLogin("session_expired");
-        return;
+    if (resp.status === 401) {
+      redirectToLogin("session_expired");
+      return;
+    }
+    if (!resp.ok) {
+      console.warn("[user] /auth/me não OK:", resp.status);
+      return;
+    }
+
+    // ✅ Modelo da API: { id, email, username, contato }
+    const user = await resp.json();
+
+    const username = (user.username || "").trim();
+    const email = (user.email || "").trim();
+    const contato = (user.contato || "").trim();
+
+    // Nome exibido prioriza contato > username > email
+    const nomeExibicao = contato || username || email || "Usuário";
+
+    // === Atualiza elementos da UI ===
+    document.querySelectorAll(".user-name-text, .sidebar-user-name-text").forEach(el => {
+      el.textContent = nomeExibicao;
+    });
+
+    document.querySelectorAll(".user-name-sub-text, .sidebar-user-name-sub-text").forEach(el => {
+      el.textContent = email || "";
+    });
+
+    const ddHeader = document.querySelector(".dropdown-menu .dropdown-header");
+    if (ddHeader) ddHeader.textContent = `Bem-vindo(a) ${nomeExibicao}!`;
+
+    // Substitui placeholders antigos (ex: "Anna Adame")
+    document.querySelectorAll("span, div, a, strong, b, h6").forEach(el => {
+      if (
+        el.childElementCount === 0 &&
+        /\bAnna\b|\bAdame\b/i.test(el.textContent || "")
+      ) {
+        el.textContent = nomeExibicao;
       }
-      if (!resp.ok) {
-        console.warn("[user] /auth/me não OK:", resp.status);
-        return;
+    });
+
+    // Guarda no escopo global (para uso em outras páginas)
+    window.__USER__ = { id: user.id, username, email, contato };
+
+  } catch (e) {
+    console.error("Erro ao carregar usuário logado:", e);
+
+    // 🔹 Mostra alerta amigável se for falha de rede
+    if (e.name === "TypeError" && e.message.includes("NetworkError")) {
+      if (window.Swal) {
+        Swal.fire({
+          icon: "error",
+          title: "Falha de conexão",
+          text: "Não foi possível conectar ao servidor. Verifique sua internet ou tente novamente mais tarde.",
+          confirmButtonText: "OK",
+        });
+      } else {
+        alert("Falha de conexão com o servidor. Verifique sua internet.");
       }
-
-      const user = await resp.json();
-      let nome = (user.nome || "").trim();
-      let sobrenome = (user.sobrenome || "").trim();
-      const username = (user.username || "").trim();
-      const email = (user.email || "").trim();
-
-      if (!nome && username) {
-        const cleaned = username.replace(/[_\-\.]+/g, " ").trim();
-        const parts = cleaned.split(/\s+/);
-        if (parts.length >= 1) nome = capitalizeWords(parts[0]);
-        if (parts.length >= 2)
-          sobrenome = capitalizeWords(parts.slice(1).join(" "));
-      }
-      if (!nome && email) {
-        const local = email.split("@")[0].replace(/[_\-\.]+/g, " ").trim();
-        const parts = local.split(/\s+/);
-        if (parts.length >= 1) nome = nome || capitalizeWords(parts[0]);
-        if (parts.length >= 2)
-          sobrenome = sobrenome || capitalizeWords(parts.slice(1).join(" "));
-      }
-      const fullName =
-        nome || sobrenome
-          ? `${nome} ${sobrenome}`.trim()
-          : username || email || "Usuário";
-
-      // === Atualiza elementos da UI ===
-      document.querySelectorAll(".user-name-text").forEach((el) => {
-        el.textContent = nome || fullName;
-      });
-      document.querySelectorAll(".user-name-sub-text").forEach((el) => {
-        el.textContent = sobrenome || "";
-      });
-
-      document.querySelectorAll(".sidebar-user-name-text").forEach((el) => {
-        el.textContent = nome || fullName;
-      });
-      document.querySelectorAll(".sidebar-user-name-sub-text").forEach((el) => {
-        const alignMiddle = el.querySelector(".align-middle");
-        if (alignMiddle) alignMiddle.textContent = sobrenome || "";
-        else el.textContent = sobrenome || "";
-      });
-
-      const ddHeader = document.querySelector(
-        ".dropdown-menu .dropdown-header"
-      );
-      if (ddHeader) ddHeader.textContent = `Bem-vindo(a) ${fullName}!`;
-
-      document.querySelectorAll("span, div, a, strong, b, h6").forEach((el) => {
-        if (
-          el.childElementCount === 0 &&
-          /\bAnna\b|\bAdame\b/i.test(el.textContent || "")
-        ) {
-          if (el.matches(".user-name-text, .sidebar-user-name-text")) {
-            el.textContent = nome || fullName;
-          } else if (
-            el.matches(
-              ".user-name-sub-text, .sidebar-user-name-sub-text, .sidebar-user-name-sub-text .align-middle"
-            )
-          ) {
-            el.textContent = sobrenome || "";
-          } else if (el === ddHeader) {
-            el.textContent = `Bem-vindo(a) ${fullName}!`;
-          } else {
-            el.textContent = fullName;
-          }
-        }
-      });
-
-      window.__USER__ = { id: user.id, nome, sobrenome, username, email };
-    } catch (e) {
-      console.error("Erro ao carregar usuário logado:", e);
     }
   }
+}
+
 
   // Revalida ao focar a aba ou ao carregar
   window.addEventListener("focus", () => {
