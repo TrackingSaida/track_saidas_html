@@ -361,26 +361,34 @@
   border-style:dashed!important;
 }
 
-.card-shopee {
-  background-color: #ee4d2d;
-  color: #fff;
+.card-shopee-soft{
+  background-color:rgba(238,77,45,.10)!important;   /* #ee4d2d */
+  border-color:rgba(238,77,45,.35)!important;
+  color:#ee4d2d!important;
 }
-.card-ml {
-  background-color: #ffe600;
-  color: #2d3277;
+.card-ml-soft{
+  background-color:rgba(255,230,0,.18)!important;   /* #ffe600 */
+  border-color:rgba(255,230,0,.50)!important;
+  color:#2d3277!important; /* seu contraste p/ ML/Flex */
 }
-.card-avulso {
-  background-color: #6c757d;
-  color: #fff;
+.card-avulso-soft{
+  background-color:rgba(108,117,125,.12)!important; /* #6c757d */
+  border-color:rgba(108,117,125,.35)!important;
+  color:#6c757d!important;
 }
-.card-total {
-  background-color: #2d3277;
-  color: #fff;
-}
-.card-valor-total {
-  background-color: #198754;
-  color: #fff;
+.card-total-soft{
+  background-color:rgba(45,50,119,.10)!important;   /* #2d3277 */
+  border-color:rgba(45,50,119,.30)!important;
+  color:#2d3277!important;
 }
 
 .kpi-soft p{ color:#878a99!important; }
+
+.kpi-loading .p-3 { position: relative; overflow: hidden; }
+.kpi-loading .p-3::before{
+  content:""; position:absolute; inset:0;
+  background: linear-gradient(90deg, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.03) 100%);
+  transform: translateX(-100%); animation: kpi-shimmer 1.2s infinite;
+}
+@keyframes kpi-shimmer { to { transform: translateX(100%); } }
 

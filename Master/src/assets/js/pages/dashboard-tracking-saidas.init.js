@@ -1,9 +1,5 @@
 // assets/js/pages/dashboard-tracking-saidas.init.js
 // Dashboard: Ranking (Entregadores) e Série Diária (por origem)
-// - Filtro de status: conta APENAS "Saiu para entrega"
-// - Autenticação centralizada (window.ensureAuth)
-// - TrackAPI.listSaidas(de, ate)
-// ------------------------------------------------------------------
 
 (async function () {
   "use strict";
@@ -16,11 +12,6 @@
   }
 
   // ---- Datas (sempre local) --------------------------------------
-  function parseLocalDate(ymd) {
-    if (!ymd) return null;
-    const [y, m, d] = ymd.split("-").map(Number);
-    return new Date(y, (m || 1) - 1, d || 1);
-  }
   function fmtYMD(d) {
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
@@ -33,17 +24,10 @@
   function endOfMonthYMD(d = new Date()) {
     return fmtYMD(new Date(d.getFullYear(), d.getMonth() + 1, 0));
   }
-  function addDaysYMD(ymd, delta) {
-    const [y,m,day] = ymd.split("-").map(Number);
-    const d = new Date(y, (m||1)-1, day||1);
-    d.setDate(d.getDate() + delta);
-    return fmtYMD(d);
-  }
-  function addMonthsToYMD(ymd, delta) {
-    const [y,m,day] = ymd.split("-").map(Number);
-    const d = new Date(y, (m||1)-1, day||1);
-    d.setMonth(d.getMonth() + delta);
-    return fmtYMD(d);
+  function parseLocalDate(ymd) {
+    if (!ymd) return null;
+    const [y, m, d] = ymd.split("-").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1);
   }
   function daysArrayInclusive(fromYMD, toYMD) {
     const start = parseLocalDate(fromYMD);
@@ -69,6 +53,8 @@
     let to   = perTo?.value   || globalTo?.value   || from;
     if (!from && to) from = to;
     if (!to && from) to = from;
+    // evita período invertido
+    if (from > to) [from, to] = [to, from];
     return { from, to };
   }
 
@@ -102,61 +88,126 @@
       return acc;
     }, {});
   }
-
-  // === Paleta dinâmica lendo do CSS (usa suas classes .card-*) ===
-function getCssColorFromClass(className, cssProp = "background-color") {
-  // cria um elemento offscreen só pra consultar o estilo computado
-  const el = document.createElement("div");
-  el.style.position = "absolute";
-  el.style.left = "-9999px";
-  el.style.top = "-9999px";
-  el.className = className;
-  document.body.appendChild(el);
-  const color = getComputedStyle(el)[cssProp];
-  el.remove();
-  return color; // geralmente "rgb(r,g,b)"
-}
-
-function rgbToHex(rgb) {
-  // aceita "rgb(...)" ou "rgba(...)" -> "#rrggbb"
-  const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-  if (!m) return rgb; // se já vier "#hex" ou algo válido, retorna como está
-  const r = (+m[1]).toString(16).padStart(2, "0");
-  const g = (+m[2]).toString(16).padStart(2, "0");
-  const b = (+m[3]).toString(16).padStart(2, "0");
-  return `#${r}${g}${b}`;
-}
-
-// Lê as cores das SUAS classes já existentes no custom.css:
-const PALETTE = {
-  shopee: rgbToHex(getCssColorFromClass("card-shopee", "background-color") || "#ee4d2d"),
-  ml:     rgbToHex(getCssColorFromClass("card-ml",     "background-color") || "#ffe600"),
-  avulso: rgbToHex(getCssColorFromClass("card-avulso", "background-color") || "#6c757d"),
-  total:  rgbToHex(getCssColorFromClass("card-total",  "background-color") || "#2d3277")
-};
-
+  function isSaiuParaEntrega(s) {
+    const txt = (s?.status || "").toString();
+    return /saiu.*entrega/i.test(txt);
+  }
 
   // ================================================================
-  // API
+  // Paleta dinâmica (lendo do CSS das suas classes .card-*)
   // ================================================================
-  async function fetchSaidas(from, to) {
-    let rows = [];
-    try {
-      if (window.TrackAPI && typeof window.TrackAPI.listSaidas === "function") {
-        const res = await window.TrackAPI.listSaidas({
-          de: from,
-          ate: to,
-          sort: "-ts",
-          pageSize: 1000,
-          page: 1
-        });
-        if (res && res.ok && Array.isArray(res.rows)) rows = res.rows;
-      }
-    } catch (e) {
-      console.error("Erro ao carregar saídas:", e);
+  function getCssColorFromClass(className, cssProp = "background-color") {
+    const el = document.createElement("div");
+    el.style.position = "absolute";
+    el.style.left = "-9999px";
+    el.style.top = "-9999px";
+    el.className = className;
+    document.body.appendChild(el);
+    const color = getComputedStyle(el)[cssProp];
+    el.remove();
+    return color; // normalmente "rgb(r,g,b)"
+  }
+  function rgbToHex(rgb) {
+    const m = String(rgb).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!m) return rgb;
+    const r = (+m[1]).toString(16).padStart(2, "0");
+    const g = (+m[2]).toString(16).padStart(2, "0");
+    const b = (+m[3]).toString(16).padStart(2, "0");
+    return `#${r}${g}${b}`;
+  }
+  const PALETTE = {
+    shopee: rgbToHex(getCssColorFromClass("card-shopee", "background-color") || "#ee4d2d"),
+    ml:     rgbToHex(getCssColorFromClass("card-ml",     "background-color") || "#ffe600"),
+    avulso: rgbToHex(getCssColorFromClass("card-avulso", "background-color") || "#6c757d"),
+    total:  rgbToHex(getCssColorFromClass("card-total",  "background-color") || "#2d3277")
+  };
+
+  // ================================================================
+  // Loaders + animações de KPI
+  // ================================================================
+  function showChartLoading(chart, text="Carregando...") {
+    chart?.showLoading('default', {
+      text,
+      color: '#9aa0ac',
+      textColor: '#6c757d',
+      maskColor: 'rgba(255,255,255,0.65)'
+    });
+  }
+  function hideChartLoading(chart) { chart?.hideLoading(); }
+
+  function animateCount(el, to, dur=600) {
+    if (!el) return;
+    const start = Number(String(el.textContent).replace(/\D/g,'')) || 0;
+    const delta = to - start;
+    const t0 = performance.now();
+    function step(t){
+      const p = Math.min(1, (t - t0)/dur);
+      el.textContent = String(Math.round(start + delta * (p*(2-p))));
+      if (p < 1) requestAnimationFrame(step);
     }
+    requestAnimationFrame(step);
+  }
+
+  // ================================================================
+  // API rápida: cache + paginação paralela + cancelamento
+  // ================================================================
+  const _saidasCache = new Map(); // key -> {ts, rows}
+  const CACHE_TTL_MS = 60_000;
+  let _loadToken = 0;
+
+  async function fetchSaidasCached(from, to) {
+    const key = `${from}|${to}`;
+    const hit = _saidasCache.get(key);
+    const now = Date.now();
+    if (hit && (now - hit.ts) < CACHE_TTL_MS) return hit.rows;
+    const rows = await fetchSaidasPaged(from, to);
+    _saidasCache.set(key, { ts: now, rows });
     return rows;
   }
+
+  async function fetchSaidasPaged(from, to) {
+    const token = ++_loadToken;
+
+    if (!(window.TrackAPI && typeof window.TrackAPI.listSaidas === "function")) return [];
+
+    // 1ª página para descobrir total
+    const first = await window.TrackAPI.listSaidas({ de: from, ate: to, sort: "-ts", pageSize: 1000, page: 1 });
+    if (!(first && first.ok && Array.isArray(first.rows))) return [];
+    if (token !== _loadToken) return [];
+
+    const totalPages = first.totalPages || 1;
+    if (totalPages === 1) return first.rows;
+
+    // Demais páginas em paralelo (até 4 workers)
+    const out = [...first.rows];
+    const MAX_PAR = 4;
+    let p = 2;
+
+    async function worker() {
+      while (p <= totalPages) {
+        const my = p++;
+        const res = await window.TrackAPI.listSaidas({ de: from, ate: to, sort: "-ts", pageSize: 1000, page: my });
+        if (token !== _loadToken) return;
+        if (res && res.ok && Array.isArray(res.rows)) out.push(...res.rows);
+      }
+    }
+    const workers = Array.from({length: Math.min(MAX_PAR, totalPages-1)}, () => worker());
+    await Promise.all(workers);
+
+    return out;
+  }
+
+  // ================================================================
+  // ECharts helpers
+  // ================================================================
+  function getChart(domId) {
+    const el = document.getElementById(domId);
+    if (!el) { console.warn(`[ECharts] container #${domId} não existe`); return null; }
+    try { return echarts.getInstanceByDom(el) || echarts.init(el, null, { renderer: "canvas" }); }
+    catch (e) { console.error(`[ECharts] init #${domId} falhou`, e); return null; }
+  }
+  const chartRanking = getChart("chart-entregadores-ranking");
+  const chartDiario  = getChart("chart-pedidos-diarios");
 
   // ================================================================
   // DASH RANKING — por Entregador
@@ -181,11 +232,11 @@ const PALETTE = {
     };
   }
 
-  const elRanking = document.getElementById("chart-entregadores-ranking");
-  const chartRanking = echarts.init(elRanking, null, { renderer: "canvas" });
-
   function renderRanking(names, values, details) {
+    if (!chartRanking) return;
     chartRanking.setOption({
+      animation: true,
+      animationDuration: 500,
       grid: { left: 8, right: 16, top: 10, bottom: 10, containLabel: true },
       tooltip: {
         trigger: "axis",
@@ -210,7 +261,7 @@ const PALETTE = {
         data: values,
         barWidth: "55%",
         label: { show: true, position: "right" },
-        itemStyle: { borderRadius: [0, 6, 6, 0] }
+        itemStyle: { borderRadius: [0, 6, 6, 0], color: PALETTE.total }
       }]
     });
   }
@@ -222,8 +273,8 @@ const PALETTE = {
     sel.innerHTML = `<option value="">Todos os Entregadores</option>`;
 
     const { from, to } = readDateRange("rank");
-    const saidas = await fetchSaidas(from, to);
-    const validas = saidas.filter(s => (s.status || "").toLowerCase() === "saiu para entrega");
+    const saidas = await fetchSaidasCached(from, to);
+    const validas = saidas.filter(isSaiuParaEntrega);
     const nomes = [...new Set(validas.map(s => s.entregador).filter(Boolean))].sort((a, b) => a.localeCompare(b));
     for (const nome of nomes) {
       const opt = document.createElement("option");
@@ -231,28 +282,27 @@ const PALETTE = {
       opt.textContent = nome;
       sel.appendChild(opt);
     }
-    console.log(`✅ Entregadores carregados (${nomes.length}):`, nomes);
   }
 
   async function loadRanking() {
     const { from, to } = readDateRange("rank");
     setPeriodLabels(from, to);
     const entregadorSel = document.getElementById("rank-entregador")?.value || "";
-    console.log("🌀 RANKING — entregador selecionado:", entregadorSel);
 
-    const saidas = await fetchSaidas(from, to);
+    showChartLoading(chartRanking, "Carregando ranking...");
+    const saidas = await fetchSaidasCached(from, to);
     const filtradas = saidas
-      .filter(s => (s.status || "").toLowerCase() === "saiu para entrega")
+      .filter(isSaiuParaEntrega)
       .filter(s => !entregadorSel || (s.entregador || "").toLowerCase() === entregadorSel.toLowerCase());
 
     const { names, values, details } = buildRanking(filtradas);
     renderRanking(names, values, details);
+    hideChartLoading(chartRanking);
   }
 
   // ================================================================
-  // DASH DIÁRIO — por Origem (barras empilhadas + linha Total) + KPIs + Zoom
+  // DASH DIÁRIO — por Origem (barras empilhadas + linha Total)
   // ================================================================
-  
   function buildSerieDiaria(saidas, days) {
     const porDia = groupBy(saidas || [], s => extractDateISO(s));
     const shopee = [], ml = [], avulso = [], total = [];
@@ -272,70 +322,67 @@ const PALETTE = {
     return { shopee, ml, avulso, total };
   }
 
-  // KPIs do card diário (reflete período atual do diário)
-  function updateDiarioKPIs(saidasFiltradas) {
-    let tot = 0, shopee = 0, ml = 0, avulso = 0;
+  function updateDiarioKPIsAnimated(saidasFiltradas) {
+    let tot = 0, sh = 0, ml = 0, av = 0;
     for (const s of (saidasFiltradas || [])) {
       tot++;
       const o = normalizeOrigem(s);
-      if (o === "shopee") shopee++;
+      if (o === "shopee") sh++;
       else if (o === "mercado_livre" || o === "mercadolivre") ml++;
-      else if (o === "avulso") avulso++;
+      else if (o === "avulso") av++;
     }
-    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v); };
-    set("kpi-diario-total",  tot);
-    set("kpi-diario-shopee", shopee);
-    set("kpi-diario-ml",     ml);
-    set("kpi-diario-avulso", avulso);
+    animateCount(document.getElementById("kpi-diario-total"),  tot);
+    animateCount(document.getElementById("kpi-diario-shopee"), sh);
+    animateCount(document.getElementById("kpi-diario-ml"),     ml);
+    animateCount(document.getElementById("kpi-diario-avulso"), av);
   }
 
-  const elDiario  = document.getElementById("chart-pedidos-diarios");
-  const chartDiario  = echarts.init(elDiario , null, { renderer: "canvas" });
-
-  // Barras empilhadas (Shopee/ML/Avulso) + linha Total + dataZoom
- function renderDiario(days, serieShopee, serieML, serieAvulso, serieTotal) {
-  chartDiario.setOption({
-    color: [PALETTE.shopee, PALETTE.ml, PALETTE.avulso, PALETTE.total], // ordem das séries
-    grid: { left: 8, right: 16, top: 20, bottom: 48, containLabel: true },
-    tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
-    legend: { bottom: 0 },
-    xAxis: { type: "category", data: days.map(d => d.slice(5)) },
-    yAxis: { type: "value" },
-    dataZoom: [
-      { type: "inside", throttle: 50 },
-      { type: "slider", height: 12, bottom: 26 }
-    ],
-    series: [
-      // Barras empilhadas com as mesmas cores dos cards
-      { name: "Shopee",        type: "bar", stack: "total", barMaxWidth: 26, data: serieShopee,
-        itemStyle: { color: PALETTE.shopee } },
-      { name: "Mercado Livre", type: "bar", stack: "total", barMaxWidth: 26, data: serieML,
-        itemStyle: { color: PALETTE.ml } },
-      { name: "Avulso",        type: "bar", stack: "total", barMaxWidth: 26, data: serieAvulso,
-        itemStyle: { color: PALETTE.avulso } },
-
-      // Linha Total na mesma cor do card "Total"
-      { name: "Total Geral",   type: "line", smooth: true, showSymbol: false, data: serieTotal, z: 10,
-        lineStyle: { width: 3, color: PALETTE.total } }
-    ]
-  });
-}
-
+  function renderDiario(days, serieShopee, serieML, serieAvulso, serieTotal) {
+    if (!chartDiario) return;
+    chartDiario.setOption({
+      color: [PALETTE.shopee, PALETTE.ml, PALETTE.avulso, PALETTE.total],
+      grid: { left: 8, right: 16, top: 20, bottom: 48, containLabel: true },
+      tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+      legend: { bottom: 0 },
+      xAxis: { type: "category", data: days.map(d => d.slice(5)) },
+      yAxis: { type: "value" },
+      animation: true,
+      animationDuration: 500,
+      animationEasing: 'cubicOut',
+      animationThreshold: 4000,
+      progressive: 500,
+      progressiveThreshold: 2000,
+      dataZoom: [
+        { type: "inside", throttle: 50 },
+        { type: "slider", height: 12, bottom: 26 }
+      ],
+      series: [
+        { name: "Shopee",        type: "bar", stack: "total", barMaxWidth: 22, large: true, largeThreshold: 400, data: serieShopee,
+          itemStyle: { color: PALETTE.shopee } },
+        { name: "Mercado Livre", type: "bar", stack: "total", barMaxWidth: 22, large: true, largeThreshold: 400, data: serieML,
+          itemStyle: { color: PALETTE.ml } },
+        { name: "Avulso",        type: "bar", stack: "total", barMaxWidth: 22, large: true, largeThreshold: 400, data: serieAvulso,
+          itemStyle: { color: PALETTE.avulso } },
+        { name: "Total Geral",   type: "line", smooth: true, showSymbol: false, data: serieTotal, z: 10,
+          lineStyle: { width: 3, color: PALETTE.total } }
+      ]
+    });
+  }
 
   async function loadDiario() {
     const { from, to } = readDateRange("daily");
     setPeriodLabels(from, to);
 
-    const saidas = await fetchSaidas(from, to);
-    const filtradas = saidas.filter(s => (s.status || "").toLowerCase() === "saiu para entrega");
+    showChartLoading(chartDiario, "Carregando diário...");
+    const saidas = await fetchSaidasCached(from, to);
+    const filtradas = saidas.filter(isSaiuParaEntrega);
 
-    // KPIs do período do diário
-    updateDiarioKPIs(filtradas);
+    updateDiarioKPIsAnimated(filtradas);
 
-    // Série diária
     const days = daysArrayInclusive(from, to);
     const { shopee, ml, avulso, total } = buildSerieDiaria(filtradas, days);
     renderDiario(days, shopee, ml, avulso, total);
+    hideChartLoading(chartDiario);
   }
 
   // ---- Zoom presets (MÊS, 1M, 3M, 6M, 1Y) -----------------------
@@ -350,36 +397,28 @@ const PALETTE = {
     const inpTo   = document.getElementById("daily-to");
     if (!inpFrom || !inpTo) return;
 
-    const today = todayYMD();
-    let from = today, to = today;
+    const today = new Date();
+    let from, to;
+
+    function lastMonthsRange(n) {
+      const toD = new Date();
+      const fromD = new Date(toD);
+      fromD.setMonth(fromD.getMonth() - n);
+      return { from: fmtYMD(fromD), to: fmtYMD(toD) };
+    }
 
     switch (preset) {
-      case "month":
-        from = startOfMonthYMD(new Date());
-        to   = endOfMonthYMD(new Date());
-        break;
-      case "1m":
-        to   = today;
-        from = addDaysYMD(to, -29);
-        break;
-      case "3m":
-        to   = today;
-        from = addMonthsToYMD(to, -3);
-        break;
-      case "6m":
-        to   = today;
-        from = addMonthsToYMD(to, -6);
-        break;
-      case "1y":
-        to   = today;
-        from = addMonthsToYMD(to, -12);
-        break;
-      default:
-        from = today; to = today;
+      case "month": from = startOfMonthYMD(today); to = endOfMonthYMD(today); break; // mês corrente
+      case "1m":    ({from, to} = lastMonthsRange(1)); break; // 1 mês corrido
+      case "3m":    ({from, to} = lastMonthsRange(3)); break;
+      case "6m":    ({from, to} = lastMonthsRange(6)); break;
+      case "1y":    ({from, to} = lastMonthsRange(12)); break;
+      default:      from = fmtYMD(today); to = fmtYMD(today);
     }
 
     inpFrom.value = from;
     inpTo.value   = to;
+
     setActiveDailyPreset(preset);
     loadDiario();
   }
@@ -394,21 +433,21 @@ const PALETTE = {
     if (dp) dp.textContent = `Período: ${from} a ${to}`;
   }
 
+  function debounce(fn, ms=250){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+
   // Eventos — RANKING
-  document.getElementById("btn-refresh-ranking")?.addEventListener("click", async () => {
-    console.clear();
-    console.log("🔄 Recarregando RANKING...");
+  document.getElementById("btn-refresh-ranking")?.addEventListener("click", debounce(async () => {
     await carregarEntregadores();
     await loadRanking();
-  });
-  document.getElementById("rank-entregador")?.addEventListener("change", loadRanking);
-  document.getElementById("rank-from")?.addEventListener("change", loadRanking);
-  document.getElementById("rank-to")?.addEventListener("change", loadRanking);
+  }, 120));
+  document.getElementById("rank-entregador")?.addEventListener("change", debounce(loadRanking, 150));
+  document.getElementById("rank-from")?.addEventListener("change", debounce(loadRanking, 150));
+  document.getElementById("rank-to")  ?.addEventListener("change", debounce(loadRanking, 150));
 
   // Eventos — DIÁRIO
-  document.getElementById("btn-refresh-diario")?.addEventListener("click", loadDiario);
-  document.getElementById("daily-from")?.addEventListener("change", () => { setActiveDailyPreset(""); loadDiario(); });
-  document.getElementById("daily-to")  ?.addEventListener("change", () => { setActiveDailyPreset(""); loadDiario(); });
+  document.getElementById("btn-refresh-diario")?.addEventListener("click", debounce(loadDiario, 120));
+  document.getElementById("daily-from")?.addEventListener("change", debounce(() => { setActiveDailyPreset(""); loadDiario(); }, 180));
+  document.getElementById("daily-to")  ?.addEventListener("change", debounce(() => { setActiveDailyPreset(""); loadDiario(); }, 180));
   document.getElementById("daily-zoom-group")?.addEventListener("click", (ev) => {
     const btn = ev.target.closest("[data-preset]");
     if (!btn) return;
@@ -419,7 +458,7 @@ const PALETTE = {
   // Boot
   // ================================================================
   (function initDefaultDates() {
-    // Ranking: mantém padrão "hoje"
+    // Ranking: hoje (se vazio)
     const idsRank = ["rank-from","rank-to","dash-from","dash-to"];
     const today = todayYMD();
     idsRank.forEach(id => {
@@ -441,5 +480,8 @@ const PALETTE = {
   await loadRanking();
   await loadDiario();
 
-  window.addEventListener("resize", () => { chartRanking.resize(); chartDiario.resize(); });
+  const debouncedResize = (()=> {
+    let t; return ()=>{ clearTimeout(t); t=setTimeout(()=>{ chartRanking?.resize(); chartDiario?.resize(); }, 120); };
+  })();
+  window.addEventListener("resize", debouncedResize);
 })();

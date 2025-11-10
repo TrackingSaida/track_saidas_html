@@ -8,7 +8,10 @@ let STORAGE_KEY = null;
 /* 🔧 LIMPEZA SEGURA DE LEITURAS ANTIGAS (ANTES DOS HELPERS) */
 (function limparLeiturasAntigasGlobais() {
   try {
-    const hoje = new Date().toISOString().slice(0, 10);
+    const s = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    const [dd, mm, yyyy] = s.split("/");
+    const hoje = `${yyyy}-${mm}-${dd}`;
+
 
     // Percorre todas as chaves que armazenam coletas locais
     for (let i = 0; i < localStorage.length; i++) {
@@ -38,6 +41,14 @@ let STORAGE_KEY = null;
 /* =============== Helpers / UI ================= */
 const qs  = (s) => document.querySelector(s);
 const qsa = (s) => Array.from(document.querySelectorAll(s));
+
+// === util: retorna data local (Brasil) em formato YYYY-MM-DD ===
+function hojeBR() {
+  const s = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const [dd, mm, yyyy] = s.split("/");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 
 
 /* ================== Sons  ================== */
@@ -267,14 +278,23 @@ function registrarCodigo() {
     enviarColetaUnica(novoItem);
   }
 
-  // 💾 Salva imediatamente no localStorage
+   // 💾 Salva imediatamente no localStorage
   try {
-    const hoje = new Date().toISOString().slice(0, 10);
+    // 🔹 Usa data local (fuso Brasil)
+    const s = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    const [dd, mm, yyyy] = s.split("/");
+    const hoje = `${yyyy}-${mm}-${dd}`;
+
+    // 🔹 Garante que todos tenham o campo data do dia
     const coletasComData = COLETAS.map(c => ({ ...c, data: c.data || hoje }));
-    if (STORAGE_KEY) localStorage.setItem(STORAGE_KEY, JSON.stringify(coletasComData));
+
+    if (STORAGE_KEY) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(coletasComData));
+    }
   } catch (err) {
     console.warn("Falha ao salvar coletas localmente:", err);
   }
+
 
   // limpa o campo de entrada e volta o foco
   qs("#codigo").value = "";
@@ -322,13 +342,33 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     const bases = await carregarBases();
     const sel = qs("#selBase");
-    sel.innerHTML = '<option value="" disabled selected>Selecione...</option>' + 
+    sel.innerHTML =
+      '<option value="" disabled selected>Selecione...</option>' +
       bases.map(b => `<option value="${b.base}">${b.base}</option>`).join("");
 
+    // 🟢 Função util para data local (Brasil)
+    function hojeBR() {
+      const s = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+      const [dd, mm, yyyy] = s.split("/");
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // 🔹 Ao trocar a base
     sel.addEventListener("change", e => {
       BASE_ATUAL = e.target.value;
       STORAGE_KEY = `coletasPendentes_${BASE_ATUAL}`;
-      COLETAS = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+
+      // Lê do localStorage
+      const hoje = hojeBR();
+      const armazenadas = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+
+      // 🔸 Mantém apenas coletas do dia atual
+      COLETAS = Array.isArray(armazenadas)
+        ? armazenadas.filter(c => String(c.data || "").startsWith(hoje))
+        : [];
+
+      // 🔸 Regrava para eliminar registros antigos dessa base
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(COLETAS));
 
       renderTabela();
       atualizarResumo();
@@ -340,7 +380,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   qs("#btnRegistrar")?.addEventListener("click", registrarCodigo);
   qs("#codigo")?.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") { e.preventDefault(); registrarCodigo(); }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      registrarCodigo();
+    }
   });
 
   // 🔄 Botão agora é "Reenviar Pendentes"
@@ -361,6 +404,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderTabela();
   atualizarResumo();
 });
+
 
 
 /* ======= Coleta — Scanner híbrido (BarcodeDetector + ZXing) ======= */
@@ -519,6 +563,9 @@ function processarCodigo(text) {
       status: "pendente",
       tentativas: 0
     };
+
+    novoItem.data = hojeBR();
+
     COLETAS.push(novoItem);
     totalLidos++;
     atualizarContador();
