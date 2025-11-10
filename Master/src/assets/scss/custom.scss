@@ -354,3 +354,33 @@
   background-color: #198754;
   color: #fff;
 }
+
+/* KPIs Diário — variantes claras nas cores dos cards já usados */
+.kpi-soft{
+  border-width:1px!important;
+  border-style:dashed!important;
+}
+
+.card-shopee {
+  background-color: #ee4d2d;
+  color: #fff;
+}
+.card-ml {
+  background-color: #ffe600;
+  color: #2d3277;
+}
+.card-avulso {
+  background-color: #6c757d;
+  color: #fff;
+}
+.card-total {
+  background-color: #2d3277;
+  color: #fff;
+}
+.card-valor-total {
+  background-color: #198754;
+  color: #fff;
+}
+
+.kpi-soft p{ color:#878a99!important; }
+

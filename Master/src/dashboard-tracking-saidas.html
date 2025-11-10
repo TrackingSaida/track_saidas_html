@@ -8,9 +8,7 @@
 </head>
 
 <body>
-  <!-- A verificação de sessão é realizada de forma centralizada pelo módulo user.js.
-       Não é necessário duplicar a lógica aqui. -->
-
+  <!-- A verificação de sessão é realizada de forma centralizada pelo módulo user.js. -->
 
   <div id="layout-wrapper">
     @@include("partials/menu.html")
@@ -23,7 +21,7 @@
 
           <!-- ROW: Cards com os 2 gráficos -->
           <div class="row">
-            <!-- Ranking por Entregadores (15 dias) -->
+            <!-- Ranking por Entregadores -->
             <div class="col-xl-6">
               <div class="card card-height-100">
                 <div class="card-header align-items-center d-flex">
@@ -31,6 +29,9 @@
                   <div class="flex-shrink-0 d-flex gap-2 align-items-center">
                     <input type="date" id="rank-from" class="form-control form-control-sm" style="min-width: 140px;" />
                     <input type="date" id="rank-to" class="form-control form-control-sm" style="min-width: 140px;" />
+                    <select id="rank-entregador" class="form-select form-select-sm" style="min-width: 160px;">
+                      <option value="">Todos os Entregadores</option>
+                    </select>
                     <button class="btn btn-soft-primary btn-sm" id="btn-refresh-ranking">Recarregar</button>
                   </div>
                 </div>
@@ -41,18 +42,59 @@
               </div>
             </div>
 
-            <!-- Pedidos Diários por Origem (15 dias) -->
+            <!-- Pedidos Diários por Origem -->
             <div class="col-xl-6">
               <div class="card card-height-100">
                 <div class="card-header align-items-center d-flex">
                   <h4 class="card-title mb-0 flex-grow-1">Pedidos Diários por Origem</h4>
+
+                  <!-- 🔎 Presets de zoom -->
+                  <div id="daily-zoom-group" class="btn-group btn-group-sm me-2" role="group" aria-label="Zoom Diário">
+                    <button type="button" class="btn btn-soft-secondary" data-preset="month">MÊS</button>
+                    <button type="button" class="btn btn-soft-secondary" data-preset="1m">1M</button>
+                    <button type="button" class="btn btn-soft-secondary" data-preset="3m">3M</button>
+                    <button type="button" class="btn btn-soft-secondary" data-preset="6m">6M</button>
+                    <button type="button" class="btn btn-soft-secondary" data-preset="1y">1Y</button>
+                  </div>
+
                   <div class="flex-shrink-0 d-flex gap-2 align-items-center">
                     <input type="date" id="daily-from" class="form-control form-control-sm" style="min-width: 140px;" />
                     <input type="date" id="daily-to" class="form-control form-control-sm" style="min-width: 140px;" />
-                    <!-- Botões de filtro por origem permanecem comentados, caso queira ativar no futuro -->
                     <button class="btn btn-soft-primary btn-sm" id="btn-refresh-diario">Recarregar</button>
                   </div>
                 </div>
+
+                <!-- 🔢 KPIs do período selecionado (Diário) -->
+                <div class="card-header p-0 border-0 bg-light-subtle">
+                <div class="row g-0 text-center">
+                 <div class="col-6 col-sm-3">
+                 <div id="kpi-card-total" class="p-3 border border-dashed border-start-0">
+                 <h5 class="mb-1"><span id="kpi-diario-total">0</span></h5>
+                <p class="text-muted mb-0">Total</p>
+                 </div>
+                  </div>
+                    
+                    <div class="col-6 col-sm-3">
+                     <div id="kpi-card-shopee" class="p-3 border border-dashed border-start-0">
+                    <h5 class="mb-1"><span id="kpi-diario-shopee">0</span></h5>
+                    <p class="text-muted mb-0">Shopee</p>
+                       </div>
+                     </div>
+                    <div class="col-6 col-sm-3">
+      <div id="kpi-card-ml" class="p-3 border border-dashed border-start-0">
+        <h5 class="mb-1"><span id="kpi-diario-ml">0</span></h5>
+        <p class="text-muted mb-0">Flex</p>
+      </div>
+    </div>
+                    <div class="col-6 col-sm-3">
+      <div id="kpi-card-avulso" class="p-3 border border-dashed border-start-0 border-end-0">
+        <h5 class="mb-1"><span id="kpi-diario-avulso">0</span></h5>
+        <p class="text-muted mb-0">Avulso</p>
+      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="card-body">
                   <div id="chart-pedidos-diarios" style="height: 360px;"></div>
                   <div class="text-muted fs-12 mt-2" id="diario-period"></div>
@@ -72,23 +114,16 @@
   @@include("partials/vendor-scripts.html")
 
   <!-- ECharts -->
-<script src="assets/libs/echarts/echarts.min.js"></script>
+  <script src="assets/libs/echarts/echarts.min.js"></script>
 
-<!-- 🔧 Definir URL base da API (precisa vir antes do script de API) -->
-<script>
-  // Substitua pela URL real da sua API (exemplo):
-  window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
-</script>
+  <script>
+    window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+  </script>
 
-<!-- API wrapper (define window.TrackAPI) -->
-<script src="assets/js/pages/tracking-api-leitura-registros.init.js"></script>
-
-<!-- Página init -->
-<script src="assets/js/pages/dashboard-tracking-saidas.init.js"></script>
-
-<!-- App js -->
-<script src="assets/js/app.js"></script>
+  <script src="assets/js/user.js"></script>
+  <script src="assets/js/pages/tracking-api-leitura-registros.init.js"></script>
+  <script src="assets/js/pages/dashboard-tracking-saidas.init.js"></script>
+  <script src="assets/js/app.js"></script>
 
 </body>
-
 </html>
