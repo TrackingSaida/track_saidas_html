@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ====== APIs ======
-  const API_URL = `${window.TRACK_API_URL}/coletas`;
+  const API_URL = `${window.TRACK_API_URL}/coletas/`;
   const API_BASES = `${window.TRACK_API_URL}/base`;
 
   // 🔹 Função que ajusta a visibilidade por role
