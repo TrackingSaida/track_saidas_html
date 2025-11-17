@@ -327,6 +327,8 @@ if (tblBody) tblBody.addEventListener("change", function(e){
   // ================== Carregar (com auto-fit opcional) ==================
   function refresh(autoFit){
     var p = readFilters();
+     p.page = state.page;
+    p.pageSize = state.pageSize;
     window.TrackAPI.listSaidas(p).then(function(r){
       if (!r || !r.ok){ notify((r && r.error) || "Falha ao listar", "error"); return; }
 
