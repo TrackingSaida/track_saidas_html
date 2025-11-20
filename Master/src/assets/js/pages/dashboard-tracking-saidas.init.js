@@ -148,54 +148,56 @@
     requestAnimationFrame(step);
   }
 
-  // ================================================================
-  // API rápida: cache + paginação paralela + cancelamento
-  // ================================================================
-  const _saidasCache = new Map(); // key -> {ts, rows}
-  const CACHE_TTL_MS = 60_000;
-  let _loadToken = 0;
+// ================================================================
+// API rápida: cache (opcional) + busca completa sem paginação
+// ================================================================
+const _saidasCache = new Map(); // key -> {ts, rows}
+const CACHE_TTL_MS = 60_000;
+let _loadToken = 0;
 
-  async function fetchSaidasCached(from, to) {
-    const key = `${from}|${to}`;
-    const hit = _saidasCache.get(key);
-    const now = Date.now();
-    if (hit && (now - hit.ts) < CACHE_TTL_MS) return hit.rows;
-    const rows = await fetchSaidasPaged(from, to);
-    _saidasCache.set(key, { ts: now, rows });
-    return rows;
+async function fetchSaidasCached(from, to) {
+  // Cache opcional (mantive lógica original)
+  const key = `${from}|${to}`;
+  const hit = _saidasCache.get(key);
+  const now = Date.now();
+
+  if (hit && (now - hit.ts) < CACHE_TTL_MS) {
+    return hit.rows;
   }
 
-  async function fetchSaidasPaged(from, to) {
-    const token = ++_loadToken;
+  const rows = await fetchSaidasPaged(from, to);
+  _saidasCache.set(key, { ts: now, rows });
+  return rows;
+}
 
-    if (!(window.TrackAPI && typeof window.TrackAPI.listSaidas === "function")) return [];
+async function fetchSaidasPaged(from, to) {
+  const token = ++_loadToken;
 
-    // 1ª página para descobrir total
-    const first = await window.TrackAPI.listSaidas({ de: from, ate: to, sort: "-ts", pageSize: 1000, page: 1 });
-    if (!(first && first.ok && Array.isArray(first.rows))) return [];
+  try {
+    // Chamada DIRETA para a API real
+    const url =
+      `${window.TRACK_API_URL}/saidas/listar` +
+      `?de=${encodeURIComponent(from)}` +
+      `&ate=${encodeURIComponent(to)}` +
+      `&limit=999999` +
+      `&offset=0`;
+
+    const res = await fetch(url, { credentials: "include" });
+    const data = await res.json();
+
+    // Como o backend retorna *diretamente uma lista*,
+    // validamos simplesmente se é array.
     if (token !== _loadToken) return [];
+    if (!Array.isArray(data)) return [];
 
-    const totalPages = first.totalPages || 1;
-    if (totalPages === 1) return first.rows;
+    return data;
 
-    // Demais páginas em paralelo (até 4 workers)
-    const out = [...first.rows];
-    const MAX_PAR = 4;
-    let p = 2;
-
-    async function worker() {
-      while (p <= totalPages) {
-        const my = p++;
-        const res = await window.TrackAPI.listSaidas({ de: from, ate: to, sort: "-ts", pageSize: 1000, page: my });
-        if (token !== _loadToken) return;
-        if (res && res.ok && Array.isArray(res.rows)) out.push(...res.rows);
-      }
-    }
-    const workers = Array.from({length: Math.min(MAX_PAR, totalPages-1)}, () => worker());
-    await Promise.all(workers);
-
-    return out;
+  } catch (err) {
+    console.error("Erro em fetchSaidasPaged:", err);
+    return [];
   }
+}
+
 
   // ================================================================
   // ECharts helpers
@@ -393,35 +395,59 @@
     });
   }
   function applyDailyPreset(preset) {
-    const inpFrom = document.getElementById("daily-from");
-    const inpTo   = document.getElementById("daily-to");
-    if (!inpFrom || !inpTo) return;
+  const inpFrom = document.getElementById("daily-from");
+  const inpTo   = document.getElementById("daily-to");
+  if (!inpFrom || !inpTo) return;
 
-    const today = new Date();
-    let from, to;
+  const today = new Date();
+  let from, to;
 
-    function lastMonthsRange(n) {
-      const toD = new Date();
-      const fromD = new Date(toD);
-      fromD.setMonth(fromD.getMonth() - n);
-      return { from: fmtYMD(fromD), to: fmtYMD(toD) };
-    }
-
-    switch (preset) {
-      case "month": from = startOfMonthYMD(today); to = endOfMonthYMD(today); break; // mês corrente
-      case "1m":    ({from, to} = lastMonthsRange(1)); break; // 1 mês corrido
-      case "3m":    ({from, to} = lastMonthsRange(3)); break;
-      case "6m":    ({from, to} = lastMonthsRange(6)); break;
-      case "1y":    ({from, to} = lastMonthsRange(12)); break;
-      default:      from = fmtYMD(today); to = fmtYMD(today);
-    }
-
-    inpFrom.value = from;
-    inpTo.value   = to;
-
-    setActiveDailyPreset(preset);
-    loadDiario();
+  function fmt(d) {
+    return fmtYMD(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
   }
+
+  function lastMonthsExact(n) {
+    const toD = new Date();
+    const fromD = new Date(toD);
+    fromD.setMonth(fromD.getMonth() - n);
+
+    // Ajuste de mês quebrado (ex: 31 → 30/28)
+    if (fromD.getMonth() === toD.getMonth()) {
+      fromD.setDate(0);
+    }
+
+    return { from: fmt(fromD), to: fmt(toD) };
+  }
+
+  switch (preset) {
+    case "month":
+      from = startOfMonthYMD(today);
+      to   = endOfMonthYMD(today);
+      break;
+    case "1m":
+      ({from, to} = lastMonthsExact(1));
+      break;
+    case "3m":
+      ({from, to} = lastMonthsExact(3));
+      break;
+    case "6m":
+      ({from, to} = lastMonthsExact(6));
+      break;
+    case "1y":
+      ({from, to} = lastMonthsExact(12));
+      break;
+    default:
+      from = fmt(today);
+      to   = fmt(today);
+  }
+
+  inpFrom.value = from;
+  inpTo.value   = to;
+
+  setActiveDailyPreset(preset);
+  loadDiario();
+}
+
 
   // ================================================================
   // UI compartilhada
