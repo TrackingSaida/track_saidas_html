@@ -149,14 +149,13 @@
   }
 
 // ================================================================
-// API rápida: cache (opcional) + busca completa sem paginação
+// API rápida: cache + paginação paralela + cancelamento
 // ================================================================
 const _saidasCache = new Map(); // key -> {ts, rows}
 const CACHE_TTL_MS = 60_000;
 let _loadToken = 0;
 
 async function fetchSaidasCached(from, to) {
-  // Cache opcional (mantive lógica original)
   const key = `${from}|${to}`;
   const hit = _saidasCache.get(key);
   const now = Date.now();
@@ -173,31 +172,54 @@ async function fetchSaidasCached(from, to) {
 async function fetchSaidasPaged(from, to) {
   const token = ++_loadToken;
 
-  try {
-    // Chamada DIRETA para a API real
-    const url =
-      `${window.TRACK_API_URL}/saidas/listar` +
-      `?de=${encodeURIComponent(from)}` +
-      `&ate=${encodeURIComponent(to)}` +
-      `&limit=999999` +
-      `&offset=0`;
-
-    const res = await fetch(url, { credentials: "include" });
-    const data = await res.json();
-
-    // Como o backend retorna *diretamente uma lista*,
-    // validamos simplesmente se é array.
-    if (token !== _loadToken) return [];
-    if (!Array.isArray(data)) return [];
-
-    return data;
-
-  } catch (err) {
-    console.error("Erro em fetchSaidasPaged:", err);
+  if (!(window.TrackAPI && typeof window.TrackAPI.listSaidas === "function"))
     return [];
-  }
-}
 
+  // Primeira página
+  const first = await window.TrackAPI.listSaidas({
+    de: from,
+    ate: to,
+    sort: "-ts",
+    pageSize: 1000,
+    page: 1
+  });
+
+  if (!first || !first.ok || !Array.isArray(first.rows)) return [];
+  if (token !== _loadToken) return [];
+
+  const totalPages = first.totalPages || 1;
+  const out = [...first.rows];
+
+  if (totalPages === 1) return out;
+
+  let p = 2;
+  const MAX_PAR = 4;
+
+  async function worker() {
+    while (p <= totalPages) {
+      const my = p++;
+      const res = await window.TrackAPI.listSaidas({
+        de: from,
+        ate: to,
+        sort: "-ts",
+        pageSize: 1000,
+        page: my
+      });
+
+      if (token !== _loadToken) return;
+
+      if (res && res.ok && Array.isArray(res.rows)) {
+        out.push(...res.rows);
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(MAX_PAR, totalPages - 1) }, () => worker())
+  );
+
+  return out;
+}
 
   // ================================================================
   // ECharts helpers
