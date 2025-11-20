@@ -1,10 +1,11 @@
 /* ======================================================
    TrackSaídas — Resumo de Coletas
-   Versão: 2.2 (com Cancelados, PDF e CSV)
+   Versão: Modelo A (Cancelados sem alterar coletas)
    ====================================================== */
 
 document.addEventListener("DOMContentLoaded", async () => {
-  // ====== Validação de sessão com o mesmo padrão do user.js ======
+
+  // ====== Validação de sessão ======
   const trackingToken =
     localStorage.getItem("trackingToken") ||
     sessionStorage.getItem("trackingToken") ||
@@ -12,7 +13,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     sessionStorage.getItem("access_token");
 
   if (!trackingToken) {
-    console.warn("Sessão expirada ou inválida — redirecionando para login.");
     const current = window.location.pathname.split("/").pop();
     window.location.replace(`index.html?next=${encodeURIComponent(current)}`);
     return;
@@ -22,41 +22,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const API_URL = `${window.TRACK_API_URL}/coletas/`;
   const API_BASES = `${window.TRACK_API_URL}/base`;
   const API_SAIDAS = `${window.TRACK_API_URL}/saidas/listar`;
-
-  // 🔹 Ajuste de visibilidade por role
-  async function ajustarVisibilidadePorRole() {
-    try {
-      const apiBase = (window.TRACK_API_URL || "").replace(/\/api$/, "");
-      const resp = await fetch(`${apiBase}/ui/menu`, { credentials: "include" });
-
-      if (!resp.ok) {
-        console.warn("Falha ao obter role:", resp.status);
-        return;
-      }
-
-      const data = await resp.json();
-      const role = data?.role || 0;
-
-      if (role !== 1) {
-        const cardValor = document.querySelector(".card-valor-total");
-        if (cardValor) cardValor.style.display = "none";
-
-        const ths = document.querySelectorAll("#coletas-resumo-table thead th");
-        ths.forEach((th, idx) => {
-          if (th.textContent.trim().toLowerCase().includes("valor total")) {
-            th.style.display = "none";
-            document
-              .querySelectorAll(`#coletas-resumo-table tbody tr td:nth-child(${idx + 1})`)
-              .forEach(td => td.style.display = "none");
-          }
-        });
-      }
-    } catch (e) {
-      console.warn("Erro ao avaliar permissões:", e);
-    }
-  }
-
-  await ajustarVisibilidadePorRole();
 
   // ====== Helpers ======
   const qs = (s) => document.querySelector(s);
@@ -68,7 +33,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const formatarData = (ts) =>
     ts ? new Date(ts).toLocaleDateString("pt-BR") : "-";
 
-  // ====== Elementos HTML ======
+  // ====== Elementos ======
   const fltFrom = qs("#flt-from");
   const fltTo = qs("#flt-to");
   const fltBase = qs("#flt-base");
@@ -87,8 +52,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function carregarBases() {
     try {
       const res = await fetch(API_BASES, { credentials: "include" });
-      if (!res.ok) throw new Error(`Erro HTTP ${res.status}`);
-
       const data = await res.json();
       fltBase.innerHTML = '<option value="">(Todas)</option>';
 
@@ -100,7 +63,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     } catch (err) {
       console.error("Erro ao carregar bases:", err);
-      qs("#resumoMsg").innerHTML = `<div class="text-danger">Falha ao carregar bases</div>`;
     }
   }
 
@@ -113,68 +75,52 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (fltFrom.value) params.append("de", fltFrom.value);
     if (fltTo.value) params.append("ate", fltTo.value);
 
-    const res = await fetch(`${API_SAIDAS}?${params.toString()}`, {
-      credentials: "include",
-    });
-
+    const res = await fetch(`${API_SAIDAS}?${params.toString()}`, { credentials: "include" });
     return await res.json();
   }
 
-  // Ativar cobrança apenas quando houver Base
+  // Habilita botão gerar cobrança somente quando base é escolhida
   btnGerarCobranca.disabled = true;
   fltBase.addEventListener("change", () => {
     btnGerarCobranca.disabled = !fltBase.value;
   });
 
-
-
-// ====== Carregar Resumo (Coletas + Cancelados) ======
+  // ====== Carregar Resumo ======
   async function carregarResumo() {
     try {
       qs("#resumoMsg").innerHTML = `<div class="text-muted">Carregando...</div>`;
       tbody.innerHTML = "";
 
-      // Monta parâmetros para coletas
+      // Buscar coletas
       const params = new URLSearchParams();
       if (fltBase.value) params.append("base", fltBase.value);
       if (fltFrom.value) params.append("data_inicio", fltFrom.value);
       if (fltTo.value) params.append("data_fim", fltTo.value);
 
-      // Busca coletas
-      const res = await fetch(`${API_URL}?${params.toString()}`, {
-        credentials: "include",
+      const res = await fetch(`${API_URL}?${params.toString()}`, { credentials: "include" });
+      const rows = await res.json();
+
+      // Buscar cancelados
+      const canceladosRaw = await buscarCancelados();
+      const mapaCancelados = {};
+
+      canceladosRaw.forEach((c) => {
+        const data = formatarData(c.timestamp);
+        const chave = `${data}_${c.base}`;
+        mapaCancelados[chave] = (mapaCancelados[chave] || 0) + 1;
       });
 
-      const rows = await res.json();
-      if (!rows || rows.length === 0) {
+      if (!rows.length) {
         qs("#resumoMsg").innerHTML = `<div class="text-muted">Nenhum dado encontrado.</div>`;
         atualizarCards(0, 0, 0, 0, 0);
         resumoAtual = [];
         return;
       }
 
-      // Busca cancelados
-      const canceladosRaw = await buscarCancelados();
-      const mapaCancelados = {};
-
-      canceladosRaw.forEach((r) => {
-        const data = formatarData(r.timestamp);
-        const chave = `${data}_${r.base}`;
-        mapaCancelados[chave] = (mapaCancelados[chave] || 0) + 1;
-      });
-
-      // Filtra apenas coletas válidas
-      const filtrados = rows.filter((r) =>
-        (r.shopee || 0) +
-        (r.mercado_livre || 0) +
-        (r.avulso || 0) +
-        (r.valor_total || 0) > 0
-      );
-
-      // Agrupa por Data + Base
+      // Agrupamento normal das coletas (somente valores brutos)
       const agrupado = {};
 
-      filtrados.forEach((r) => {
+      rows.forEach((r) => {
         const data = formatarData(r.timestamp);
         const chave = `${data}_${r.base}`;
 
@@ -191,57 +137,49 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         agrupado[chave].entregadores.add(r.username_entregador);
-        agrupado[chave].shopee += Number(r.shopee || 0);
-        agrupado[chave].mercado_livre += Number(r.mercado_livre || 0);
-        agrupado[chave].avulso += Number(r.avulso || 0);
-        agrupado[chave].valor_total += Number(r.valor_total || 0);
+        agrupado[chave].shopee += r.shopee;
+        agrupado[chave].mercado_livre += r.mercado_livre;
+        agrupado[chave].avulso += r.avulso;
+        agrupado[chave].valor_total += Number(r.valor_total);
       });
 
-      // Transforma em array e adiciona cancelados
+      // Consolida com cancelados
       resumoAtual = Object.values(agrupado).map((r) => {
         const key = `${r.data}_${r.base}`;
         return {
-          data: r.data,
-          base: r.base,
+          ...r,
           username_entregador: Array.from(r.entregadores).join(" | "),
-          shopee: r.shopee,
-          mercado_livre: r.mercado_livre,
-          avulso: r.avulso,
-          valor_total: r.valor_total,
           cancelados: mapaCancelados[key] || 0,
         };
       });
 
-      // Ordena por data crescente
       resumoAtual.sort((a, b) => {
         const [d1, m1, y1] = a.data.split("/").map(Number);
         const [d2, m2, y2] = b.data.split("/").map(Number);
         return new Date(y1, m1 - 1, d1) - new Date(y2, m2 - 1, d2);
       });
 
-      // --- Renderizar tabela ---
-      tbody.innerHTML = "";
+      // Renderizar tabela
       let totalShopee = 0,
           totalML = 0,
           totalAvulso = 0,
           totalValor = 0,
           totalCancelados = 0;
 
+      tbody.innerHTML = "";
       resumoAtual.forEach((r) => {
-        const tr = document.createElement("tr");
-
-        tr.innerHTML = `
-          <td>${r.data}</td>
-          <td>${r.base}</td>
-          <td>${r.username_entregador}</td>
-          <td class="text-center">${r.shopee}</td>
-          <td class="text-center">${r.mercado_livre}</td>
-          <td class="text-center">${r.avulso}</td>
-          <td class="text-center text-danger fw-bold">${r.cancelados}</td>
-          <td class="text-center">${formatarMoeda(r.valor_total)}</td>
+        tbody.innerHTML += `
+          <tr>
+            <td>${r.data}</td>
+            <td>${r.base}</td>
+            <td>${r.username_entregador}</td>
+            <td class="text-center">${r.shopee}</td>
+            <td class="text-center">${r.mercado_livre}</td>
+            <td class="text-center">${r.avulso}</td>
+            <td class="text-center text-danger fw-bold">${r.cancelados}</td>
+            <td class="text-center">${formatarMoeda(r.valor_total)}</td>
+          </tr>
         `;
-
-        tbody.appendChild(tr);
 
         totalShopee += r.shopee;
         totalML += r.mercado_livre;
@@ -254,24 +192,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       qs("#resumoMsg").innerHTML = "";
 
     } catch (err) {
-      console.error("Erro ao carregar resumo:", err);
+      console.error(err);
       qs("#resumoMsg").innerHTML = `<div class="text-danger">Erro ao carregar dados.</div>`;
     }
   }
 
-
-  // ====== Atualiza os cards superiores ======
+  // ====== Atualiza Cards ======
   function atualizarCards(shopee, ml, avulso, valor, canc) {
-    const totalColetas = shopee + ml + avulso;
-
     qs("#sum-shopee").textContent = shopee;
     qs("#sum-ml").textContent = ml;
     qs("#sum-avulso").textContent = avulso;
-    qs("#sum-total").textContent = totalColetas;
+    qs("#sum-total").textContent = shopee + ml + avulso;
     qs("#sum-cancelados").textContent = canc;
     qs("#sum-total-valor").textContent = formatarMoeda(valor);
   }
-
 
   // ====== Exportar CSV ======
   function exportarCsv() {
@@ -280,8 +214,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     ];
 
     qsa("#coletas-resumo-table tbody tr").forEach((tr) => {
-      const cols = Array.from(tr.querySelectorAll("td")).map((td) => td.textContent.trim());
-      rows.push(cols);
+      rows.push(Array.from(tr.querySelectorAll("td")).map(td => td.textContent.trim()));
     });
 
     const csvContent = rows.map((r) => r.join(";")).join("\n");
@@ -293,9 +226,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     link.click();
   }
 
-
   // ====== Eventos ======
   btnFilter.addEventListener("click", carregarResumo);
+  btnRefresh.addEventListener("click", carregarResumo);
+  btnExport.addEventListener("click", exportarCsv);
+
   btnClear.addEventListener("click", () => {
     fltBase.value = "";
     fltFrom.value = "";
@@ -303,23 +238,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     carregarResumo();
   });
 
-  btnRefresh.addEventListener("click", carregarResumo);
-  btnExport.addEventListener("click", exportarCsv);
- btnGerarCobranca.addEventListener("click", () => {
+  btnGerarCobranca.addEventListener("click", () => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const subBase = user.sub_base || "default";
     const logoUrl = `assets/images/logos/${subBase.toUpperCase()}.png`;
 
-    gerarPdfResumoColetas(
-      resumoAtual,
-      fltBase.value,
-      fltFrom.value,
-      fltTo.value,
-      logoUrl
-    );
-});
+    gerarPdfResumoColetas(resumoAtual, fltBase.value, fltFrom.value, fltTo.value, logoUrl);
+  });
 
-
-  // ====== Inicialização ======
+  // Inicializar
   carregarBases().then(carregarResumo);
 });

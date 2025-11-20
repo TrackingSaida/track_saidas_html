@@ -149,9 +149,9 @@
   }
 
 // ================================================================
-// API rápida: cache + paginação paralela + cancelamento
+// API rápida: busca completa com paginação via offset + limit
 // ================================================================
-const _saidasCache = new Map(); // key -> {ts, rows}
+const _saidasCache = new Map();
 const CACHE_TTL_MS = 60_000;
 let _loadToken = 0;
 
@@ -166,60 +166,37 @@ async function fetchSaidasCached(from, to) {
 
   const rows = await fetchSaidasPaged(from, to);
   _saidasCache.set(key, { ts: now, rows });
+
   return rows;
 }
 
 async function fetchSaidasPaged(from, to) {
   const token = ++_loadToken;
+  const out = [];
+  let offset = 0;
+  const limit = 8000;
 
-  if (!(window.TrackAPI && typeof window.TrackAPI.listSaidas === "function"))
-    return [];
+  while (true) {
+    const res = await window.TrackAPI.listSaidas({
+      de: from,
+      ate: to,
+      sort: "-ts",
+      limit,
+      offset
+    });
 
-  // Primeira página
-  const first = await window.TrackAPI.listSaidas({
-    de: from,
-    ate: to,
-    sort: "-ts",
-    pageSize: 1000,
-    page: 1
-  });
+    if (token !== _loadToken) return [];
+    if (!res || !res.ok || !Array.isArray(res.rows)) break;
 
-  if (!first || !first.ok || !Array.isArray(first.rows)) return [];
-  if (token !== _loadToken) return [];
+    out.push(...res.rows);
 
-  const totalPages = first.totalPages || 1;
-  const out = [...first.rows];
-
-  if (totalPages === 1) return out;
-
-  let p = 2;
-  const MAX_PAR = 4;
-
-  async function worker() {
-    while (p <= totalPages) {
-      const my = p++;
-      const res = await window.TrackAPI.listSaidas({
-        de: from,
-        ate: to,
-        sort: "-ts",
-        pageSize: 1000,
-        page: my
-      });
-
-      if (token !== _loadToken) return;
-
-      if (res && res.ok && Array.isArray(res.rows)) {
-        out.push(...res.rows);
-      }
-    }
+    if (res.rows.length < limit) break;
+    offset += limit;
   }
-
-  await Promise.all(
-    Array.from({ length: Math.min(MAX_PAR, totalPages - 1) }, () => worker())
-  );
 
   return out;
 }
+
 
   // ================================================================
   // ECharts helpers
