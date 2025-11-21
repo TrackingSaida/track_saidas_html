@@ -4,34 +4,13 @@
     @@include("partials/title-meta.html", {"title": "Perfil — Tracking Saídas"})
     @@include("partials/head-css.html")
 
-    <style>
-      .profile-wid-bg {
-        min-height: 160px;
-        background: linear-gradient(120deg,#405189 0%, #0ab39c 100%);
-      }
-      .avatar-title {
-        width: 80px;
-        height: 80px;
-      }
-      .locked .form-control[readonly],
-      .locked .form-control:disabled {
-        background-color: var(--vz-tertiary-bg);
-        cursor: not-allowed;
-      }
-      .form-hint {
-        font-size: .85rem;
-        color: var(--vz-text-muted);
-      }
-    </style>
   </head>
 
   <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
 
     <div id="layout-wrapper">
 
-      <!-- ⭐ TOPBAR + SIDEBAR — MESMO PADRÃO DAS OUTRAS PÁGINAS -->
-      @@include("partials/topbar.html")
-      @@include("partials/sidebar.html")
+      @@include("partials/menu.html")
 
       <div class="main-content">
         <div class="page-content">
@@ -189,13 +168,16 @@
 
     </div>
 
-    @@include("partials/vendor-scripts.html")
+   @@include("partials/vendor-scripts.html")
 
-    <script>
-      window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
-    </script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 
-    <script src="assets/js/pages/profile-settings-tracking.init.js"></script>
+<script>
+  window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+</script>
+
+<script src="assets/js/user.js"></script>
+<script src="assets/js/pages/profile-settings-tracking.init.js"></script>
 
   </body>
 </html>

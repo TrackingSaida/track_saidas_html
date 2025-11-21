@@ -1,15 +1,7 @@
 // assets/js/pages/profile-settings-tracking.init.js
-//
-// Este script inicializa a página de configurações de perfil do Tracking Saídas.
-// Ele busca os dados do usuário logado, preenche o formulário de dados pessoais,
-// permite a atualização dessas informações e realiza a troca de senha. Caso
-// existam endpoints diferentes para atualização de senha, defina
-// window.TRACK_PASSWORD_ENDPOINT no HTML.
 
 (() => {
   const API_URL = window.TRACK_API_URL || "";
-  // Endpoint relativo para alteração de senha. O HTML pode definir
-  // window.TRACK_PASSWORD_ENDPOINT; caso contrário, usa a rota padrão.
   const PASSWORD_ENDPOINT = window.TRACK_PASSWORD_ENDPOINT || "/users/me/password";
 
   // Elementos do DOM
@@ -20,66 +12,100 @@
   const telefoneInput = document.getElementById("telefone");
   const emailInput = document.getElementById("emailInput");
   const subbaseInput = document.getElementById("subbase");
+
   const profileName = document.getElementById("profileName");
   const profileSubtitle = document.getElementById("profileSubtitle");
 
-  /**
-   * Mostra um alerta simples. No futuro, pode ser substituído por
-   * biblioteca de toast (ex.: Toastify) ou Bootstrap alerts.
-   * @param {string} msg
-   */
-  function showAlert(msg) {
-    alert(msg);
+  // =============================
+  // SweetAlert padrão
+  // =============================
+  function swalError(msg) {
+    Swal.fire({
+      icon: "error",
+      title: "Ops...",
+      text: msg,
+      confirmButtonColor: "#556ee6",
+    });
   }
 
-  /**
-   * Carrega os dados do usuário logado chamando o endpoint /auth/me.
-   * Preenche os campos do formulário de dados pessoais.
-   */
+  function swalSuccess(msg) {
+    Swal.fire({
+      icon: "success",
+      title: "Sucesso!",
+      text: msg,
+      confirmButtonColor: "#556ee6",
+    });
+  }
+
+  // =============================
+  // Garantir sessão válida
+  // =============================
+  async function ensureSession() {
+    try {
+      if (window.ensureAuth) {
+        await window.ensureAuth(); 
+      }
+    } catch (e) {
+      console.error("Sessão expirada:", e);
+      Swal.fire({
+        icon: "warning",
+        title: "Sessão Expirada",
+        text: "Faça login novamente para continuar.",
+        confirmButtonColor: "#556ee6",
+      }).then(() => {
+        window.location.href = "auth-login.html";
+      });
+    }
+  }
+
+  // =============================
+  // Carrega usuário completo
+  // =============================
   async function loadCurrentUser() {
     try {
-      const res = await fetch(`${API_URL}/auth/me`, {
+      const res = await fetch(`${API_URL}/users/me`, {
         credentials: "include",
       });
-      if (!res.ok) {
-        throw new Error("Falha ao obter dados do usuário.");
-      }
+
+      if (!res.ok) throw new Error("Erro ao buscar dados do usuário.");
+
       const user = await res.json();
-      // Preencher campos. Alguns atributos (nome, sobrenome) podem vir como null.
+
+      // Preenche campos
       nomeInput.value = user.nome ?? "";
       sobrenomeInput.value = user.sobrenome ?? "";
       telefoneInput.value = user.contato ?? "";
       emailInput.value = user.email ?? "";
       subbaseInput.value = user.sub_base ?? "";
-      // Atualizar cabeçalho da coluna esquerda
+
+      // Nome do card
       if (user.nome || user.sobrenome) {
-        profileName.innerText = `${user.nome ?? ""} ${user.sobrenome ?? ""}`.trim();
+        profileName.innerText = `${user.nome || ""} ${user.sobrenome || ""}`.trim();
       } else {
-        // fallback: username como nome principal
         profileName.innerText = user.username ?? "Usuário";
       }
-      profileSubtitle.innerText = user.username ? `@${user.username}` : "";
+
+      profileSubtitle.innerText = `@${user.username}`;
+
     } catch (err) {
       console.error(err);
-      showAlert("Não foi possível carregar seus dados. Faça login novamente.");
+      swalError("Não foi possível carregar seus dados. Faça login novamente.");
     }
   }
 
-  /**
-   * Handler para submissão do formulário de dados pessoais.
-   * Envia PATCH em /users/me com as informações atualizadas.
-   * Caso a API retorne erro, exibirá o detalhe.
-   * @param {SubmitEvent} e
-   */
+  // =============================
+  // Salvar Perfil (PATCH)
+  // =============================
   async function handleProfileSubmit(e) {
     e.preventDefault();
-    // Monta payload. Apenas campos não vazios serão enviados.
+
     const payload = {
       nome: nomeInput.value.trim(),
       sobrenome: sobrenomeInput.value.trim(),
       contato: telefoneInput.value.trim(),
       email: emailInput.value.trim(),
     };
+
     try {
       const res = await fetch(`${API_URL}/users/me`, {
         method: "PATCH",
@@ -87,92 +113,107 @@
         credentials: "include",
         body: JSON.stringify(payload),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        showAlert(err.detail || "Erro ao salvar alterações.");
+        swalError(err.detail || "Erro ao atualizar seus dados.");
         return;
       }
-      showAlert("Dados atualizados com sucesso!");
-      // Recarrega usuário para refletir alterações
-      await loadCurrentUser();
+
+      swalSuccess("Dados atualizados com sucesso!");
+      loadCurrentUser();
+
     } catch (err) {
       console.error(err);
-      showAlert("Não foi possível salvar as alterações.");
+      swalError("Não foi possível salvar suas alterações.");
     }
   }
 
-  /**
-   * Handler para submissão do formulário de senha.
-   * Realiza validações básicas e envia a troca de senha para o endpoint
-   * configurado. Espera que a API aceite current_password e new_password.
-   * @param {SubmitEvent} e
-   */
+  // =============================
+  // Alterar senha
+  // =============================
   async function handlePasswordSubmit(e) {
     e.preventDefault();
+
     const currentPass = document.getElementById("current-pass").value;
     const newPass = document.getElementById("new-pass").value;
     const confirmPass = document.getElementById("confirm-pass").value;
+
     if (!currentPass || !newPass || !confirmPass) {
-      showAlert("Preencha todos os campos de senha.");
+      swalError("Preencha todos os campos de senha.");
       return;
     }
+
     if (newPass !== confirmPass) {
-      showAlert("A nova senha e a confirmação não coincidem.");
+      swalError("A nova senha e a confirmação não coincidem.");
       return;
     }
+
     try {
       const res = await fetch(`${API_URL}${PASSWORD_ENDPOINT}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ current_password: currentPass, new_password: newPass }),
+        body: JSON.stringify({
+          current_password: currentPass,
+          new_password: newPass,
+        }),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        showAlert(err.detail || "Erro ao alterar senha.");
+        swalError(err.detail || "Erro ao alterar senha.");
         return;
       }
-      showAlert("Senha alterada com sucesso!");
-      // Limpar campos após sucesso
+
+      swalSuccess("Senha alterada com sucesso!");
+
+      // limpar campos
       document.getElementById("current-pass").value = "";
       document.getElementById("new-pass").value = "";
       document.getElementById("confirm-pass").value = "";
+
     } catch (err) {
       console.error(err);
-      showAlert("Não foi possível alterar a senha.");
+      swalError("Erro ao comunicar com o servidor.");
     }
   }
 
-  /**
-   * Alterna entre mostrar/ocultar a senha nos campos de input. Usa
-   * data-toggle="eye" no botão para associar ao input imediatamente anterior.
-   */
+  // =============================
+  // Toggle olho da senha
+  // =============================
   function initPasswordToggle() {
     const toggles = document.querySelectorAll('[data-toggle="eye"]');
     toggles.forEach(btn => {
       btn.addEventListener("click", () => {
         const parent = btn.closest(".auth-pass-inputgroup");
-        if (!parent) return;
-        const input = parent.querySelector("input");
+        const input = parent?.querySelector("input");
         if (!input) return;
+
+        const icon = btn.querySelector("i");
+
         if (input.type === "password") {
           input.type = "text";
-          btn.querySelector("i").classList.remove("ri-eye-fill");
-          btn.querySelector("i").classList.add("ri-eye-off-fill");
+          icon.classList.replace("ri-eye-fill", "ri-eye-off-fill");
         } else {
           input.type = "password";
-          btn.querySelector("i").classList.remove("ri-eye-off-fill");
-          btn.querySelector("i").classList.add("ri-eye-fill");
+          icon.classList.replace("ri-eye-off-fill", "ri-eye-fill");
         }
       });
     });
   }
 
+  // =============================
   // Inicialização
-  document.addEventListener("DOMContentLoaded", () => {
-    loadCurrentUser();
+  // =============================
+  document.addEventListener("DOMContentLoaded", async () => {
+    await ensureSession();  
+    await loadCurrentUser(); 
+
     initPasswordToggle();
+
     profileForm.addEventListener("submit", handleProfileSubmit);
     passwordForm.addEventListener("submit", handlePasswordSubmit);
   });
+
 })();
