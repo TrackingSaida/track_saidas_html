@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Redireciona
       clearTimeout(slowTimer1); clearTimeout(slowTimer2);
       const next = getParam('next');
-      window.location.href = next || 'dashboard-tracking-saidas.html';
+      window.location.href = next || 'dashboard-tracking-overview.html';
     } catch (err) {
       clearTimeout(slowTimer1); clearTimeout(slowTimer2);
       console.error('[signin] erro de rede', err);
