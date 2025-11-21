@@ -345,7 +345,12 @@ async function fetchSaidasPaged(from, to) {
       grid: { left: 8, right: 16, top: 20, bottom: 48, containLabel: true },
       tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
       legend: { bottom: 0 },
-      xAxis: { type: "category", data: days.map(d => d.slice(5)) },
+      xAxis: {  type: "category",  data: days.map(d => {
+    const [yyyy, mm, dd] = d.split("-");
+    return `${dd}-${mm}`;  // DD-MM
+  })
+},
+
       yAxis: { type: "value" },
       animation: true,
       animationDuration: 500,
@@ -454,8 +459,15 @@ async function fetchSaidasPaged(from, to) {
   function setPeriodLabels(from, to) {
     const rp = document.getElementById("ranking-period");
     const dp = document.getElementById("diario-period");
-    if (rp) rp.textContent = `Período: ${from} a ${to}`;
-    if (dp) dp.textContent = `Período: ${from} a ${to}`;
+    function fmtBR(d) {
+  const [y, m, dd] = d.split("-");
+  return `${dd}/${m}/${y}`;
+}
+
+rp.textContent = `Período: ${fmtBR(from)} a ${fmtBR(to)}`;
+dp.textContent = `Período: ${fmtBR(from)} a ${fmtBR(to)}`;
+
+ 
   }
 
   function debounce(fn, ms=250){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }

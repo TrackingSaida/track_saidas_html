@@ -19,29 +19,41 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ====== APIs ======
-  const API_URL = `${window.TRACK_API_URL}/coletas/`;
+  const API_URL   = `${window.TRACK_API_URL}/coletas/`;
   const API_BASES = `${window.TRACK_API_URL}/base`;
   const API_SAIDAS = `${window.TRACK_API_URL}/saidas/listar`;
 
   // ====== Helpers ======
-  const qs = (s) => document.querySelector(s);
+  const qs  = (s) => document.querySelector(s);
   const qsa = (s) => Array.from(document.querySelectorAll(s));
 
   const formatarMoeda = (v) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
-  const formatarData = (ts) =>
-    ts ? new Date(ts).toLocaleDateString("pt-BR") : "-";
+  // Formato BR apenas para exibir
+  function dataBr(ts) {
+    return ts ? new Date(ts).toLocaleDateString("pt-BR") : "-";
+  }
+
+  // Formato ISO para chave (ESSENCIAL)
+  // Converte a data/hora para o fuso local (pt-BR) e monta yyyy-mm-dd.
+  // Isso evita discrepâncias de fuso horário ao agrupar coletas e cancelados.
+  function dataISO(ts) {
+    if (!ts) return null;
+    const [dia, mes, ano] = new Date(ts)
+      .toLocaleDateString("pt-BR")
+      .split("/");
+    return `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+  }
 
   // ====== Elementos ======
-  const fltFrom = qs("#flt-from");
-  const fltTo = qs("#flt-to");
-  const fltBase = qs("#flt-base");
-
-  const btnFilter = qs("#btnFilter");
-  const btnClear = qs("#btnClear");
-  const btnRefresh = qs("#btnRefreshResumo");
-  const btnExport = qs("#btnExportCsv");
+  const fltFrom       = qs("#flt-from");
+  const fltTo         = qs("#flt-to");
+  const fltBase       = qs("#flt-base");
+  const btnFilter     = qs("#btnFilter");
+  const btnClear      = qs("#btnClear");
+  const btnRefresh    = qs("#btnRefreshResumo");
+  const btnExport     = qs("#btnExportCsv");
   const btnGerarCobranca = qs("#btnGerarCobranca");
 
   const tbody = qs("#coletas-resumo-table tbody");
@@ -51,10 +63,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ====== Carregar Bases ======
   async function carregarBases() {
     try {
-      const res = await fetch(API_BASES, { credentials: "include" });
+      const res  = await fetch(API_BASES, { credentials: "include" });
       const data = await res.json();
       fltBase.innerHTML = '<option value="">(Todas)</option>';
-
       data.forEach((b) => {
         const opt = document.createElement("option");
         opt.value = b.base;
@@ -66,17 +77,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // ====== Buscar Cancelados ======
+  // ====== Buscar Cancelados (NORMALIZADO) ======
   async function buscarCancelados() {
     const params = new URLSearchParams();
+    // Filtra apenas status "cancelado"
     params.append("status", "cancelado");
-
     if (fltBase.value) params.append("base", fltBase.value);
     if (fltFrom.value) params.append("de", fltFrom.value);
     if (fltTo.value) params.append("ate", fltTo.value);
 
-    const res = await fetch(`${API_SAIDAS}?${params.toString()}`, { credentials: "include" });
-    return await res.json();
+    const res   = await fetch(`${API_SAIDAS}?${params.toString()}`, { credentials: "include" });
+    const dados = await res.json();
+
+    // Normaliza a base removendo espaços e convertendo para maiúsculas, ajusta data
+    return dados.map(s => ({
+      base: (s.base || "").trim().toUpperCase(),
+      dataISO: dataISO(s.timestamp),
+    }));
   }
 
   // Habilita botão gerar cobrança somente quando base é escolhida
@@ -85,7 +102,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     btnGerarCobranca.disabled = !fltBase.value;
   });
 
-  // ====== Carregar Resumo ======
+  // ===========================================================
+  // ===============     CARREGAR RESUMO     ===================
+  // ===========================================================
   async function carregarResumo() {
     try {
       qs("#resumoMsg").innerHTML = `<div class="text-muted">Carregando...</div>`;
@@ -97,16 +116,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (fltFrom.value) params.append("data_inicio", fltFrom.value);
       if (fltTo.value) params.append("data_fim", fltTo.value);
 
-      const res = await fetch(`${API_URL}?${params.toString()}`, { credentials: "include" });
-      const rows = await res.json();
+      const res   = await fetch(`${API_URL}?${params.toString()}`, { credentials: "include" });
+      const rows  = await res.json();
 
       // Buscar cancelados
       const canceladosRaw = await buscarCancelados();
       const mapaCancelados = {};
-
-      canceladosRaw.forEach((c) => {
-        const data = formatarData(c.timestamp);
-        const chave = `${data}_${c.base}`;
+      canceladosRaw.forEach(c => {
+        const chave = `${c.dataISO}_${c.base}`;
         mapaCancelados[chave] = (mapaCancelados[chave] || 0) + 1;
       });
 
@@ -117,35 +134,38 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
 
-      // Agrupamento normal das coletas (somente valores brutos)
+      // ========== AGRUPAMENTO ==========
       const agrupado = {};
-
       rows.forEach((r) => {
-        const data = formatarData(r.timestamp);
-        const chave = `${data}_${r.base}`;
+        const dISO    = dataISO(r.timestamp);
+        const baseOrig = (r.base || "").trim();
+        const baseKey  = baseOrig.toUpperCase();
+        const chave    = `${dISO}_${baseKey}`;
 
         if (!agrupado[chave]) {
           agrupado[chave] = {
-            data,
-            base: r.base,
+            dataISO: dISO,
+            data:    dataBr(r.timestamp),
+            base:    baseOrig,   // mantém base original para exibição
+            baseKey: baseKey,    // normalizada para mapear cancelados
             entregadores: new Set(),
-            shopee: 0,
+            shopee:        0,
             mercado_livre: 0,
-            avulso: 0,
-            valor_total: 0,
+            avulso:        0,
+            valor_total:   0,
           };
         }
 
         agrupado[chave].entregadores.add(r.username_entregador);
-        agrupado[chave].shopee += r.shopee;
+        agrupado[chave].shopee        += r.shopee;
         agrupado[chave].mercado_livre += r.mercado_livre;
-        agrupado[chave].avulso += r.avulso;
-        agrupado[chave].valor_total += Number(r.valor_total);
+        agrupado[chave].avulso        += r.avulso;
+        agrupado[chave].valor_total   += Number(r.valor_total);
       });
 
-      // Consolida com cancelados
-      resumoAtual = Object.values(agrupado).map((r) => {
-        const key = `${r.data}_${r.base}`;
+      // ========== CONSOLIDAÇÃO COM CANCELADOS ==========
+      resumoAtual = Object.values(agrupado).map(r => {
+        const key = `${r.dataISO}_${r.baseKey}`;
         return {
           ...r,
           username_entregador: Array.from(r.entregadores).join(" | "),
@@ -153,20 +173,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         };
       });
 
-      resumoAtual.sort((a, b) => {
-        const [d1, m1, y1] = a.data.split("/").map(Number);
-        const [d2, m2, y2] = b.data.split("/").map(Number);
-        return new Date(y1, m1 - 1, d1) - new Date(y2, m2 - 1, d2);
-      });
+      // Ordenar por data crescente
+      resumoAtual.sort((a, b) => a.dataISO.localeCompare(b.dataISO));
 
-      // Renderizar tabela
+      // ========== RENDER TABELA ==========
       let totalShopee = 0,
-          totalML = 0,
+          totalML     = 0,
           totalAvulso = 0,
-          totalValor = 0,
+          totalValor  = 0,
           totalCancelados = 0;
 
       tbody.innerHTML = "";
+
       resumoAtual.forEach((r) => {
         tbody.innerHTML += `
           <tr>
@@ -181,16 +199,15 @@ document.addEventListener("DOMContentLoaded", async () => {
           </tr>
         `;
 
-        totalShopee += r.shopee;
-        totalML += r.mercado_livre;
-        totalAvulso += r.avulso;
-        totalValor += r.valor_total;
+        totalShopee    += r.shopee;
+        totalML        += r.mercado_livre;
+        totalAvulso    += r.avulso;
+        totalValor     += r.valor_total;
         totalCancelados += r.cancelados;
       });
 
       atualizarCards(totalShopee, totalML, totalAvulso, totalValor, totalCancelados);
       qs("#resumoMsg").innerHTML = "";
-
     } catch (err) {
       console.error(err);
       qs("#resumoMsg").innerHTML = `<div class="text-danger">Erro ao carregar dados.</div>`;
@@ -200,9 +217,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ====== Atualiza Cards ======
   function atualizarCards(shopee, ml, avulso, valor, canc) {
     qs("#sum-shopee").textContent = shopee;
-    qs("#sum-ml").textContent = ml;
+    qs("#sum-ml").textContent     = ml;
     qs("#sum-avulso").textContent = avulso;
-    qs("#sum-total").textContent = shopee + ml + avulso;
+    qs("#sum-total").textContent  = shopee + ml + avulso;
     qs("#sum-cancelados").textContent = canc;
     qs("#sum-total-valor").textContent = formatarMoeda(valor);
   }
@@ -210,7 +227,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ====== Exportar CSV ======
   function exportarCsv() {
     const rows = [
-      ["Data", "Base", "Entregador", "Shopee", "Mercado Livre", "Avulso", "Cancelados", "Valor Total"]
+      ["Data","Base","Entregador","Shopee","Mercado Livre","Avulso","Cancelados","Valor Total"]
     ];
 
     qsa("#coletas-resumo-table tbody tr").forEach((tr) => {
@@ -234,7 +251,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   btnClear.addEventListener("click", () => {
     fltBase.value = "";
     fltFrom.value = "";
-    fltTo.value = "";
+    fltTo.value   = "";
     carregarResumo();
   });
 

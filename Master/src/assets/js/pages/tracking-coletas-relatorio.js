@@ -1,125 +1,323 @@
 /* ======================================================
-   TrackSaídas — Gerador de Relatório PDF (Separado)
+   TrackSaídas — Relatório detalhado de Coletas
    ====================================================== */
 
-export function gerarPdfResumoColetas(resumo, baseNome, dataInicio, dataFim, logoUrl) {
+async function gerarPdfResumoColetas(resumo, base, de, ate) {
+
+  /* ======================================================
+     Conversor de data ISO -> BR
+  ====================================================== */
+  function isoParaBr(dataISO) {
+    if (!dataISO) return "-";
+    const [ano, mes, dia] = dataISO.split("-");
+    return `${dia}/${mes}/${ano}`;
+  }
+
+  if (!base) {
+    Swal.fire({
+      icon: "warning",
+      title: "Selecione uma Base",
+      text: "Para gerar a cobrança, escolha uma base específica."
+    });
+    return;
+  }
+
+  if (!resumo || resumo.length === 0) {
+    Swal.fire({
+      icon: "info",
+      title: "Nenhum dado encontrado",
+      text: "Filtre os dados antes de gerar o relatório."
+    });
+    return;
+  }
+
+  /* ======================================================
+     Carregar logo conforme SUB_BASE
+  ====================================================== */
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const subBase = (user.sub_base || "").trim();
+  const logoUrl = `assets/images/logos/${subBase}.png`;
+
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-  function formatarMoeda(v) {
-    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+  /* ======================================================
+     API – Cancelados
+  ====================================================== */
+  async function buscarCanceladosAPI() {
+    const params = new URLSearchParams();
+    params.append("status", "cancelado");
+    params.append("base", base);
+    if (de) params.append("de", de);
+    if (ate) params.append("ate", ate);
+
+    const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?${params.toString()}`, {
+      credentials: "include"
+    });
+
+    return await resp.json();
   }
 
-  const periodo = `${dataInicio || "-"} a ${dataFim || "-"}`;
+  const canceladosRaw = await buscarCanceladosAPI();
 
-  function carregarLogo(callback) {
-    fetch(logoUrl)
-      .then(res => (res.ok ? res.blob() : null))
-      .then(blob => {
-        if (!blob) return callback();
-        const reader = new FileReader();
-        reader.onload = e => callback(e.target.result);
-        reader.readAsDataURL(blob);
-      })
-      .catch(() => callback());
+  /* ======================================================
+     Agrupar Cancelados
+  ====================================================== */
+  function agruparCancelados(rows) {
+    const mapa = {};
+
+    rows.forEach(r => {
+      const data = new Date(r.timestamp).toLocaleDateString("pt-BR");
+      const serv = (r.servico || "").toLowerCase();
+      let tipo = null;
+
+      if (serv.includes("shopee")) tipo = "shopee";
+      else if (serv.includes("mercado") || serv.includes("ml") || serv.includes("flex"))
+        tipo = "flex";
+      else if (serv.includes("avulso")) tipo = "avulso";
+
+      if (!tipo) return;
+
+      if (!mapa[data]) mapa[data] = { shopee: 0, flex: 0, avulso: 0 };
+
+      mapa[data][tipo] += 1;
+    });
+
+    return mapa;
   }
 
-  carregarLogo((logo) => gerarRelatorio(logo));
+  const cancAgrupado = agruparCancelados(canceladosRaw);
 
-  function gerarRelatorio(logoBase64) {
-    if (logoBase64) {
-      doc.addImage(logoBase64, "PNG", 15, 10, 35, 20);
-    }
+  /* ======================================================
+     Buscar preços da base
+  ====================================================== */
+  async function carregarPrecoBase() {
+    const resp = await fetch(`${window.TRACK_API_URL}/base?base=${base}`, {
+      credentials: "include"
+    });
+    const data = await resp.json();
+    return data[0];
+  }
 
-    doc.setFontSize(14);
-    doc.text(`Cobrança — ${baseNome}`, 105, 20, { align: "center" });
+  const precos = await carregarPrecoBase();
 
-    doc.setFontSize(10);
-    doc.text(`Período: ${periodo}`, 105, 26, { align: "center" });
+  const precoShopee = Number(precos?.shopee || 0);
+  const precoFlex = Number(precos?.ml || 0);
+  const precoAvulso = Number(precos?.avulso || 0);
 
-    const agrupado = {};
+  /* ======================================================
+     Tabela Bruta
+  ====================================================== */
+  const tabelaBruta = resumo.map(r => ({
+    data: r.data,
+    shopee: r.shopee,
+    flex: r.mercado_livre,
+    avulso: r.avulso,
+    total: r.shopee + r.mercado_livre + r.avulso,
+    valor: r.valor_total
+  }));
 
-    resumo.forEach((r) => {
-      const data = r.data;
+  const totalShopee = tabelaBruta.reduce((a, b) => a + b.shopee, 0);
+  const totalFlex = tabelaBruta.reduce((a, b) => a + b.flex, 0);
+  const totalAvulso = tabelaBruta.reduce((a, b) => a + b.avulso, 0);
+  const totalBruto = tabelaBruta.reduce((a, b) => a + b.valor, 0);
+  const totalQtdeBruta = totalShopee + totalFlex + totalAvulso;
 
-      if (!agrupado[data]) {
-        agrupado[data] = {
-          shopee: 0,
-          ml: 0,
-          avulso: 0,
-          canc: 0,
-          valor: 0,
-        };
+  /* ======================================================
+     Tabela Cancelados
+  ====================================================== */
+  const tabelaCanc = Object.entries(cancAgrupado).map(([data, v]) => ({
+    data,
+    shopee: v.shopee,
+    flex: v.flex,
+    avulso: v.avulso,
+    total: v.shopee + v.flex + v.avulso,
+    valor:
+      v.shopee * precoShopee +
+      v.flex * precoFlex +
+      v.avulso * precoAvulso
+  }));
+
+  const totalShopeeCanc = tabelaCanc.reduce((a, b) => a + b.shopee, 0);
+  const totalFlexCanc = tabelaCanc.reduce((a, b) => a + b.flex, 0);
+  const totalAvulsoCanc = tabelaCanc.reduce((a, b) => a + b.avulso, 0);
+  const totalCanceladosValor = tabelaCanc.reduce((a, b) => a + b.valor, 0);
+  const totalQtdeCanc = totalShopeeCanc + totalFlexCanc + totalAvulsoCanc;
+
+  const valorLiquido = totalBruto - totalCanceladosValor;
+
+  /* ======================================================
+     Cabeçalho + Logo
+  ====================================================== */
+async function addLogo() {
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const subBase = (user.sub_base || "").trim();
+
+  const nomeArquivo = subBase.replace(/\s+/g, "_").toUpperCase() + ".png";
+
+  const caminhosPossiveis = [
+    `assets/images/logos/${nomeArquivo}`,
+    `/assets/images/logos/${nomeArquivo}`,
+    `./assets/images/logos/${nomeArquivo}`,
+    `src/assets/images/logos/${nomeArquivo}`
+  ];
+
+  const fallback = `assets/images/logos/default.png`;
+
+  let caminhoFinal = fallback;
+
+  // tenta todos os caminhos possíveis
+  for (const caminho of caminhosPossiveis) {
+    try {
+      const r = await fetch(caminho, { method: "GET" });
+      if (r.ok) {
+        caminhoFinal = caminho;
+        break;
       }
-
-      agrupado[data].shopee += r.shopee;
-      agrupado[data].ml += r.mercado_livre;
-      agrupado[data].avulso += r.avulso;
-      agrupado[data].canc += r.cancelados;
-      agrupado[data].valor += r.valor_total;
-    });
-
-    const linhas = Object.entries(agrupado).map(([data, v]) => ({
-      data,
-      shopee: v.shopee,
-      ml: v.ml,
-      avulso: v.avulso,
-      canc: v.canc,
-      total: v.shopee + v.ml + v.avulso,
-      valor: v.valor,
-    }));
-
-    linhas.sort((a, b) => {
-      const [d1, m1, y1] = a.data.split("/").map(Number);
-      const [d2, m2, y2] = b.data.split("/").map(Number);
-      return new Date(y1, m1 - 1, d1) - new Date(y2, m2 - 1, d2);
-    });
-
-    const tableData = linhas.map((l) => [
-      l.data,
-      l.shopee,
-      l.ml,
-      l.avulso,
-      l.canc,
-      l.total,
-      formatarMoeda(l.valor),
-    ]);
-
-    const totalShopee = linhas.reduce((a, l) => a + l.shopee, 0);
-    const totalML = linhas.reduce((a, l) => a + l.ml, 0);
-    const totalAvulso = linhas.reduce((a, l) => a + l.avulso, 0);
-    const totalCancelados = linhas.reduce((a, l) => a + l.canc, 0);
-    const totalValor = linhas.reduce((a, l) => a + l.valor, 0);
-    const totalQtde = totalShopee + totalML + totalAvulso;
-
-    tableData.push([
-      "Totais",
-      totalShopee,
-      totalML,
-      totalAvulso,
-      totalCancelados,
-      totalQtde,
-      formatarMoeda(totalValor),
-    ]);
-
-    doc.autoTable({
-      startY: 40,
-      head: [["Data", "Shopee", "Mercado Livre", "Avulso", "Cancelados", "Total", "Valor Total"]],
-      body: tableData,
-      theme: "grid",
-      headStyles: { fillColor: [44, 62, 80], textColor: 255, halign: "center" },
-      bodyStyles: { halign: "center", fontSize: 10 },
-      styles: { cellPadding: 2 },
-    });
-
-    doc.setFontSize(9);
-    doc.text(
-      "Relatório gerado automaticamente via TrackSaídas",
-      105,
-      doc.lastAutoTable.finalY + 10,
-      { align: "center" }
-    );
-
-    window.open(doc.output("bloburl"), "_blank");
+    } catch (_) {}
   }
+
+  // Agora converte para BASE64 (ESSENCIAL)
+  try {
+    const res = await fetch(caminhoFinal);
+    const blob = await res.blob();
+
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        doc.addImage(e.target.result, "PNG", 15, 10, 35, 25);
+        resolve();
+      };
+      reader.readAsDataURL(blob);
+    });
+
+  } catch (err) {
+    console.warn("Erro carregando logo:", err);
+  }
+}
+
+
+  await addLogo();
+
+  doc.setFontSize(15);
+  doc.text(`RELATÓRIO DE COLETAS — ${base}`, 105, 20, { align: "center" });
+
+  doc.setFontSize(10);
+  doc.text(
+    `Período: ${isoParaBr(de)} até ${isoParaBr(ate)}`,
+    105,
+    26,
+    { align: "center" }
+  );
+
+  /* ======================================================
+     Colunas fixas
+  ====================================================== */
+  const colunasFixas = {
+    0: { cellWidth: 26 },
+    1: { cellWidth: 22 },
+    2: { cellWidth: 22 },
+    3: { cellWidth: 22 },
+    4: { cellWidth: 22 },
+    5: { cellWidth: 32 }
+  };
+
+  /* ======================================================
+     Tabela 1 — Bruta
+  ====================================================== */
+  doc.autoTable({
+    startY: 40,
+    head: [["Data", "Shopee", "Flex", "Avulso", "Total", "Valor Total"]],
+    body: tabelaBruta.map(l => [
+      l.data, l.shopee, l.flex, l.avulso, l.total,
+      `R$ ${l.valor.toFixed(2).replace(".", ",")}`
+    ]),
+    theme: "grid",
+    styles: { fontSize: 9, halign: "center" },
+    columnStyles: colunasFixas
+  });
+
+  // Linha total
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY,
+    body: [[
+      "Totais", totalShopee, totalFlex, totalAvulso, totalQtdeBruta,
+      `R$ ${totalBruto.toFixed(2).replace(".", ",")}`
+    ]],
+    theme: "grid",
+    styles: {
+      fontSize: 9,
+      halign: "center",
+      fontStyle: "bold",
+      fillColor: [240, 240, 240]
+    },
+    columnStyles: colunasFixas
+  });
+
+  /* ======================================================
+     Tabela 2 — Cancelados
+  ====================================================== */
+  doc.setFontSize(13);
+  doc.text("REGISTROS CANCELADOS", 14, doc.lastAutoTable.finalY + 12);
+
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY + 15,
+    head: [["Data", "Shopee", "Flex", "Avulso", "Total", "Valor Cancelado"]],
+    body: tabelaCanc.map(l => [
+      l.data, l.shopee, l.flex, l.avulso, l.total,
+      `R$ ${l.valor.toFixed(2).replace(".", ",")}`
+    ]),
+    theme: "grid",
+    styles: { fontSize: 9, halign: "center" },
+    columnStyles: colunasFixas
+  });
+
+  // Totais cancelados
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY,
+    body: [[
+      "Totais", totalShopeeCanc, totalFlexCanc, totalAvulsoCanc,
+      totalQtdeCanc,
+      `R$ ${totalCanceladosValor.toFixed(2).replace(".", ",")}`
+    ]],
+    theme: "grid",
+    styles: {
+      fontSize: 9,
+      halign: "center",
+      fontStyle: "bold",
+      fillColor: [240, 240, 240]
+    },
+    columnStyles: colunasFixas
+  });
+
+  /* ======================================================
+     Resumo Final
+  ====================================================== */
+  const Y = doc.lastAutoTable.finalY + 15;
+
+  doc.setFontSize(14);
+  doc.text("RESUMO FINAL", 14, Y);
+
+  doc.setFontSize(11);
+  doc.text(`Valor Bruto: R$ ${totalBruto.toFixed(2).replace(".", ",")}`, 14, Y + 10);
+  doc.text(`Valor Cancelado: R$ ${totalCanceladosValor.toFixed(2).replace(".", ",")}`, 14, Y + 16);
+
+  doc.setFontSize(12);
+  doc.setTextColor(0, 100, 0);
+  doc.text(`Valor Líquido a Receber: R$ ${valorLiquido.toFixed(2).replace(".", ",")}`, 14, Y + 25);
+
+  doc.setTextColor(0, 0, 0);
+
+  /* ======================================================
+     Rodapé igual ao do sistema
+  ====================================================== */
+  const ano = new Date().getFullYear();
+  doc.setFontSize(10);
+  doc.setTextColor(80);
+  doc.text(`${ano} © TrackingSaídas.`, 105, doc.internal.pageSize.height - 10, { align: "center" });
+
+  /* ======================================================
+     Abrir PDF
+  ====================================================== */
+  window.open(doc.output("bloburl"), "_blank");
 }
