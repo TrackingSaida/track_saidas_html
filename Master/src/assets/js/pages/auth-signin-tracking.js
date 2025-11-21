@@ -178,7 +178,26 @@ document.addEventListener('DOMContentLoaded', () => {
       // Redireciona
       clearTimeout(slowTimer1); clearTimeout(slowTimer2);
       const next = getParam('next');
-      window.location.href = next || 'dashboard-tracking-overview.html';
+
+// Redirecionamento por nível de usuário
+let destino;
+
+if (next) {
+  destino = next;
+} else {
+  const role = Number(userData?.role || 0);
+
+  if (role === 1) {
+    destino = 'dashboard-tracking-overview.html';   // visão geral
+  } else if (role === 2 || role === 3) {
+    destino = 'dashboard-tracking-saidas.html';     // ranking
+  } else {
+    destino = 'dashboard-tracking-saidas.html';   // fallback padrão
+  }
+}
+
+window.location.href = destino;
+
     } catch (err) {
       clearTimeout(slowTimer1); clearTimeout(slowTimer2);
       console.error('[signin] erro de rede', err);

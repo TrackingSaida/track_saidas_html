@@ -1,94 +1,105 @@
-/*
-Template Name: Velzon - Admin & Dashboard Template
-Author: Themesbrand
-Website: https://Themesbrand.com/
-Contact: Themesbrand@gmail.com
-File: Password addon Js File
-*/
+(() => {
 
-// password addon
-Array.from(document.querySelectorAll("form .auth-pass-inputgroup")).forEach(function (item) {
-    Array.from(item.querySelectorAll(".password-addon")).forEach(function (subitem) {
-            subitem.addEventListener("click", function (event) {
-                var passwordInput = item.querySelector(".password-input");
-                if (passwordInput.type === "password") {
-                    passwordInput.type = "text";
-                } else {
-                    passwordInput.type = "password";
-                }
-            });
+    const API_URL = window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api";
+
+    // Obter email/username vindo da tela anterior
+    const params = new URLSearchParams(window.location.search);
+    const identifier = params.get("identifier");
+
+    if (!identifier) {
+        Swal.fire({
+            icon: "error",
+            title: "Erro",
+            text: "Nenhum usuário informado. Volte à tela de recuperação."
+        }).then(() => window.location.href = "auth-pass-change-cover.html");
+        return;
+    }
+
+    const form = document.getElementById("resetForm");
+    const passInput = document.getElementById("password-input");
+    const confirmInput = document.getElementById("confirm-password-input");
+
+    // =============================
+    // 🔥 Toggle olho — mesmo do login
+    // =============================
+    document.querySelectorAll('[data-toggle="ver-senha"]').forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const group = btn.closest('.auth-pass-inputgroup');
+            const input = group ? group.querySelector("input") : null;
+            if (!input) return;
+
+            input.type = input.type === "password" ? "text" : "password";
+
+            const icon = btn.querySelector("i");
+            if (icon) {
+                icon.classList.toggle("ri-eye-fill");
+                icon.classList.toggle("ri-eye-off-fill");
+            }
         });
     });
 
-// passowrd match
-var password = document.getElementById("password-input"),
-    confirm_password = document.getElementById("confirm-password-input");
+    // =============================
+    // 🔥 Envio do formulário
+    // =============================
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
 
-function validatePassword() {
-    if (password.value != confirm_password.value) {
-        confirm_password.setCustomValidity("Passwords Don't Match");
-    } else {
-        confirm_password.setCustomValidity("");
-    }
-}
+        const pass = passInput.value.trim();
+        const confirm = confirmInput.value.trim();
 
-//Password validation
-password.onchange = validatePassword;
+        if (pass.length < 8) {
+            Swal.fire({
+                icon: "warning",
+                title: "Senha muito curta",
+                text: "A senha deve ter no mínimo 8 caracteres."
+            });
+            return;
+        }
 
-var myInput = document.getElementById("password-input");
-var letter = document.getElementById("pass-lower");
-var capital = document.getElementById("pass-upper");
-var number = document.getElementById("pass-number");
-var length = document.getElementById("pass-length");
+        if (pass !== confirm) {
+            Swal.fire({
+                icon: "error",
+                title: "As senhas não coincidem",
+                text: "Verifique e tente novamente."
+            });
+            return;
+        }
 
-// When the user clicks on the password field, show the message box
-myInput.onfocus = function () {
-    document.getElementById("password-contain").style.display = "block";
-};
+        try {
+            const res = await fetch(`${API_URL}/auth/reset-password`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    identifier: identifier,
+                    new_password: pass
+                })
+            });
 
-// When the user clicks outside of the password field, hide the password-contain box
-myInput.onblur = function () {
-    document.getElementById("password-contain").style.display = "none";
-};
+            const data = await res.json().catch(() => ({}));
 
-// When the user starts to type something inside the password field
-myInput.onkeyup = function () {
-    // Validate lowercase letters
-    var lowerCaseLetters = /[a-z]/g;
-    if (myInput.value.match(lowerCaseLetters)) {
-        letter.classList.remove("invalid");
-        letter.classList.add("valid");
-    } else {
-        letter.classList.remove("valid");
-        letter.classList.add("invalid");
-    }
+            if (!res.ok) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Erro ao redefinir senha",
+                    text: data.detail || "Tente novamente."
+                });
+                return;
+            }
 
-    // Validate capital letters
-    var upperCaseLetters = /[A-Z]/g;
-    if (myInput.value.match(upperCaseLetters)) {
-        capital.classList.remove("invalid");
-        capital.classList.add("valid");
-    } else {
-        capital.classList.remove("valid");
-        capital.classList.add("invalid");
-    }
+            Swal.fire({
+                icon: "success",
+                title: "Senha redefinida",
+                text: "Agora você pode fazer login com sua nova senha!"
+            }).then(() => window.location.href = "auth-signin-tracking-v2.html");
 
-    // Validate numbers
-    var numbers = /[0-9]/g;
-    if (myInput.value.match(numbers)) {
-        number.classList.remove("invalid");
-        number.classList.add("valid");
-    } else {
-        number.classList.remove("valid");
-        number.classList.add("invalid");
-    }
+        } catch (err) {
+            console.error(err);
+            Swal.fire({
+                icon: "error",
+                title: "Erro de conexão",
+                text: "Não foi possível comunicar com o servidor."
+            });
+        }
+    });
 
-    // Validate length
-    if (myInput.value.length >= 8) {
-        length.classList.remove("invalid");
-        length.classList.add("valid");
-    } else {
-        length.classList.remove("valid");
-        length.classList.add("invalid");
-    }
-};
+})();
