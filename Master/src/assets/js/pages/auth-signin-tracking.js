@@ -2,8 +2,7 @@
 // Login - TrackingSaídas
 // =========================
 
-// Base da API de autenticação.
-// Se não existir window.API_AUTH, usa o endpoint padrão:
+// Base da API de autenticação
 const API_AUTH = (typeof window !== 'undefined' && window.API_AUTH)
   ? String(window.API_AUTH)
   : 'https://track-saidas-api.onrender.com/api/auth';
@@ -20,7 +19,7 @@ function showErrorLogin(msg) {
   el.classList.remove('d-none');
 }
 
-// controla spinner/mensagem no botão
+// spinner
 function setSigningIn(btn, on) {
   const status = document.getElementById('signinStatus');
   if (!btn) return;
@@ -29,10 +28,8 @@ function setSigningIn(btn, on) {
     if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
     const text = btn.dataset.loading || 'Entrando...';
     btn.innerHTML =
-      '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' +
-      text;
+      '<span class="spinner-border spinner-border-sm me-2" role="status"></span>' + text;
     btn.disabled = true;
-    btn.setAttribute('aria-busy', 'true');
     if (status) {
       status.textContent = 'Efetuando login…';
       status.classList.remove('d-none');
@@ -40,7 +37,6 @@ function setSigningIn(btn, on) {
   } else {
     btn.innerHTML = btn.dataset.originalHtml || 'Entrar';
     btn.disabled = false;
-    btn.removeAttribute('aria-busy');
     if (status) status.classList.add('d-none');
   }
 }
@@ -48,48 +44,63 @@ function setSigningIn(btn, on) {
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[signin] init');
 
-  // Preenche login se vier ?login=, ?email= ou ?username=
+  // Pre-fill
   (function prefillLogin() {
     const v = getParam('login') || getParam('email') || getParam('username') || '';
-    const input = document.getElementById('login')
-               || document.getElementById('email')
-               || document.getElementById('username');
+    const input = document.getElementById('login');
     if (input && v) input.value = v;
   })();
 
-  // Toggle do "olho" para ver/ocultar senha
+  // Mostrar senha
   document.querySelectorAll('[data-toggle="ver-senha"]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const group = btn.closest('.auth-pass-inputgroup');
-      const input = group ? group.querySelector('input') : document.getElementById('password-input');
+      const input = document.getElementById('password-input');
       if (!input) return;
       input.type = input.type === 'password' ? 'text' : 'password';
 
       const icon = btn.querySelector('i');
-      if (icon) {
-        icon.classList.toggle('ri-eye-fill');
-        icon.classList.toggle('ri-eye-off-fill');
-      }
+      icon.classList.toggle('ri-eye-fill');
+      icon.classList.toggle('ri-eye-off-fill');
     });
   });
 
-  // Intercepta o submit do formulário
-  const form = document.getElementById('loginForm');
-  if (!form) {
-    console.error('[signin] #loginForm não encontrado');
-    return;
+  // ==========================================
+  // 🔥 CORRIGIDO — "Esqueceu a senha?"
+  // ==========================================
+  const forgot = document.getElementById("forgotPass");
+
+  if (forgot) {
+    forgot.addEventListener("click", (e) => {
+      e.preventDefault();
+      const login = document.getElementById("login")?.value?.trim();
+
+      if (!login) {
+        Swal.fire({
+          icon: "warning",
+          title: "Informe seu login",
+          text: "Digite seu e-mail, usuário ou telefone antes de recuperar a senha."
+        });
+        return;
+      }
+
+      window.location.href =
+        `auth-pass-change-cover.html?identifier=${encodeURIComponent(login)}`;
+    });
   }
+
+  // ==========================================
+  // SUBMIT DO LOGIN
+  // ==========================================
+  const form = document.getElementById('loginForm');
+  if (!form) return;
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    e.stopPropagation();
 
-    const loginEl = document.getElementById('login')
-                  || document.getElementById('email')
-                  || document.getElementById('username');
-    const rawLogin = loginEl?.value?.trim();
-    const password = document.getElementById('password-input')?.value;
-    const remember = document.getElementById('auth-remember-check')?.checked || false;
+    const loginEl = document.getElementById('login');
+    const rawLogin = loginEl.value.trim();
+    const password = document.getElementById('password-input').value;
+    const remember = document.getElementById('auth-remember-check').checked;
     const btn = document.getElementById('signinBtn');
 
     if (!rawLogin || !password) {
@@ -97,139 +108,70 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Decide o payload conforme o tipo (e-mail | telefone | username)
+    // payload
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const digits = rawLogin.replace(/\D/g, '');
     let payload;
-    if (emailRegex.test(rawLogin)) {
-      payload = { email: rawLogin, password, remember };
-    } else if (digits.length >= 10) {
-      payload = { contato: digits, password, remember };
-    } else {
-      payload = { username: rawLogin, password, remember };
-    }
 
-    // Armazenamento (remember)
-    const store = remember ? localStorage : sessionStorage;
-    const other = remember ? sessionStorage : localStorage;
+    if (emailRegex.test(rawLogin)) payload = { email: rawLogin, password, remember };
+    else if (digits.length >= 10) payload = { contato: rawLogin, password, remember };
+    else payload = { username: rawLogin, password, remember };
 
-    // Loading + mensagens de demora
-    let slowTimer1, slowTimer2;
+    let slow1, slow2;
+
     try {
-      if (!API_AUTH) {
-        showErrorLogin('URL da API de autenticação não configurada.');
-        return;
-      }
       const base = API_AUTH.replace(/\/+$/, '');
 
       setSigningIn(btn, true);
-      clearTimeout(slowTimer1); clearTimeout(slowTimer2);
-      slowTimer1 = setTimeout(() => {
-        const s = document.getElementById('signinStatus');
-        if (s && !s.classList.contains('d-none')) s.textContent = 'Ainda tentando conectar…';
+
+      slow1 = setTimeout(() => {
+        const st = document.getElementById("signinStatus");
+        st.textContent = "Ainda tentando conectar…";
       }, 6000);
-      slowTimer2 = setTimeout(() => {
-        const s = document.getElementById('signinStatus');
-        if (s && !s.classList.contains('d-none')) s.textContent = 'A conexão está lenta, continue aguardando…';
+
+      slow2 = setTimeout(() => {
+        const st = document.getElementById("signinStatus");
+        st.textContent = "A conexão está lenta, continue aguardando…";
       }, 12000);
 
-      const signinPath = (typeof window.TRACK_SIGNIN_ENDPOINT === 'string')
-        ? window.TRACK_SIGNIN_ENDPOINT
-        : '/login';
+      const signinPath = window.TRACK_SIGNIN_ENDPOINT || "/login";
 
-      // Login → cria cookie de sessão (ou retorna token)
       const resp = await fetch(base + signinPath, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload)
       });
 
       if (!resp.ok) {
-        clearTimeout(slowTimer1); clearTimeout(slowTimer2);
         const err = await resp.json().catch(() => ({}));
-        showErrorLogin(err.detail || 'Usuário ou senha inválidos.');
+        showErrorLogin(err.detail || "Usuário ou senha inválidos.");
         setSigningIn(btn, false);
         return;
       }
 
-      // Se a API devolver token, guarda (opcional)
-      try {
-        const data = await resp.clone().json();
-        const access = data?.access_token || data?.acess_token || data?.token;
-        if (access) {
-          try { store.setItem('access_token', access); } catch (_) {}
-        }
-      } catch (_) {}
-
-      // Confirma a sessão e lê o usuário (se houver /me)
+      // /me
       let userData = {};
       try {
-        const me = await fetch(base + '/me', { credentials: 'include' });
-        if (me.ok) userData = await me.json().catch(() => ({}));
+        const me = await fetch(base + "/me", { credentials: "include" });
+        if (me.ok) userData = await me.json();
       } catch (_) {}
 
-      // Persistência
-      other.removeItem('trackingToken');
-      other.removeItem('trackingUser');
-      store.setItem('trackingToken', 'cookie-session');
-      store.setItem('trackingUser', JSON.stringify(userData || {}));
+      // Redirecionamento por role
+      const role = Number(userData?.role || 0);
 
-      // Redireciona
-      clearTimeout(slowTimer1); clearTimeout(slowTimer2);
-      const next = getParam('next');
+      let destino;
+      if (role === 1) destino = "dashboard-tracking-overview.html";
+      else destino = "dashboard-tracking-saidas.html";
 
-    // Redirecionamento por nível de usuário
-    let destino;
-
-    if (next) {
-  destino = next;
-   } else {
-  const role = Number(userData?.role || 0);
-
-  if (role === 1) {
-    destino = 'dashboard-tracking-overview.html';   // visão geral
-  } else if (role === 2 || role === 3) {
-    destino = 'dashboard-tracking-saidas.html';     // ranking
-  } else {
-    destino = 'dashboard-tracking-saidas.html';   // fallback padrão
-  }
-}
-
-// ============================================
-// Esqueceu a senha → redireciona com identifier
-// ============================================
-document.getElementById("forgotPass")?.addEventListener("click", (e) => {
-  e.preventDefault();
-
-  const loginEl =
-    document.getElementById("login") ||
-    document.getElementById("email") ||
-    document.getElementById("username");
-
-  const rawLogin = loginEl?.value?.trim();
-
-  if (!rawLogin) {
-    Swal.fire({
-      icon: "error",
-      title: "Erro",
-      text: "Informe seu e-mail, usuário ou telefone antes de prosseguir.",
-    });
-    return;
-  }
-
-  // Redireciona para a página de reset com o identifier
-  window.location.href =
-    `auth-pass-change-cover.html?identifier=${encodeURIComponent(rawLogin)}`;
-});
-
-
-window.location.href = destino;
+      window.location.href = destino;
 
     } catch (err) {
-      clearTimeout(slowTimer1); clearTimeout(slowTimer2);
-      console.error('[signin] erro de rede', err);
-      showErrorLogin('Falha ao conectar. Tente novamente.');
+      console.error(err);
+      showErrorLogin("Falha ao conectar.");
+    } finally {
+      clearTimeout(slow1);
+      clearTimeout(slow2);
       setSigningIn(btn, false);
     }
   });
