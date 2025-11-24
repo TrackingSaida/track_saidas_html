@@ -7,9 +7,11 @@
 
 <body>
 
+    <!-- auth-page wrapper -->
     <div class="auth-page-wrapper auth-bg-cover py-5 d-flex justify-content-center align-items-center min-vh-100">
         <div class="bg-overlay"></div>
 
+        <!-- auth-page content -->
         <div class="auth-page-content overflow-hidden pt-lg-5">
             <div class="container">
                 <div class="row">
@@ -19,15 +21,16 @@
 
                             <div class="row justify-content-center g-0">
 
-                                <!-- ESQUERDA -->
+                                <!-- LADO ESQUERDO -->
                                 <div class="col-lg-6">
                                     <div class="p-lg-5 p-4 auth-one-bg h-100">
                                         <div class="bg-overlay"></div>
-                                        <div class="position-relative h-100 d-flex flex-column">
 
+                                        <div class="position-relative h-100 d-flex flex-column">
                                             <div class="mb-4">
                                                 <a href="index.html" class="d-block">
-                                                    <img src="assets/images/logo-track-light.png" alt="Tracking Saídas" height="115">
+                                                    <img src="assets/images/logo-track-light.png"
+                                                         alt="Tracking Saídas" height="115">
                                                 </a>
                                             </div>
 
@@ -38,9 +41,12 @@
 
                                                 <div id="quotescarouselIndicators" class="carousel slide" data-bs-ride="carousel">
                                                     <div class="carousel-indicators">
-                                                        <button type="button" data-bs-target="#quotescarouselIndicators" data-bs-slide-to="0" class="active"></button>
-                                                        <button type="button" data-bs-target="#quotescarouselIndicators" data-bs-slide-to="1"></button>
-                                                        <button type="button" data-bs-target="#quotescarouselIndicators" data-bs-slide-to="2"></button>
+                                                        <button type="button" data-bs-target="#quotescarouselIndicators"
+                                                            data-bs-slide-to="0" class="active"></button>
+                                                        <button type="button" data-bs-target="#quotescarouselIndicators"
+                                                            data-bs-slide-to="1"></button>
+                                                        <button type="button" data-bs-target="#quotescarouselIndicators"
+                                                            data-bs-slide-to="2"></button>
                                                     </div>
 
                                                     <div class="carousel-inner text-center text-white-50 pb-5">
@@ -57,12 +63,11 @@
 
                                                 </div>
                                             </div>
-
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- DIREITA (FORMULÁRIO) -->
+                                <!-- FORMULÁRIO -->
                                 <div class="col-lg-6">
                                     <div class="p-lg-5 p-4">
 
@@ -73,57 +78,58 @@
 
                                             <form id="resetForm">
 
-                                                <!-- SENHA -->
                                                 <div class="mb-3">
                                                     <label class="form-label" for="password-input">Nova Senha</label>
                                                     <div class="position-relative auth-pass-inputgroup">
-                                                        <input type="password"
-                                                            id="password-input"
-                                                            class="form-control pe-5"
+                                                        <input type="password" id="password-input"
+                                                            class="form-control pe-5 password-input"
                                                             placeholder="Digite a nova senha"
                                                             required>
 
-                                                        <!-- 👁 Igual ao login -->
-                                                        <button class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted material-shadow-none"
-                                                            type="button" data-toggle="ver-senha">
+                                                        <button type="button"
+                                                            class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted password-addon material-shadow-none"
+                                                            data-toggle="toggle-pass">
                                                             <i class="ri-eye-fill align-middle"></i>
                                                         </button>
                                                     </div>
                                                     <div class="form-text">Mínimo de 8 caracteres.</div>
                                                 </div>
 
-                                                <!-- CONFIRMAR -->
                                                 <div class="mb-3">
-                                                    <label class="form-label" for="confirm-password-input">Confirmar senha</label>
+                                                    <label class="form-label" for="confirm-password-input">
+                                                        Confirmar senha
+                                                    </label>
                                                     <div class="position-relative auth-pass-inputgroup">
-                                                        <input type="password"
-                                                            id="confirm-password-input"
-                                                            class="form-control pe-5"
+                                                        <input type="password" id="confirm-password-input"
+                                                            class="form-control pe-5 password-input"
                                                             placeholder="Confirme a senha"
                                                             required>
 
-                                                        <button class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted material-shadow-none"
-                                                            type="button" data-toggle="ver-senha">
+                                                        <button type="button"
+                                                            class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted password-addon material-shadow-none"
+                                                            data-toggle="toggle-pass">
                                                             <i class="ri-eye-fill align-middle"></i>
                                                         </button>
                                                     </div>
                                                 </div>
 
                                                 <div class="mt-4">
-                                                    <button class="btn btn-success w-100" type="submit">Redefinir Senha</button>
+                                                    <button class="btn btn-success w-100" type="submit">
+                                                        Redefinir Senha
+                                                    </button>
                                                 </div>
 
                                                 <div class="mt-4 text-center">
                                                     <p class="mb-0">
-                                                        Lembrou a senha?
-                                                        <a href="auth-signin-tracking-v2.html" class="fw-semibold text-primary text-decoration-underline">
+                                                        Lembrou sua senha?
+                                                        <a href="auth-signin-tracking-v2.html"
+                                                            class="fw-semibold text-primary text-decoration-underline">
                                                             Clique aqui
                                                         </a>
                                                     </p>
                                                 </div>
 
                                             </form>
-
                                         </div>
 
                                     </div>

@@ -179,12 +179,12 @@ document.addEventListener('DOMContentLoaded', () => {
       clearTimeout(slowTimer1); clearTimeout(slowTimer2);
       const next = getParam('next');
 
-// Redirecionamento por nível de usuário
-let destino;
+    // Redirecionamento por nível de usuário
+    let destino;
 
-if (next) {
+    if (next) {
   destino = next;
-} else {
+   } else {
   const role = Number(userData?.role || 0);
 
   if (role === 1) {
@@ -195,6 +195,34 @@ if (next) {
     destino = 'dashboard-tracking-saidas.html';   // fallback padrão
   }
 }
+
+// ============================================
+// Esqueceu a senha → redireciona com identifier
+// ============================================
+document.getElementById("forgotPass")?.addEventListener("click", (e) => {
+  e.preventDefault();
+
+  const loginEl =
+    document.getElementById("login") ||
+    document.getElementById("email") ||
+    document.getElementById("username");
+
+  const rawLogin = loginEl?.value?.trim();
+
+  if (!rawLogin) {
+    Swal.fire({
+      icon: "error",
+      title: "Erro",
+      text: "Informe seu e-mail, usuário ou telefone antes de prosseguir.",
+    });
+    return;
+  }
+
+  // Redireciona para a página de reset com o identifier
+  window.location.href =
+    `auth-pass-change-cover.html?identifier=${encodeURIComponent(rawLogin)}`;
+});
+
 
 window.location.href = destino;
 
