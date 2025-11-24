@@ -153,48 +153,48 @@ async function addLogo() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const subBase = (user.sub_base || "").trim();
 
+  // Normaliza para o padrão DG_EXPRESS.png
   const nomeArquivo = subBase.replace(/\s+/g, "_").toUpperCase() + ".png";
 
-  const caminhosPossiveis = [
+  const caminhos = [
     `assets/images/logos/${nomeArquivo}`,
     `/assets/images/logos/${nomeArquivo}`,
     `./assets/images/logos/${nomeArquivo}`,
-    `src/assets/images/logos/${nomeArquivo}`
   ];
 
-  const fallback = `assets/images/logos/default.png`;
-
+  const fallback = "assets/images/logos/default.png";
   let caminhoFinal = fallback;
 
-  // tenta todos os caminhos possíveis
-  for (const caminho of caminhosPossiveis) {
+  // Testa caminhos possíveis
+  for (const c of caminhos) {
     try {
-      const r = await fetch(caminho, { method: "GET" });
+      const r = await fetch(c);
       if (r.ok) {
-        caminhoFinal = caminho;
+        caminhoFinal = c;
         break;
       }
     } catch (_) {}
   }
 
-  // Agora converte para BASE64 (ESSENCIAL)
+  // CONVERTE PARA BASE64 (ESSENCIAL PARA PDF NO BLOB)
   try {
-    const res = await fetch(caminhoFinal);
-    const blob = await res.blob();
+    const blob = await (await fetch(caminhoFinal)).blob();
 
     return new Promise(resolve => {
       const reader = new FileReader();
       reader.onload = e => {
-        doc.addImage(e.target.result, "PNG", 15, 10, 35, 25);
+        // Adiciona imagem no PDF
+        doc.addImage(e.target.result, "PNG", 15, 10, 40, 25);
         resolve();
       };
       reader.readAsDataURL(blob);
     });
 
   } catch (err) {
-    console.warn("Erro carregando logo:", err);
+    console.error("Erro ao carregar logo:", err);
   }
 }
+
 
 
   await addLogo();

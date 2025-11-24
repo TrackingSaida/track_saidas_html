@@ -43,7 +43,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     const [dia, mes, ano] = new Date(ts)
       .toLocaleDateString("pt-BR")
       .split("/");
-    return `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+    return `${ano}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}`;
+  }
+
+  // ====== AJUSTE: incluir o dia final no filtro (ate/data_fim) ======
+  // Envia sempre data_fim = (data escolhida + 1 dia) no formato yyyy-mm-dd
+  function addOneDayYMD(dateStr) {
+    if (!dateStr) return "";
+    const dt = new Date(dateStr);
+    dt.setDate(dt.getDate() + 1);
+    return dt.toISOString().slice(0, 10); // só yyyy-mm-dd
   }
 
   // ====== Elementos ======
@@ -84,13 +93,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     params.append("status", "cancelado");
     if (fltBase.value) params.append("base", fltBase.value);
     if (fltFrom.value) params.append("de", fltFrom.value);
-    if (fltTo.value) params.append("ate", fltTo.value);
+    if (fltTo.value) params.append("ate", addOneDayYMD(fltTo.value)); // <<< AJUSTE AQUI
 
     const res   = await fetch(`${API_SAIDAS}?${params.toString()}`, { credentials: "include" });
     const dados = await res.json();
 
     // Normaliza a base removendo espaços e convertendo para maiúsculas, ajusta data
-    return dados.map(s => ({
+    return dados.map((s) => ({
       base: (s.base || "").trim().toUpperCase(),
       dataISO: dataISO(s.timestamp),
     }));
@@ -114,7 +123,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const params = new URLSearchParams();
       if (fltBase.value) params.append("base", fltBase.value);
       if (fltFrom.value) params.append("data_inicio", fltFrom.value);
-      if (fltTo.value) params.append("data_fim", fltTo.value);
+      if (fltTo.value) params.append("data_fim", addOneDayYMD(fltTo.value)); // <<< AJUSTE AQUI
 
       const res   = await fetch(`${API_URL}?${params.toString()}`, { credentials: "include" });
       const rows  = await res.json();
@@ -122,7 +131,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Buscar cancelados
       const canceladosRaw = await buscarCancelados();
       const mapaCancelados = {};
-      canceladosRaw.forEach(c => {
+      canceladosRaw.forEach((c) => {
         const chave = `${c.dataISO}_${c.base}`;
         mapaCancelados[chave] = (mapaCancelados[chave] || 0) + 1;
       });
@@ -164,7 +173,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
 
       // ========== CONSOLIDAÇÃO COM CANCELADOS ==========
-      resumoAtual = Object.values(agrupado).map(r => {
+      resumoAtual = Object.values(agrupado).map((r) => {
         const key = `${r.dataISO}_${r.baseKey}`;
         return {
           ...r,
@@ -178,10 +187,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // ========== RENDER TABELA ==========
       let totalShopee = 0,
-          totalML     = 0,
-          totalAvulso = 0,
-          totalValor  = 0,
-          totalCancelados = 0;
+        totalML     = 0,
+        totalAvulso = 0,
+        totalValor  = 0,
+        totalCancelados = 0;
 
       tbody.innerHTML = "";
 
@@ -227,11 +236,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ====== Exportar CSV ======
   function exportarCsv() {
     const rows = [
-      ["Data","Base","Entregador","Shopee","Mercado Livre","Avulso","Cancelados","Valor Total"]
+      ["Data","Base","Entregador","Shopee","Mercado Livre","Avulso","Cancelados","Valor Total"],
     ];
 
     qsa("#coletas-resumo-table tbody tr").forEach((tr) => {
-      rows.push(Array.from(tr.querySelectorAll("td")).map(td => td.textContent.trim()));
+      rows.push(Array.from(tr.querySelectorAll("td")).map((td) => td.textContent.trim()));
     });
 
     const csvContent = rows.map((r) => r.join(";")).join("\n");
@@ -261,6 +270,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const logoUrl = `assets/images/logos/${subBase.toUpperCase()}.png`;
 
     gerarPdfResumoColetas(resumoAtual, fltBase.value, fltFrom.value, fltTo.value, logoUrl);
+  });
+
+  // ====== ENTER dispara o botão Filtrar ======
+  document.addEventListener("keyup", (e) => {
+    if (e.key === "Enter") {
+      btnFilter.click();
+    }
   });
 
   // Inicializar
