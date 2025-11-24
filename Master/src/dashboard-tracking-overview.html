@@ -110,46 +110,60 @@
           <div class="row">
             <!-- Evolução diária das coletas -->
             <div class="col-xl-8">
-              <div class="card card-height-100">
-                <div class="card-header align-items-center d-flex">
-                  <h4 class="card-title mb-0 flex-grow-1">Evolução Diária das Coletas</h4>
-                  <!-- Zoom presets -->
-                  <div id="revenue-zoom-group" class="btn-group btn-group-sm me-2" role="group">
-                    <button type="button" class="btn btn-soft-secondary" data-zoom="15">15D</button>
-                    <button type="button" class="btn btn-soft-secondary" data-zoom="30">30D</button>
-                    <button type="button" class="btn btn-soft-secondary" data-zoom="90">3M</button>
-                    <button type="button" class="btn btn-soft-secondary" data-zoom="180">6M</button>
-                    <button type="button" class="btn btn-soft-secondary" data-zoom="365">1A</button>
-                  </div>
-                </div>
-                <div class="card-header p-0 border-0 bg-light-subtle">
-                  <div class="row g-0 text-center">
-                    <div class="col-4 col-sm-4">
-                      <div class="p-3 border border-dashed border-start-0">
-                        <h5 class="mb-1"><span id="kpi-revenue-total">0</span></h5>
-                        <p class="text-muted mb-0 fs-12">Total no Período</p>
-                      </div>
-                    </div>
-                    <div class="col-4 col-sm-4">
-                      <div class="p-3 border border-dashed border-start-0">
-                        <h5 class="mb-1"><span id="kpi-revenue-avg">0</span></h5>
-                        <p class="text-muted mb-0 fs-12">Média Diária</p>
-                      </div>
-                    </div>
-                    <div class="col-4 col-sm-4">
-                      <div class="p-3 border border-dashed border-start-0 border-end-0">
-                        <h5 class="mb-1"><span id="kpi-revenue-max">0</span></h5>
-                        <p class="text-muted mb-0 fs-12">Maior Dia</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="card-body">
-                  <div id="chart-revenue" style="height: 360px;"></div>
-                  <div class="text-muted fs-12 mt-2" id="revenue-period"></div>
-                </div>
-              </div>
-            </div>
+  <div class="card card-height-100">
+    <div class="card-header align-items-center d-flex">
+      <h4 class="card-title mb-0 flex-grow-1">Evolução Diária das Coletas</h4>
+
+    <!-- ▼▼ NOVO TOGGLE: VALOR / QTDE / UNIFICADO ▼▼ -->
+<div id="mode-group" class="btn-group btn-group-sm me-2" role="group">
+  <button type="button" class="btn btn-outline-primary" data-mode="valor">Valor</button>
+  <button type="button" class="btn btn-outline-primary" data-mode="quantidade">Qtd</button>
+  <button type="button" class="btn btn-primary active" data-mode="unificado">Unificado</button>
+</div>
+<!-- ▲▲ FIM DO TOGGLE ▲▲ -->
+
+      <!-- ▲▲ NOVO TOGGLE ▲▲ -->
+
+      <!-- Zoom presets -->
+      <div id="revenue-zoom-group" class="btn-group btn-group-sm" role="group">
+        <button type="button" class="btn btn-soft-secondary" data-zoom="15">15D</button>
+        <button type="button" class="btn btn-soft-secondary" data-zoom="30">30D</button>
+        <button type="button" class="btn btn-soft-secondary" data-zoom="90">3M</button>
+        <button type="button" class="btn btn-soft-secondary" data-zoom="180">6M</button>
+        <button type="button" class="btn btn-soft-secondary" data-zoom="365">1A</button>
+      </div>
+    </div>
+
+    <div class="card-header p-0 border-0 bg-light-subtle">
+      <div class="row g-0 text-center">
+        <div class="col-4 col-sm-4">
+          <div class="p-3 border border-dashed border-start-0">
+            <h5 class="mb-1"><span id="kpi-revenue-total">0</span></h5>
+            <p class="text-muted mb-0 fs-12">Total no Período</p>
+          </div>
+        </div>
+        <div class="col-4 col-sm-4">
+          <div class="p-3 border border-dashed border-start-0">
+            <h5 class="mb-1"><span id="kpi-revenue-avg">0</span></h5>
+            <p class="text-muted mb-0 fs-12">Média Diária</p>
+          </div>
+        </div>
+        <div class="col-4 col-sm-4">
+          <div class="p-3 border border-dashed border-start-0 border-end-0">
+            <h5 class="mb-1"><span id="kpi-revenue-max">0</span></h5>
+            <p class="text-muted mb-0 fs-12">Maior Dia</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <div id="chart-revenue" style="height: 360px;"></div>
+      <div class="text-muted fs-12 mt-2" id="revenue-period"></div>
+    </div>
+  </div>
+</div>
+
             <!-- Distribuição por Origem -->
             <div class="col-xl-4">
               <!-- Origem das coletas -->
