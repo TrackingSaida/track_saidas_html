@@ -213,29 +213,35 @@ async function addLogo() {
   /* ======================================================
      Colunas fixas
   ====================================================== */
-  const colunasFixas = {
-    0: { cellWidth: 26 },
-    1: { cellWidth: 22 },
-    2: { cellWidth: 22 },
-    3: { cellWidth: 22 },
-    4: { cellWidth: 22 },
-    5: { cellWidth: 32 }
-  };
+const colunasFixas = {
+  0: { minCellWidth: 22 },  // Data
+  1: { minCellWidth: 18 },  // Shopee
+  2: { minCellWidth: 18 },  // Flex
+  3: { minCellWidth: 18 },  // Avulso
+  4: { minCellWidth: 18 },  // Total
+  5: { minCellWidth: 28 }   // Valor Total
+};
+
 
   /* ======================================================
      Tabela 1 — Bruta
   ====================================================== */
   doc.autoTable({
-    startY: 40,
-    head: [["Data", "Shopee", "Flex", "Avulso", "Total", "Valor Total"]],
-    body: tabelaBruta.map(l => [
-      l.data, l.shopee, l.flex, l.avulso, l.total,
-      `R$ ${l.valor.toFixed(2).replace(".", ",")}`
-    ]),
-    theme: "grid",
-    styles: { fontSize: 9, halign: "center" },
-    columnStyles: colunasFixas
-  });
+  startY: 40,
+  head: [["Data", "Shopee", "Flex", "Avulso", "Total", "Valor Total"]],
+  body: tabelaBruta.map(l => [
+    l.data,
+    l.shopee,
+    l.flex,
+    l.avulso,
+    l.total,
+    `R$ ${l.valor.toFixed(2).replace(".", ",")}`
+  ]),
+  theme: "grid",
+  styles: { fontSize: 9, halign: "center", cellPadding: 2 },
+  columnStyles: colunasFixas
+});
+
 
   // Linha total
   doc.autoTable({
