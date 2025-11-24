@@ -109,7 +109,9 @@
     });
 
     // Guarda no escopo global (para uso em outras páginas)
-    window.__USER__ = { id: user.id, username, email, contato };
+    window.__USER__ = user; 
+    localStorage.setItem("user", JSON.stringify(user));
+
 
   } catch (e) {
     console.error("Erro ao carregar usuário logado:", e);
