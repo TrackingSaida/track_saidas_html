@@ -143,12 +143,26 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify(payload)
       });
 
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        showErrorLogin(err.detail || "Usuário ou senha inválidos.");
-        setSigningIn(btn, false);
-        return;
-      }
+// ======================================================
+// 🔥 403 — Owner Bloqueado → mostrar modal no login
+// ======================================================
+if (resp.status === 403) {
+  window.location.href =
+    "auth-signin-tracking-v2.html?reason=owner_blocked";
+  return;
+}
+
+// ======================================================
+// ⚠️ Outros erros (401, 422, etc.)
+// ======================================================
+if (!resp.ok) {
+  const err = await resp.json().catch(() => ({}));
+  showErrorLogin(err.detail || "Usuário ou senha inválidos.");
+  setSigningIn(btn, false);
+  return;
+}
+
+
 
       // /me
       let userData = {};

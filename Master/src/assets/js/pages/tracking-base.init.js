@@ -59,9 +59,12 @@
     return r.json ? r.json() : null;
   }
 
-  async function apiList() {
-    return http(API_BASES);
-  }
+ async function apiList() {
+  const ativoOn = qs("#toggleAtivos")?.checked;
+  const status = ativoOn ? "ativo" : "todos";
+  return http(`${API_BASES}?status=${status}`);
+}
+
   async function apiGet(id) {
     return http(`${API_BASES}${encodeURIComponent(id)}`);
   }
@@ -177,6 +180,8 @@
     });
 
     qs("#search")?.addEventListener("input", listarBases);
+    qs("#toggleAtivos")?.addEventListener("change", listarBases);
+
 
     qs("#btnAdd")?.addEventListener("click", () => {
       openForm("create");
