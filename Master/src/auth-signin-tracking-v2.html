@@ -141,36 +141,60 @@
   </div>
 
 
-  <!-- Modal: Owner Bloqueado -->
-  <div class="modal fade" id="ownerBlockedModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0 shadow-lg">
-        
-        <div class="modal-header bg-danger text-white">
-          <h5 class="modal-title">
-            <i class="ri-error-warning-fill me-1"></i> Acesso bloqueado
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
+<!-- Modal Glass Premium (corrigido) -->
+<div class="modal fade" id="ownerBlockedModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" 
+         style="backdrop-filter: blur(12px); background: rgba(255, 255, 255, 0.90); border-radius:18px;">
 
-        <div class="modal-body">
-          <p class="mb-0">
-            Sua operação foi <strong>bloqueada pelo administrador</strong>.<br>
-            Caso acredite que isso seja um engano, entre em contato com o responsável pelo sistema.
-          </p>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-danger w-100" data-bs-dismiss="modal">
-            Fechar
-          </button>
-        </div>
-
+      <!-- HEADER -->
+      <div class="modal-header border-0" 
+           style="background: linear-gradient(135deg, #0b6e4f, #0a5a41); color:white; border-radius:18px 18px 0 0;">
+        <h5 class="modal-title d-flex align-items-center fs-5 fw-semibold" style="color: #fff !important;">
+          <i class="ri-shield-cross-fill me-2 fs-4"></i>  
+          Acesso bloqueado
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
+
+      <!-- BODY -->
+      <div class="modal-body py-4">
+        <p class="mb-2 fw-medium" style="font-size: 16px;">
+          Sua operação foi <strong>bloqueada pelo administrador</strong>.
+        </p>
+
+        <p class="text-muted mb-0" style="font-size: 14px;">
+          Caso acredite que seja um engano, entre em contato com o responsável pelo sistema.
+        </p>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-footer border-0">
+        <button type="button" class="btn w-100 text-white fw-semibold py-2"
+                style="background:#0b6e4f; border-radius:10px;"
+                data-bs-dismiss="modal">
+          Fechar
+        </button>
+      </div>
+
     </div>
   </div>
+</div>
 
-  <!-- Trigger automático do Modal -->
+
+
+
+
+
+  <!-- JS -->
+  <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="assets/libs/simplebar/simplebar.min.js"></script>
+  <script src="assets/libs/node-waves/waves.min.js"></script>
+  <script src="assets/libs/feather-icons/feather.min.js"></script>
+  <script src="assets/js/plugins.js"></script>
+
+
+    <!-- Trigger automático do Modal -->
   <script>
   (function () {
     const params = new URLSearchParams(window.location.search);
@@ -182,14 +206,6 @@
     }
   })();
   </script>
-
-
-  <!-- JS -->
-  <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="assets/libs/simplebar/simplebar.min.js"></script>
-  <script src="assets/libs/node-waves/waves.min.js"></script>
-  <script src="assets/libs/feather-icons/feather.min.js"></script>
-  <script src="assets/js/plugins.js"></script>
 
   <!-- Lógica do login -->
   <script src="assets/js/pages/auth-signin-tracking.js"></script>
