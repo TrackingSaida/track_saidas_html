@@ -40,46 +40,104 @@
 }
 
 
-  // =======================================================
-  // API Helpers
-  // =======================================================
-  async function http(url, options = {}) {
-    const opts = {
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      ...options
-    };
-    const r = await fetch(url, opts);
-    if (!r.ok) {
-      const errText = await r.text();
-      const err = new Error(errText || r.statusText);
-      err.status = r.status;
-      throw err;
-    }
-    return r.json ? r.json() : null;
+ // =======================================================
+// API Helpers
+// =======================================================
+async function http(url, options = {}) {
+  const opts = {
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    ...options
+  };
+
+  const r = await fetch(url, opts);
+
+  if (!r.ok) {
+    // Tenta pegar o texto do erro
+    let errText = "";
+    try {
+      errText = await r.text();
+    } catch (e) {}
+
+    const err = new Error(errText || r.statusText);
+    err.status = r.status;
+    throw err;
   }
 
- async function apiList() {
+  // Se houver JSON, retorna JSON
+  try {
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
+// =======================================================
+// API: Lista de Bases (obedece toggle "Somente ativos")
+// =======================================================
+async function apiList() {
   const ativoOn = qs("#toggleAtivos")?.checked;
-  const status = ativoOn ? "ativo" : "todos";
+
+  // ✔ ligado = ativos
+  // ✔ desligado = inativos (não "todos")
+  const status = ativoOn ? "ativo" : "inativo";
+
   return http(`${API_BASES}?status=${status}`);
 }
 
-  async function apiGet(id) {
-    return http(`${API_BASES}${encodeURIComponent(id)}`);
+// =======================================================
+// API: Get Base por ID
+// =======================================================
+async function apiGet(id) {
+  return http(`${API_BASES}${encodeURIComponent(id)}`);
+}
+
+// =======================================================
+// API: Criar Base
+// (inclui suporte para status 409 — duplicidade)
+// =======================================================
+async function apiCreate(payload) {
+  try {
+    return await http(API_BASES, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    if (err.status === 409) {
+      toast("Já existe uma base com esse nome nesta sub-base.", false);
+      throw err;
+    }
+    throw err;
   }
-  async function apiCreate(payload) {
-    return http(API_BASES, { method: "POST", body: JSON.stringify(payload) });
-  }
-  async function apiUpdate(id, payload) {
-    return http(`${API_BASES}${encodeURIComponent(id)}`, {
+}
+
+// =======================================================
+// API: Atualizar Base (PATCH)
+// =======================================================
+async function apiUpdate(id, payload) {
+  try {
+    return await http(`${API_BASES}${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: JSON.stringify(payload)
     });
+  } catch (err) {
+    if (err.status === 409) {
+      toast("Já existe uma base com esse nome nesta sub-base.", false);
+      throw err;
+    }
+    throw err;
   }
-  async function apiDelete(id) {
-    return http(`${API_BASES}${encodeURIComponent(id)}`, { method: "DELETE" });
-  }
+}
+
+// =======================================================
+// API: Delete Base
+// =======================================================
+async function apiDelete(id) {
+  return http(`${API_BASES}${encodeURIComponent(id)}`, {
+    method: "DELETE"
+  });
+}
+
 
   // =======================================================
   // Renderização da Tabela
