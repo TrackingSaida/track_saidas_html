@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
    @@include("partials/title-meta.html", {"title": "Sign Up"})
-  @@include("partials/head-css.html")
+   @@include("partials/head-css.html")
 
   <!-- Fonte do tema -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,7 +29,7 @@
             <div class="card overflow-hidden m-0 galaxy-border-none">
               <div class="row justify-content-center g-0">
 
-                <!-- Lado esquerdo (cover/brand/quotes) -->
+                <!-- Lado esquerdo -->
                 <div class="col-lg-6">
                   <div class="p-lg-5 p-4 auth-one-bg h-100">
                     <div class="bg-overlay"></div>
@@ -40,17 +40,25 @@
                         </a>
                       </div>
                       <div class="mt-auto">
-                        <div class="mb-3"><i class="ri-double-quotes-l display-4 text-success"></i></div>
+                        <div class="mb-3">
+                          <i class="ri-double-quotes-l display-4 text-success"></i>
+                        </div>
                         <div id="qoutescarouselIndicators" class="carousel slide" data-bs-ride="carousel">
                           <div class="carousel-indicators">
-                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
-                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="1" aria-label="Slide 2"></button>
-                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="2" aria-label="Slide 3"></button>
+                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="0" class="active"></button>
+                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="1"></button>
+                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="2"></button>
                           </div>
                           <div class="carousel-inner text-center text-white pb-5">
-                            <div class="carousel-item active"><p class="fs-15 fst-italic">“Tracking Saídas simplifica o dia a dia da operação.”</p></div>
-                            <div class="carousel-item"><p class="fs-15 fst-italic">“Login prático: e-mail, usuário ou telefone.”</p></div>
-                            <div class="carousel-item"><p class="fs-15 fst-italic">“Segurança e velocidade no acesso.”</p></div>
+                            <div class="carousel-item active">
+                              <p class="fs-15 fst-italic">“Tracking Saídas simplifica o dia a dia da operação.”</p>
+                            </div>
+                            <div class="carousel-item">
+                              <p class="fs-15 fst-italic">“Login prático: e-mail, usuário ou telefone.”</p>
+                            </div>
+                            <div class="carousel-item">
+                              <p class="fs-15 fst-italic">“Segurança e velocidade no acesso.”</p>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -58,7 +66,7 @@
                   </div>
                 </div>
 
-                <!-- Lado direito (formulário de login) -->
+                <!-- Lado direito: formulário -->
                 <div class="col-lg-6">
                   <div class="p-lg-5 p-4">
                     <div class="text-start">
@@ -67,6 +75,7 @@
                     </div>
 
                     <form id="loginForm" class="mt-4" novalidate>
+                      
                       <div class="mb-3">
                         <label for="login" class="form-label">Login</label>
                         <input type="text" class="form-control" id="login" placeholder="Digite e-mail, usuário ou telefone" required>
@@ -75,12 +84,15 @@
 
                       <div class="mb-3">
                         <div class="float-end">
-                          <a href="auth-pass-reset-basic.html" class="text-muted">Esqueceu a senha?</a>
+                          <a href="auth-pass-change-cover.html" class="text-muted">Esqueceu a senha?</a>
                         </div>
                         <label class="form-label" for="password-input">Senha</label>
                         <div class="position-relative auth-pass-inputgroup">
-                          <input type="password" class="form-control pe-5" placeholder="Sua senha" id="password-input" required>
-                          <button class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted material-shadow-none" type="button" data-toggle="ver-senha"><i class="ri-eye-fill align-middle"></i></button>
+                          <input type="password" class="form-control pe-5" id="password-input" placeholder="Sua senha" required>
+                          <button class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted material-shadow-none"
+                            type="button" data-toggle="ver-senha">
+                            <i class="ri-eye-fill align-middle"></i>
+                          </button>
                           <div class="invalid-feedback">Informe sua senha.</div>
                         </div>
                       </div>
@@ -93,16 +105,19 @@
                       <div id="loginError" class="alert alert-danger d-none mt-3"></div>
 
                       <div class="mt-4">
-                        <!-- data-loading define o texto enquanto loga -->
                         <button id="signinBtn" class="btn btn-success w-100" type="submit" data-loading="Entrando...">
                           Entrar
                         </button>
-                        <!-- status de progresso (dinâmico) -->
                         <div id="signinStatus" class="text-muted small mt-2 d-none" aria-live="polite"></div>
                       </div>
 
                       <div class="mt-4 text-center">
-                        <p class="mb-0">Não tem conta? <a href="auth-signup-tracking-v2.html" class="fw-semibold text-primary text-decoration-underline"> Criar conta</a></p>
+                        <p class="mb-0">
+                          Não tem conta?
+                          <a href="auth-signup-tracking-v2.html" class="fw-semibold text-primary text-decoration-underline">
+                            Criar conta
+                          </a>
+                        </p>
                       </div>
                     </form>
                   </div>
@@ -116,14 +131,60 @@
       </div>
 
       <footer class="footer galaxy-border-none">
-        <div class="container"><div class="row"><div class="col-lg-12">
+        <div class="container">
           <div class="text-center">
             <p class="mb-0">&copy;<script>document.write(new Date().getFullYear())</script> Tracking Saídas.</p>
           </div>
-        </div></div></div>
+        </div>
       </footer>
     </div>
   </div>
+
+
+<!-- Modal Glass Premium (corrigido) -->
+<div class="modal fade" id="ownerBlockedModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" 
+         style="backdrop-filter: blur(12px); background: rgba(255, 255, 255, 0.90); border-radius:18px;">
+
+      <!-- HEADER -->
+      <div class="modal-header border-0" 
+           style="background: linear-gradient(135deg, #0b6e4f, #0a5a41); color:white; border-radius:18px 18px 0 0;">
+        <h5 class="modal-title d-flex align-items-center fs-5 fw-semibold" style="color: #fff !important;">
+          <i class="ri-shield-cross-fill me-2 fs-4"></i>  
+          Acesso bloqueado
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-body py-4">
+        <p class="mb-2 fw-medium" style="font-size: 16px;">
+          Sua operação foi <strong>bloqueada pelo administrador</strong>.
+        </p>
+
+        <p class="text-muted mb-0" style="font-size: 14px;">
+          Caso acredite que seja um engano, entre em contato com o responsável pelo sistema.
+        </p>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-footer border-0">
+        <button type="button" class="btn w-100 text-white fw-semibold py-2"
+                style="background:#0b6e4f; border-radius:10px;"
+                data-bs-dismiss="modal">
+          Fechar
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
 
   <!-- JS -->
   <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
@@ -131,6 +192,20 @@
   <script src="assets/libs/node-waves/waves.min.js"></script>
   <script src="assets/libs/feather-icons/feather.min.js"></script>
   <script src="assets/js/plugins.js"></script>
+
+
+    <!-- Trigger automático do Modal -->
+  <script>
+  (function () {
+    const params = new URLSearchParams(window.location.search);
+    const reason = params.get("reason");
+
+    if (reason === "owner_blocked") {
+      const modal = new bootstrap.Modal(document.getElementById("ownerBlockedModal"));
+      modal.show();
+    }
+  })();
+  </script>
 
   <!-- Lógica do login -->
   <script src="assets/js/pages/auth-signin-tracking.js"></script>

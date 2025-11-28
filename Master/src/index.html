@@ -35,7 +35,7 @@
           if (!localStorage.getItem('trackingToken')) {
             localStorage.setItem('trackingToken', 'cookie-session');
           }
-          return location.replace(next || 'dashboard-tracking-saidas.html');
+          return location.replace(next || 'dashboard-tracking-overview.html');
         }
       } catch (e) {
         // Em caso de erro de rede, continua para limpeza e landing

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    @@include("partials/title-meta.html", {"title":"TrackSaídas — Resumo de Coletas"})
+    @@include("partials/head-css.html")
+  </head>
+
+  <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
+
+    <div id="layout-wrapper">
+
+      <!-- ========== Topbar + Sidebar ========== -->
+      @@include("partials/menu.html")
+
+      <!-- ============================================================== -->
+      <!-- Start right Content here -->
+      <!-- ============================================================== -->
+      <div class="main-content">
+        <div class="page-content">
+          <div class="container-fluid">
+
+            <!-- Título da página -->
+            @@include("partials/page-title.html", {"pagetitle": "Operação", "title": "Resumo de Coletas"})
+
+            <!-- ======================== CONTEÚDO PRINCIPAL ======================== -->
+            <div class="row">
+              <div class="col-12">
+                <div class="card">
+
+                  <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title mb-0">Resumo de Coletas</h4>
+                    <div class="d-flex gap-2">
+                      <button id="btnRefreshResumo" class="btn btn-sm btn-primary">
+                        <i class="ri-refresh-line me-1"></i> Atualizar
+                      </button>
+                      <button id="btnExportCsv" class="btn btn-sm btn-outline-secondary">
+                        <i class="ri-file-download-line me-1"></i> Exportar CSV
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="card-body">
+                    <!-- Mensagens -->
+                    <div id="resumoMsg" class="mb-3"></div>
+
+                    <!-- 🔹 Filtros -->
+                    <div class="row g-3 align-items-end mb-4">
+                      <div class="col-md-3">
+                        <label class="form-label">De</label>
+                        <input type="date" id="flt-from" class="form-control">
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label">Até</label>
+                        <input type="date" id="flt-to" class="form-control">
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label">Base</label>
+                        <select id="flt-base" class="form-select">
+                          <option value="">(Todas)</option>
+                        </select>
+                      </div>
+                      <div class="col-md-3 d-flex gap-2">
+                        <button id="btnFilter" class="btn btn-primary w-100">
+                          <i class="ri-search-line"></i> Filtrar
+                        </button>
+                        <button id="btnClear" class="btn btn-outline-secondary w-100">
+                          <i class="ri-refresh-line"></i> Limpar
+                        </button>
+                          <button id="btnGerarCobranca" class="btn btn-success w-100">
+                            <i class="ri-file-text-line"></i> Gerar Cobrança
+                         </button>
+
+                      </div>
+                    </div>
+
+                <div class="row g-3 mb-4">
+
+  <div class="col-md-2">
+    <div class="p-3 rounded card-shopee text-center">
+      <span class="fw-semibold">Shopee</span>
+      <div class="fs-5 fw-semibold" id="sum-shopee">0</div>
+    </div>
+  </div>
+
+  <div class="col-md-2">
+    <div class="p-3 rounded card-ml text-center">
+      <span class="fw-semibold">Mercado Livre</span>
+      <div class="fs-5 fw-semibold" id="sum-ml">0</div>
+    </div>
+  </div>
+
+  <div class="col-md-2">
+    <div class="p-3 rounded card-avulso text-center">
+      <span class="fw-semibold">Avulso</span>
+      <div class="fs-5 fw-semibold" id="sum-avulso">0</div>
+    </div>
+  </div>
+
+  <div class="col-md-2">
+    <div class="p-3 rounded card-cancelados text-center">
+      <span class="fw-semibold">Cancelados</span>
+      <div class="fs-5 fw-semibold" id="sum-cancelados">0</div>
+    </div>
+  </div>
+
+  <div class="col-md-2">
+    <div class="p-3 rounded card-total text-center">
+      <span class="fw-semibold">Total Coletas</span>
+      <div class="fs-5 fw-semibold" id="sum-total">0</div>
+    </div>
+  </div>
+
+  <div class="col-md-2">
+    <div class="p-3 rounded card-valor-total text-center">
+      <span class="fw-semibold">Valor Total (R$)</span>
+      <div class="fs-5 fw-semibold" id="sum-total-valor">R$ 0,00</div>
+    </div>
+  </div>
+
+</div>
+
+
+                <!-- 🔹 Tabela -->
+<div class="table-responsive">
+  <table id="coletas-resumo-table" class="table table-striped align-middle table-hover">
+    <thead class="table-light">
+      <tr>
+        <th>Data</th>
+        <th>Cliente</th>
+        <th>Usuário</th>
+        <th class="text-center">Shopee</th>
+        <th class="text-center">Mercado Livre</th>
+        <th class="text-center">Avulso</th>
+        <th class="text-center text-danger">Cancelados</th>
+        <th class="text-center">Valor Total</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div> <!-- container-fluid -->
+        </div> <!-- page-content -->
+
+        <!-- Rodapé -->
+        @@include("partials/footer.html")
+
+      </div> <!-- main-content -->
+    </div> <!-- layout-wrapper -->
+
+    <div class="vertical-overlay"></div>
+
+    @@include("partials/vendor-scripts.html")
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+
+   <!-- URL padrão da API -->
+<script>
+  if (!window.TRACK_API_URL)
+    window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+</script>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.min.js"></script>
+
+<!-- Script da página -->
+ <script src="assets/js/pages/tracking-coletas-relatorio.js" defer></script>
+
+<script src="assets/js/pages/tracking-coletas-resumo.init.js" defer></script>
+
+<!-- Script base do app -->
+<script src="assets/js/app.js"></script>
+
+
+
+  </body>
+</html>

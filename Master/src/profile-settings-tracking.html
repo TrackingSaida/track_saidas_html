@@ -1,201 +1,183 @@
 <!doctype html>
-<html lang="pt-br">
-<head>
-  <meta charset="utf-8" />
-  <title>Perfil | Tracking Saídas</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta content="Ajustes de perfil do usuário" name="description">
-  <meta content="Tracking Saídas" name="author">
-  <link rel="shortcut icon" href="assets/images/favicon.ico">
+<html lang="pt-BR">
+  <head>
+    @@include("partials/title-meta.html", {"title": "Perfil — Tracking Saídas"})
+    @@include("partials/head-css.html")
 
-  <!-- CSS do tema (Velzon) -->
-  <script src="assets/js/layout.js"></script>
-  <link href="assets/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
-  <link href="assets/css/icons.min.css" rel="stylesheet" type="text/css" />
-  <link href="assets/css/app.min.css" rel="stylesheet" type="text/css" />
-  <link href="assets/css/custom.min.css" rel="stylesheet" type="text/css" />
+  </head>
 
-  <style>
-    .profile-wid-bg{ min-height:160px; background:linear-gradient(120deg,#405189 0%, #0ab39c 100%); }
-    .profile-wid-img{ display:none; }
-    .avatar-title{ width:80px; height:80px; }
-    .locked .form-control[readonly], .locked .form-control:disabled{
-      background-color: var(--vz-tertiary-bg);
-      cursor: not-allowed;
-    }
-    .form-hint{ font-size:.85rem; color: var(--vz-text-muted); }
-  </style>
-</head>
-<body>
-  <div id="layout-wrapper">
-    <!-- Header / Navbar da sua aplicação aqui (se houver) -->
-    <div class="main-content">
-      <div class="page-content">
-        <div class="container-fluid">
+  <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
 
-          <!-- Título -->
-          <div class="row">
-            <div class="col-12">
-              <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                <h4 class="mb-sm-0">Configurações de Perfil</h4>
-              </div>
-            </div>
-          </div>
+    <div id="layout-wrapper">
 
-          <!-- Capa estática (sem upload) -->
-          <div class="position-relative mx-n4 mt-n2">
-            <div class="profile-wid-bg profile-setting-img">
-              <div class="bg-overlay"></div>
-            </div>
-          </div>
+      @@include("partials/menu.html")
 
-          <div class="row">
-            <!-- Coluna esquerda: resumo (sem foto) -->
-            <div class="col-xl-3">
-              <div class="card mt-n5">
-                <div class="card-body p-4 text-center">
-                  <span class="avatar-title rounded-circle bg-primary-subtle text-primary fs-22 d-inline-flex align-items-center justify-content-center material-shadow">
-                    <i class="ri-user-3-line"></i>
-                  </span>
-                  <h5 class="fs-16 mb-1 mt-3" id="profileName">Nome do Usuário</h5>
-                  <p class="text-muted mb-0" id="profileSubtitle">@username</p>
-                </div>
+      <div class="main-content">
+        <div class="page-content">
+          <div class="container-fluid">
+
+            <!-- Título padrão -->
+            @@include("partials/page-title.html", {"pagetitle": "Usuário", "title": "Configurações de Perfil"})
+
+            <!-- Fundo superior -->
+            <div class="position-relative mx-n4 mt-n2">
+              <div class="profile-wid-bg profile-setting-img">
+                <div class="bg-overlay"></div>
               </div>
             </div>
 
-            <!-- Coluna direita: abas -->
-            <div class="col-xl-9">
-              <div class="card mt-xxl-n5">
-                <div class="card-header">
-                  <ul class="nav nav-tabs-custom card-header-tabs border-bottom-0" role="tablist">
-                    <li class="nav-item">
-                      <a class="nav-link active" data-bs-toggle="tab" href="#personalDetails" role="tab">
-                        <i class="ri-user-3-line align-middle me-1"></i> Dados Pessoais
-                      </a>
-                    </li>
-                    <li class="nav-item">
-                      <a class="nav-link" data-bs-toggle="tab" href="#changePassword" role="tab">
-                        <i class="ri-lock-password-line align-middle me-1"></i> Alterar Senha
-                      </a>
-                    </li>
-                  </ul>
-                </div>
-                <div class="card-body">
-                  <div class="tab-content">
-                    <!-- TAB: Dados pessoais -->
-                    <div class="tab-pane active" id="personalDetails" role="tabpanel">
-                      <form id="profile-form" action="javascript:void(0);">
-                        <div class="row g-3">
-                          <div class="col-lg-6">
-                            <label for="nome" class="form-label">Nome</label>
-                            <input type="text" class="form-control" id="nome" placeholder="Seu nome">
-                          </div>
-                          <div class="col-lg-6">
-                            <label for="sobrenome" class="form-label">Sobrenome</label>
-                            <input type="text" class="form-control" id="sobrenome" placeholder="Seu sobrenome">
-                          </div>
-                          <div class="col-lg-6">
-                            <label for="telefone" class="form-label">Telefone</label>
-                            <input type="text" class="form-control" id="telefone" placeholder="(00) 00000-0000">
-                          </div>
-                          <div class="col-lg-6">
-                            <label for="emailInput" class="form-label">E-mail</label>
-                            <input type="email" class="form-control" id="emailInput" placeholder="nome@empresa.com">
-                          </div>
-                          <div class="col-lg-6 locked">
-                            <label for="subbase" class="form-label">Sub-base</label>
-                            <div class="input-group">
-                              <input type="text" class="form-control" id="subbase" value="" readonly disabled>
-                              <span class="input-group-text" data-bs-toggle="tooltip" title="Campo bloqueado. Solicite ao administrador para alterar.">
-                                <i class="ri-lock-line"></i>
-                              </span>
-                            </div>
-                            <div class="form-hint">Somente leitura</div>
-                          </div>
-                        </div>
-                        <div class="hstack gap-2 justify-content-end mt-4">
-                          <button type="submit" class="btn btn-primary">Salvar alterações</button>
-                          <button type="button" class="btn btn-soft-secondary" onclick="history.back()">Cancelar</button>
-                        </div>
-                      </form>
-                    </div>
+            <div class="row">
+              <!-- Coluna esquerda -->
+              <div class="col-xl-3">
+                <div class="card mt-n5">
+                  <div class="card-body text-center p-4">
+                    <span class="avatar-title rounded-circle bg-primary-subtle text-primary fs-22 d-inline-flex align-items-center justify-content-center material-shadow">
+                      <i class="ri-user-3-line"></i>
+                    </span>
 
-                    <!-- TAB: Alterar Senha -->
-                    <div class="tab-pane" id="changePassword" role="tabpanel">
-                      <form id="password-form" action="javascript:void(0);">
-                        <div class="row g-3">
-                          <div class="col-lg-12">
-                            <label for="current-pass" class="form-label">Senha atual</label>
-                            <div class="position-relative auth-pass-inputgroup">
-                              <input type="password" class="form-control pe-5" id="current-pass" placeholder="Digite a senha atual" required>
-                              <button class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted material-shadow-none" type="button" data-toggle="eye"><i class="ri-eye-fill align-middle"></i></button>
-                            </div>
-                          </div>
-                          <div class="col-lg-6">
-                            <label for="new-pass" class="form-label">Nova senha</label>
-                            <div class="position-relative auth-pass-inputgroup">
-                              <input type="password" class="form-control pe-5" id="new-pass"
-                                placeholder="Mínimo 8 caracteres"
-                                pattern="(?=.*\\d)(?=.*[a-z])(?=.*[A-Z]).{8,}" required>
-                              <button class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted material-shadow-none" type="button" data-toggle="eye"><i class="ri-eye-fill align-middle"></i></button>
-                            </div>
-                          </div>
-                          <div class="col-lg-6">
-                            <label for="confirm-pass" class="form-label">Confirmar nova senha</label>
-                            <div class="position-relative auth-pass-inputgroup">
-                              <input type="password" class="form-control pe-5" id="confirm-pass"
-                                placeholder="Repita a nova senha"
-                                pattern="(?=.*\\d)(?=.*[a-z])(?=.*[A-Z]).{8,}" required>
-                              <button class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted material-shadow-none" type="button" data-toggle="eye"><i class="ri-eye-fill align-middle"></i></button>
-                            </div>
-                          </div>
-                        </div>
-                        <div class="p-3 bg-light rounded mt-3">
-                          <h6 class="fs-13 mb-1">A senha deve conter:</h6>
-                          <ul class="mb-0 small text-muted">
-                            <li>Ao menos 8 caracteres</li>
-                            <li>Uma letra minúscula (a-z) e uma maiúscula (A-Z)</li>
-                            <li>Ao menos um número (0-9)</li>
-                          </ul>
-                        </div>
-                        <div class="hstack gap-2 justify-content-end mt-4">
-                          <button type="submit" class="btn btn-success">Alterar senha</button>
-                        </div>
-                      </form>
-                    </div><!-- /tab senha -->
+                    <h5 class="fs-16 mb-1 mt-3" id="profileName">Nome do Usuário</h5>
+                    <p class="text-muted mb-0" id="profileSubtitle">@username</p>
                   </div>
                 </div>
               </div>
-            </div><!-- /col direita -->
-          </div><!-- /row -->
-        </div><!-- /container-fluid -->
-      </div><!-- /page-content -->
 
-      <footer class="footer">
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-sm-6">© <script>document.write(new Date().getFullYear())</script> Tracking Saídas.</div>
+              <!-- Coluna direita -->
+              <div class="col-xl-9">
+                <div class="card mt-xxl-n5">
+
+                  <div class="card-header">
+                    <ul class="nav nav-tabs-custom card-header-tabs border-bottom-0" role="tablist">
+                      <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#personalDetails" role="tab">
+                          <i class="ri-user-3-line me-1"></i> Dados Pessoais
+                        </a>
+                      </li>
+
+                      <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#changePassword" role="tab">
+                          <i class="ri-lock-password-line me-1"></i> Alterar Senha
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div class="card-body">
+                    <div class="tab-content">
+
+                      <!-- Aba de dados pessoais -->
+                      <div class="tab-pane active" id="personalDetails">
+
+                        <form id="profile-form" action="javascript:void(0);">
+                          <div class="row g-3">
+
+                            <div class="col-lg-6">
+                              <label class="form-label">Nome</label>
+                              <input type="text" id="nome" class="form-control" placeholder="Seu nome">
+                            </div>
+
+                            <div class="col-lg-6">
+                              <label class="form-label">Sobrenome</label>
+                              <input type="text" id="sobrenome" class="form-control" placeholder="Seu sobrenome">
+                            </div>
+
+                            <div class="col-lg-6">
+                              <label class="form-label">Telefone</label>
+                              <input type="text" id="telefone" class="form-control" placeholder="(00) 00000-0000">
+                            </div>
+
+                            <div class="col-lg-6">
+                              <label class="form-label">E-mail</label>
+                              <input type="email" id="emailInput" class="form-control" placeholder="nome@empresa.com">
+                            </div>
+
+                            <div class="col-lg-6 locked">
+                              <label class="form-label">Sub-base</label>
+                              <div class="input-group">
+                                <input type="text" id="subbase" class="form-control" readonly disabled>
+                                <span class="input-group-text" title="Somente leitura"><i class="ri-lock-line"></i></span>
+                              </div>
+                              <div class="form-hint">Somente leitura</div>
+                            </div>
+                          </div>
+
+                          <div class="hstack gap-2 justify-content-end mt-4">
+                            <button type="submit" class="btn btn-primary">Salvar alterações</button>
+                            <button type="button" class="btn btn-soft-secondary" onclick="history.back()">Cancelar</button>
+                          </div>
+                        </form>
+                      </div>
+
+                      <!-- Aba de senha -->
+                      <div class="tab-pane" id="changePassword">
+
+                        <form id="password-form">
+
+                          <div class="row g-3">
+
+                            <div class="col-lg-12">
+                              <label class="form-label">Senha atual</label>
+                              <input type="password" class="form-control" id="current-pass" required>
+                            </div>
+
+                            <div class="col-lg-6">
+                              <label class="form-label">Nova senha</label>
+                              <input type="password" class="form-control"
+                                id="new-pass"
+                                pattern="(?=.*\\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
+                                required>
+                            </div>
+
+                            <div class="col-lg-6">
+                              <label class="form-label">Confirmar nova senha</label>
+                              <input type="password" class="form-control"
+                                id="confirm-pass"
+                                pattern="(?=.*\\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
+                                required>
+                            </div>
+                          </div>
+
+                          <div class="p-3 bg-light rounded mt-3">
+                            <h6 class="fs-13 mb-1">Regras da senha:</h6>
+                            <ul class="small text-muted mb-0">
+                              <li>Min. 8 caracteres</li>
+                              <li>1 letra maiúscula + 1 minúscula</li>
+                              <li>1 número</li>
+                            </ul>
+                          </div>
+
+                          <div class="hstack gap-2 justify-content-end mt-4">
+                            <button type="submit" class="btn btn-success">Alterar senha</button>
+                          </div>
+
+                        </form>
+
+                      </div>
+
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
-      </footer>
-    </div><!-- /main-content -->
-  </div><!-- /layout-wrapper -->
 
-  <!-- JS base -->
-  <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="assets/libs/simplebar/simplebar.min.js"></script>
-  <script src="assets/libs/node-waves/waves.min.js"></script>
-  <script src="assets/libs/feather-icons/feather.min.js"></script>
-  <script src="assets/js/plugins.js"></script>
+        @@include("partials/footer.html")
+      </div>
 
-  <!-- Config API (ajuste se necessário) -->
-  <script>
-    window.TRACK_API_URL = window.TRACK_API_URL || 'https://track-saidas-api.onrender.com/api';
-    // Se a sua API usar outra rota para senha:
-    // window.TRACK_PASSWORD_ENDPOINT = '/users/me/password';
-  </script>
+    </div>
 
-  <script src="assets/js/pages/profile-settings-tracking.init.js"></script>
-</body>
+   @@include("partials/vendor-scripts.html")
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+
+<script>
+  window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+</script>
+
+<script src="assets/js/user.js"></script>
+<script src="assets/js/pages/profile-settings-tracking.init.js"></script>
+
+  </body>
 </html>
-

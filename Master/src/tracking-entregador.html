@@ -55,6 +55,7 @@
                         <th>Telefone</th>
                         <th>Documento</th>
                         <th style="width:110px;">Ativo</th>
+                        <th style="width:110px;">Coletador</th>
                       </tr>
                     </thead>
                     <tbody id="tbody-entregadores"></tbody>
@@ -186,8 +187,33 @@
               </div>
             </div>
           </div>
-        </div>
+        </div>        
       </div>
+
+          <!-- Switch “Coletador” -->
+<div class="col-12" id="grp-coletador">
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="coletador">
+    <label class="form-check-label" for="coletador">Coletador</label>
+  </div>
+</div>
+
+<!-- Campos extras quando coletador for habilitado -->
+<div class="col-12 d-none" id="grp-coletador-extra">
+  <div class="card bg-light border mb-2">
+    <div class="card-body p-3">
+      <label for="username_entregador" class="form-label">Usuário do Coletador</label>
+      <input type="text" id="username_entregador" class="form-control mb-3" placeholder="ex: joao.silva" autocomplete="off" />
+
+      <label for="senha_entregador" class="form-label">Senha</label>
+      <div class="position-relative">
+        <input type="password" id="senha_entregador" class="form-control pe-5 senha-input" placeholder="Mínimo 8 caracteres" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}" autocomplete="new-password" />
+        <button class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted material-shadow-none" type="button" data-toggle="ver-senha"><i class="ri-eye-fill align-middle"></i></button>
+      </div>
+      <div class="form-text">Use ao menos 8 caracteres com maiúsculas, minúsculas e números.</div>
+    </div>
+  </div>
+</div>
 
       <!-- Endereço (CEP-first) -->
       <div class="card">
@@ -232,7 +258,7 @@
           </div>
         </div>
       </div>
-    </div><!-- /.offcanvas-body -->
+     </div><!-- /.offcanvas-body -->
 
     <!-- FOOTER: fixo / sempre visível -->
     <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body">

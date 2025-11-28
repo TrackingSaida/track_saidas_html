@@ -67,6 +67,12 @@ function classifyCodigo(rawInput){
     });
   }
 
+  const formatarData = (ts) => {
+    if (!ts) return "-";
+    const d = new Date(ts);
+    return d.toLocaleDateString("pt-BR"); // ex: 02/11/2025
+  };
+
   // ================== Filtros / refs ==================
   var f = {
     from: qs("#flt-from"),
@@ -89,11 +95,11 @@ function classifyCodigo(rawInput){
 
   // Resumo (já existia)
   var sumShopeeEl  = qs('#sum-shopee');
-  var sumMercadoEl = qs('#sum-mercado');
+  var sumMercadoEl = qs('#sum-ml');
   var sumAvulsoEl  = qs('#sum-avulso');
   var sumTotalEl   = qs('#sum-total');
 
-  var state = { page: 1, pageSize: 20, total: 0, rows: [], hasMore: false };
+  var state = { page: 1, pageSize: 200, total: 0, rows: [], hasMore: false };
 
   // ================== Combos (entregadores) ==================
   function loadCombosBase(){
@@ -130,19 +136,75 @@ function classifyCodigo(rawInput){
     fillEntregadores((augmentEntregadoresFromRows._base||[]).concat(nomesLista));
   }
 
-  // ================== helpers ==================
-  function readFilters(){
-    return {
-      page: state.page,
-      pageSize: parseInt((f.pageSize && f.pageSize.value) || "20", 10),
-      from: (f.from && f.from.value) || "",
-      to: (f.to && f.to.value) || "",
-      entregador: (f.entregador && f.entregador.value) || "",
-      status: (f.status && f.status.value) || "",
-      codigo: (f.codigo && f.codigo.value) || "",
-      sort: (f.sort && f.sort.value) || "-ts"
-    };
+async function carregarBases() {
+  const sel = document.getElementById("flt-base");
+  try {
+    const res = await fetch(`${window.TRACK_API_URL}/base`, { credentials: "include" });
+    const bases = await res.json();
+    sel.innerHTML = '<option value="">(Todas)</option>';
+    bases.forEach(b => {
+      sel.innerHTML += `<option value="${b.base}">${b.base}</option>`;
+    });
+  } catch (err) {
+    console.error("Erro ao carregar bases:", err);
   }
+}
+carregarBases();
+
+
+// ================== helpers ==================
+function readFilters() {
+  // Captura os valores dos filtros
+  const from = f.from?.value || "";
+  const to = f.to?.value || "";
+  const base = document.getElementById("flt-base")?.value || "";
+  const entregador = f.entregador?.value || "";
+  const status = f.status?.value || "";
+  const codigo = f.codigo?.value || "";
+  const sort = f.sort?.value || "-ts";
+
+  // === Normaliza datas ===
+  let fromDate = from ? new Date(from) : null;
+  let toDate = to ? new Date(to) : null;
+
+  // Se só "De" for informado, assume o mesmo dia
+  if (fromDate && !toDate) {
+    toDate = new Date(fromDate);
+  }
+
+  // Converte para yyyy-mm-dd (sem horário)
+  const fmt = (d) => (d ? d.toISOString().split("T")[0] : "");
+  const de = fmt(fromDate);
+  const ate = fmt(toDate);
+
+  // Ajusta status para o formato da API
+  let st = status;
+  if (st === "Saiu para entrega") st = "Saiu";
+  else if (st === "Coletado") st = "coletado";
+  else if (st === "Não Coletado") st = "Nao Coletado";
+  else if (st === "Cancelado") st = "cancelado";
+
+  // === Monta parâmetros compatíveis com /api/saidas/listar ===
+  const params = {
+    de,
+    ate,
+    base,
+    entregador,
+    status: st,
+    codigo,
+    sort,
+    limit: parseInt(f.pageSize?.value || "200", 10)
+  };
+
+  // Remove campos vazios
+  Object.keys(params).forEach((k) => {
+    if (!params[k]) delete params[k];
+  });
+
+  return params;
+}
+
+
   function getRowId(r){ return (r && (r.id || r.id_saida || r.idSaida || r._id || r.uuid)) || ''; }
 
   function normalizeRow(r){
@@ -160,6 +222,29 @@ function classifyCodigo(rawInput){
     return Object.assign({ id: id, tsFmt: tsFmt }, r);
   }
 
+
+
+// === NOVO: utilitários de seleção e rótulo do botão Editar ===
+function getSelectedIds(){
+  return qsa(".rowchk:checked")
+    .map(function(chk){ return chk.closest("tr")?.getAttribute("data-id"); })
+    .filter(Boolean);
+}
+
+function updateEditButtonState(){
+  if (!btnEdit) return;
+  var n = getSelectedIds().length;
+  btnEdit.disabled = n === 0;
+  btnEdit.textContent = (n <= 1) ? "Editar" : ("Editar em lote ("+n+")");
+  btnEdit.title = (n <= 1) ? "Editar registro selecionado" : "Editar todos os selecionados";
+}
+
+// manter em sincronia quando a tabela muda seleção
+if (tblBody) tblBody.addEventListener("change", function(e){
+  if (e.target && e.target.matches(".rowchk")) updateEditButtonState();
+});
+
+
   // ================== Tabela ==================
   function renderTable(rows){
     if (!tblBody) return;
@@ -174,13 +259,11 @@ function classifyCodigo(rawInput){
         '<tr data-id="'+rid+'"' + (isCancelado ? ' class="table-danger-subtle bg-danger-subtle"' : '') + '>' +
           '<td><input type="checkbox" class="rowchk form-check-input" /></td>' +
           '<td>'+(r.tsFmt||"")+'</td>' +
-          '<td>'+(r.entregador||"")+'</td>' +
-          '<td>'+(r.codigo||"")+'</td>' +
-          '<td>'+(r.servico||"")+'</td>' +
-          '<td>'+(r.status||"")+'</td>' +
-          '<td>'+(r.duplicado ? "Sim" : "Não")+'</td>' +
-          '<td>'+(r.base||"")+'</td>' +
-          '<td class="text-end">'+(r.lido_por||r.lido||"")+'</td>' +
+            '<td>'+ (r.base || "-") +'</td>' +
+            '<td>'+ (r.entregador || "-") +'</td>' +
+            '<td>'+ (r.codigo || "-") +'</td>' +
+            '<td>'+ (r.servico || "-") +'</td>' +
+            '<td>'+ (r.status || "-") +'</td>' +
         '</tr>'
       );
     }).join("");
@@ -244,6 +327,8 @@ function classifyCodigo(rawInput){
   // ================== Carregar (com auto-fit opcional) ==================
   function refresh(autoFit){
     var p = readFilters();
+     p.page = state.page;
+    p.pageSize = state.pageSize;
     window.TrackAPI.listSaidas(p).then(function(r){
       if (!r || !r.ok){ notify((r && r.error) || "Falha ao listar", "error"); return; }
 
@@ -268,6 +353,7 @@ function classifyCodigo(rawInput){
             if (chkAll) chkAll.checked = false;
             augmentEntregadoresFromRows(state.rows);
             updatePager();
+            updateEditButtonState();
           });
         }
       }
@@ -285,6 +371,7 @@ function classifyCodigo(rawInput){
       if (chkAll) chkAll.checked = false;
       augmentEntregadoresFromRows(state.rows);
       updatePager();
+      updateEditButtonState();
     });
   }
 
@@ -299,16 +386,21 @@ function classifyCodigo(rawInput){
     state.page = 1;
     refresh(true);
   });
-  if (chkAll) chkAll.addEventListener("change", function(){ qsa(".rowchk").forEach(function(c){ c.checked = chkAll.checked; }); });
+  if (chkAll) chkAll.addEventListener("change", function(){ qsa(".rowchk").forEach(function(c){ c.checked = chkAll.checked; }); 
+    updateEditButtonState();
+});
 
-  // ================== Editar / Excluir ==================
-  if (btnEdit) btnEdit.addEventListener("click", function(){
-    var checks = qsa(".rowchk:checked");
-    if (checks.length !== 1) return notify("Selecione exatamente 1 registro para editar.", "warning");
-    var tr = checks[0].closest("tr");
-    if (!tr) return;
-    openEditModal(tr.getAttribute("data-id"));
-  });
+// ================== Editar / Excluir ==================
+// Editar decide automaticamente: 1 => modal singular; >1 => modal em lote
+if (btnEdit) btnEdit.addEventListener("click", function(){
+  var ids = getSelectedIds();
+  if (ids.length === 0) return notify("Selecione pelo menos 1 registro.", "info");
+  if (ids.length === 1) {
+    return openEditModal(ids[0]); // mesmo openEditModal, mas aceita id direto
+  }
+  return openBulkModal(ids); // novo modal em lote
+});
+
 
   function toYMD(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   function isHoje(ts){
@@ -364,72 +456,294 @@ function classifyCodigo(rawInput){
   var eSrv    = document.getElementById("edit-servico");
   var eSta    = document.getElementById("edit-status");
   var btnSave = document.getElementById("edit-save");
+  var eBaseGrp = document.getElementById("edit-base-group");
+  var eBase    = document.getElementById("edit-base");
+if (eSta) eSta.addEventListener("change", function(){
+  var exigir = eSta.value === "Não Coletado";
+  if (eBaseGrp) eBaseGrp.classList.toggle("d-none", !exigir);
+  if (eBase) eBase.required = exigir;
+  if (!exigir && eBase) eBase.value = "";
+});
 
   // recalcula serviço quando o código muda
   if (eCod) eCod.addEventListener('input', function(){ if (eSrv) eSrv.value = classifyCodigo(eCod.value).servico; });
 
   function openEditModal(id){
-    var row = (state.rows || []).find(function(r){ return String(getRowId(r)) === String(id); });
-    if (!row) return notify("Registro não encontrado.", "error");
-    if (eId)  eId.value = id;
-    if (eEnt) eEnt.value = row.entregador || "";
-    if (eCod) eCod.value = row.codigo || "";
-    if (eSrv) eSrv.value = (classifyCodigo(row.codigo||"").servico);
-    var allowed = ["Saiu", "Pendente", "Cancelado"];
-    var st = (row.status || "Saiu"); if (allowed.indexOf(st) === -1) st = "Saiu";
-    if (eSta) eSta.value = st;
-    if (modal) modal.show();
-  }
+  var row = (state.rows || []).find(function(r){ return String(getRowId(r)) === String(id); });
+  if (!row) return notify("Registro não encontrado.", "error");
+
+  if (eId)  eId.value = id;
+  if (eEnt) eEnt.value = row.entregador || "";
+  if (eCod) eCod.value = row.codigo || "";
+  if (eSrv) eSrv.value = classifyCodigo(row.codigo||"").servico;
+
+  // UI usa rótulos “bonitos”
+  var uiStatus = (function(apiSt){
+    var s = String(apiSt || "").toLowerCase();
+    if (s === "saiu" || s === "saiu para entrega") return "Saiu para entrega";
+    if (s === "coletado") return "Coletado";
+    if (s === "nao coletado" || s === "não coletado") return "Não Coletado";
+    if (s === "cancelado") return "Cancelado";
+    return "Saiu para entrega";
+  })(row.status);
+
+  if (eSta) eSta.value = uiStatus;
+  if (eBase && row.base) eBase.value = row.base;
+
+  // mostra/esconde Base conforme status
+  if (eSta) eSta.dispatchEvent(new Event("change"));
+
+  if (modal) modal.show();
+}
 
   if (btnSave) btnSave.addEventListener("click", function(){
-    var id = eId && eId.value; if (!id) return notify("ID ausente.", "error");
-    if (eEnt && !eEnt.value) return notify("Selecione um entregador.", "warning");
+  var id = eId && eId.value; if (!id) return notify("ID ausente.", "error");
+  if (eEnt && !eEnt.value) return notify("Selecione um entregador.", "warning");
 
-    var payload = {
-      entregador: eEnt && eEnt.value,
-      codigo:     eCod && eCod.value,
-      servico:    classifyCodigo(eCod && eCod.value).servico,
-      status:     eSta && eSta.value
-    };
-    if (!window.TrackAPI || !TrackAPI.updateSaida) return notify("API de atualização não disponível.", "error");
+  // valida Base quando "Não Coletado"
+  if (eSta && eSta.value === "Não Coletado" && eBase && !eBase.value) {
+    return notify("Base obrigatória para 'Não Coletado'.", "warning");
+  }
 
-    if (window.Swal) Swal.showLoading();
+  // mapeia UI->API
+  function mapStatusToApi(v){
+    if (v === "Saiu para entrega") return "Saiu";
+    if (v === "Coletado") return "coletado";
+    if (v === "Não Coletado") return "Nao Coletado";
+    if (v === "Cancelado") return "cancelado";
+    return "Saiu";
+  }
 
-    TrackAPI.updateSaida(id, payload).then(function(r){
-      if (window.Swal) Swal.close();
-      switch (r && r.status) {
-        case 200:
-          var updated = normalizeRow(r.data);
-          state.rows = (state.rows || []).map(function(row){
-            return String(getRowId(row)) === String(id) ? Object.assign({}, row, updated) : row;
-          });
-          renderTable(state.rows);
-          updateSummary();
-          if (modal) modal.hide();
-          notify("Atualizado com sucesso.", "success");
-          break;
-        case 404: notify("Saída não encontrada.", "error"); break;
-        case 409: notify("Conflito: código já existe para outra saída.", "warning"); break;
-        case 422:
-          var msg = (r.data && (r.data.detail || r.data.message)) || r.error || "Nenhum campo para atualizar ou dados inválidos.";
-          if (Array.isArray(msg)) msg = msg.map(function(d){ return d.msg || d.message; }).filter(Boolean).join("; ");
-          notify(msg, "error");
-          break;
-        default:
-          if (r && r.ok) { notify("Atualizado.", "success"); if (modal) modal.hide(); refresh(false); }
-          else { notify((r && (r.error || r.status + " ao atualizar")) || "Falha ao atualizar.", "error"); }
-      }
-    }).catch(function(err){
-      if (window.Swal) Swal.close();
-      notify("Falha ao atualizar: " + (err && err.message || err || "erro desconhecido"), "error");
-    });
+  var payload = {
+    entregador: eEnt && eEnt.value,
+    codigo:     eCod && eCod.value,
+    servico:    classifyCodigo(eCod && eCod.value).servico,
+    status:     mapStatusToApi(eSta && eSta.value)
+  };
+
+  // envia Base só quando "Não Coletado"
+  if (eSta && eSta.value === "Não Coletado" && eBase && eBase.value) {
+    payload.base = eBase.value;
+  }
+
+  if (!window.TrackAPI || !TrackAPI.updateSaida) return notify("API de atualização não disponível.", "error");
+  if (window.Swal) Swal.showLoading();
+
+  TrackAPI.updateSaida(id, payload).then(function(r){
+    if (window.Swal) Swal.close();
+    switch (r && r.status) {
+      case 200:
+        var updated = normalizeRow(r.data);
+        state.rows = (state.rows || []).map(function(row){
+          return String(getRowId(row)) === String(id) ? Object.assign({}, row, updated) : row;
+        });
+        renderTable(state.rows);
+        updateSummary();
+        if (modal) modal.hide();
+        notify("Atualizado com sucesso.", "success");
+        updateEditButtonState();
+        break;
+      case 404: notify("Saída não encontrada.", "error"); break;
+      case 409: notify("Conflito: código já existe para outra saída.", "warning"); break;
+      case 422:
+        var msg = (r.data && (r.data.detail || r.data.message)) || r.error || "Nenhum campo para atualizar ou dados inválidos.";
+        if (Array.isArray(msg)) msg = msg.map(function(d){ return d.msg || d.message; }).filter(Boolean).join("; ");
+        notify(msg, "error");
+        break;
+      default:
+        if (r && r.ok) { notify("Atualizado.", "success"); if (modal) modal.hide(); refresh(false); }
+        else { notify((r && (r.error || r.status + " ao atualizar")) || "Falha ao atualizar.", "error"); }
+    }
+  }).catch(function(err){
+    if (window.Swal) Swal.close();
+    notify("Falha ao atualizar: " + (err && err.message || err || "erro desconhecido"), "error");
   });
+});
+
+// ====== Modal em Lote ======
+var bulkModalEl  = document.getElementById("bulkModal");
+var bulkModal    = (window.bootstrap && bulkModalEl) ? new bootstrap.Modal(bulkModalEl) : null;
+var bulkCount    = document.getElementById("bulk-count");
+var bulkEnt      = document.getElementById("bulk-entregador");
+var bulkStatus   = document.getElementById("bulk-status");
+var bulkBaseGrp  = document.getElementById("bulk-base-group");
+var bulkBase     = document.getElementById("bulk-base");
+var bulkApplyBtn = document.getElementById("bulk-apply");
+
+// mostra Base quando aplicar "Não Coletado"
+if (bulkStatus) bulkStatus.addEventListener("change", function(){
+  var show = bulkStatus.value === "Não Coletado";
+  if (bulkBaseGrp) bulkBaseGrp.classList.toggle("d-none", !show);
+  if (!show && bulkBase) bulkBase.value = "";
+});
+
+
+// abre modal em lote
+function openBulkModal(ids){
+  if (!ids || !ids.length) return;
+
+  // 🔹 Captura entregadores e status dos registros selecionados
+  var registros = ids.map(function(id){
+    return (state.rows || []).find(function(r){ return String(getRowId(r)) === String(id); });
+  }).filter(Boolean);
+
+  // === Validação: todos devem ter o mesmo entregador e status "Saiu para entrega" ===
+  var entregadores = Array.from(new Set(registros.map(r => r.entregador).filter(Boolean)));
+  var statusList   = Array.from(new Set(registros.map(r => (r.status || "").toLowerCase())));
+
+  if (entregadores.length > 1) {
+    return notify("Selecione apenas registros do mesmo entregador para edição em lote.", "warning");
+  }
+
+  if (statusList.some(s => !(s === "saiu" || s === "saiu para entrega"))) {
+    return notify("Todos os registros devem estar com status 'Saiu para entrega' para alterar entregador.", "warning");
+  }
+
+  // === Preenche o campo "De" com o entregador atual ===
+  var bulkFrom = document.getElementById("bulk-entregador-from");
+  if (bulkFrom) bulkFrom.value = entregadores[0] || "(vazio)";
+
+  // === Preenche lista de "Para" (entregadores disponíveis) ===
+  var bulkEnt = document.getElementById("bulk-entregador");
+  if (bulkEnt) {
+    loadCombosBase().then(function(nomes){
+      var unique = Array.from(new Set(nomes || [])).sort(function(a,b){ return a.localeCompare(b,"pt-BR"); });
+      bulkEnt.innerHTML = '<option value="">(Manter)</option>' +
+        unique
+          .filter(function(n){ return n !== entregadores[0]; }) // não repete o atual
+          .map(function(n){ return '<option value="'+n+'">'+n+'</option>'; })
+          .join("");
+    });
+  }
+
+  // === Preenche combo de bases ===
+  fetch(`${window.TRACK_API_URL}/base`, { credentials: "include" })
+    .then(r => r.ok ? r.json() : [])
+    .then(bases => {
+      if (bulkBase){
+        bulkBase.innerHTML = '<option value="">(Manter)</option>' + (bases||[]).map(function(b){
+          var v = b.base || b.slug || b.nome || b.name || b;
+          var t = b.nome || b.base || b.name || String(v);
+          return '<option value="'+v+'">'+t+'</option>';
+        }).join("");
+      }
+      if (bulkCount) bulkCount.textContent = ids.length + " registro(s) selecionado(s).";
+      if (bulkStatus) bulkStatus.value = "";
+      if (bulkBaseGrp) bulkBaseGrp.classList.add("d-none");
+      if (bulkBase) bulkBase.value = "";
+
+      if (bulkModal) bulkModal.show();
+    });
+}
+
+
+// aplicar em lote
+if (bulkApplyBtn) bulkApplyBtn.addEventListener("click", function(){
+  var ids = getSelectedIds();
+  if (!ids.length) return;
+
+    // 🔒 Regra: só pode alterar ENTREGADOR em lote se todos estiverem com status "Saiu para entrega"
+  if (bulkEnt && bulkEnt.value) {
+    var invalid = ids.filter(function(id){
+      var row = (state.rows || []).find(function(r){ return String(getRowId(r)) === String(id); });
+      if (!row) return true; // se não achar, considera inválido
+      var st = String(row.status || "").toLowerCase();
+      return !(st === "saiu" || st === "saiu para entrega");
+    });
+    if (invalid.length > 0) {
+      return notify(
+        "Alterar entregador em lote só é permitido para registros com status 'Saiu para entrega'. " +
+        "Ajuste sua seleção ou filtre por status.",
+        "warning"
+      );
+    }
+  }
+
+
+  function mapStatusToApi(v){
+    if (v === "Saiu para entrega") return "Saiu";
+    if (v === "Coletado") return "coletado";
+    if (v === "Não Coletado") return "Nao Coletado";
+    if (v === "Cancelado") return "cancelado";
+    return "";
+  }
+
+  var body = {};
+  if (bulkEnt && bulkEnt.value) body.entregador = bulkEnt.value;
+  if (bulkStatus && bulkStatus.value) body.status = mapStatusToApi(bulkStatus.value);
+  if (bulkStatus && bulkStatus.value === "Não Coletado" && bulkBase && bulkBase.value) {
+    body.base = bulkBase.value;
+  }
+
+  if (!Object.keys(body).length) {
+    return notify("Nada para aplicar: selecione Entregador e/ou Status.", "info");
+  }
+  if (!window.TrackAPI || !TrackAPI.updateSaida) return notify("API de atualização não disponível.", "error");
+
+  if (window.Swal) Swal.showLoading();
+
+  // aplica com leve defasagem
+  Promise.allSettled(ids.map(function(id, i){
+    return new Promise(function(res){ setTimeout(res, 50*i); }).then(function(){
+      return TrackAPI.updateSaida(id, body);
+    });
+  })).then(function(results){
+    if (window.Swal) Swal.close();
+    var ok = results.filter(function(r){ return r.status === "fulfilled" && r.value && (r.value.ok || r.value.status === 200); }).length;
+    var fail = results.length - ok;
+    if (bulkModal) bulkModal.hide();
+    notify("Lote concluído: "+ok+" ok, "+fail+" falha(s).", fail ? "warning" : "success");
+    refresh(false);
+    updateEditButtonState();
+  }).catch(function(err){
+    if (window.Swal) Swal.close();
+    notify("Falha no lote: " + (err && err.message || err), "error");
+  });
+});
+
+
 
   // ================== init ==================
   loadCombosBase().then(function(nomes){
     augmentEntregadoresFromRows._base = nomes || [];
     fillEntregadores(nomes || []);
-  }).finally(function(){
-    refresh(false); // primeira carga
-  });
+}).finally(function(){
+  if (f.pageSize) f.pageSize.value = String(state.pageSize);
+  refresh(false); // primeira carga
+  updateEditButtonState();
+});
 })();
+
+// Atualiza o resumo visível dos registros. Conta quantos códigos pertencem
+ 
+function updateSummaryRegistros() {
+  const sumShopeeEl  = document.querySelector('#sum-shopee');
+  const sumMercadoEl = document.querySelector('#sum-ml');
+  const sumAvulsoEl  = document.querySelector('#sum-avulso');
+  const sumTotalEl   = document.querySelector('#sum-total');
+  if (!sumShopeeEl || !sumMercadoEl || !sumAvulsoEl || !sumTotalEl) return;
+
+  let shopee = 0, ml = 0, avulso = 0, total = 0;
+
+  document.querySelectorAll('#reg-rows tr').forEach(tr => {
+    // Colunas: 1 checkbox, 2 ts, 3 base, 4 entregador, 5 código, 6 serviço, 7 status
+    const servico = tr.querySelector('td:nth-child(6)')?.textContent?.trim().toLowerCase();
+    if (!servico) return;
+
+    total++;
+    if (servico.includes('shopee')) shopee++;
+    else if (servico.includes('mercado')) ml++;
+    else avulso++;
+  });
+
+  sumShopeeEl.textContent  = shopee;
+  sumMercadoEl.textContent = ml;
+  sumAvulsoEl.textContent  = avulso;
+  sumTotalEl.textContent   = total;
+}
+
+// Executa o resumo ao carregar a página (caso os dados já estejam renderizados)
+document.addEventListener('DOMContentLoaded', () => {
+  updateSummaryRegistros();
+});
+
