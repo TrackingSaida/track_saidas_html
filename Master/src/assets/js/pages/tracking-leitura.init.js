@@ -178,7 +178,43 @@ function showMsgIcon(tipo, texto) {
     updateSummary();
   }
 
-  function createRow(row){
+
+// ===== FUNÇÃO REMOVER SAÍDA =====
+async function removerSaida(id, tr) {
+  if (!id) {
+    showMsgIcon("erro", "ID inválido para remoção.");
+    return;
+  }
+
+  const confirm = await Swal.fire({
+    icon: "warning",
+    title: "Remover leitura?",
+    text: "Deseja remover este registro de saída?",
+    showCancelButton: true,
+    confirmButtonText: "Sim, remover",
+    cancelButtonText: "Cancelar",
+  });
+
+  if (!confirm.isConfirmed) return;
+
+  try {
+    const resp = await TrackAPI.deleteSaida(id);
+    if (!resp.ok) throw new Error(resp.error || "Falha ao remover");
+
+    tr.remove();
+    rowsByKey.delete(tr.dataset.key);
+
+    updateSummary();
+    showMsgIcon("info", "Leitura removida.");
+    Sound.play("ok");
+  } catch (e) {
+    console.error(e);
+    showMsgIcon("erro", "Erro ao remover leitura.");
+    Sound.play("err");
+  }
+}
+
+function createRow(row){
     const tr = document.createElement("tr");
     tr.dataset.key = keyFor(row.entregador, row.codigo);
     tr.innerHTML = `
@@ -187,30 +223,50 @@ function showMsgIcon(tipo, texto) {
       <td class="cod">${row.codigo || ""}</td>
       <td class="srv">${row.servico || ""}</td>
       <td class="st">${row.status || "Enviando…"}</td>
-      <td class="dup text-center">
-        <input type="checkbox" class="form-check-input dup-mark" ${row.duplicado ? "checked" : ""} disabled>
-      </td>`;
+      <td class="remove text-center">
+  <button class="btn btn-sm btn-outline-danger btn-remove" data-id="${row.id_saida || ""}">
+    <i class="ri-delete-bin-line"></i>
+  </button>
+</td>`;
     tbLast.prepend(tr);
     rowsByKey.set(tr.dataset.key, tr);
+    // Adiciona listener ao botão de remover
+    tr.querySelector(".btn-remove")?.addEventListener("click", (ev) => {
+  ev.preventDefault();
+  removerSaida(ev.currentTarget.dataset.id, tr);
+});
+
     return tr;
   }
 
-  function appendOrUpdateRow(row){
-    const k = keyFor(row.entregador, row.codigo);
-    const ex = rowsByKey.get(k);
-    if (ex) {
-      ex.querySelector(".srv").textContent = row.servico || ex.querySelector(".srv").textContent;
-      ex.querySelector(".st").textContent  = row.status  || ex.querySelector(".st").textContent;
-      if (row.duplicado) { const chk = ex.querySelector(".dup-mark"); if (chk) chk.checked = true; }
-      // Atualiza o resumo após editar a linha existente
-      updateSummary();
-      return ex;
-    }
-    const newRow = createRow(row);
-    // Atualiza o resumo após criar nova linha
+ function appendOrUpdateRow(row){
+  const k = keyFor(row.entregador, row.codigo);
+  const ex = rowsByKey.get(k);
+
+  // ======== ATUALIZAR LINHA EXISTENTE ========
+  if (ex) {
+    ex.querySelector(".srv").textContent = row.servico || ex.querySelector(".srv").textContent;
+    ex.querySelector(".st").textContent  = row.status  || ex.querySelector(".st").textContent;
+
+    // Atualiza o resumo após editar a linha existente
     updateSummary();
-    return newRow;
+    return ex;
   }
+
+  // ======== CRIAR NOVA LINHA ========
+  const newRow = createRow(row);
+
+  // Ativar botão REMOVER para a nova linha
+  newRow.querySelector(".btn-remove")?.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    removerSaida(ev.currentTarget.dataset.id, newRow);
+  });
+
+  // Atualiza resumo
+  updateSummary();
+  return newRow;
+}
+
 
   // ---------- API helpers ----------
   function apiGetEntregadores(){
@@ -397,153 +453,210 @@ if (rowsByKey.has(k)) {
 
 
   // 🔹 Consulta o código nas saídas e atualiza status se necessário
-  try {
-    const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
-    const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`, {
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { "Authorization": `Bearer ${token}` } : {})
-      },
-      credentials: "include"
-    });
-
-    if (!resp.ok) {
-      if (resp.status === 401) {
-        showMsgIcon("erro", "Sessão expirada. Faça login novamente.");
-        Sound.play("err");
-        return;
-      }
-      throw new Error(`Falha na requisição: ${resp.status}`);
-    }
-
-    // ✅ Agora 'dados' sempre existe
-    const dados = await resp.json();
-
-   if (!Array.isArray(dados) || dados.length === 0) {
-  const overlay = document.getElementById("scanFS");
-  const wasActive = overlay?.classList.contains("show");
-  if (wasActive) overlay.style.display = "none";
-
-  try {
-    const confirm = await Swal.fire({
-      icon: "warning",
-      title: "Código não coletado",
-      html: `<p>O código <strong>${codigoFinal}</strong> ainda não foi coletado.</p>
-             <p>Deseja registrar mesmo assim?</p>`,
-      showCancelButton: true,
-      confirmButtonText: "Sim, registrar",
-      cancelButtonText: "Cancelar",
-      allowOutsideClick: false,
-      backdrop: true
-    });
-
-    if (confirm.isConfirmed) {
-      const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
-      const postResp = await fetch(`${window.TRACK_API_URL}/saidas/registrar`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          codigo: codigoFinal,
-          entregador,
-          servico,
-          status: "Não Coletado"
-        })
-      });
-
-      if (!postResp.ok) throw new Error("Falha ao registrar saída não coletada.");
-
-      showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
-      Sound.play("warn");
-
-      appendOrUpdateRow({
-        tsFmt: new Date().toLocaleString("pt-BR"),
-        entregador, codigo: codigoFinal, servico, status: "Não Coletado", duplicado: false
-      });
-
-      updateSummary();
-      return { ok: true, tipo: "nao_coletado_registrado" }; // ✅ sucesso real
-    } else {
-      if (wasActive) overlay.style.display = "block";
-      return { ok: false, tipo: "nao_coletado_cancelado" }; // cancelado
-    }
-  } finally {
-    const overlay2 = document.getElementById("scanFS");
-    if (overlay2 && overlay2.style.display === "none") overlay2.style.display = "block";
-  }
-  return { ok: false, tipo: "nao_coletado_cancelado" }; // 🚫 evita seguir
-}
-
-const registro = dados[0];
-const statusAtual = (registro.status || "").toLowerCase();
-
-// ⚠️ Se já saiu (cobre "saiu" e "saiu para entrega")
-if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
-  showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
-  Sound.play("warn");
-  if (inpCod) {
-    inpCod.value = "";
-    inpCod.focus();
-  }
-  return { ok: false, tipo: "ja_saiu" };
-}
-
-// 🚀 Se coletado → atualiza para "Saiu para entrega"
-if (statusAtual === "coletado") {
-  const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registro.id_saida}`, {
-    method: "PATCH",
+try {
+  const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
+  const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`, {
     headers: {
       "Content-Type": "application/json",
       ...(token ? { "Authorization": `Bearer ${token}` } : {})
     },
-    credentials: "include",
-    body: JSON.stringify({
+    credentials: "include"
+  });
+
+  if (!resp.ok) {
+    if (resp.status === 401) {
+      showMsgIcon("erro", "Sessão expirada. Faça login novamente.");
+      Sound.play("err");
+      return;
+    }
+    throw new Error(`Falha na requisição: ${resp.status}`);
+  }
+
+  // sempre existe
+  const dados = await resp.json();
+
+
+  // =======================================================
+  // 🔥 NOVO FLUXO: ignorar_coleta = TRUE
+  // Registrar saída diretamente (sem modal)
+  // =======================================================
+  if (window.IGNORAR_COLETA === true && (!Array.isArray(dados) || dados.length === 0)) {
+
+    const postResp = await fetch(`${window.TRACK_API_URL}/saidas/registrar`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        codigo: codigoFinal,
+        entregador,
+        servico,
+        status: "Saiu para entrega"
+      })
+    });
+
+    if (!postResp.ok) {
+      showMsgIcon("erro", "Erro ao registrar saída.");
+      Sound.play("err");
+      return { ok:false, tipo:"erro_ignorar" };
+    }
+
+    const data = await postResp.json();
+
+    appendOrUpdateRow({
+      tsFmt: new Date().toLocaleString("pt-BR"),
+      entregador,
+      codigo: codigoFinal,
+      servico,
       status: "Saiu para entrega",
-      entregador
-    })
-  });
+      id_saida: data.id_saida,
+      duplicado: false
+    });
 
-  if (!patchResp.ok) {
-    const errText = await patchResp.text();
-    console.error("PATCH falhou:", patchResp.status, errText);
-    throw new Error(`Falha ao atualizar status (${patchResp.status})`);
+    updateSummary();
+    showMsgIcon("info", `Registrado ✓ ${codigoFinal}`);
+    Sound.play("ok");
+
+    if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+
+    return { ok:true, tipo:"ignorar_coleta_saida" };
   }
 
-  showMsgIcon("info", `Registrado ✓ ${codigoFinal} • Saiu para entrega`);
-  Sound.play("ok");
 
-  appendOrUpdateRow({
-    tsFmt: new Date().toLocaleString("pt-BR"),
-    entregador,
-    codigo: codigoFinal,
-    servico,
-    status: "Saiu para entrega",
-    duplicado: false
-  });
+  // =======================================================
+  // 🔄 FLUXO ORIGINAL (coleta obrigatória)
+  // =======================================================
+  if (!Array.isArray(dados) || dados.length === 0) {
+    const overlay = document.getElementById("scanFS");
+    const wasActive = overlay?.classList.contains("show");
+    if (wasActive) overlay.style.display = "none";
 
-  updateSummary();
-  if (inpCod) {
-    inpCod.value = "";
-    inpCod.focus();
-  } 
-  return { ok: true, tipo: "coletado" };
+    try {
+      const confirm = await Swal.fire({
+        icon: "warning",
+        title: "Código não coletado",
+        html: `<p>O código <strong>${codigoFinal}</strong> ainda não foi coletado.</p>
+               <p>Deseja registrar mesmo assim?</p>`,
+        showCancelButton: true,
+        confirmButtonText: "Sim, registrar",
+        cancelButtonText: "Cancelar",
+        allowOutsideClick: false,
+        backdrop: true
+      });
+
+      if (confirm.isConfirmed) {
+        const postResp = await fetch(`${window.TRACK_API_URL}/saidas/registrar`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            codigo: codigoFinal,
+            entregador,
+            servico,
+            status: "Não Coletado"
+          })
+        });
+
+        if (!postResp.ok) throw new Error("Falha ao registrar saída não coletada.");
+
+        showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
+        Sound.play("warn");
+
+        appendOrUpdateRow({
+          tsFmt: new Date().toLocaleString("pt-BR"),
+          entregador,
+          codigo: codigoFinal,
+          servico,
+          status: "Não Coletado",
+          duplicado: false
+        });
+
+        updateSummary();
+        return { ok: true, tipo: "nao_coletado_registrado" };
+      } else {
+        if (wasActive) overlay.style.display = "block";
+        return { ok: false, tipo: "nao_coletado_cancelado" };
+      }
+
+    } finally {
+      const overlay2 = document.getElementById("scanFS");
+      if (overlay2 && overlay2.style.display === "none") overlay2.style.display = "block";
+    }
+  }
+
+
+  // =======================================================
+  // EXISTE REGISTRO → fluxo normal
+  // =======================================================
+  const registro = dados[0];
+  const statusAtual = (registro.status || "").toLowerCase();
+
+
+  // Já saiu
+  if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
+    showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
+    Sound.play("warn");
+    if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+    return { ok:false, tipo:"ja_saiu" };
+  }
+
+  // Atualiza coletado → saiu
+  if (statusAtual === "coletado") {
+
+    const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registro.id_saida}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        status: "Saiu para entrega",
+        entregador
+      })
+    });
+
+    if (!patchResp.ok) {
+      const errText = await patchResp.text();
+      console.error("PATCH falhou:", patchResp.status, errText);
+      throw new Error(`Falha ao atualizar status (${patchResp.status})`);
+    }
+
+    showMsgIcon("info", `Registrado ✓ ${codigoFinal} • Saiu para entrega`);
+    Sound.play("ok");
+
+    appendOrUpdateRow({
+      tsFmt: new Date().toLocaleString("pt-BR"),
+      entregador,
+      codigo: codigoFinal,
+      servico,
+      status: "Saiu para entrega",
+      id_saida: registro.id_saida,
+      duplicado: false
+    });
+
+    updateSummary();
+    if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+    return { ok:true, tipo:"coletado" };
+  }
+
+
+  // Status inesperado
+  showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
+  Sound.play("err");
+  return { ok:false, tipo:"status_desconhecido" };
+
+
+} catch (err) {
+  console.error("Erro ao consultar/atualizar:", err);
+  showMsgIcon("erro", "Erro ao verificar ou atualizar o status.");
+  Sound.play("err");
 }
-
-// ❌ Outros status não esperados
-showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
-Sound.play("err");
-return { ok: false, tipo: "status_desconhecido" };
-
-
-
-  } catch (err) {
-    console.error("Erro ao consultar/atualizar:", err);
-    showMsgIcon("erro", "Erro ao verificar ou atualizar o status.");
-    Sound.play("err");
-  }
 }
 
 

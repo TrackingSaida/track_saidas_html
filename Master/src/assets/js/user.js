@@ -1,11 +1,14 @@
-/* user.js — sessão, identidade e UI (Topbar/Sidebar)
- * - Redireciona para login quando a sessão expirar (401)
- * - Redireciona quando o Owner estiver bloqueado (403)
- * - Preenche Topbar/Sidebar com: Nome do usuário
- * - Remove completamente qualquer lógica de créditos
- */
-
 (function () {
+
+  // ==========================================================
+  // NOVO — flag global default (carregado do localStorage)
+  // ==========================================================
+  try {
+    window.IGNORAR_COLETA = localStorage.getItem("ignorar_coleta") === "1";
+  } catch (_) {
+    window.IGNORAR_COLETA = false;
+  }
+
   const API_ORIGIN = "https://track-saidas-api.onrender.com";
   const LOGIN_PAGE = "auth-signin-tracking-v2.html";
 
@@ -43,6 +46,8 @@
       localStorage.removeItem("acess_token");
       localStorage.removeItem("trackingToken");
       localStorage.removeItem("trackingUser");
+      localStorage.removeItem("ignorar_coleta");
+
       sessionStorage.removeItem("access_token");
       sessionStorage.removeItem("acess_token");
       sessionStorage.removeItem("trackingToken");
@@ -138,7 +143,6 @@
 
       const username = (user.username || "").trim();
       const email = (user.email || "").trim();
-
       const nomeExibicao = username || email || "Usuário";
 
       // Preenche UI
@@ -151,7 +155,7 @@
       const ddHeader = document.querySelector(".dropdown-menu .dropdown-header");
       if (ddHeader) ddHeader.textContent = `Bem-vindo(a) ${nomeExibicao}!`;
 
-      // Substitui placeholders antigos de templates
+      // Substitui placeholders antigos
       document.querySelectorAll("span, div, a, strong, b, h6").forEach((el) => {
         if (
           el.childElementCount === 0 &&
@@ -161,9 +165,24 @@
         }
       });
 
-      // guarda global
+      // ----------------------------
+      // Guardar usuário na sessão
+      // ----------------------------
       window.__USER__ = user;
       localStorage.setItem("user", JSON.stringify(user));
+
+      // ----------------------------
+      // NOVO: carregar ignorar_coleta
+      // ----------------------------
+      window.IGNORAR_COLETA = !!user?.ignorar_coleta;
+
+      try {
+        localStorage.setItem(
+          "ignorar_coleta",
+          window.IGNORAR_COLETA ? "1" : "0"
+        );
+      } catch (_) {}
+
     } catch (e) {
       console.error("Erro ao carregar usuário logado:", e);
 
@@ -182,13 +201,14 @@
     }
   }
 
-  // Atualiza ao abrir aba ou carregar página
+  // Carrega ao abrir aba ou página
   window.addEventListener("focus", () => {
     if (!isOnLoginPage()) carregarUsuarioLogado();
   });
   document.addEventListener("DOMContentLoaded", () => {
     if (!isOnLoginPage()) carregarUsuarioLogado();
   });
+
 })();
 
 /* ---------------------------------------------------------

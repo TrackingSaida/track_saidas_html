@@ -1,3 +1,101 @@
 // força valor em px para permitir operações aritméticas no Sass
 $grid-gutter-width: 24px !default; // ajuste se seu tema usa outro (24px é comum no Velzon)
 
+//
+// _track-overrides.scss
+// Customizações específicas do TrackingSaídas
+//
+
+// ===================================================================
+// 1) CORRIGE O CLIQUE NO TEXTO DO MENU PRINCIPAL
+// ===================================================================
+//
+// Problema original:
+// O Velzon usa ::after para desenhar a seta dos menus principais.
+// Esse pseudo-elemento fica absoluto e acaba ficando por cima do texto,
+// capturando o clique, fazendo o texto não ser clicável.
+//
+// Solução:
+// Remover pointer-events do ::after, assim o clique sempre vai para o <a>
+//
+
+.navbar-menu .nav-link[data-bs-toggle="collapse"] {
+  position: relative; // mantém contexto do ::after
+}
+
+.navbar-menu .nav-link[data-bs-toggle="collapse"]::after {
+  pointer-events: none !important; // ← ESSENCIAL
+  z-index: 0 !important;           // seta fica atrás do texto (opcional para segurança)
+  right: 6px !important;           // seta mais próxima do texto (UX melhor)
+}
+
+
+
+// ===================================================================
+// 2) SUBMENUS: GARANTIR ESTRUTURA LIMPA COM SEU MENU DINÂMICO
+// ===================================================================
+//
+// Seu sidebar dinâmico cria um <span class="menu-arrow"></span>.
+// Esse estilo evita conflitos e mantém apenas layout limpo.
+//
+
+.navbar-menu .menu-arrow {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: 6px; // usa o mesmo espaçamento da seta principal
+}
+
+
+
+// ===================================================================
+// 3) LINHA INTEIRA CLICÁVEL EM QUALQUER MENU (principal + submenu)
+// ===================================================================
+//
+// Velzon já usa flex, mas reforçamos para garantir que toda a linha
+// seja área clicável em qualquer modo de layout.
+//
+
+.navbar-menu .nav-link.menu-link {
+  display: flex !important;
+  align-items: center;
+  gap: .65rem;
+  width: 100%;
+  cursor: pointer;
+}
+
+.navbar-menu .nav-link.menu-link > i {
+  flex-shrink: 0;
+}
+
+.navbar-menu .nav-link.menu-link > span:not(.menu-arrow) {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+
+// ===================================================================
+// 4) SUBMENUS: COERÊNCIA DE TEXTO E CLIQUE
+// ===================================================================
+
+.navbar-menu .nav-sm .nav-link {
+  white-space: nowrap !important;
+  cursor: pointer;
+}
+
+
+
+// ===================================================================
+// 5) AJUSTE FINO PARA COMPATIBILIDADE GERAL DO TEMA
+// ===================================================================
+//
+// Apenas evita eventuais sobreposições inesperadas.
+//
+
+.navbar-menu .nav-link {
+  position: relative;
+}
