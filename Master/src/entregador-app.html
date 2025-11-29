@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>TrackingSaídas — Entregador</title>
+
+  <!-- Bootstrap -->
+  <link href="assets/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Leaflet (Mapa) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+  <!-- Ícones Remix -->
+  <link href="https://cdn.jsdelivr.net/npm/remixicon/fonts/remixicon.css" rel="stylesheet">
+
+  <!-- Estilos do App -->
+  <link href="assets/scss/entregador.css" rel="stylesheet">
+</head>
+
+<body class="entregador-app">
+
+  <!-- NAV SUPERIOR -->
+  <header class="app-header">
+    <div class="d-flex justify-content-between align-items-center px-3 py-2">
+      <h5 class="m-0 fw-bold text-white">TrackingSaídas — Entregador</h5>
+      <button id="btnLogout" class="btn btn-sm btn-light">Sair</button>
+    </div>
+  </header>
+
+  <!-- ÁREA DINÂMICA (conteúdo das telas) -->
+  <main id="appContent" class="app-content"></main>
+
+  <!-- BOTTOM NAVIGATION -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-screen="pendentes">
+      <i class="ri-list-check"></i>
+      <span>Pendentes</span>
+    </button>
+
+    <button class="nav-btn" data-screen="scan">
+      <i class="ri-focus-2-line"></i>
+      <span>Scan</span>
+    </button>
+
+    <button class="nav-btn" data-screen="finalizadas">
+      <i class="ri-check-double-line"></i>
+      <span>Finalizadas</span>
+    </button>
+
+    <button class="nav-btn" data-screen="ocorrencias">
+      <i class="ri-error-warning-line"></i>
+      <span>Ocorrências</span>
+    </button>
+
+    <button class="nav-btn" data-screen="perfil">
+      <i class="ri-user-3-line"></i>
+      <span>Perfil</span>
+    </button>
+  </nav>
+
+
+  <!-- MODAL SCAN (input + câmera) -->
+  <div class="modal fade" id="modalScan" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+
+        <div class="modal-header">
+          <h5 class="modal-title">Escanear Código</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+
+          <label class="fw-semibold">Digite ou bip o código:</label>
+          <input type="text" id="scanInput" class="form-control mb-3" placeholder="Código de barras">
+
+          <button id="btnOpenCamera" class="btn btn-primary w-100 mb-3">
+            <i class="ri-camera-line"></i> Usar Câmera
+          </button>
+
+          <!-- Área da câmera -->
+          <div id="cameraArea" class="d-none">
+            <video id="cameraVideo" autoplay playsinline></video>
+            <button id="btnCapture" class="btn btn-success w-100 mt-2">
+              Capturar
+            </button>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button id="btnScanConfirm" class="btn btn-success">Confirmar</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL ADICIONAR ENDEREÇO -->
+  <div class="modal fade" id="modalEndereco" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+      <div class="modal-content">
+
+        <div class="modal-header">
+          <h5 class="modal-title">Adicionar Endereço</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+
+          <!-- Ações -->
+          <div class="d-flex gap-2 mb-3">
+            <button id="btnOcr" class="btn btn-outline-primary w-100">
+              <i class="ri-camera-line"></i> Ler pacote
+            </button>
+
+            <button id="btnVoice" class="btn btn-outline-primary w-100">
+              <i class="ri-mic-line"></i> Ditado
+            </button>
+          </div>
+
+          <form id="formEndereco">
+
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Nome Destinatário</label>
+                <input type="text" id="dest_nome" class="form-control">
+              </div>
+
+              <div class="col-9">
+                <label class="form-label">Rua</label>
+                <input type="text" id="dest_rua" class="form-control">
+              </div>
+
+              <div class="col-3">
+                <label class="form-label">Número</label>
+                <input type="text" id="dest_numero" class="form-control">
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Complemento</label>
+                <input type="text" id="dest_complemento" class="form-control">
+              </div>
+
+              <div class="col-6">
+                <label class="form-label">Bairro</label>
+                <input type="text" id="dest_bairro" class="form-control">
+              </div>
+
+              <div class="col-6">
+                <label class="form-label">Cidade</label>
+                <input type="text" id="dest_cidade" class="form-control">
+              </div>
+
+              <div class="col-6">
+                <label class="form-label">Estado</label>
+                <input type="text" id="dest_estado" class="form-control">
+              </div>
+
+              <div class="col-6">
+                <label class="form-label">CEP</label>
+                <input type="text" id="dest_cep" class="form-control">
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Contato</label>
+                <input type="text" id="dest_contato" class="form-control">
+              </div>
+            </div>
+
+          </form>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button id="btnSalvarEndereco" class="btn btn-success">Salvar Endereço</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+  <!-- JS -->
+  <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- OCR Tesseract -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <!-- App JS -->
+  <script src="assets/js/pages/entregador-app.js"></script>
+
+</body>
+</html>
