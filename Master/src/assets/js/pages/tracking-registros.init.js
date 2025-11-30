@@ -205,22 +205,49 @@ function readFilters() {
 }
 
 
-  function getRowId(r){ return (r && (r.id || r.id_saida || r.idSaida || r._id || r.uuid)) || ''; }
+ function getRowId(r){
+  return (r && (r.id || r.id_saida || r.idSaida || r._id || r.uuid)) || '';
+}
 
-  function normalizeRow(r){
-    if (!r || typeof r !== "object") return r;
-    var id = r.id || r.id_saida || r.idSaida || r._id || r.uuid || null;
-    var ts = r.timestamp || r.ts || r.data_hora || r.datahora || r.date || null;
-    var tsFmt = r.tsFmt || (function(){
-      try{
-        if (!ts) return "";
-        var d = (ts instanceof Date) ? ts : (typeof ts === "number" ? new Date(ts) : new Date(String(ts)));
-        if (isNaN(d.getTime())) return "";
-        return d.toLocaleString("pt-BR");
-      } catch(_){ return ""; }
-    })();
-    return Object.assign({ id: id, tsFmt: tsFmt }, r);
-  }
+function normalizeRow(r){
+  if (!r || typeof r !== "object") return r;
+
+  // Normalização do ID
+  var id = r.id || r.id_saida || r.idSaida || r._id || r.uuid || null;
+
+  // Normalização do timestamp
+  var ts = r.timestamp || r.ts || r.data_hora || r.datahora || r.date || null;
+
+  var tsFmt = r.tsFmt || (function(){
+    try{
+      if (!ts) return "";
+      var d = (ts instanceof Date)
+        ? ts
+        : (typeof ts === "number" ? new Date(ts) : new Date(String(ts)));
+      if (isNaN(d.getTime())) return "";
+      return d.toLocaleString("pt-BR");
+    } catch(_){
+      return "";
+    }
+  })();
+
+  // ⭐ Normalização username
+  var username =
+      r.username ||
+      r.user ||
+      r.usuario ||
+      r.created_by ||
+      "-";
+
+  // Retorno final padronizado
+  return {
+    ...r,       // mantém todos os campos vindos da API
+    id: id,
+    tsFmt: tsFmt,
+    username: username
+  };
+}
+
 
 
 
@@ -260,6 +287,7 @@ if (tblBody) tblBody.addEventListener("change", function(e){
           '<td><input type="checkbox" class="rowchk form-check-input" /></td>' +
           '<td>'+(r.tsFmt||"")+'</td>' +
             '<td>'+ (r.base || "-") +'</td>' +
+            '<td>'+ (r.username || "-") +'</td>' +
             '<td>'+ (r.entregador || "-") +'</td>' +
             '<td>'+ (r.codigo || "-") +'</td>' +
             '<td>'+ (r.servico || "-") +'</td>' +
