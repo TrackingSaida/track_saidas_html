@@ -520,69 +520,113 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (closeBtn) closeBtn.onclick = () => stopScanner();
   }
 
-  // ---------- Processa leitura ----------
-function processarCodigo(text) {
-  const codigo = String(text || "").trim();
-  if (!codigo || scanLocked) return;
-  scanLocked = true;
+     // ---------- Processa leitura ----------
+  function processarCodigo(text) {
+    const codigo = String(text || "").trim();
+    if (!codigo || scanLocked) return;
+    scanLocked = true;
 
-  if (inputCodigo) inputCodigo.value = codigo;
+    if (inputCodigo) inputCodigo.value = codigo;
 
-  const parsed = classifyCodigo(codigo);
-  if (!parsed.ok) {
-    showMsg("erro", "Código inválido");
-    Sound.play("error");
-    scanLocked = false;
-    return;
+    const parsed = classifyCodigo(codigo);
+    if (!parsed.ok) {
+      showMsg("erro", "Código inválido");
+      Sound.play("error");
+      scanLocked = false;
+      return;
+    }
+
+    const baseSel = qs("#selBase")?.value;
+    if (!baseSel) {
+      showMsg("alerta", "Selecione a base");
+      Sound.play("warn");
+      scanLocked = false;
+      return;
+    }
+
+    const duplicado = COLETAS.some(c => c.codigo === parsed.codigo);
+    if (duplicado) {
+      COLETAS.push({
+        base: baseSel,
+        codigo: parsed.codigo,
+        servico: parsed.servico,
+        status: "duplicado",
+        tentativas: 0
+      });
+      showMsg("alerta", "Duplicado");
+      Sound.play("warn");
+    } else {
+      const novoItem = {
+        base: baseSel,
+        codigo: parsed.codigo,
+        servico: parsed.servico,
+        status: "pendente",
+        tentativas: 0,
+        data: hojeBR()
+      };
+
+      COLETAS.push(novoItem);
+      totalLidos++;
+      atualizarContador();
+      showMsg("info", `Registrado ✓ (${totalLidos})`);
+      Sound.play("ok");
+
+      enviarColetaUnica(novoItem);
+    }
+
+    if (inputCodigo) inputCodigo.value = "";
+    renderTabela();
+
+    setTimeout(() => (scanLocked = false), 800);
   }
 
-  const baseSel = qs("#selBase")?.value;
-  if (!baseSel) {
-    showMsg("alerta", "Selecione a base");
-    Sound.play("warn");
-    scanLocked = false;
-    return;
+  /* ============================================================
+      SISTEMA DE INATIVIDADE — Reset automático da base
+     ============================================================ */
+  const TEMPO_INATIVIDADE_MS = 3 * 60 * 1000; // 3 minutos
+  let inatividadeTimer = null;
+
+  function reiniciarInatividade() {
+    if (inatividadeTimer) clearTimeout(inatividadeTimer);
+
+    inatividadeTimer = setTimeout(() => {
+      const sel = qs("#selBase");
+      if (!sel) return;
+
+      if (sel.value !== "") {
+        sel.value = "";
+        BASE_ATUAL = null;
+        STORAGE_KEY = null;
+
+        toast("Selecione a base novamente (inatividade).", false);
+        console.warn("⏳ Base resetada por inatividade");
+      }
+    }, TEMPO_INATIVIDADE_MS);
   }
 
-  const duplicado = COLETAS.some(c => c.codigo === parsed.codigo);
-  if (duplicado) {
-    COLETAS.push({
-      base: baseSel,
-      codigo: parsed.codigo,
-      servico: parsed.servico,
-      status: "duplicado",
-      tentativas: 0
-    });
-    showMsg("alerta", "Duplicado");
-    Sound.play("warn");
-  } else {
-    const novoItem = {
-      base: baseSel,
-      codigo: parsed.codigo,
-      servico: parsed.servico,
-      status: "pendente",
-      tentativas: 0
-    };
+  // 🔄 Atividade geral reinicia o timer
+  document.addEventListener("click", reiniciarInatividade);
+  document.addEventListener("keydown", reiniciarInatividade);
 
-    novoItem.data = hojeBR();
-
-    COLETAS.push(novoItem);
-    totalLidos++;
-    atualizarContador();
-    showMsg("info", `Registrado ✓ (${totalLidos})`);
-    Sound.play("ok");
-
-    // 🆕 Envia automaticamente após leitura da câmera
-    enviarColetaUnica(novoItem);
+  // 🔄 Reinicia timer ao trocar a base
+  const selBaseEl = qs("#selBase");
+  if (selBaseEl) {
+    selBaseEl.addEventListener("change", reiniciarInatividade);
   }
 
-  if (inputCodigo) inputCodigo.value = "";
-  renderTabela();
+  // 🔄 Reinicia timer no registrar manual
+  const OLD_registrarCodigo = registrarCodigo;
+  registrarCodigo = function () {
+    reiniciarInatividade();
+    return OLD_registrarCodigo();
+  };
 
-  // Pequeno delay antes de liberar novo scan
-  setTimeout(() => (scanLocked = false), 800);
-}
-
+  // 🔥 Integração REAL com scanner (processarCodigo dentro da IIFE)
+  const originalProcessarCodigo = processarCodigo;
+  processarCodigo = function (text) {
+    reiniciarInatividade();
+    return originalProcessarCodigo(text);
+  };
 
   // ---------- Botão abrir câmera ----------
   const newBtn = btnScan.cloneNode(true);
@@ -602,4 +646,3 @@ function processarCodigo(text) {
 
   window.addEventListener("beforeunload", stopScanner);
 })();
-
