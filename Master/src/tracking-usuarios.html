@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="pt-br" data-layout="vertical" data-topbar="dark" data-sidebar="dark" data-sidebar-size="lg">
+
+<head>
+    @@include("partials/title-meta.html", {"title": "Usuários"})
+    @@include("partials/head-css.html")
+</head>
+
+<body>
+
+<div id="layout-wrapper">
+
+    @@include("partials/menu.html")
+
+    <div class="main-content">
+        <div class="page-content">
+            <div class="container-fluid">
+
+                @@include("partials/page-title.html", {"pagetitle": "Configurações", "title": "Usuários"})
+
+                <!-- ======================= CARD PRINCIPAL ======================= -->
+                <div class="card">
+                    <div class="card-header d-flex align-items-center justify-content-between ent-toolbar">
+
+                        <!-- Ações esquerda -->
+                        <div class="d-flex gap-2 ent-actions">
+                            <button class="btn btn-primary" id="btnAdd">
+                                <i class="ri-add-line align-bottom me-1"></i> Adicionar
+                            </button>
+
+                            <button class="btn btn-soft-primary" id="btnHeaderEdit" disabled>
+                                <i class="ri-edit-2-line align-bottom me-1"></i> Editar
+                            </button>
+
+                            <button class="btn btn-soft-danger" id="btnHeaderDel" disabled>
+                                <i class="ri-delete-bin-line align-bottom me-1"></i> Excluir
+                            </button>
+                        </div>
+
+                        <!-- Filtros direita -->
+                        <div class="d-flex align-items-center gap-3">
+
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="toggleAtivos" checked>
+                                <label class="form-check-label" for="toggleAtivos">Somente ativos</label>
+                            </div>
+
+                            <div class="search-box w-100">
+                                <input type="text" id="search" class="form-control" placeholder="Buscar por nome, e-mail, username...">
+                                <i class="ri-search-line search-icon"></i>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- ======================= TABELA ======================= -->
+                    <div class="card-body">
+                        <div class="table-responsive table-card">
+                            <table class="table align-middle table-nowrap" id="tbl-users">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width:56px;">Sel.</th>
+                                        <th>Nome</th>
+                                        <th>Sobrenome</th>
+                                        <th>Username</th>
+                                        <th>E-mail</th>
+                                        <th>Contato</th>
+                                        <th>Perfil</th>
+                                        <th>Ativo</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody id="tbody-users"></tbody>
+
+                                <div id="empty" class="text-center text-muted py-4 d-none">
+                                    <lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop"
+                                               colors="primary:#121331,secondary:#08a88a"
+                                               style="width:60px;height:60px"></lord-icon>
+                                    <div class="mt-2">Nenhum usuário encontrado.</div>
+                                </div>
+                            </table>
+                        </div>
+
+                        <!-- paginação -->
+                        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-muted">Itens por página:</span>
+                                <select id="perPage" class="form-select form-select-sm" style="width:auto">
+                                    <option value="10" selected>10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </div>
+
+                            <div class="pagination-wrap hstack gap-2">
+                                <a class="page-item pagination-prev disabled" href="javascript:void(0);" id="pg-prev">Anterior</a>
+                                <ul class="pagination mb-0" id="pg-numbers"></ul>
+                                <a class="page-item pagination-next disabled" href="javascript:void(0);" id="pg-next">Próximo</a>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div> <!-- container -->
+        </div> <!-- content -->
+
+        @@include("partials/footer.html")
+    </div>
+</div>
+
+@@include("partials/customizer.html")
+@@include("partials/vendor-scripts.html")
+
+<!-- ===================== OFFCANVAS (CREATE/EDIT) ===================== -->
+<div class="offcanvas offcanvas-end" tabindex="-1"
+     id="oc-user" aria-labelledby="ocLabel"
+     style="width:520px" data-bs-scroll="false" data-bs-backdrop="true">
+
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title" id="ocLabel">Novo Usuário</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+
+    <form id="formUser" class="needs-validation d-flex flex-column h-100" novalidate>
+
+        <div class="offcanvas-body flex-grow-1">
+
+            <input type="hidden" id="userId" />
+
+            <div class="card mb-3">
+                <div class="card-header bg-light fw-semibold">Dados do Usuário</div>
+
+                <div class="card-body">
+                    <div class="row g-3">
+
+                        <div class="col-6">
+                            <label class="form-label">Nome</label>
+                            <input type="text" id="nome" class="form-control">
+                        </div>
+
+                        <div class="col-6">
+                            <label class="form-label">Sobrenome</label>
+                            <input type="text" id="sobrenome" class="form-control">
+                        </div>
+
+                        <div class="col-6">
+                            <label class="form-label">Username</label>
+                            <input type="text" id="username" class="form-control" required>
+                        </div>
+
+                        <div class="col-6">
+                            <label class="form-label">Contato</label>
+                            <input type="text" id="contato" class="form-control">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">E-mail</label>
+                            <input type="email" id="email" class="form-control" required>
+                        </div>
+
+                        <!-- CREATE: campo senha -->
+                        <div class="col-12" id="groupPassword">
+                            <label class="form-label">Senha</label>
+                            <input type="password" id="password" class="form-control" placeholder="Min. 4 caracteres">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Perfil</label>
+                            <select id="role" class="form-select">
+                                <option value="1">Administrador</option>
+                                <option value="2">Operador</option>
+                                <option value="3">Coletador</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="statusToggle" checked>
+                                <label class="form-check-label">Ativo</label>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body">
+            <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="saveBtn">Salvar</button>
+        </div>
+
+    </form>
+</div>
+
+<script src="assets/js/pages/tracking-usuarios.js?v=1.0"></script>
+
+</body>
+</html>

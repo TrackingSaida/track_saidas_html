@@ -2,6 +2,36 @@
 const API_URL          = "https://track-saidas-api.onrender.com/api";
 const API_ENTREGADORES = `${API_URL}/entregadores/`;
 
+/* =================== Telefone / WhatsApp =================== */
+
+function maskCellphone(value) {
+  value = value.replace(/\D/g, "");
+  if (value.length > 11) value = value.substring(0, 11);
+
+  if (value.length >= 7)
+    return value.replace(/^(\d{2})(\d{5})(\d{0,4}).*/, "($1) $2-$3");
+
+  if (value.length >= 3)
+    return value.replace(/^(\d{2})(\d{0,5}).*/, "($1) $2");
+
+  if (value.length >= 1)
+    return value.replace(/^(\d{0,2}).*/, "($1");
+
+  return value;
+}
+
+function gerarLinkWhatsapp(contatoRaw) {
+  if (!contatoRaw) return null;
+
+  let numero = contatoRaw.toString().replace(/\D/g, "");
+
+  // Telefone válido: 11 dígitos
+  if (numero.length !== 11) return null;
+
+  return `https://wa.me/55${numero}`;
+}
+
+
 /* =============== Helpers / UI ================= */
 const qs  = (s) => document.querySelector(s);
 const qsa = (s) => Array.from(document.querySelectorAll(s));
@@ -116,7 +146,23 @@ function buildRow(e){
         <input class="form-check-input sel-row" type="radio" name="sel-entregador" ${radioAttrs}>
       </td>
       <td>${e.nome || "-"}</td>
-      <td>${e.telefone || "-"}</td>
+      <td>
+  ${(() => {
+      const raw = e.telefone;
+      if (!raw) return "-";
+
+      const formatted = maskCellphone(raw);
+      const link = gerarLinkWhatsapp(raw);
+
+      if (!link) return formatted; // inválido: só número
+
+      return `
+        <a href="${link}" target="_blank" class="text-success">
+          <i class="ri-whatsapp-line me-1"></i>${formatted}
+        </a>`;
+  })()}
+</td>
+
       <td>${e.documento || "-"}</td>
       <td class="text-center"><input type="checkbox" class="form-check-input" ${ativoChecked} disabled></td>
       <td class="text-center"><input type="checkbox" class="form-check-input" ${e.coletador ? "checked" : ""} disabled></td>
@@ -217,7 +263,10 @@ function openForm(modo, data=null){
 
   qs("#entregadorId").value = safeId(data?.id_entregador ?? data?.id) || "";
   qs("#nome").value        = data?.nome || "";
-  qs("#telefone").value    = data?.telefone || "";
+  qs("#telefone")?.addEventListener("input", ev => {
+  ev.target.value = maskCellphone(ev.target.value);
+});
+
   qs("#documento").value   = data?.documento || "";
 
   qs("#rua").value         = data?.rua || "";
@@ -439,19 +488,7 @@ qs("#formEntregador")?.addEventListener("submit", async (ev) => {
   const onlyDigits = (s) => (s || '').replace(/\D/g, '');
   const normalizeRG = (v) => (v || '').replace(/[^0-9xX]/g, '').toUpperCase();
 
-  /* ========== Telefone: máscara + validação ========== */
-  function formatPhone(v) {
-    const d = onlyDigits(v).slice(0, 11);
-    if (d.length <= 2) return `(${d}`;
-    if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-    if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
-    return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`; // 11 dígitos
-  }
-  function isPhoneValid(v) {
-    const d = onlyDigits(v);
-    return d.length === 10 || d.length === 11;
-  }
-
+  
   /* ========== CPF: máscara + validação (DV) ========== */
   function formatCPF(v) {
     const d = onlyDigits(v).slice(0, 11);
@@ -506,17 +543,17 @@ qs("#formEntregador")?.addEventListener("submit", async (ev) => {
     const tel = qs('#telefone');
     const doc = qs('#documento');
 
-    if (tel) {
-      tel.addEventListener('input', () => {
-        const cur = tel.selectionStart;
-        tel.value = formatPhone(tel.value);
-        tel.setCustomValidity(isPhoneValid(tel.value) ? '' : 'Telefone inválido (inclua DDD).');
-      });
-      tel.addEventListener('blur', () => {
-        tel.setCustomValidity(isPhoneValid(tel.value) ? '' : 'Telefone inválido (inclua DDD).');
-        if (!tel.checkValidity()) tel.reportValidity(); // hint nativo
-      });
+   if (tel) {
+    const num = onlyDigits(tel.value);
+    const okTel = num.length === 11;
+
+    tel.setCustomValidity(okTel ? "" : "Número de celular deve ter 11 dígitos.");
+    if (!okTel) {
+      tel.reportValidity();
+      ok = false;
     }
+}
+
 
     if (doc) {
       doc.addEventListener('input', () => {

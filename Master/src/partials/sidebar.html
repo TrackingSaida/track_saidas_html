@@ -124,7 +124,7 @@
     </li>`);
 
   try {
-    const resp = await fetch(`${API_BASE}/ui/menu`, fetchOpts);
+    const resp = await fetch(`${API_BASE}/api/ui/menu`, fetchOpts);
     if (resp.status === 401) { window.location.href = LOGIN_URL; return; }
     if (!resp.ok) throw new Error("HTTP " + resp.status);
     const data = await resp.json();
@@ -134,9 +134,26 @@
     nav.querySelectorAll(":scope > li:not(.menu-title)").forEach(el => el.remove());
 
     // Procura seção "Operação"
-    const operacao = serverMenu.find(s => (s.section || "").toLowerCase().includes("opera"));
-    const dashboards = serverMenu.find(s => (s.section || "").toLowerCase() === "dashboards");
-    const config = serverMenu.find(s => (s.section || "").toLowerCase().includes("config"));
+  const operacao = serverMenu.find(s =>
+  (s.section || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .includes("oper")
+);
+
+const dashboards = serverMenu.find(s =>
+  (s.section || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") === "dashboards"
+);
+
+const config = serverMenu.find(s =>
+  (s.section || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .includes("config")
+);
+
 
     // 🔹 Monta grupo Operação → Coletas / Saídas (se existir)
     let opHTML = "";
