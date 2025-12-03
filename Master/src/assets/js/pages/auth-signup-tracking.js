@@ -2,9 +2,8 @@
 // Signup - TrackingSaídas (Wizard Cover)
 // =========================
 
-// Defina a URL aqui no JS (sem depender do HTML):
-// Se quiser mudar, basta alterar esta constante:
-const API_USERS = 'https://track-saidas-api.onrender.com/api/users/';
+// URL do endpoint de signup público
+const API_SIGNUP = 'https://track-saidas-api.onrender.com/api/public/signup';
 
 (function () {
   'use strict';
@@ -99,15 +98,16 @@ const API_USERS = 'https://track-saidas-api.onrender.com/api/users/';
       });
     });
 
-    // ------ Submit final -> POST /users/ ------
+    // ------ Submit final -> POST /public/signup ------
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       e.stopPropagation();
 
-      // valida apenas o último passo (sub-base), além do que já foi validado
+      // valida apenas o último passo (sub-base)
       const finalPane = document.getElementById('pane-subbase') || document.querySelector('.tab-pane.active');
       const inputs = finalPane ? finalPane.querySelectorAll('input[required],select[required],textarea[required]') : [];
       let valid = true;
+
       inputs.forEach((inp) => {
         if (!inp.checkValidity()) valid = false;
       });
@@ -115,6 +115,7 @@ const API_USERS = 'https://track-saidas-api.onrender.com/api/users/';
       // validações globais de senha
       const senha = $('#senha')?.value || '';
       const senha2 = $('#senha2')?.value || '';
+
       if (!senhaForteOk(senha)) valid = false;
       if (senha2 && senha !== senha2) valid = false;
 
@@ -125,11 +126,11 @@ const API_USERS = 'https://track-saidas-api.onrender.com/api/users/';
       const payload = {
         email:      present($('#email')?.value),
         username:   present($('#username')?.value),
-        password_hash: senha, // backend espera password_hash
+        password:   senha,
         nome:       present($('#nome')?.value),
         sobrenome:  present($('#sobrenome')?.value),
         contato:    present($('#telefone')?.value),
-        sub_base:   present($('#subbase')?.value) // backend espera sub_base
+        sub_base:   present($('#subbase')?.value),
       };
 
       // campo termos (se existir)
@@ -140,24 +141,20 @@ const API_USERS = 'https://track-saidas-api.onrender.com/api/users/';
       }
 
       // campos obrigatórios
-      if (!payload.email || !payload.username || !payload.nome || !payload.sobrenome || !payload.contato || !payload.password_hash || !payload.sub_base) {
+      if (!payload.email || !payload.username || !payload.nome || !payload.sobrenome ||
+          !payload.contato || !payload.password || !payload.sub_base) {
         alert('Preencha todos os campos obrigatórios.');
         return;
       }
 
       const btn = $('#btn-submit') || form.querySelector('[type="submit"]');
+
       try {
         disableBtn(btn, true);
 
-        // normaliza a URL final
-        const USERS_URL = /\/users\/?$/.test(API_USERS)
-          ? API_USERS.replace(/\/+$/, '') + '/'
-          : API_USERS.replace(/\/+$/, '') + '/users/';
-
-        const res = await fetch(USERS_URL, {
+        const res = await fetch(API_SIGNUP, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
           body: JSON.stringify(payload)
         });
 
@@ -166,8 +163,12 @@ const API_USERS = 'https://track-saidas-api.onrender.com/api/users/';
           throw new Error(txt || 'Falha ao criar conta.');
         }
 
-        // redireciona para login já com email e username
-        const q = new URLSearchParams({ email: payload.email, username: payload.username }).toString();
+        // redireciona para login já preenchido
+        const q = new URLSearchParams({
+          email: payload.email,
+          username: payload.username
+        }).toString();
+
         window.location.href = 'auth-signin-tracking-v2.html?' + q;
 
       } catch (err) {

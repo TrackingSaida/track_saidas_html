@@ -478,156 +478,102 @@ qs("#formEntregador")?.addEventListener("submit", async (ev) => {
   qs("#btnEnderecoManual")?.addEventListener("click", () => { lockAddress(false); qs("#rua")?.focus(); });
 });
 
-// Máscara + Validação + Normalização
+/* =====================================================
+   DOCUMENTO (CPF / RG) — MÁSCARA + VALIDAÇÃO + NORMALIZAÇÃO
+   ===================================================== */
 
-(function () {
-  'use strict';
+// Apenas dígitos
+const digits = (v) => (v || "").replace(/\D/g, "");
 
-  /* ================= Helpers ================= */
-  const qs = (s) => document.querySelector(s);
-  const onlyDigits = (s) => (s || '').replace(/\D/g, '');
-  const normalizeRG = (v) => (v || '').replace(/[^0-9xX]/g, '').toUpperCase();
+// Remove caracteres inválidos e mantém X no RG
+const normalizeRG = (v) => (v || "").replace(/[^0-9xX]/g, "").toUpperCase();
 
-  
-  /* ========== CPF: máscara + validação (DV) ========== */
-  function formatCPF(v) {
-    const d = onlyDigits(v).slice(0, 11);
-    if (d.length <= 3) return d;
-    if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
-    if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
-    return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
-  }
-  function isValidCPF(v) {
-    const s = onlyDigits(v);
-    if (s.length !== 11) return false;
-    if (/^(\d)\1{10}$/.test(s)) return false; // todos iguais
-    const calcDV = (base) => {
-      let sum = 0;
-      for (let i = 0; i < base.length; i++) sum += parseInt(base[i], 10) * (base.length + 1 - i);
-      const r = sum % 11;
-      return r < 2 ? 0 : 11 - r;
-    };
-    const dv1 = calcDV(s.slice(0, 9));
-    const dv2 = calcDV(s.slice(0, 9) + dv1);
-    return dv1 === +s[9] && dv2 === +s[10];
-  }
-
-  /* ========== RG: máscara (heurística) + validação leve ========== */
-  function formatRG(v) {
-    const s = normalizeRG(v).slice(0, 10); // comum 7–10
-    if (s.length <= 2) return s;
-    if (s.length <= 5) return `${s.slice(0, 2)}.${s.slice(2)}`;
-    if (s.length <= 8) return `${s.slice(0, 2)}.${s.slice(2, 5)}.${s.slice(5)}`;
-    return `${s.slice(0, 2)}.${s.slice(2, 5)}.${s.slice(5, 8)}-${s.slice(8)}`;
-  }
-  function isValidRG(v) {
-    const s = normalizeRG(v);
-    if (s.length < 7 || s.length > 10) return false;
-    return /^\d{6,9}[0-9X]$/.test(s);
-  }
-
-  /* ========== Documento: auto detecta CPF (11 díg.) ou RG ========== */
-  function formatDocumento(v) {
-    const d = onlyDigits(v);
-    if (d.length === 11) return formatCPF(v);
-    return formatRG(v);
-  }
-  function validateDocumento(v) {
-    const d = onlyDigits(v);
-    if (d.length === 11) return isValidCPF(v) ? '' : 'CPF inválido.';
-    return isValidRG(v) ? '' : 'RG inválido. Use 7–10 dígitos (DV pode ser X).';
-  }
-
-  /* ========== Anexa máscaras e validações (UX) ========== */
-  function attachMasks() {
-    const tel = qs('#telefone');
-    const doc = qs('#documento');
-
-   if (tel) {
-    const num = onlyDigits(tel.value);
-    const okTel = num.length === 11;
-
-    tel.setCustomValidity(okTel ? "" : "Número de celular deve ter 11 dígitos.");
-    if (!okTel) {
-      tel.reportValidity();
-      ok = false;
-    }
+/* ---------- CPF ---------- */
+function maskCPF(v) {
+  const d = digits(v).slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
+function isCPF(v) {
+  const s = digits(v);
+  if (s.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(s)) return false;
 
-    if (doc) {
-      doc.addEventListener('input', () => {
-        const before = doc.value;
-        doc.value = formatDocumento(doc.value);
-        const msg = validateDocumento(doc.value);
-        doc.setCustomValidity(msg);
-      });
-      doc.addEventListener('blur', () => {
-        const msg = validateDocumento(doc.value);
-        doc.setCustomValidity(msg);
-        if (msg) doc.reportValidity(); // mostra tooltip nativa em vermelho
-      });
-    }
-  }
-
-  
-  /* ========== Normalização no payload (sem quebrar o arquivo) ========== */
-  // Se já existe formPayload(), envolvemos para ajustar telefone/documento.
-  const originalFormPayload = window.formPayload;
-  window.formPayload = function () {
-    const base = typeof originalFormPayload === 'function' ? originalFormPayload() : {};
-    const telV = qs('#telefone') ? qs('#telefone').value : '';
-    const docV = qs('#documento') ? qs('#documento').value : '';
-
-    // telefone: envie só dígitos (ajuste aqui se seu back preferir formatado)
-    const telOut = onlyDigits(telV);
-
-    // documento: CPF => só dígitos; RG => mantém DV X
-    const docDigits = onlyDigits(docV);
-    const docOut = docDigits.length === 11 ? docDigits : normalizeRG(docV);
-
-    return { ...base, telefone: telOut, documento: docOut };
+  const calc = (n) => {
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += s[i] * (n + 1 - i);
+    const r = sum % 11;
+    return r < 2 ? 0 : 11 - r;
   };
+  return calc(9) === +s[9] && calc(10) === +s[10];
+}
 
-  /* ========== Gate de validade no submit (não interfere no seu handler) ========== */
-  document.addEventListener('DOMContentLoaded', () => {
-    attachMasks();
+/* ---------- RG ---------- */
+function maskRG(v) {
+  const s = normalizeRG(v).slice(0, 10);
+  if (s.length <= 2) return s;
+  if (s.length <= 5) return `${s.slice(0, 2)}.${s.slice(2)}`;
+  if (s.length <= 8) return `${s.slice(0, 2)}.${s.slice(2, 5)}.${s.slice(5)}`;
+  return `${s.slice(0, 2)}.${s.slice(2, 5)}.${s.slice(5, 8)}-${s.slice(8)}`;
+}
 
-    const form = qs('#formEntregador');
-    if (!form) return;
+function isRG(v) {
+  const s = normalizeRG(v);
+  return /^[0-9]{6,9}[0-9X]$/.test(s);
+}
 
-    // Antes do submit real do seu handler, barramos se inválido
-    form.addEventListener(
-      'submit',
-      (ev) => {
-        const tel = qs('#telefone');
-        const doc = qs('#documento');
-        let ok = true;
+/* ---------- Document (Auto CPF/RG) ---------- */
+function maskDocumento(v) {
+  const d = digits(v);
+  if (d.length === 11) return maskCPF(v);
+  return maskRG(v);
+}
 
-        if (tel) {
-          tel.setCustomValidity(isPhoneValid(tel.value) ? '' : 'Telefone inválido (inclua DDD).');
-          if (!tel.checkValidity()) {
-            tel.reportValidity();
-            ok = false;
-          }
-        }
-        if (doc) {
-          const msg = validateDocumento(doc.value);
-          doc.setCustomValidity(msg);
-          if (msg) {
-            doc.reportValidity();
-            ok = false;
-          }
-        }
-        if (!ok) {
-          ev.stopImmediatePropagation(); // impede outros listeners de prosseguirem
-          ev.preventDefault();
-        }
-      },
-      true // capture: roda antes do submit da sua página
-    );
+function validateDocumento(v) {
+  const d = digits(v);
+  if (d.length === 11) return isCPF(v) ? "" : "CPF inválido.";
+  return isRG(v) ? "" : "RG inválido.";
+}
+
+/* ---------- Aplicação no Input ---------- */
+function setupDocumentoInput() {
+  const doc = qs("#documento");
+  if (!doc) return;
+
+  doc.addEventListener("input", () => {
+    doc.value = maskDocumento(doc.value);
+    const msg = validateDocumento(doc.value);
+    doc.setCustomValidity(msg);
   });
-})();
+
+  doc.addEventListener("blur", () => {
+    const msg = validateDocumento(doc.value);
+    doc.setCustomValidity(msg);
+    if (msg) doc.reportValidity();
+  });
+}
+
+/* ---------- Normalização no Payload ---------- */
+const originalPayloadFn = window.formPayload;
+window.formPayload = function () {
+  const base = typeof originalPayloadFn === "function" ? originalPayloadFn() : {};
+  const raw = qs("#documento")?.value || "";
+  const d = digits(raw);
+
+  // CPF → só números
+  // RG → mantém DV X
+  const documentoOut = d.length === 11 ? d : normalizeRG(raw);
+  return { ...base, documento: documentoOut };
+};
+
+/* ---------- Inicialização ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  setupDocumentoInput();
+});
+
 
 // Ajusta dinamicamente a altura útil do body do offcanvas
 (function () {
