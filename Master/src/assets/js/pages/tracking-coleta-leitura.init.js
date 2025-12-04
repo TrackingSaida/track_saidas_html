@@ -161,7 +161,7 @@ function classifyCodigo(rawInput){
   const sh = raw.match(/(?:^|[^A-Z0-9])(BR(?:\d{13}|\d{12}[A-Z]))(?=$|[^A-Z0-9])/i);
   if (sh) return { ok:true, servico:"Shopee", codigo: sh[1].toUpperCase() };
 
-  const mlRun = allDigits.match(/45\d{9,}/);
+  const mlRun = allDigits.match(/4[5-9]\d{9,}/);
   if (mlRun) return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11) };
 
   // 🟢 Avulso — padrões conhecidos

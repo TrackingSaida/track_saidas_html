@@ -138,8 +138,8 @@ function showMsgIcon(tipo, texto) {
     const sh = raw.match(/(?:^|[^A-Z0-9])(BR(?:\d{13}|\d{12}[A-Z]))(?=$|[^A-Z0-9])/i);
     if (sh) return { ok:true, servico:"Shopee", codigo: sh[1].toUpperCase() };
 
-    // Mercado Livre: primeiro bloco começando por 45, retorna 11 dígitos
-    const mlRun = allDigits.match(/45\d{9,}/);
+    // Mercado Livre: primeiro bloco começando por 45, 46 ou 47, retorna 11 dígitos
+    const mlRun = allDigits.match(/4[5-9]\d{9,}/);
     if (mlRun) return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11) };
 
    // 🟢 Avulso — padrões conhecidos
@@ -433,14 +433,19 @@ async function registrar() {
     if (rowsByKey.has(k)) {
       Sound.play("warn");
       const cameraAtiva = document.getElementById("scanFS")?.classList.contains("show");
-
+      const mensagem = `Duplicado • ${codigoFinal}`;
       if (cameraAtiva) {
-        showMsg("alerta", `Duplicado • ${codigoFinal}`);
+        // showMsg só existe dentro da IIFE do scanner — proteja a chamada
+        if (typeof showMsg === "function") {
+          showMsg("alerta", mensagem);
+        } else {
+          showMsgIcon("alerta", mensagem);
+        }
       } else {
-        showMsgIcon("alerta", `Duplicado • ${codigoFinal}`);
+        showMsgIcon("alerta", mensagem);
       }
 
-      if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
 
       return { ok:false, tipo:"duplicado" };
     }
