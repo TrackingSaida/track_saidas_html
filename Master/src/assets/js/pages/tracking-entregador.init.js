@@ -263,10 +263,7 @@ function openForm(modo, data=null){
 
   qs("#entregadorId").value = safeId(data?.id_entregador ?? data?.id) || "";
   qs("#nome").value        = data?.nome || "";
-  qs("#telefone")?.addEventListener("input", ev => {
-  ev.target.value = maskCellphone(ev.target.value);
-});
-
+  qs("#telefone").value    = data?.telefone || "";
   qs("#documento").value   = data?.documento || "";
 
   qs("#rua").value         = data?.rua || "";

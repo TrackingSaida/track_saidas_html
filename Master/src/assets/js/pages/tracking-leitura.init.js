@@ -402,138 +402,126 @@ function createRow(row){
 
 // ---------- registrar ----------
 async function registrar() {
-  const entregador = selEnt?.value?.trim() || "";
-  if (!entregador) {
-    showMsgIcon("erro", "Selecione o entregador.");
-    Sound.play("err");
-    return;
-  }
-
-  const rawInput = inpCod?.value || "";
-  if (!rawInput.trim()) {
-    showMsgIcon("erro", "Informe o código.");
-    Sound.play("err");
-    return;
-  }
-
-  const cls = classifyCodigo(rawInput);
-  if (!cls.ok) {
-    showMsgIcon("erro", `Código inválido: ${cls.motivo}.`);
-    Sound.play("err");
-    inpCod && inpCod.select();
-    return;
-  }
-
-  const codigoFinal = cls.codigo;
-  const servico = cls.servico;
-  const k = keyFor(entregador, codigoFinal);
-
-  // Já existe nesta sessão
-if (rowsByKey.has(k)) {
-  Sound.play("warn");
-
-  // Detecta se a câmera está ativa (overlay visível)
-  const cameraAtiva = document.getElementById("scanFS")?.classList.contains("show");
-
-  if (cameraAtiva) {
-    // 🟡 Exibe no HUD (sobre o vídeo)
-    showMsg("alerta", `Duplicado • ${codigoFinal}`);
-  } else {
-    // 🟢 Exibe no toast padrão da tela
-    showMsgIcon("alerta", `DUPLICADO • ${codigoFinal}`);
-  }
-
-  // Limpa o campo e retorna
-  if (inpCod) {
-    inpCod.value = "";
-    inpCod.focus();
-  }
-  return;
-}
-
-
-  // 🔹 Consulta o código nas saídas e atualiza status se necessário
-try {
-  const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
-  const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { "Authorization": `Bearer ${token}` } : {})
-    },
-    credentials: "include"
-  });
-
-  if (!resp.ok) {
-    if (resp.status === 401) {
-      showMsgIcon("erro", "Sessão expirada. Faça login novamente.");
+  try {
+    const entregador = selEnt?.value?.trim() || "";
+    if (!entregador) {
+      showMsgIcon("erro", "Selecione o entregador.");
       Sound.play("err");
-      return;
+      return { ok:false, tipo:"sem_entregador" };
     }
-    throw new Error(`Falha na requisição: ${resp.status}`);
-  }
 
-  // sempre existe
-  const dados = await resp.json();
+    const rawInput = inpCod?.value || "";
+    if (!rawInput.trim()) {
+      showMsgIcon("erro", "Informe o código.");
+      Sound.play("err");
+      return { ok:false, tipo:"codigo_vazio" };
+    }
 
+    const cls = classifyCodigo(rawInput);
+    if (!cls.ok) {
+      showMsgIcon("erro", `Código inválido: ${cls.motivo}.`);
+      Sound.play("err");
+      inpCod && inpCod.select();
+      return { ok:false, tipo:"codigo_invalido", detalhe:cls.motivo };
+    }
 
-  // =======================================================
-  // 🔥 NOVO FLUXO: ignorar_coleta = TRUE
-  // Registrar saída diretamente (sem modal)
-  // =======================================================
-  if (window.IGNORAR_COLETA === true && (!Array.isArray(dados) || dados.length === 0)) {
+    const codigoFinal = cls.codigo;
+    const servico = cls.servico;
+    const k = keyFor(entregador, codigoFinal);
 
-    const postResp = await fetch(`${window.TRACK_API_URL}/saidas/registrar`, {
-      method: "POST",
+    // 🔹 Já existe nesta sessão (DUPLICADO LOCAL)
+    if (rowsByKey.has(k)) {
+      Sound.play("warn");
+      const cameraAtiva = document.getElementById("scanFS")?.classList.contains("show");
+
+      if (cameraAtiva) {
+        showMsg("alerta", `Duplicado • ${codigoFinal}`);
+      } else {
+        showMsgIcon("alerta", `Duplicado • ${codigoFinal}`);
+      }
+
+      if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+
+      return { ok:false, tipo:"duplicado" };
+    }
+
+    const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
+
+    // 🔹 Consulta saída
+    const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`, {
       headers: {
         "Content-Type": "application/json",
         ...(token ? { "Authorization": `Bearer ${token}` } : {})
       },
-      credentials: "include",
-      body: JSON.stringify({
-        codigo: codigoFinal,
-        entregador,
-        servico,
-        status: "Saiu para entrega"
-      })
+      credentials: "include"
     });
 
-    if (!postResp.ok) {
-      showMsgIcon("erro", "Erro ao registrar saída.");
-      Sound.play("err");
-      return { ok:false, tipo:"erro_ignorar" };
+    if (!resp.ok) {
+      if (resp.status === 401) {
+        showMsgIcon("erro", "Sessão expirada. Faça login novamente.");
+        Sound.play("err");
+        return { ok:false, tipo:"nao_autorizado" };
+      }
+
+      return { ok:false, tipo:"erro_http", detalhe:`${resp.status}` };
     }
 
-    const data = await postResp.json();
+    const dados = await resp.json();
 
-    appendOrUpdateRow({
-      tsFmt: new Date().toLocaleString("pt-BR"),
-      entregador,
-      codigo: codigoFinal,
-      servico,
-      status: "Saiu para entrega",
-      id_saida: data.id_saida,
-      duplicado: false
-    });
+    // =======================================================
+    // IGNORAR COLETA = TRUE
+    // =======================================================
+    if (window.IGNORAR_COLETA === true && (!Array.isArray(dados) || dados.length === 0)) {
 
-    updateSummary();
-    showMsgIcon("info", `Registrado ✓ ${codigoFinal}`);
-    Sound.play("ok");
+      const postResp = await fetch(`${window.TRACK_API_URL}/saidas/registrar`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          codigo: codigoFinal,
+          entregador,
+          servico,
+          status: "Saiu para entrega"
+        })
+      });
 
-    if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+      if (!postResp.ok) {
+        const msg = await postResp.text().catch(() => "");
+        return { ok:false, tipo:"erro_ignorar", detalhe:msg };
+      }
 
-    return { ok:true, tipo:"ignorar_coleta_saida" };
-  }
+      const data = await postResp.json();
 
+      appendOrUpdateRow({
+        tsFmt: new Date().toLocaleString("pt-BR"),
+        entregador,
+        codigo: codigoFinal,
+        servico,
+        status: "Saiu para entrega",
+        id_saida: data.id_saida,
+        duplicado: false
+      });
 
-  // =======================================================
-  // 🔄 FLUXO ORIGINAL (coleta obrigatória)
-  // =======================================================
-  if (!Array.isArray(dados) || dados.length === 0) {
-    const overlay = document.getElementById("scanFS");
-    const wasActive = overlay?.classList.contains("show");
-    if (wasActive) overlay.style.display = "none";
+      updateSummary();
+      showMsgIcon("info", `Registrado ✓ ${codigoFinal}`);
+      Sound.play("ok");
 
-    try {
+      if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+
+      return { ok:true, tipo:"ignorar_coleta_saida" };
+    }
+
+    // =======================================================
+    // FLUXO ORIGINAL — coleta obrigatória
+    // =======================================================
+    if (!Array.isArray(dados) || dados.length === 0) {
+      const overlay = document.getElementById("scanFS");
+      const wasActive = overlay?.classList.contains("show");
+      if (wasActive) overlay.style.display = "none";
+
       const confirm = await Swal.fire({
         icon: "warning",
         title: "Código não coletado",
@@ -546,118 +534,109 @@ try {
         backdrop: true
       });
 
-      if (confirm.isConfirmed) {
-        const postResp = await fetch(`${window.TRACK_API_URL}/saidas/registrar`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { "Authorization": `Bearer ${token}` } : {})
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            codigo: codigoFinal,
-            entregador,
-            servico,
-            status: "Não Coletado"
-          })
-        });
-
-        if (!postResp.ok) throw new Error("Falha ao registrar saída não coletada.");
-
-        showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
-        Sound.play("warn");
-
-        appendOrUpdateRow({
-          tsFmt: new Date().toLocaleString("pt-BR"),
-          entregador,
-          codigo: codigoFinal,
-          servico,
-          status: "Não Coletado",
-          duplicado: false
-        });
-
-        updateSummary();
-        return { ok: true, tipo: "nao_coletado_registrado" };
-      } else {
+      if (!confirm.isConfirmed) {
         if (wasActive) overlay.style.display = "block";
-        return { ok: false, tipo: "nao_coletado_cancelado" };
+        return { ok:false, tipo:"nao_coletado_cancelado" };
       }
 
-    } finally {
-      const overlay2 = document.getElementById("scanFS");
-      if (overlay2 && overlay2.style.display === "none") overlay2.style.display = "block";
+      const postResp = await fetch(`${window.TRACK_API_URL}/saidas/registrar`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          codigo: codigoFinal,
+          entregador,
+          servico,
+          status: "Não Coletado"
+        })
+      });
+
+      if (!postResp.ok) {
+        const msg = await postResp.text().catch(() => "");
+        return { ok:false, tipo:"erro_registrar_nao_coletado", detalhe:msg };
+      }
+
+      appendOrUpdateRow({
+        tsFmt: new Date().toLocaleString("pt-BR"),
+        entregador,
+        codigo: codigoFinal,
+        servico,
+        status: "Não Coletado",
+        duplicado: false
+      });
+
+      updateSummary();
+      showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
+      Sound.play("warn");
+
+      return { ok:true, tipo:"nao_coletado_registrado" };
     }
-  }
 
+    // =======================================================
+    // EXISTE REGISTRO (fluxo normal)
+    // =======================================================
+    const registro = dados[0];
+    const statusAtual = (registro.status || "").toLowerCase();
 
-  // =======================================================
-  // EXISTE REGISTRO → fluxo normal
-  // =======================================================
-  const registro = dados[0];
-  const statusAtual = (registro.status || "").toLowerCase();
+    if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
+      showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
+      Sound.play("warn");
+      if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+      return { ok:false, tipo:"ja_saiu" };
+    }
 
+    if (statusAtual === "coletado") {
+      const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registro.id_saida}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          status: "Saiu para entrega",
+          entregador
+        })
+      });
 
-  // Já saiu
-  if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
-    showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
-    Sound.play("warn");
-    if (inpCod) { inpCod.value = ""; inpCod.focus(); }
-    return { ok:false, tipo:"ja_saiu" };
-  }
+      if (!patchResp.ok) {
+        const msg = await patchResp.text();
+        return { ok:false, tipo:"erro_patch", detalhe:msg };
+      }
 
-  // Atualiza coletado → saiu
-  if (statusAtual === "coletado") {
-
-    const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registro.id_saida}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { "Authorization": `Bearer ${token}` } : {})
-      },
-      credentials: "include",
-      body: JSON.stringify({
+      appendOrUpdateRow({
+        tsFmt: new Date().toLocaleString("pt-BR"),
+        entregador,
+        codigo: codigoFinal,
+        servico,
         status: "Saiu para entrega",
-        entregador
-      })
-    });
+        id_saida: registro.id_saida,
+        duplicado: false
+      });
 
-    if (!patchResp.ok) {
-      const errText = await patchResp.text();
-      console.error("PATCH falhou:", patchResp.status, errText);
-      throw new Error(`Falha ao atualizar status (${patchResp.status})`);
+      updateSummary();
+      showMsgIcon("info", `Registrado ✓ ${codigoFinal} • Saiu para entrega`);
+      Sound.play("ok");
+
+      if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+
+      return { ok:true, tipo:"coletado" };
     }
 
-    showMsgIcon("info", `Registrado ✓ ${codigoFinal} • Saiu para entrega`);
-    Sound.play("ok");
+    showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
+    Sound.play("err");
 
-    appendOrUpdateRow({
-      tsFmt: new Date().toLocaleString("pt-BR"),
-      entregador,
-      codigo: codigoFinal,
-      servico,
-      status: "Saiu para entrega",
-      id_saida: registro.id_saida,
-      duplicado: false
-    });
+    return { ok:false, tipo:"status_desconhecido", detalhe:registro.status };
 
-    updateSummary();
-    if (inpCod) { inpCod.value = ""; inpCod.focus(); }
-    return { ok:true, tipo:"coletado" };
+  } catch (err) {
+    console.error("Erro registrar():", err);
+    return { ok:false, tipo:"erro_excecao", detalhe:String(err) };
   }
-
-
-  // Status inesperado
-  showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
-  Sound.play("err");
-  return { ok:false, tipo:"status_desconhecido" };
-
-
-} catch (err) {
-  console.error("Erro ao consultar/atualizar:", err);
-  showMsgIcon("erro", "Erro ao verificar ou atualizar o status.");
-  Sound.play("err");
 }
-}
+
 
 
 // ===== Leitor por Câmera — Full-screen (híbrido BarcodeDetector + ZXing) =====

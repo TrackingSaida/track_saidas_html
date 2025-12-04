@@ -231,7 +231,7 @@ function normalizeRow(r){
     }
   })();
 
-  // ⭐ Normalização username
+  // Normalização username
   var username =
       r.username ||
       r.user ||
@@ -239,12 +239,28 @@ function normalizeRow(r){
       r.created_by ||
       "-";
 
+  // NORMALIZAÇÃO DO STATUS (AQUI ESTAVA FALTANDO)
+  var rawSt = String(r.status || "").toLowerCase();
+  var statusUI = "";
+
+  if (rawSt === "saiu" || rawSt === "saiu para entrega")
+      statusUI = "Saiu para entrega";
+  else if (rawSt === "coletado")
+      statusUI = "Coletado";
+  else if (rawSt === "nao coletado" || rawSt === "não coletado")
+      statusUI = "Não Coletado";
+  else if (rawSt === "cancelado")
+      statusUI = "Cancelado";
+  else
+      statusUI = r.status || "-";
+
   // Retorno final padronizado
   return {
-    ...r,       // mantém todos os campos vindos da API
+    ...r,
     id: id,
     tsFmt: tsFmt,
-    username: username
+    username: username,
+    status: statusUI   // <<< agora funciona
   };
 }
 
@@ -355,6 +371,7 @@ if (tblBody) tblBody.addEventListener("change", function(e){
   // ================== Carregar (com auto-fit opcional) ==================
   function refresh(autoFit){
     var p = readFilters();
+    restoreFilters(p);
      p.page = state.page;
     p.pageSize = state.pageSize;
     window.TrackAPI.listSaidas(p).then(function(r){
@@ -380,6 +397,11 @@ if (tblBody) tblBody.addEventListener("change", function(e){
             if (pagerInfo) pagerInfo.textContent = "Página " + r2.page + " • " + (r2.rows ? r2.rows.length : 0) + " de " + r2.total;
             if (chkAll) chkAll.checked = false;
             augmentEntregadoresFromRows(state.rows);
+            // restaura entregador após rebuild do combo
+            if (p.entregador && f.entregador) {
+                f.entregador.value = p.entregador;
+}
+
             updatePager();
             updateEditButtonState();
           });
@@ -398,10 +420,66 @@ if (tblBody) tblBody.addEventListener("change", function(e){
       if (pagerInfo) pagerInfo.textContent = "Página " + r.page + " • " + (r.rows ? r.rows.length : 0) + " de " + r.total;
       if (chkAll) chkAll.checked = false;
       augmentEntregadoresFromRows(state.rows);
+     // restaura entregador após rebuild do combo
+      if (p.entregador && f.entregador) {
+          f.entregador.value = p.entregador;
+}
+
       updatePager();
       updateEditButtonState();
     });
   }
+
+ function restoreFilters(params) {
+  if (!params) return;
+
+  if (f.from)  f.from.value  = params.de  || "";
+  if (f.to)    f.to.value    = params.ate || "";
+
+  const selBase = document.getElementById("flt-base");
+  if (selBase) selBase.value = params.base || "";
+
+  // Restaurar ENTREGADOR (já funciona)
+  if (f.entregador) f.entregador.value = params.entregador || "";
+
+  // Restaurar STATUS (corrigido)
+  if (f.status) {
+      const apiSt = (params.status || "").toLowerCase();
+      let uiVal = "";
+
+      if (apiSt === "saiu" || apiSt === "saiu para entrega") uiVal = "Saiu para entrega";
+      else if (apiSt === "coletado") uiVal = "Coletado";
+      else if (apiSt === "nao coletado" || apiSt === "não coletado") uiVal = "Não Coletado";
+      else if (apiSt === "cancelado") uiVal = "Cancelado";
+
+      f.status.value = uiVal;
+  }
+
+  if (f.codigo) f.codigo.value = params.codigo || "";
+  if (f.sort)   f.sort.value   = params.sort || "-ts";
+
+  if (f.pageSize) {
+    f.pageSize.value = params.limit || f.pageSize.value;
+  }
+}
+
+
+function clearFilters() {
+  if (f.from) f.from.value = "";
+  if (f.to) f.to.value = "";
+
+  const selBase = document.getElementById("flt-base");
+  if (selBase) selBase.value = "";
+
+  if (f.entregador) f.entregador.value = "";
+  if (f.status) f.status.value = "";
+  if (f.codigo) f.codigo.value = "";
+  if (f.sort) f.sort.value = "-ts";
+  if (f.pageSize) f.pageSize.value = "200";
+
+  state.page = 1;
+  refresh(true);
+}
 
   // ================== Eventos ==================
   if (pagerPrev) pagerPrev.addEventListener("click", function(){ if (state.page > 1){ state.page--; refresh(false); } });
@@ -428,7 +506,8 @@ if (btnEdit) btnEdit.addEventListener("click", function(){
   }
   return openBulkModal(ids); // novo modal em lote
 });
-
+  var btnClear = document.getElementById("btn-clear");
+if (btnClear) btnClear.addEventListener("click", clearFilters);
 
   function toYMD(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   function isHoje(ts){
