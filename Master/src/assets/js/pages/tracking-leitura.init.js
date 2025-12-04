@@ -757,56 +757,60 @@ async function processarCodigo(text) {
 
   if (inputCodigo) inputCodigo.value = codigo;
 
- try {
-  if (typeof registrar === "function") {
-    const result = await registrar(); // { ok, tipo }
+  try {
+    if (typeof registrar === "function") {
+      const result = await registrar(); // { ok, tipo }
 
-    if (result?.ok) {
-      totalLidos++;
-      atualizarContador();
+      if (result?.ok) {
+        totalLidos++;
+        atualizarContador();
 
-      if (result.tipo === "coletado") {
-        showMsg("info", `Saiu para entrega ✓ (${totalLidos})`);
-        Sound.play("ok");
-      } else if (result.tipo === "nao_coletado_registrado") {
-        showMsg("alerta", `Registrado como Não Coletado (${totalLidos})`);
-        Sound.play("warn");
+        if (result.tipo === "coletado") {
+          showMsg("info", `Saiu para entrega ✓ (${totalLidos})`);
+          Sound.play("ok");
+        } else if (result.tipo === "nao_coletado_registrado") {
+          showMsg("alerta", `Registrado como Não Coletado (${totalLidos})`);
+          Sound.play("warn");
+        } else {
+          showMsg("info", `Registrado ✓ (${totalLidos})`);
+          Sound.play("ok");
+        }
       } else {
-        showMsg("info", `Registrado ✓ (${totalLidos})`);
-        Sound.play("ok");
-      }
-    } else {
-      // 🔹 Exibe mensagem conforme tipo do erro
-      switch (result?.tipo) {
-        case "duplicado":
-          showMsg("alerta", "Duplicado — código já lido nesta sessão.");
-          Sound.play("warn");
-          break;
-        case "ja_saiu":
-          showMsg("alerta", "Código já saiu para entrega.");
-          Sound.play("warn");
-          break;
-        case "nao_coletado_cancelado":
-          showMsg("alerta", "Registro cancelado (não coletado).");
-          Sound.play("warn");
-          break;
-        case "status_desconhecido":
-          showMsg("erro", "Status do código desconhecido.");
-          Sound.play("err");
-          break;
-        default:
-          showMsg("erro", "Leitura ignorada ou erro não especificado.");
-          Sound.play("err");
+        // 🔹 Exibe mensagem conforme tipo do erro
+        switch (result?.tipo) {
+          case "duplicado":
+            showMsg("alerta", result?.detalhe || "Duplicado — código já lido nesta sessão.");
+            Sound.play("warn");
+            break;
+          case "ja_saiu":
+            showMsg("alerta", result?.detalhe || "Código já saiu para entrega.");
+            Sound.play("warn");
+            break;
+          case "nao_coletado_cancelado":
+            showMsg("alerta", result?.detalhe || "Registro cancelado (não coletado).");
+            Sound.play("warn");
+            break;
+          case "status_desconhecido":
+            showMsg("erro", result?.detalhe || "Status do código desconhecido.");
+            Sound.play("err");
+            break;
+          default:
+            if (result?.detalhe) {
+              showMsg("erro", result.detalhe);
+            } else {
+              showMsg("erro", "Leitura ignorada ou erro não especificado.");
+            }
+            Sound.play("err");
+        }
       }
     }
+  } catch (err) {
+    console.error("Erro ao registrar (camera):", err);
+    showMsg("erro", "Falha ao registrar saída.");
+    Sound.play("err");
+  } finally {
+    setTimeout(() => (scanLocked = false), 800);
   }
-} catch (err) {
-  console.error("Erro ao registrar (camera):", err);
-  showMsg("erro", "Falha ao registrar saída.");
-  Sound.play("err");
-} finally {
-  setTimeout(() => (scanLocked = false), 800);
-}
 }
 
 
@@ -827,17 +831,24 @@ async function processarCodigo(text) {
     });
   }
 
-  // Fecha a câmera ao sair da página
+   // Fecha a câmera ao sair da página
   window.addEventListener("beforeunload", stopScanner);
 })();
 
-  // ---------- eventos ----------
-  selEnt?.addEventListener("change", onEntregadorChange);
-  btnReg?.addEventListener("click", registrar);
-  inpCod?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); registrar(); } });
 
-  // ---------- init ----------
-  loadEntregadores().then(() => { inpCod?.focus(); });
-  // tenta reenviar pendentes (inclusive de sessões anteriores)
-  for (const p of loadPending()) attemptSend(p);
+// ---------- eventos ----------
+selEnt?.addEventListener("change", onEntregadorChange);
+btnReg?.addEventListener("click", registrar);
+inpCod?.addEventListener("keydown", (e) => { 
+  if (e.key === "Enter") { 
+    e.preventDefault(); 
+    registrar(); 
+  } 
+});
+
+// ---------- init ----------
+loadEntregadores().then(() => { inpCod?.focus(); });
+// tenta reenviar pendentes (inclusive de sessões anteriores)
+for (const p of loadPending()) attemptSend(p);
+
 })();
