@@ -30,7 +30,7 @@
     pointer-events: none;
   }
 
-  /* camada superior: vinheta suave, sem transparência real */
+  /* camada superior: vinheta suave, sem transparência real 
   &::after {
     content: "";
     position: absolute;
@@ -42,7 +42,7 @@
     );
     z-index: 2;
     pointer-events: none;
-  }
+  }*/
 
   /* Moldura central com laser */
   &-frame {
