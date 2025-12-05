@@ -156,31 +156,52 @@ function classifyCodigo(rawInput){
   const raw = toAsciiDigits(String(rawInput || "")).toUpperCase().trim();
   const allDigits = raw.replace(/\D+/g, "");
 
+  // ===========================================================
+  // 🆕 PRIORIDADE MÁXIMA: QRCode JSON contendo external_order_id
+  // ===========================================================
+  try {
+    if (raw.startsWith("{") && raw.endsWith("}")) {
+      const obj = JSON.parse(raw);
+
+      if (obj && typeof obj.external_order_id === "string") {
+        const cod = obj.external_order_id.toUpperCase().trim();
+        return { ok: true, servico: "Avulso", codigo: cod };
+      }
+    }
+  } catch(e) {
+    // ignora erro de JSON e continua fluxo normal
+  }
+
+  // 🚫 NF-e (44 dígitos)
   if (/^\d{44}$/.test(allDigits)) return { ok:false, motivo:"NF-e (44 dígitos)" };
 
+  // Shopee (BR + 13 dígitos OU 12 dígitos + letra)
   const sh = raw.match(/(?:^|[^A-Z0-9])(BR(?:\d{13}|\d{12}[A-Z]))(?=$|[^A-Z0-9])/i);
   if (sh) return { ok:true, servico:"Shopee", codigo: sh[1].toUpperCase() };
 
+  // Mercado Livre (11 dígitos começando com 45–49)
   const mlRun = allDigits.match(/4[5-9]\d{9,}/);
   if (mlRun) return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11) };
 
-  // 🟢 Avulso — padrões conhecidos
+  // ===========================================================
+  // 🟢 AVULSO — padrões existentes (exceto LM manual)
+  // ===========================================================
   if (
     /^CP\d{3,}/.test(raw) ||
-    /^TIME\d{6}$/i.test(raw) ||
-    /^LM\d{5,}-[\w\d]+/i.test(raw)
+    /^TIME\d{6}$/i.test(raw)
+    
   ) {
     return { ok: true, servico: "Avulso", codigo: raw };
   }
 
-  // 🟢 Avulso (telefone): fallback
-  // aceita (11)958406305, 11958406305, 011958406305, 11-95840-6305, etc.
+  // 🟢 Avulso (telefone)
   const phone = raw.match(/0?(\d{2})[-\s]?(\d{4,5})[-\s]?(\d{4})/);
   if (phone) {
-    const cod = `${phone[1]}${phone[2]}${phone[3]}`; // junta tudo
+    const cod = `${phone[1]}${phone[2]}${phone[3]}`;
     return { ok: true, servico: "Avulso", codigo: cod };
   }
 
+  // Sem match
   return { ok:false, motivo:"Padrão não configurado" };
 }
 

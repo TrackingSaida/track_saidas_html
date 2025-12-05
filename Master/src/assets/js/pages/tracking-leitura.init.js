@@ -127,40 +127,59 @@ function showMsgIcon(tipo, texto) {
     s = s.replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30));
     return s;
   }
-  function classifyCodigo(rawInput){
-    const raw = toAsciiDigits(String(rawInput || "")).toUpperCase().trim();
-    const allDigits = raw.replace(/\D+/g, "");
+function classifyCodigo(rawInput){
+  const raw = toAsciiDigits(String(rawInput || "")).toUpperCase().trim();
+  const allDigits = raw.replace(/\D+/g, "");
 
-    // 🚫 NF-e (44 dígitos)
-    if (/^\d{44}$/.test(allDigits)) return { ok:false, motivo:"NF-e (44 dígitos)" };
+  // ===========================================================
+  // 🆕 PRIORIDADE MÁXIMA: QRCode JSON contendo external_order_id
+  // ===========================================================
+  try {
+    if (raw.startsWith("{") && raw.endsWith("}")) {
+      const obj = JSON.parse(raw);
 
-    // Shopee: BR + 13 dígitos OU 12 dígitos + 1 letra (total 15)
-    const sh = raw.match(/(?:^|[^A-Z0-9])(BR(?:\d{13}|\d{12}[A-Z]))(?=$|[^A-Z0-9])/i);
-    if (sh) return { ok:true, servico:"Shopee", codigo: sh[1].toUpperCase() };
+      if (obj && typeof obj.external_order_id === "string") {
+        const cod = obj.external_order_id.toUpperCase().trim();
+        return { ok: true, servico: "Avulso", codigo: cod };
+      }
+    }
+  } catch(e) {
+    // ignora erro de JSON e continua fluxo normal
+  }
 
-    // Mercado Livre: primeiro bloco começando por 45, 46 ou 47, retorna 11 dígitos
-    const mlRun = allDigits.match(/4[5-9]\d{9,}/);
-    if (mlRun) return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11) };
+  // 🚫 NF-e (44 dígitos)
+  if (/^\d{44}$/.test(allDigits)) return { ok:false, motivo:"NF-e (44 dígitos)" };
 
-   // 🟢 Avulso — padrões conhecidos
+  // Shopee (BR + 13 dígitos OU 12 dígitos + letra)
+  const sh = raw.match(/(?:^|[^A-Z0-9])(BR(?:\d{13}|\d{12}[A-Z]))(?=$|[^A-Z0-9])/i);
+  if (sh) return { ok:true, servico:"Shopee", codigo: sh[1].toUpperCase() };
+
+  // Mercado Livre (11 dígitos começando com 45–49)
+  const mlRun = allDigits.match(/4[5-9]\d{9,}/);
+  if (mlRun) return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11) };
+
+  // ===========================================================
+  // 🟢 AVULSO — padrões existentes (exceto LM manual)
+  // ===========================================================
   if (
     /^CP\d{3,}/.test(raw) ||
-    /^TIME\d{6}$/i.test(raw) ||
-    /^LM\d{5,}-[\w\d]+/i.test(raw)
+    /^TIME\d{6}$/i.test(raw)
+    
   ) {
     return { ok: true, servico: "Avulso", codigo: raw };
   }
 
-  // 🟢 Avulso (telefone): fallback
-  // aceita (11)958406305, 11958406305, 011958406305, 11-95840-6305, etc.
+  // 🟢 Avulso (telefone)
   const phone = raw.match(/0?(\d{2})[-\s]?(\d{4,5})[-\s]?(\d{4})/);
   if (phone) {
-    const cod = `${phone[1]}${phone[2]}${phone[3]}`; // junta tudo
+    const cod = `${phone[1]}${phone[2]}${phone[3]}`;
     return { ok: true, servico: "Avulso", codigo: cod };
   }
 
-    return { ok:false, motivo:"Padrão não configurado" };
-  }
+  // Sem match
+  return { ok:false, motivo:"Padrão não configurado" };
+}
+
 
   // helper: detectar 409 de DUPLICADO (não confundir com 409 de créditos)
   function isDupConflict(err){
