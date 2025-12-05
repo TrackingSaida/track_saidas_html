@@ -147,6 +147,23 @@ function classifyCodigo(rawInput){
     // ignora erro de JSON e continua fluxo normal
   }
 
+    // ===========================================================
+  // 🆕 PRIORIDADE 2: Detectar external_order_id mesmo sem JSON
+  // ex: sorter_code:LMxxxx;external_order_id:LMxxxx
+  // ===========================================================
+  const extMatch = raw.match(/external_order_id["']?\s*[:=]\s*["']?([\w-]+)/i);
+  if (extMatch) {
+    return { ok:true, servico:"Avulso", codigo: extMatch[1].toUpperCase() };
+  }
+
+  // ===========================================================
+  // 🆕 PRIORIDADE 3: QUALQUER CÓDIGO COMEÇANDO COM "LM" É AVULSO
+  // Isso evita que LM caia no filtro de Mercado Livre
+  // ===========================================================
+  if (/^LM[\w\d-]+$/i.test(raw)) {
+    return { ok:true, servico:"Avulso", codigo: raw };
+  }
+
   // 🚫 NF-e (44 dígitos)
   if (/^\d{44}$/.test(allDigits)) return { ok:false, motivo:"NF-e (44 dígitos)" };
 
