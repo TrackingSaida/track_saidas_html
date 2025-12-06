@@ -749,7 +749,7 @@ async function registrar() {
           if (!barcodes.length) return;
           const code = barcodes[0].rawValue || "";
           processarCodigo(code);
-        }, 180);
+        }, 100);
         return;
       } catch (e) {
         console.warn("Erro BarcodeDetector, fallback ZXing:", e);
@@ -850,7 +850,7 @@ async function processarCodigo(text) {
     showMsg("erro", "Falha ao registrar saída.");
     Sound.play("err");
   } finally {
-    setTimeout(() => (scanLocked = false), 800);
+    setTimeout(() => (scanLocked = false), 180); // pequeno delay antes de liberar nova leitura
   }
 }
 
