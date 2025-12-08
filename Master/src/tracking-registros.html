@@ -84,7 +84,6 @@
 <div class="card mb-3">
   <div class="card-header d-flex justify-content-between align-items-center">
     <h5 class="mb-0">Resumo das Leituras</h5>
-    <small class="text-muted">Sessão atual</small>
   </div>
   <div class="card-body">
     <div class="row g-3">
@@ -143,13 +142,22 @@
 
             <!-- Rodapé com paginação reposicionada -->
             <div class="card-footer">
-              <div id="pager-footer" class="d-flex justify-content-end align-items-center gap-3">
-                <div id="pager-summary" class="text-muted small">—</div>
-                <div class="btn-group">
-                  <button class="btn btn-soft-secondary" id="pager-prev" title="Anterior">◀</button>
-                  <button class="btn btn-soft-secondary" id="pager-next" title="Próxima">▶</button>
-                </div>
-              </div>
+              <!-- Atualizar o rodapé da paginação para incluir totais de páginas e registros -->
+<div id="pager-footer" class="d-flex justify-content-between align-items-center gap-3">
+  <!-- Lado esquerdo: Totais de páginas -->
+  <div id="pager-summary" class="text-muted small">Página 1 de 1</div>
+
+  <!-- Lado direito: Totais de registros -->
+  <div id="pager-info" class="text-muted small">Exibindo 1 a 1 de 1</div>
+
+  <!-- Botões de navegação -->
+  <div class="btn-group">
+    <button class="btn btn-soft-secondary" id="pager-first" title="Primeira">⏮</button>
+    <button class="btn btn-soft-secondary" id="pager-prev" title="Anterior">◀</button>
+    <button class="btn btn-soft-secondary" id="pager-next" title="Próxima">▶</button>
+    <button class="btn btn-soft-secondary" id="pager-last" title="Última">⏭</button>
+  </div>
+</div>
             </div>
           </div>
 
