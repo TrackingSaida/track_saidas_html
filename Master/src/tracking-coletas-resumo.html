@@ -138,6 +138,56 @@
     <tbody></tbody>
   </table>
 </div>
+
+<!-- PAGINAÇÃO (mesma ergonomia da tela de Registros, mantendo o layout atual) -->
+<div class="d-flex justify-content-between align-items-center mt-3">
+
+  <!-- Infos (Exibindo X a Y de Z) -->
+  <div id="pager-info" class="text-muted small">
+    Exibindo 0 a 0 de 0 registros
+  </div>
+
+  <!-- Botões -->
+  <div class="btn-group">
+
+    <!-- PRIMEIRA -->
+    <button id="pager-first"
+            class="btn btn-soft-secondary"
+            title="Primeira">
+      ⏮
+    </button>
+
+    <!-- ANTERIOR -->
+    <button id="pager-prev"
+            class="btn btn-soft-secondary"
+            title="Anterior">
+      ◀
+    </button>
+
+    <!-- INDICADOR -->
+    <span id="pager-summary"
+          class="px-3 d-flex align-items-center small text-muted">
+      Página 1 de 1
+    </span>
+
+    <!-- PRÓXIMA -->
+    <button id="pager-next"
+            class="btn btn-soft-secondary"
+            title="Próxima">
+      ▶
+    </button>
+
+    <!-- ÚLTIMA -->
+    <button id="pager-last"
+            class="btn btn-soft-secondary"
+            title="Última">
+      ⏭
+    </button>
+  </div>
+</div>
+
+
+
                   </div>
 
                 </div>

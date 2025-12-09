@@ -1,6 +1,6 @@
 /* ======================================================
-   TrackSaídas — Resumo de Coletas
-   Versão: Modelo A (Cancelados sem alterar coletas)
+   TrackSaídas — Resumo de Coletas (com paginação real)
+   Compatível com /coletas/resumo (items + total)
    ====================================================== */
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -19,9 +19,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ====== APIs ======
-  const API_URL   = `${window.TRACK_API_URL}/coletas/`;
-  const API_BASES = `${window.TRACK_API_URL}/base`;
-  const API_SAIDAS = `${window.TRACK_API_URL}/saidas/listar`;
+  const API_URL     = `${window.TRACK_API_URL}/coletas/resumo`;
+  const API_BASES   = `${window.TRACK_API_URL}/base`;
+  const API_SAIDAS  = `${window.TRACK_API_URL}/saidas/listar`;
 
   // ====== Helpers ======
   const qs  = (s) => document.querySelector(s);
@@ -30,255 +30,353 @@ document.addEventListener("DOMContentLoaded", async () => {
   const formatarMoeda = (v) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
-  // Formato BR apenas para exibir
-  function dataBr(ts) {
-    return ts ? new Date(ts).toLocaleDateString("pt-BR") : "-";
-  }
-
-  // Formato ISO para chave (ESSENCIAL)
-  // Converte a data/hora para o fuso local (pt-BR) e monta yyyy-mm-dd.
-  // Isso evita discrepâncias de fuso horário ao agrupar coletas e cancelados.
-  function dataISO(ts) {
-    if (!ts) return null;
-    const [dia, mes, ano] = new Date(ts)
-      .toLocaleDateString("pt-BR")
-      .split("/");
-    return `${ano}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}`;
-  }
-
-  // ====== AJUSTE: incluir o dia final no filtro (ate/data_fim) ======
-  // Envia sempre data_fim = (data escolhida + 1 dia) no formato yyyy-mm-dd
-  function addOneDayYMD(dateStr) {
-    if (!dateStr) return "";
-    const dt = new Date(dateStr);
+  function addOneDayYMD(str) {
+    if (!str) return "";
+    const dt = new Date(str);
     dt.setDate(dt.getDate() + 1);
-    return dt.toISOString().slice(0, 10); // só yyyy-mm-dd
+    return dt.toISOString().slice(0,10);
   }
 
   // ====== Elementos ======
-  const fltFrom       = qs("#flt-from");
-  const fltTo         = qs("#flt-to");
-  const fltBase       = qs("#flt-base");
-  const btnFilter     = qs("#btnFilter");
-  const btnClear      = qs("#btnClear");
-  const btnRefresh    = qs("#btnRefreshResumo");
-  const btnExport     = qs("#btnExportCsv");
-  const btnGerarCobranca = qs("#btnGerarCobranca");
+  const fltFrom = qs("#flt-from");
+  const fltTo   = qs("#flt-to");
+  const fltBase = qs("#flt-base");
 
   const tbody = qs("#coletas-resumo-table tbody");
+  const btnGerar = document.getElementById("btnGerarCobranca");
 
-  let resumoAtual = [];
+  // ====== PAGINAÇÃO ======
+  const state = {
+    page: 1,
+    pageSize: 200,
+    total: 0,
+    items: []
+  };
+
+  const pagerFirst   = qs("#pager-first");
+  const pagerPrev    = qs("#pager-prev");
+  const pagerNext    = qs("#pager-next");
+  const pagerLast    = qs("#pager-last");
+  const pagerInfo    = qs("#pager-info");
+  const pagerSummary = qs("#pager-summary");
+
+function updatePager() {
+    const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
+    const page = state.page;
+
+    const start = (page - 1) * state.pageSize + 1;
+    const end = Math.min(state.total, page * state.pageSize);
+
+    pagerInfo.textContent = `Exibindo ${start} a ${end} de ${state.total} registros`;
+    pagerSummary.textContent = `Página ${page} de ${totalPages}`;
+
+    pagerFirst.disabled = page <= 1;
+    pagerPrev.disabled  = page <= 1;
+    pagerNext.disabled  = page >= totalPages;
+    pagerLast.disabled  = page >= totalPages;
+}
+
+
+  pagerFirst.onclick = () => { state.page = 1; carregarResumo(); };
+  pagerPrev.onclick  = () => { if (state.page > 1) { state.page--; carregarResumo(); } };
+  pagerNext.onclick  = () => {
+    const tp = Math.ceil(state.total / state.pageSize);
+    if (state.page < tp) { state.page++; carregarResumo(); }
+  };
+  pagerLast.onclick = () => {
+    state.page = Math.ceil(state.total / state.pageSize);
+    carregarResumo();
+  };
 
   // ====== Carregar Bases ======
   async function carregarBases() {
     try {
       const res  = await fetch(API_BASES, { credentials: "include" });
       const data = await res.json();
-      fltBase.innerHTML = '<option value="">(Todas)</option>';
+      fltBase.innerHTML = `<option value="">(Todas)</option>`;
       data.forEach((b) => {
-        const opt = document.createElement("option");
-        opt.value = b.base;
-        opt.textContent = b.base;
-        fltBase.appendChild(opt);
+        fltBase.innerHTML += `<option value="${b.base}">${b.base}</option>`;
       });
     } catch (err) {
       console.error("Erro ao carregar bases:", err);
     }
   }
 
-  // ====== Buscar Cancelados (NORMALIZADO) ======
-  async function buscarCancelados() {
+  // ====== Buscar Cancelados ======
+async function buscarCancelados() {
     const params = new URLSearchParams();
-    // Filtra apenas status "cancelado"
     params.append("status", "cancelado");
+
     if (fltBase.value) params.append("base", fltBase.value);
     if (fltFrom.value) params.append("de", fltFrom.value);
-    if (fltTo.value) params.append("ate", addOneDayYMD(fltTo.value)); // <<< AJUSTE AQUI
+    if (fltTo.value)   params.append("ate", fltTo.value);
 
-    const res   = await fetch(`${API_SAIDAS}?${params.toString()}`, { credentials: "include" });
-    const dados = await res.json();
+    const res = await fetch(`${API_SAIDAS}?${params.toString()}`, { credentials: "include" });
+    const json = await res.json();
 
-    // Normaliza a base removendo espaços e convertendo para maiúsculas, ajusta data
-    return dados.map((s) => ({
-      base: (s.base || "").trim().toUpperCase(),
-      dataISO: dataISO(s.timestamp),
-    }));
-  }
+    const list = json.items || [];
 
-  // Habilita botão gerar cobrança somente quando base é escolhida
-  btnGerarCobranca.disabled = true;
-  fltBase.addEventListener("change", () => {
-    btnGerarCobranca.disabled = !fltBase.value;
-  });
+    return list.map((s) => {
+        // NORMALIZAR timestamp → YYYY-MM-DD igual ao /coletas/resumo
+        const dt = new Date(s.timestamp);
+        const iso = dt.toISOString().slice(0, 10); // YYYY-MM-DD
 
-  // ===========================================================
-  // ===============     CARREGAR RESUMO     ===================
-  // ===========================================================
-  async function carregarResumo() {
-    try {
-      qs("#resumoMsg").innerHTML = `<div class="text-muted">Carregando...</div>`;
-      tbody.innerHTML = "";
-
-      // Buscar coletas
-      const params = new URLSearchParams();
-      if (fltBase.value) params.append("base", fltBase.value);
-      if (fltFrom.value) params.append("data_inicio", fltFrom.value);
-      if (fltTo.value) params.append("data_fim", addOneDayYMD(fltTo.value)); // <<< AJUSTE AQUI
-
-      const res   = await fetch(`${API_URL}?${params.toString()}`, { credentials: "include" });
-      const rows  = await res.json();
-
-      // Buscar cancelados
-      const canceladosRaw = await buscarCancelados();
-      const mapaCancelados = {};
-      canceladosRaw.forEach((c) => {
-        const chave = `${c.dataISO}_${c.base}`;
-        mapaCancelados[chave] = (mapaCancelados[chave] || 0) + 1;
-      });
-
-      if (!rows.length) {
-        qs("#resumoMsg").innerHTML = `<div class="text-muted">Nenhum dado encontrado.</div>`;
-        atualizarCards(0, 0, 0, 0, 0);
-        resumoAtual = [];
-        return;
-      }
-
-      // ========== AGRUPAMENTO ==========
-      const agrupado = {};
-      rows.forEach((r) => {
-        const dISO    = dataISO(r.timestamp);
-        const baseOrig = (r.base || "").trim();
-        const baseKey  = baseOrig.toUpperCase();
-        const chave    = `${dISO}_${baseKey}`;
-
-        if (!agrupado[chave]) {
-          agrupado[chave] = {
-            dataISO: dISO,
-            data:    dataBr(r.timestamp),
-            base:    baseOrig,   // mantém base original para exibição
-            baseKey: baseKey,    // normalizada para mapear cancelados
-            entregadores: new Set(),
-            shopee:        0,
-            mercado_livre: 0,
-            avulso:        0,
-            valor_total:   0,
-          };
-        }
-
-        agrupado[chave].entregadores.add(r.username_entregador);
-        agrupado[chave].shopee        += r.shopee;
-        agrupado[chave].mercado_livre += r.mercado_livre;
-        agrupado[chave].avulso        += r.avulso;
-        agrupado[chave].valor_total   += Number(r.valor_total);
-      });
-
-      // ========== CONSOLIDAÇÃO COM CANCELADOS ==========
-      resumoAtual = Object.values(agrupado).map((r) => {
-        const key = `${r.dataISO}_${r.baseKey}`;
         return {
-          ...r,
-          username_entregador: Array.from(r.entregadores).join(" | "),
-          cancelados: mapaCancelados[key] || 0,
+            base: (s.base || "").trim().toUpperCase(),
+            dataISO: iso
         };
-      });
+    });
+}
 
-      // Ordenar por data crescente
-      resumoAtual.sort((a, b) => a.dataISO.localeCompare(b.dataISO));
 
-      // ========== RENDER TABELA ==========
-      let totalShopee = 0,
-        totalML     = 0,
-        totalAvulso = 0,
-        totalValor  = 0,
-        totalCancelados = 0;
-
-      tbody.innerHTML = "";
-
-      resumoAtual.forEach((r) => {
-        tbody.innerHTML += `
-          <tr>
-            <td>${r.data}</td>
-            <td>${r.base}</td>
-            <td>${r.username_entregador}</td>
-            <td class="text-center">${r.shopee}</td>
-            <td class="text-center">${r.mercado_livre}</td>
-            <td class="text-center">${r.avulso}</td>
-            <td class="text-center text-danger fw-bold">${r.cancelados}</td>
-            <td class="text-center">${formatarMoeda(r.valor_total)}</td>
-          </tr>
-        `;
-
-        totalShopee    += r.shopee;
-        totalML        += r.mercado_livre;
-        totalAvulso    += r.avulso;
-        totalValor     += r.valor_total;
-        totalCancelados += r.cancelados;
-      });
-
-      atualizarCards(totalShopee, totalML, totalAvulso, totalValor, totalCancelados);
-      qs("#resumoMsg").innerHTML = "";
-    } catch (err) {
-      console.error(err);
-      qs("#resumoMsg").innerHTML = `<div class="text-danger">Erro ao carregar dados.</div>`;
-    }
+  // ====== RENDER ======
+  function renderTable(items) {
+    tbody.innerHTML = "";
+    items.forEach((r) => {
+      tbody.innerHTML += `
+        <tr>
+          <td>${r.data}</td>
+          <td>${r.base}</td>
+          <td>${r.entregadores}</td>
+          <td class="text-center">${r.shopee}</td>
+          <td class="text-center">${r.mercado_livre}</td>
+          <td class="text-center">${r.avulso}</td>
+          <td class="text-center text-danger fw-bold">${r.cancelados}</td>
+          <td class="text-center">${formatarMoeda(r.valor_total)}</td>
+        </tr>`;
+    });
   }
 
-  // ====== Atualiza Cards ======
   function atualizarCards(shopee, ml, avulso, valor, canc) {
-    qs("#sum-shopee").textContent = shopee;
-    qs("#sum-ml").textContent     = ml;
-    qs("#sum-avulso").textContent = avulso;
-    qs("#sum-total").textContent  = shopee + ml + avulso;
+    qs("#sum-shopee").textContent  = shopee;
+    qs("#sum-ml").textContent      = ml;
+    qs("#sum-avulso").textContent  = avulso;
+    qs("#sum-total").textContent   = shopee + ml + avulso;
     qs("#sum-cancelados").textContent = canc;
     qs("#sum-total-valor").textContent = formatarMoeda(valor);
   }
 
-  // ====== Exportar CSV ======
-  function exportarCsv() {
-    const rows = [
-      ["Data","Base","Entregador","Shopee","Mercado Livre","Avulso","Cancelados","Valor Total"],
-    ];
+  // ======================================================
+  // ===============   CARREGAR RESUMO   ==================
+  // ======================================================
+async function carregarResumo() {
+    qs("#resumoMsg").innerHTML = `<div class="text-muted">Carregando...</div>`;
+    tbody.innerHTML = "";
 
-    qsa("#coletas-resumo-table tbody tr").forEach((tr) => {
-      rows.push(Array.from(tr.querySelectorAll("td")).map((td) => td.textContent.trim()));
+    const offset = (state.page - 1) * state.pageSize;
+
+    const params = new URLSearchParams({
+        limit: state.pageSize,
+        offset: offset
     });
 
-    const csvContent = rows.map((r) => r.join(";")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    if (fltBase.value) params.append("base", fltBase.value);
+    if (fltFrom.value) params.append("data_inicio", fltFrom.value);
+    if (fltTo.value)   params.append("data_fim", fltTo.value);
 
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "resumo-coletas.csv";
-    link.click();
-  }
+    const res = await fetch(`${API_URL}?${params.toString()}`, { credentials: "include" });
+    const data = await res.json();
 
-  // ====== Eventos ======
-  btnFilter.addEventListener("click", carregarResumo);
-  btnRefresh.addEventListener("click", carregarResumo);
-  btnExport.addEventListener("click", exportarCsv);
+    // CORRETO PARA O NOVO SCHEMA
+    state.total = Number(data.totalItems || 0);
+    state.items = Array.isArray(data.items) ? data.items : [];
 
-  btnClear.addEventListener("click", () => {
+    // Cancelados (não paginado)
+    const cancelados = await buscarCancelados();
+    const mapaCanc = {};
+    cancelados.forEach(c => {
+        const key = `${c.dataISO}_${c.base}`;
+        mapaCanc[key] = (mapaCanc[key] || 0) + 1;
+    });
+
+    let totalShopee = 0, totalML = 0, totalAvulso = 0, totalValor = 0, totalCanc = 0;
+
+    const linhas = state.items.map((r) => {
+        const baseKey = (r.base || "").trim().toUpperCase();
+        const dtISO = r.data; // já vem YYYY-MM-DD
+        const dtBR = dtISO.split("-").reverse().join("/");
+        const key = `${dtISO}_${baseKey}`;
+
+        const item = {
+            data: dtBR,
+            base: baseKey,
+            entregadores: (r.entregadores || "").toUpperCase(),
+            shopee: r.shopee,
+            mercado_livre: r.mercado_livre,
+            avulso: r.avulso,
+            valor_total: Number(r.valor_total),
+            cancelados: mapaCanc[key] || 0
+        };
+
+        totalShopee += item.shopee;
+        totalML     += item.mercado_livre;
+        totalAvulso += item.avulso;
+        totalValor  += item.valor_total;
+        totalCanc   += item.cancelados;
+
+        return item;
+    });
+
+    renderTable(linhas);
+    atualizarCards(totalShopee, totalML, totalAvulso, totalValor, totalCanc);
+    updatePager();
+
+    qs("#resumoMsg").innerHTML = "";
+}
+
+async function carregarResumoCompleto() {
+
+    const pageSize = 500; // máximo suportado pelo backend
+    let page = 1;
+    let todos = [];
+    let totalItems = 0;
+
+    while (true) {
+
+        const params = new URLSearchParams();
+
+        if (fltBase.value) params.append("base", fltBase.value);
+        if (fltFrom.value) params.append("data_inicio", fltFrom.value);
+        if (fltTo.value)   params.append("data_fim", fltTo.value);
+
+        params.append("page", page);
+        params.append("pageSize", pageSize);
+
+        const res = await fetch(`${API_URL}?${params.toString()}`, {
+            credentials: "include"
+        });
+
+        if (!res.ok) break;
+
+        const data = await res.json();
+        const items = data.items || [];
+
+        totalItems = data.totalItems ?? 0;
+
+        todos.push(...items);
+
+        // Se já coletou tudo → parar
+        if (todos.length >= totalItems) break;
+
+        page++;
+    }
+
+    // ===== Buscar cancelados =====
+    const cancelados = await buscarCancelados();
+    const mapaCanc = {};
+
+    cancelados.forEach(c => {
+        const key = `${c.dataISO}_${c.base}`;
+        mapaCanc[key] = (mapaCanc[key] || 0) + 1;
+    });
+
+    // ===== Normalizar igual tabela =====
+    return todos.map(r => {
+
+        const baseKey = (r.base || "").trim().toUpperCase();
+        const dtISO   = r.data;
+        const dtBR    = dtISO.split("-").reverse().join("/");
+        const key     = `${dtISO}_${baseKey}`;
+
+        return {
+            data: dtISO,             
+            data_br: dtBR, 
+            base: baseKey,
+            entregadores: (r.entregadores || "").toUpperCase(),
+            shopee: r.shopee,
+            mercado_livre: r.mercado_livre,
+            avulso: r.avulso,
+            valor_total: Number(r.valor_total),
+            cancelados: mapaCanc[key] || 0
+        };
+    });
+}
+
+
+
+btnGerar.addEventListener("click", async () => {
+    
+    const base = (fltBase.value || "").trim();
+    if (!base) {
+        Swal.fire({
+            icon: "warning",
+            title: "Selecione uma Base",
+            text: "É necessário escolher uma base para gerar a cobrança."
+        });
+        return;
+    }
+
+    Swal.showLoading();
+
+    // 🔥 Buscar todas as linhas com os mesmos filtros aplicados
+    const resumoCompleto = await carregarResumoCompleto();
+
+    Swal.close();
+
+    if (!resumoCompleto.length) {
+        Swal.fire({
+            icon: "info",
+            title: "Nenhum dado encontrado",
+            text: "Não há dados suficientes para gerar o relatório."
+        });
+        return;
+    }
+
+    // 🔥 Gerar o PDF com TODOS os dados filtrados
+    gerarPdfResumoColetas(
+        resumoCompleto,
+        base,
+        fltFrom.value,
+        fltTo.value
+    );
+});
+
+
+    // ====== Eventos ======
+  qs("#btnFilter").onclick = () => { state.page = 1; carregarResumo(); };
+  qs("#btnRefreshResumo").onclick = () => carregarResumo();
+
+  qs("#btnClear").onclick = () => {
     fltBase.value = "";
     fltFrom.value = "";
     fltTo.value   = "";
+    state.page = 1;
     carregarResumo();
-  });
+  };
 
-  btnGerarCobranca.addEventListener("click", () => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const subBase = user.sub_base || "default";
-    const logoUrl = `assets/images/logos/${subBase.toUpperCase()}.png`;
+  qs("#btnExportCsv").onclick = () => {
+    const rows = [
+      ["Data","Base","Entregador","Shopee","Mercado Livre","Avulso","Cancelados","Valor Total"]
+    ];
+    qsa("#coletas-resumo-table tbody tr").forEach(tr => {
+      rows.push([...tr.querySelectorAll("td")].map(td => td.textContent.trim()));
+    });
+    const blob = new Blob([rows.map(r => r.join(";")).join("\n")], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "resumo-coletas.csv";
+    a.click();
+  };
 
-    gerarPdfResumoColetas(resumoAtual, fltBase.value, fltFrom.value, fltTo.value, logoUrl);
-  });
-
-  // ====== ENTER dispara o botão Filtrar ======
-  document.addEventListener("keyup", (e) => {
+  document.addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
-      btnFilter.click();
+      state.page = 1;
+      carregarResumo();
     }
   });
 
-  // Inicializar
+  const selBase  = document.getElementById("flt-base");
+
+  // Estado inicial — sempre desabilitado até escolher uma base
+  btnGerar.disabled = true;
+
+  // Ativa somente quando Base ≠ (Todas)
+  selBase.addEventListener("change", () => {
+    btnGerar.disabled = (selBase.value.trim() === "");
+  });
+
+  // =====================================================================
+
   carregarBases().then(carregarResumo);
+
 });

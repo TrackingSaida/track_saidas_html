@@ -1,5 +1,5 @@
 /* ======================================================
-   TrackSaídas — Relatório detalhado de Coletas
+   TrackSaídas — Relatório detalhado de Coletas (Corrigido)
    ====================================================== */
 
 async function gerarPdfResumoColetas(resumo, base, de, ate) {
@@ -13,7 +13,9 @@ async function gerarPdfResumoColetas(resumo, base, de, ate) {
     return `${dia}/${mes}/${ano}`;
   }
 
-  if (!base) {
+  /* ======================= VALIDAÇÕES ======================= */
+
+  if (!base || base.trim() === "") {
     Swal.fire({
       icon: "warning",
       title: "Selecione uma Base",
@@ -32,28 +34,88 @@ async function gerarPdfResumoColetas(resumo, base, de, ate) {
   }
 
   /* ======================================================
-     Carregar logo conforme SUB_BASE
+     LOGO — Carrega conforme sub_base do usuário
   ====================================================== */
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const subBase = (user.sub_base || "").trim();
-  const logoUrl = `assets/images/logos/${subBase}.png`;
 
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4"
+  });
+
+  async function addLogo() {
+    const nomeArquivo = subBase.replace(/\s+/g, "_").toUpperCase() + ".png";
+
+    const caminhos = [
+      `assets/images/logos/${nomeArquivo}`,
+      `/assets/images/logos/${nomeArquivo}`,
+      `./assets/images/logos/${nomeArquivo}`
+    ];
+
+    const fallback = "assets/images/logos/default.png";
+    let caminhoFinal = fallback;
+
+    for (const c of caminhos) {
+      try {
+        const r = await fetch(c);
+        if (r.ok) {
+          caminhoFinal = c;
+          break;
+        }
+      } catch (_) {}
+    }
+
+    try {
+      const blob = await (await fetch(caminhoFinal)).blob();
+
+      return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          doc.addImage(e.target.result, "PNG", 15, 10, 40, 25);
+          resolve();
+        };
+        reader.readAsDataURL(blob);
+      });
+
+    } catch (err) {
+      console.error("Erro ao carregar logo:", err);
+    }
+  }
+
+  await addLogo();
 
   /* ======================================================
-     API – Cancelados
+     HEADER DO RELATÓRIO
+  ====================================================== */
+  doc.setFontSize(15);
+  doc.text(`RELATÓRIO DE COLETAS — ${base}`, 105, 20, { align: "center" });
+
+  doc.setFontSize(10);
+  doc.text(
+    `Período: ${isoParaBr(de)} até ${isoParaBr(ate)}`,
+    105,
+    26,
+    { align: "center" }
+  );
+
+  /* ======================================================
+     API — Cancelados com DATA ISO
   ====================================================== */
   async function buscarCanceladosAPI() {
     const params = new URLSearchParams();
     params.append("status", "cancelado");
     params.append("base", base);
+
     if (de) params.append("de", de);
     if (ate) params.append("ate", ate);
 
-    const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?${params.toString()}`, {
-      credentials: "include"
-    });
+    const resp = await fetch(
+      `${window.TRACK_API_URL}/saidas/listar?${params.toString()}`,
+      { credentials: "include" }
+    );
 
     return await resp.json();
   }
@@ -61,42 +123,47 @@ async function gerarPdfResumoColetas(resumo, base, de, ate) {
   const canceladosRaw = await buscarCanceladosAPI();
 
   /* ======================================================
-     Agrupar Cancelados
+     Agrupar Cancelados por DIA + TIPO
+     (Shopee / Mercado Livre / Avulso)
   ====================================================== */
   function agruparCancelados(rows) {
     const mapa = {};
 
     rows.forEach(r => {
-      const data = new Date(r.timestamp).toLocaleDateString("pt-BR");
+      const dt = new Date(r.timestamp);
+      const dataISO = dt.toISOString().slice(0, 10); // YYYY-MM-DD
+
       const serv = (r.servico || "").toLowerCase();
       let tipo = null;
 
       if (serv.includes("shopee")) tipo = "shopee";
       else if (serv.includes("mercado") || serv.includes("ml") || serv.includes("flex"))
         tipo = "flex";
-      else if (serv.includes("avulso")) tipo = "avulso";
+      else tipo = "avulso";
 
-      if (!tipo) return;
+      if (!mapa[dataISO])
+        mapa[dataISO] = { shopee: 0, flex: 0, avulso: 0 };
 
-      if (!mapa[data]) mapa[data] = { shopee: 0, flex: 0, avulso: 0 };
-
-      mapa[data][tipo] += 1;
+      mapa[dataISO][tipo]++;
     });
 
     return mapa;
   }
 
-  const cancAgrupado = agruparCancelados(canceladosRaw);
+  const cancAgrupado = agruparCancelados(canceladosRaw.items || canceladosRaw.rows || []);
 
   /* ======================================================
-     Buscar preços da base
+     Buscar PREÇOS da base (corrigido)
   ====================================================== */
   async function carregarPrecoBase() {
-    const resp = await fetch(`${window.TRACK_API_URL}/base?base=${base}`, {
+    const resp = await fetch(`${window.TRACK_API_URL}/base`, {
       credentials: "include"
     });
-    const data = await resp.json();
-    return data[0];
+
+    const lista = await resp.json();
+    return lista.find(
+      b => String(b.base).toUpperCase() === String(base).toUpperCase()
+    );
   }
 
   const precos = await carregarPrecoBase();
@@ -106,7 +173,7 @@ async function gerarPdfResumoColetas(resumo, base, de, ate) {
   const precoAvulso = Number(precos?.avulso || 0);
 
   /* ======================================================
-     Tabela Bruta
+     MONTAR TABELA BRUTA
   ====================================================== */
   const tabelaBruta = resumo.map(r => ({
     data: r.data,
@@ -114,7 +181,7 @@ async function gerarPdfResumoColetas(resumo, base, de, ate) {
     flex: r.mercado_livre,
     avulso: r.avulso,
     total: r.shopee + r.mercado_livre + r.avulso,
-    valor: r.valor_total
+    valor: Number(r.valor_total || 0)
   }));
 
   const totalShopee = tabelaBruta.reduce((a, b) => a + b.shopee, 0);
@@ -147,121 +214,54 @@ async function gerarPdfResumoColetas(resumo, base, de, ate) {
   const valorLiquido = totalBruto - totalCanceladosValor;
 
   /* ======================================================
-     Cabeçalho + Logo
+     Estilo de colunas
   ====================================================== */
-async function addLogo() {
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const subBase = (user.sub_base || "").trim();
-
-  // Normaliza para o padrão DG_EXPRESS.png
-  const nomeArquivo = subBase.replace(/\s+/g, "_").toUpperCase() + ".png";
-
-  const caminhos = [
-    `assets/images/logos/${nomeArquivo}`,
-    `/assets/images/logos/${nomeArquivo}`,
-    `./assets/images/logos/${nomeArquivo}`,
-  ];
-
-  const fallback = "assets/images/logos/default.png";
-  let caminhoFinal = fallback;
-
-  // Testa caminhos possíveis
-  for (const c of caminhos) {
-    try {
-      const r = await fetch(c);
-      if (r.ok) {
-        caminhoFinal = c;
-        break;
-      }
-    } catch (_) {}
-  }
-
-  // CONVERTE PARA BASE64 (ESSENCIAL PARA PDF NO BLOB)
-  try {
-    const blob = await (await fetch(caminhoFinal)).blob();
-
-    return new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onload = e => {
-        // Adiciona imagem no PDF
-        doc.addImage(e.target.result, "PNG", 15, 10, 40, 25);
-        resolve();
-      };
-      reader.readAsDataURL(blob);
-    });
-
-  } catch (err) {
-    console.error("Erro ao carregar logo:", err);
-  }
-}
-
-
-
-  await addLogo();
-
-  doc.setFontSize(15);
-  doc.text(`RELATÓRIO DE COLETAS — ${base}`, 105, 20, { align: "center" });
-
-  doc.setFontSize(10);
-  doc.text(
-    `Período: ${isoParaBr(de)} até ${isoParaBr(ate)}`,
-    105,
-    26,
-    { align: "center" }
-  );
+  const colunasFixas = {
+    0: { minCellWidth: 22 },
+    1: { minCellWidth: 18 },
+    2: { minCellWidth: 18 },
+    3: { minCellWidth: 18 },
+    4: { minCellWidth: 18 },
+    5: { minCellWidth: 28 }
+  };
 
   /* ======================================================
-     Colunas fixas
-  ====================================================== */
-const colunasFixas = {
-  0: { minCellWidth: 22 },  // Data
-  1: { minCellWidth: 18 },  // Shopee
-  2: { minCellWidth: 18 },  // Flex
-  3: { minCellWidth: 18 },  // Avulso
-  4: { minCellWidth: 18 },  // Total
-  5: { minCellWidth: 28 }   // Valor Total
-};
-
-
-  /* ======================================================
-     Tabela 1 — Bruta
+     Tabela Bruta no PDF
   ====================================================== */
   doc.autoTable({
-  startY: 40,
-  head: [["Data", "Shopee", "Flex", "Avulso", "Total", "Valor Total"]],
-  body: tabelaBruta.map(l => [
-    l.data,
-    l.shopee,
-    l.flex,
-    l.avulso,
-    l.total,
-    `R$ ${l.valor.toFixed(2).replace(".", ",")}`
-  ]),
-  theme: "grid",
-  styles: { fontSize: 9, halign: "center", cellPadding: 2 },
-  columnStyles: colunasFixas
-});
+    startY: 40,
+    head: [["Data", "Shopee", "Flex", "Avulso", "Total", "Valor Total"]],
+    body: tabelaBruta.map(l => [
+      isoParaBr(l.data),
+      l.shopee,
+      l.flex,
+      l.avulso,
+      l.total,
+      `R$ ${l.valor.toFixed(2).replace(".", ",")}`
+    ]),
+    theme: "grid",
+    styles: { fontSize: 9, halign: "center" },
+    columnStyles: colunasFixas
+  });
 
-
-  // Linha total
+  /* Totais Brutos */
   doc.autoTable({
     startY: doc.lastAutoTable.finalY,
     body: [[
-      "Totais", totalShopee, totalFlex, totalAvulso, totalQtdeBruta,
+      "Totais",
+      totalShopee,
+      totalFlex,
+      totalAvulso,
+      totalQtdeBruta,
       `R$ ${totalBruto.toFixed(2).replace(".", ",")}`
     ]],
     theme: "grid",
-    styles: {
-      fontSize: 9,
-      halign: "center",
-      fontStyle: "bold",
-      fillColor: [240, 240, 240]
-    },
+    styles: { fontSize: 9, halign: "center", fontStyle: "bold", fillColor: [240, 240, 240] },
     columnStyles: colunasFixas
   });
 
   /* ======================================================
-     Tabela 2 — Cancelados
+     TABELA CANCELADOS
   ====================================================== */
   doc.setFontSize(13);
   doc.text("REGISTROS CANCELADOS", 14, doc.lastAutoTable.finalY + 12);
@@ -270,7 +270,11 @@ const colunasFixas = {
     startY: doc.lastAutoTable.finalY + 15,
     head: [["Data", "Shopee", "Flex", "Avulso", "Total", "Valor Cancelado"]],
     body: tabelaCanc.map(l => [
-      l.data, l.shopee, l.flex, l.avulso, l.total,
+      isoParaBr(l.data),
+      l.shopee,
+      l.flex,
+      l.avulso,
+      l.total,
       `R$ ${l.valor.toFixed(2).replace(".", ",")}`
     ]),
     theme: "grid",
@@ -278,26 +282,24 @@ const colunasFixas = {
     columnStyles: colunasFixas
   });
 
-  // Totais cancelados
+  /* Totais Cancelados */
   doc.autoTable({
     startY: doc.lastAutoTable.finalY,
     body: [[
-      "Totais", totalShopeeCanc, totalFlexCanc, totalAvulsoCanc,
+      "Totais",
+      totalShopeeCanc,
+      totalFlexCanc,
+      totalAvulsoCanc,
       totalQtdeCanc,
       `R$ ${totalCanceladosValor.toFixed(2).replace(".", ",")}`
     ]],
     theme: "grid",
-    styles: {
-      fontSize: 9,
-      halign: "center",
-      fontStyle: "bold",
-      fillColor: [240, 240, 240]
-    },
+    styles: { fontSize: 9, halign: "center", fontStyle: "bold", fillColor: [240, 240, 240] },
     columnStyles: colunasFixas
   });
 
   /* ======================================================
-     Resumo Final
+     RESUMO FINAL
   ====================================================== */
   const Y = doc.lastAutoTable.finalY + 15;
 
@@ -315,7 +317,7 @@ const colunasFixas = {
   doc.setTextColor(0, 0, 0);
 
   /* ======================================================
-     Rodapé igual ao do sistema
+     Rodapé igual ao sistema
   ====================================================== */
   const ano = new Date().getFullYear();
   doc.setFontSize(10);
@@ -327,3 +329,19 @@ const colunasFixas = {
   ====================================================== */
   window.open(doc.output("bloburl"), "_blank");
 }
+
+/* ======================================================
+   HABILITAR/DESABILITAR BOTÃO GERAR COBRANÇA
+====================================================== */
+document.addEventListener("DOMContentLoaded", () => {
+  const btnGerar = document.getElementById("btnGerarCobranca");
+  const selBase = document.getElementById("flt-base");
+
+  if (btnGerar && selBase) {
+    btnGerar.disabled = true;
+
+    selBase.addEventListener("change", () => {
+      btnGerar.disabled = (selBase.value.trim() === "");
+    });
+  }
+});

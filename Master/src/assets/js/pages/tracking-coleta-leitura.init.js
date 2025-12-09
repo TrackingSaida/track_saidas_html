@@ -528,7 +528,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           } catch (e) {
             console.warn("Erro ao detectar código:", e);
           }
-        }, 180);
+        }, 100);
 
         // Listener botão fechar
         if (closeBtn) closeBtn.onclick = () => stopScanner();
@@ -615,7 +615,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (inputCodigo) inputCodigo.value = "";
     renderTabela();
 
-    setTimeout(() => (scanLocked = false), 800);
+    setTimeout(() => (scanLocked = false), 180);
   }
 
   /* ============================================================

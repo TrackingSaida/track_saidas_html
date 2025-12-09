@@ -312,49 +312,68 @@ function augmentEntregadoresFromRows(rows){
   // =====================================================================
   // PAGINAÇÃO
   // =====================================================================
-  function updatePager() {
-    const totalPages = Math.ceil(state.total / state.pageSize);
-    const currentPage = state.page;
+function updatePager() {
+  const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
+  const page = state.page;
 
-    const pagerSummary = document.getElementById("pager-summary");
-    if (pagerSummary)
-      pagerSummary.textContent = `Página ${currentPage} de ${totalPages}`;
+  const start = (page - 1) * state.pageSize + 1;
+  const end = Math.min(state.total, page * state.pageSize);
 
-    const pagerInfo = document.getElementById("pager-info");
-    if (pagerInfo) {
-      const startRecord = (currentPage - 1) * state.pageSize + 1;
-      const endRecord = Math.min(state.total, currentPage * state.pageSize);
-      pagerInfo.textContent = `Exibindo ${startRecord} a ${endRecord} de ${state.total}`;
-    }
+  // Informações (CENTRO & ESQUERDA)
+  const pagerInfo = qs("#pager-info");
+  if (pagerInfo)
+    pagerInfo.textContent = `Exibindo ${start} a ${end} de ${state.total}`;
 
-    const pagerFirst = qs("#pager-first");
-    const pagerPrev  = qs("#pager-prev");
-    const pagerNext  = qs("#pager-next");
-    const pagerLast  = qs("#pager-last");
+  const pagerSummary = qs("#pager-summary");
+  if (pagerSummary)
+    pagerSummary.textContent = `Página ${page} de ${totalPages}`;
 
-    if (pagerFirst) pagerFirst.disabled = currentPage <= 1;
-    if (pagerPrev)  pagerPrev.disabled  = currentPage <= 1;
-    if (pagerNext)  pagerNext.disabled  = currentPage >= totalPages;
-    if (pagerLast)  pagerLast.disabled  = currentPage >= totalPages;
-  }
+  // Botões
+  const btnFirst = qs("#pager-first");
+  const btnPrev  = qs("#pager-prev");
+  const btnNext  = qs("#pager-next");
+  const btnLast  = qs("#pager-last");
 
-  function setupPagerEvents() {
-    const pagerFirst = qs("#pager-first");
-    const pagerPrev  = qs("#pager-prev");
-    const pagerNext  = qs("#pager-next");
-    const pagerLast  = qs("#pager-last");
+  if (btnFirst) btnFirst.disabled = page <= 1;
+  if (btnPrev)  btnPrev.disabled  = page <= 1;
+  if (btnNext)  btnNext.disabled  = page >= totalPages;
+  if (btnLast)  btnLast.disabled  = page >= totalPages;
+}
 
-    if (pagerFirst) pagerFirst.onclick = () => { state.page = 1; refresh(); };
-    if (pagerPrev)  pagerPrev.onclick  = () => { if (state.page > 1){ state.page--; refresh(); } };
-    if (pagerNext)  pagerNext.onclick  = () => {
-      const totalPages = Math.ceil(state.total / state.pageSize);
-      if (state.page < totalPages) { state.page++; refresh(); }
-    };
-    if (pagerLast) pagerLast.onclick = () => {
-      state.page = Math.ceil(state.total / state.pageSize);
+
+function setupPagerEvents() {
+  const btnFirst = qs("#pager-first");
+  const btnPrev  = qs("#pager-prev");
+  const btnNext  = qs("#pager-next");
+  const btnLast  = qs("#pager-last");
+
+  if (btnFirst) btnFirst.onclick = () => {
+    state.page = 1;
+    refresh();
+  };
+
+  if (btnPrev) btnPrev.onclick = () => {
+    if (state.page > 1) {
+      state.page--;
       refresh();
-    };
-  }
+    }
+  };
+
+  if (btnNext) btnNext.onclick = () => {
+    const totalPages = Math.ceil(state.total / state.pageSize);
+    if (state.page < totalPages) {
+      state.page++;
+      refresh();
+    }
+  };
+
+  if (btnLast) btnLast.onclick = () => {
+    state.page = Math.ceil(state.total / state.pageSize);
+    refresh();
+  };
+}
+
+
   setupPagerEvents();
 
   // =====================================================================

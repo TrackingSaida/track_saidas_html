@@ -69,10 +69,7 @@
                 <button id="btn-search" class="btn btn-primary"><i class="ri-search-line"></i> Filtrar </button>
                 <button id="btn-clear" class="btn btn-secondary ms-2">Limpar</button>
                 <button id="btn-edit-selected" class="btn btn-primary" disabled>Editar</button>
-                <button id="btn-delete-selected" class="btn btn-danger"><i class="ri-delete-bin-line"></i> Excluir</button>
-
-                <!-- info antiga mantida para compatibilidade -->
-                <div id="pager-info" class="ms-auto text-muted small d-none d-md-block">—</div>
+                <button id="btn-delete-selected" class="btn btn-danger"><i class="ri-delete-bin-line"></i> Excluir</button>               
               </div>
             </div>
           </div>
@@ -142,23 +139,53 @@
 
             <!-- Rodapé com paginação reposicionada -->
             <div class="card-footer">
-              <!-- Atualizar o rodapé da paginação para incluir totais de páginas e registros -->
-<div id="pager-footer" class="d-flex justify-content-between align-items-center gap-3">
-  <!-- Lado esquerdo: Totais de páginas -->
-  <div id="pager-summary" class="text-muted small">Página 1 de 1</div>
+             <!-- PAGINAÇÃO (mesma ergonomia da tela de Registros, mantendo o layout atual) -->
+<div class="d-flex justify-content-between align-items-center mt-3">
 
-  <!-- Lado direito: Totais de registros -->
-  <div id="pager-info" class="text-muted small">Exibindo 1 a 1 de 1</div>
+  <!-- Infos (Exibindo X a Y de Z) -->
+  <div id="pager-info" class="text-muted small">
+    Exibindo 0 a 0 de 0 registros
+  </div>
 
-  <!-- Botões de navegação -->
+  <!-- Botões -->
   <div class="btn-group">
-    <button class="btn btn-soft-secondary" id="pager-first" title="Primeira">⏮</button>
-    <button class="btn btn-soft-secondary" id="pager-prev" title="Anterior">◀</button>
-    <button class="btn btn-soft-secondary" id="pager-next" title="Próxima">▶</button>
-    <button class="btn btn-soft-secondary" id="pager-last" title="Última">⏭</button>
+
+    <!-- PRIMEIRA -->
+    <button id="pager-first"
+            class="btn btn-soft-secondary"
+            title="Primeira">
+      ⏮
+    </button>
+
+    <!-- ANTERIOR -->
+    <button id="pager-prev"
+            class="btn btn-soft-secondary"
+            title="Anterior">
+      ◀
+    </button>
+
+    <!-- INDICADOR -->
+    <span id="pager-summary"
+          class="px-3 d-flex align-items-center small text-muted">
+      Página 1 de 1
+    </span>
+
+    <!-- PRÓXIMA -->
+    <button id="pager-next"
+            class="btn btn-soft-secondary"
+            title="Próxima">
+      ▶
+    </button>
+
+    <!-- ÚLTIMA -->
+    <button id="pager-last"
+            class="btn btn-soft-secondary"
+            title="Última">
+      ⏭
+    </button>
   </div>
 </div>
-            </div>
+
           </div>
 
         </div><!-- /.container-fluid -->
