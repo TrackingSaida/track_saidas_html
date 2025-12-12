@@ -458,6 +458,89 @@ function setupPagerEvents() {
   var btnClear = qs("#btn-clear");
   if (btnClear) btnClear.addEventListener("click", clearFilters);
 
+  // ===== Scanner rápido para o filtro de Código (QR) =====
+  (function quickScannerForFilter(){
+    const scanBtn = qs('#btnScan');
+    const overlay = document.getElementById('scanFS');
+    const video = document.getElementById('scanFSVideo');
+    const hud = document.getElementById('scanFSMsg');
+    const closeBtn = document.getElementById('scanCloseBtn');
+
+    if (!scanBtn || !overlay || !video) return; // overlay não disponível
+
+    let stream = null;
+    let detector = null;
+    let intId = null;
+    let locked = false;
+
+    function stopScanner() {
+      locked = true;
+      if (intId) { clearInterval(intId); intId = null; }
+      if (stream) {
+        try { stream.getTracks().forEach(t => t.stop()); } catch(_){}
+        stream = null;
+      }
+      try { video.pause(); video.srcObject = null; } catch(_){}
+      overlay.classList.remove('show');
+      overlay.style.display = 'none';
+      document.body.style.overflow = '';
+      locked = false;
+    }
+
+    async function openScanner() {
+      if (locked) return;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      } catch (err) {
+        notify('Câmera não disponível', 'error');
+        return;
+      }
+
+      video.srcObject = stream;
+      overlay.classList.add('show');
+      overlay.style.display = 'block';
+      document.body.style.overflow = 'hidden';
+      try { await video.play(); } catch(_){}
+
+      // BarcodeDetector
+      if ('BarcodeDetector' in window) {
+        try {
+          detector = new BarcodeDetector({ formats: ['qr_code','ean_13','code_128','code_39','itf','upc_a','upc_e'] });
+        } catch (e) { detector = null; }
+      }
+
+      if (!detector) {
+        // sem detector nativo, avisa e fecha
+        notify('Leitor não suportado neste dispositivo.', 'error');
+        stopScanner();
+        return;
+      }
+
+      intId = setInterval(async () => {
+        if (locked) return;
+        try {
+          const codes = await detector.detect(video);
+          if (!codes || !codes.length) return;
+          const code = codes[0].rawValue || '';
+          if (code) {
+            // preenche filtro e executa busca
+            if (f.codigo) f.codigo.value = code;
+            state.page = 1;
+            stopScanner();
+            // pequena espera para garantir UI
+            setTimeout(() => refresh(true), 150);
+          }
+        } catch (e) {
+          // erro de leitura: ignora
+          console.warn('detector error', e);
+        }
+      }, 150);
+    }
+
+    scanBtn.addEventListener('click', (e) => { e.preventDefault(); openScanner(); });
+    if (closeBtn) closeBtn.addEventListener('click', (e) => { e.preventDefault(); stopScanner(); });
+  })();
+
   // =====================================================================
   // MODAL DE EDIÇÃO (SINGULAR)
   // =====================================================================
