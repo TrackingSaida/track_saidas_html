@@ -1,22 +1,48 @@
 @@include("partials/main.html")
 
 <head>
-  @@include("partials/title-meta.html", {"title": "Landing – Tracking Saídas"})
-
-  <!--Swiper slider css-->
+  @@include("partials/title-meta.html", {"title": "Tracking Saidas - Controle Total das Suas Entregas"})
   <link href="assets/libs/swiper/swiper-bundle.min.css" rel="stylesheet" type="text/css" />
-
   @@include("partials/head-css.html")
+  <style>
+    .hero-section { min-height: 100vh; display: flex; align-items: center; }
+    .feature-icon { width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-size: 28px; }
+    .module-card { transition: transform 0.3s, box-shadow 0.3s; border: none; }
+    .module-card:hover { transform: translateY(-8px); box-shadow: 0 12px 40px rgba(0,0,0,0.15); }
+    .cta-section { background: linear-gradient(135deg, #405189 0%, #0ab39c 100%); }
+    .integration-logo { height: 48px; opacity: 0.8; transition: opacity 0.3s; }
+    .integration-logo:hover { opacity: 1; }
+    .stat-number { font-size: 3rem; font-weight: 700; }
+    .problem-card { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border: none; }
+    .problem-card .card-body { color: #fff; }
+    .problem-card h5 { color: #fff; }
+    .problem-card p { color: rgba(255,255,255,0.9); }
+    .problem-card .avatar-title { background: rgba(255,255,255,0.2); color: #fff; }
+    .module-coletas { border-left: 4px solid #f7b84b !important; }
+    .module-coletas .feature-icon { background: rgba(247, 184, 75, 0.15) !important; color: #f7b84b !important; }
+    .module-saidas { border-left: 4px solid #0ab39c !important; }
+    .module-saidas .feature-icon { background: rgba(10, 179, 156, 0.15) !important; color: #0ab39c !important; }
+    .module-entregas { border-left: 4px solid #299cdb !important; }
+    .module-entregas .feature-icon { background: rgba(41, 156, 219, 0.15) !important; color: #299cdb !important; }
+    .mockup-section { background: #f8f9fa; }
+    .mockup-frame { background: #1a1a2e; border-radius: 12px; padding: 8px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+    .mockup-frame-mobile { max-width: 280px; margin: 0 auto; }
+    .mockup-screen { background: #fff; border-radius: 6px; overflow: hidden; }
+    .mockup-toolbar { background: #2d2d44; padding: 8px 12px; display: flex; align-items: center; gap: 6px; }
+    .mockup-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .mockup-dot-red { background: #ff5f57; }
+    .mockup-dot-yellow { background: #ffbd2e; }
+    .mockup-dot-green { background: #28c840; }
+  </style>
 </head>
 
 <body data-bs-spy="scroll" data-bs-target="#navbar-example">
-
-  <!-- Begin page -->
   <div class="layout-wrapper landing">
+    
     <nav class="navbar navbar-expand-lg navbar-landing fixed-top" id="navbar">
       <div class="container">
         <a class="navbar-brand" href="index.html">
-          <img src="assets/images/logo-track-light.png" class="card-logo card-logo-light" alt="Tracking Saídas" height="40">
+          <img src="assets/images/logo-track-light.png" class="card-logo card-logo-light" alt="Tracking Saidas" height="40">
         </a>
         <button class="navbar-toggler py-0 fs-20 text-body" type="button" data-bs-toggle="collapse"
           data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
@@ -27,80 +53,581 @@
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
           <ul class="navbar-nav mx-auto mt-2 mt-lg-0" id="navbar-example">
             <li class="nav-item">
-              <a class="nav-link active" href="#hero">Início</a>
+              <a class="nav-link active" href="#hero">Inicio</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#services">Serviços</a>
+              <a class="nav-link" href="#problema">O Problema</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#modulos">Modulos</a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#features">Recursos</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#plans">Planos</a>
+              <a class="nav-link" href="#integracoes">Integracoes</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#reviews">Avaliações</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="#team">Equipe</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="#contact">Contato</a>
+              <a class="nav-link" href="#contato">Contato</a>
             </li>
           </ul>
 
           <div class="">
-            <a href="auth-signin-tracking-v2.html"
-              class="btn btn-link fw-medium text-decoration-none text-body">Entrar</a>
-            <a href="auth-signup-tracking-v2.html" class="btn btn-primary">Criar Conta</a>
+            <a href="auth-signin-tracking-v2.html" class="btn btn-link fw-medium text-decoration-none text-body">Entrar</a>
+            <a href="auth-signup-tracking-v2.html" class="btn btn-primary">Teste Gratis</a>
           </div>
         </div>
       </div>
     </nav>
-    <!-- end navbar -->
 
     <div class="vertical-overlay" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent.show"></div>
 
-    <!-- start hero section -->
     <section class="section pb-0 hero-section" id="hero">
       <div class="bg-overlay bg-overlay-pattern"></div>
       <div class="container">
         <div class="row justify-content-center">
-          <div class="col-lg-8 col-sm-10">
+          <div class="col-lg-10 col-sm-12">
             <div class="text-center mt-lg-5 pt-5">
-              <h1 class="display-6 fw-semibold mb-3 lh-base">
-                A melhor forma de gerenciar suas saídas com
-                <span class="text-success">Tracking Saídas</span>
+              <span class="badge bg-success-subtle text-success fs-14 mb-3">Gestao de Entregas Last Mile</span>
+              <h1 class="display-5 fw-bold mb-4 lh-base">
+                Saiba exatamente quem saiu com cada pacote
               </h1>
-              <p class="lead text-muted lh-base">
-                Sistema inteligente para gestão e rastreamento de entregas.
+              <p class="lead text-muted lh-base mb-4 fs-18">
+                Chega de duvidas. Controle coletas, saidas e provas de entrega em um unico sistema.<br>
+                <strong>Simples, rapido e sem complicacao.</strong>
               </p>
 
-              <div class="d-flex gap-2 justify-content-center mt-4">
-                <a href="auth-signup-tracking-v2.html" class="btn btn-primary">Começar agora
-                  <i class="ri-arrow-right-line align-middle ms-1"></i></a>
-                <a href="#plans" class="btn btn-danger">Ver Planos
-                  <i class="ri-eye-line align-middle ms-1"></i></a>
+              <div class="d-flex gap-3 justify-content-center mt-4 flex-wrap">
+                <a href="auth-signup-tracking-v2.html" class="btn btn-primary btn-lg">
+                  <i class="ri-rocket-line me-2"></i>Comecar Agora - 15 Dias Gratis
+                </a>
+                <a href="#modulos" class="btn btn-outline-primary btn-lg">
+                  <i class="ri-eye-line me-2"></i>Ver Como Funciona
+                </a>
+              </div>
+
+              <div class="row mt-5 pt-4 justify-content-center">
+                <div class="col-auto">
+                  <div class="d-flex align-items-center gap-2">
+                    <i class="ri-checkbox-circle-fill text-success fs-20"></i>
+                    <span>Sem cartao de credito</span>
+                  </div>
+                </div>
+                <div class="col-auto">
+                  <div class="d-flex align-items-center gap-2">
+                    <i class="ri-checkbox-circle-fill text-success fs-20"></i>
+                    <span>Configuracao em minutos</span>
+                  </div>
+                </div>
+                <div class="col-auto">
+                  <div class="d-flex align-items-center gap-2">
+                    <i class="ri-checkbox-circle-fill text-success fs-20"></i>
+                    <span>Suporte incluso</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        <!-- end row -->
       </div>
-      <!-- end container -->
     </section>
-    <!-- end hero section -->
 
-    @@include("partials/footer.html")
+    <section class="section" id="problema" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col-lg-8 text-center mb-5">
+            <h2 class="fw-bold mb-3 text-white">O problema que voce conhece bem</h2>
+            <p class="text-white-50 fs-16">Se voce gerencia uma subbase de entregas, ja passou por isso:</p>
+          </div>
+        </div>
+        <div class="row g-4">
+          <div class="col-lg-4">
+            <div class="card h-100 problem-card">
+              <div class="card-body text-center p-4">
+                <div class="avatar-md mx-auto mb-3">
+                  <div class="avatar-title rounded-circle fs-24" style="background: rgba(255,255,255,0.2); color: #fff;">
+                    <i class="ri-question-line"></i>
+                  </div>
+                </div>
+                <h5>"Quem saiu com esse pacote?"</h5>
+                <p class="mb-0">Sem controle, voce nao sabe qual entregador levou cada pacote. Quando o cliente reclama, ninguem assume.</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="card h-100" style="background: linear-gradient(135deg, #f7b84b 0%, #e5a43a 100%); border: none;">
+              <div class="card-body text-center p-4">
+                <div class="avatar-md mx-auto mb-3">
+                  <div class="avatar-title rounded-circle fs-24" style="background: rgba(255,255,255,0.3); color: #fff;">
+                    <i class="ri-file-damage-line"></i>
+                  </div>
+                </div>
+                <h5 class="text-white">"Cliente diz que nao recebeu"</h5>
+                <p class="mb-0" style="color: rgba(255,255,255,0.9);">Sem prova de entrega, voce fica na palavra do cliente contra o entregador. Prejuizo certo.</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="card h-100" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); border: none;">
+              <div class="card-body text-center p-4">
+                <div class="avatar-md mx-auto mb-3">
+                  <div class="avatar-title rounded-circle fs-24" style="background: rgba(255,255,255,0.2); color: #fff;">
+                    <i class="ri-money-dollar-circle-line"></i>
+                  </div>
+                </div>
+                <h5 class="text-white">"Quanto cobrar do cliente?"</h5>
+                <p class="mb-0" style="color: rgba(255,255,255,0.9);">Contar pacotes manualmente, descontar cancelados... Uma dor de cabeca todo fim de mes.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="modulos">
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col-lg-8 text-center mb-5">
+            <span class="badge bg-primary-subtle text-primary fs-14 mb-2">Solucao Completa</span>
+            <h2 class="fw-bold mb-3">Tres modulos. Um sistema. Controle total.</h2>
+            <p class="text-muted fs-16">Cada modulo resolve um problema especifico da sua operacao.</p>
+          </div>
+        </div>
+        <div class="row g-4">
+          <div class="col-lg-4">
+            <div class="card module-card module-coletas h-100 shadow-sm">
+              <div class="card-body p-4">
+                <div class="feature-icon mb-4">
+                  <i class="ri-inbox-archive-line"></i>
+                </div>
+                <h4 class="fw-semibold mb-3" style="color: #f7b84b;">Coletas</h4>
+                <p class="text-muted mb-4">Registre cada pacote coletado. No fim do periodo, gere a cobranca automaticamente ja descontando cancelados.</p>
+                <ul class="list-unstyled text-muted">
+                  <li class="mb-2"><i class="ri-check-line me-2" style="color: #f7b84b;"></i>Leitura por codigo de barras</li>
+                  <li class="mb-2"><i class="ri-check-line me-2" style="color: #f7b84b;"></i>Resumo por base/cliente</li>
+                  <li class="mb-2"><i class="ri-check-line me-2" style="color: #f7b84b;"></i>Geracao de cobranca automatica</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="card module-card module-saidas h-100 shadow-sm" style="border: 2px solid #0ab39c !important;">
+              <div class="card-header text-white text-center py-2" style="background: #0ab39c;">
+                <small class="fw-semibold">MAIS USADO</small>
+              </div>
+              <div class="card-body p-4">
+                <div class="feature-icon mb-4">
+                  <i class="ri-truck-line"></i>
+                </div>
+                <h4 class="fw-semibold mb-3" style="color: #0ab39c;">Saidas</h4>
+                <p class="text-muted mb-4">Saiba exatamente qual entregador saiu com cada pacote. Acabou o "nao sei quem levou".</p>
+                <ul class="list-unstyled text-muted">
+                  <li class="mb-2"><i class="ri-check-line me-2" style="color: #0ab39c;"></i>Vinculo pacote-entregador</li>
+                  <li class="mb-2"><i class="ri-check-line me-2" style="color: #0ab39c;"></i>Historico completo</li>
+                  <li class="mb-2"><i class="ri-check-line me-2" style="color: #0ab39c;"></i>Busca rapida por codigo</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="card module-card module-entregas h-100 shadow-sm">
+              <div class="card-body p-4">
+                <div class="feature-icon mb-4">
+                  <i class="ri-camera-line"></i>
+                </div>
+                <h4 class="fw-semibold mb-3" style="color: #299cdb;">Entregas</h4>
+                <p class="text-muted mb-4">Provas de entrega com foto, localizacao e nome do recebedor. Responda reclamacoes em segundos.</p>
+                <ul class="list-unstyled text-muted">
+                  <li class="mb-2"><i class="ri-check-line me-2" style="color: #299cdb;"></i>Foto + GPS + Assinatura</li>
+                  <li class="mb-2"><i class="ri-check-line me-2" style="color: #299cdb;"></i>App para entregador</li>
+                  <li class="mb-2"><i class="ri-check-line me-2" style="color: #299cdb;"></i>Registro de ocorrencias</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section mockup-section" id="preview">
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col-lg-8 text-center mb-5">
+            <span class="badge bg-dark-subtle text-dark fs-14 mb-2">Veja na pratica</span>
+            <h2 class="fw-bold mb-3">Sistema intuitivo e facil de usar</h2>
+            <p class="text-muted fs-16">Dashboards claros, app do entregador simples e tudo integrado.</p>
+          </div>
+        </div>
+        <div class="row g-4 align-items-center">
+          <div class="col-lg-7">
+            <div class="mockup-frame">
+              <div class="mockup-toolbar">
+                <div class="mockup-dot mockup-dot-red"></div>
+                <div class="mockup-dot mockup-dot-yellow"></div>
+                <div class="mockup-dot mockup-dot-green"></div>
+                <span class="text-white-50 small ms-3">Dashboard - Tracking Saidas</span>
+              </div>
+              <div class="mockup-screen p-3" style="min-height: 380px;">
+                <div class="row g-2 mb-3">
+                  <div class="col-3">
+                    <div class="bg-success-subtle p-2 rounded text-center">
+                      <div class="fs-4 fw-bold text-success">247</div>
+                      <small class="text-muted">Entregues</small>
+                    </div>
+                  </div>
+                  <div class="col-3">
+                    <div class="bg-warning-subtle p-2 rounded text-center">
+                      <div class="fs-4 fw-bold text-warning">38</div>
+                      <small class="text-muted">Em Rota</small>
+                    </div>
+                  </div>
+                  <div class="col-3">
+                    <div class="bg-info-subtle p-2 rounded text-center">
+                      <div class="fs-4 fw-bold text-info">156</div>
+                      <small class="text-muted">Coletados</small>
+                    </div>
+                  </div>
+                  <div class="col-3">
+                    <div class="bg-danger-subtle p-2 rounded text-center">
+                      <div class="fs-4 fw-bold text-danger">5</div>
+                      <small class="text-muted">Ocorrencias</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="bg-light rounded p-2 mb-2">
+                  <table class="table table-sm table-borderless mb-0" style="font-size: 11px;">
+                    <thead>
+                      <tr class="text-muted">
+                        <th>Codigo</th>
+                        <th>Entregador</th>
+                        <th>Status</th>
+                        <th>Hora</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><code>BR789456123SP</code></td>
+                        <td>Carlos Silva</td>
+                        <td><span class="badge bg-success">Entregue</span></td>
+                        <td>14:32</td>
+                      </tr>
+                      <tr>
+                        <td><code>BR654321789SP</code></td>
+                        <td>Ana Santos</td>
+                        <td><span class="badge bg-warning">Em Rota</span></td>
+                        <td>14:28</td>
+                      </tr>
+                      <tr>
+                        <td><code>BR321654987SP</code></td>
+                        <td>Pedro Lima</td>
+                        <td><span class="badge bg-success">Entregue</span></td>
+                        <td>14:15</td>
+                      </tr>
+                      <tr>
+                        <td><code>BR159753486SP</code></td>
+                        <td>Maria Costa</td>
+                        <td><span class="badge bg-info">Coletado</span></td>
+                        <td>13:58</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <div class="bg-light rounded p-2 text-center">
+                      <small class="text-muted d-block">Entregadores Ativos</small>
+                      <div class="d-flex justify-content-center gap-1 mt-1">
+                        <div class="rounded-circle bg-success" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px;">CS</div>
+                        <div class="rounded-circle bg-primary" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px;">AS</div>
+                        <div class="rounded-circle bg-warning" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px;">PL</div>
+                        <div class="rounded-circle bg-info" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px;">MC</div>
+                        <div class="rounded-circle bg-secondary" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px;">+3</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="bg-light rounded p-2 text-center">
+                      <small class="text-muted d-block">Taxa de Sucesso Hoje</small>
+                      <div class="fs-5 fw-bold text-success mt-1">98.2%</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-5">
+            <div class="mockup-frame mockup-frame-mobile">
+              <div class="mockup-toolbar justify-content-center">
+                <span class="text-white-50 small">App do Entregador</span>
+              </div>
+              <div class="mockup-screen p-3" style="min-height: 420px;">
+                <div class="text-center mb-3">
+                  <div class="rounded-circle bg-success mx-auto mb-2" style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
+                    <i class="ri-user-line text-white fs-4"></i>
+                  </div>
+                  <h6 class="mb-0">Carlos Silva</h6>
+                  <small class="text-muted">7 entregas restantes</small>
+                </div>
+                <div class="bg-warning-subtle rounded p-2 mb-2">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <small class="text-muted d-block">Proxima Entrega</small>
+                      <strong style="font-size: 12px;">BR654321789SP</strong>
+                    </div>
+                    <span class="badge bg-warning">Pendente</span>
+                  </div>
+                  <hr class="my-2">
+                  <small class="text-muted"><i class="ri-map-pin-line"></i> Rua das Flores, 123 - Centro</small>
+                </div>
+                <div class="bg-light rounded p-2 mb-2">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <small class="text-muted d-block">Entrega Concluida</small>
+                      <strong style="font-size: 12px;">BR789456123SP</strong>
+                    </div>
+                    <span class="badge bg-success">Entregue</span>
+                  </div>
+                  <small class="text-muted"><i class="ri-time-line"></i> 14:32 - Joao recebeu</small>
+                </div>
+                <div class="bg-light rounded p-2 mb-2">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <small class="text-muted d-block">Entrega Concluida</small>
+                      <strong style="font-size: 12px;">BR321654987SP</strong>
+                    </div>
+                    <span class="badge bg-success">Entregue</span>
+                  </div>
+                  <small class="text-muted"><i class="ri-time-line"></i> 14:15 - Maria recebeu</small>
+                </div>
+                <button class="btn btn-success w-100 mt-2">
+                  <i class="ri-camera-line me-1"></i> Confirmar Entrega
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section bg-light" id="features">
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col-lg-8 text-center mb-5">
+            <span class="badge bg-success-subtle text-success fs-14 mb-2">Recursos</span>
+            <h2 class="fw-bold mb-3">Tudo que voce precisa para gerenciar</h2>
+          </div>
+        </div>
+        <div class="row g-4">
+          <div class="col-lg-3 col-md-6">
+            <div class="text-center">
+              <div class="avatar-md mx-auto mb-3">
+                <div class="avatar-title bg-primary-subtle text-primary rounded fs-24">
+                  <i class="ri-dashboard-3-line"></i>
+                </div>
+              </div>
+              <h6 class="fw-semibold">Dashboard Completo</h6>
+              <p class="text-muted small mb-0">Visao geral da operacao com graficos e metricas em tempo real</p>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6">
+            <div class="text-center">
+              <div class="avatar-md mx-auto mb-3">
+                <div class="avatar-title bg-success-subtle text-success rounded fs-24">
+                  <i class="ri-team-line"></i>
+                </div>
+              </div>
+              <h6 class="fw-semibold">Gestao de Entregadores</h6>
+              <p class="text-muted small mb-0">Cadastro, ranking de performance e historico de entregas</p>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6">
+            <div class="text-center">
+              <div class="avatar-md mx-auto mb-3">
+                <div class="avatar-title bg-warning-subtle text-warning rounded fs-24">
+                  <i class="ri-building-line"></i>
+                </div>
+              </div>
+              <h6 class="fw-semibold">Multi-Bases</h6>
+              <p class="text-muted small mb-0">Gerencie varios clientes/bases em uma unica conta</p>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6">
+            <div class="text-center">
+              <div class="avatar-md mx-auto mb-3">
+                <div class="avatar-title bg-info-subtle text-info rounded fs-24">
+                  <i class="ri-user-settings-line"></i>
+                </div>
+              </div>
+              <h6 class="fw-semibold">Usuarios e Permissoes</h6>
+              <p class="text-muted small mb-0">Controle quem acessa o que no sistema</p>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6">
+            <div class="text-center">
+              <div class="avatar-md mx-auto mb-3">
+                <div class="avatar-title bg-danger-subtle text-danger rounded fs-24">
+                  <i class="ri-barcode-line"></i>
+                </div>
+              </div>
+              <h6 class="fw-semibold">Leitura por Codigo</h6>
+              <p class="text-muted small mb-0">Escaneie codigos Shopee, Mercado Livre ou avulsos</p>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6">
+            <div class="text-center">
+              <div class="avatar-md mx-auto mb-3">
+                <div class="avatar-title bg-secondary-subtle text-secondary rounded fs-24">
+                  <i class="ri-file-list-3-line"></i>
+                </div>
+              </div>
+              <h6 class="fw-semibold">Relatorios</h6>
+              <p class="text-muted small mb-0">Exporte dados e gere cobracas por periodo</p>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6">
+            <div class="text-center">
+              <div class="avatar-md mx-auto mb-3">
+                <div class="avatar-title bg-dark-subtle text-dark rounded fs-24">
+                  <i class="ri-smartphone-line"></i>
+                </div>
+              </div>
+              <h6 class="fw-semibold">App do Entregador</h6>
+              <p class="text-muted small mb-0">Aplicativo web para registrar entregas com foto</p>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6">
+            <div class="text-center">
+              <div class="avatar-md mx-auto mb-3">
+                <div class="avatar-title bg-primary-subtle text-primary rounded fs-24">
+                  <i class="ri-map-pin-line"></i>
+                </div>
+              </div>
+              <h6 class="fw-semibold">Localizacao GPS</h6>
+              <p class="text-muted small mb-0">Registre onde cada entrega foi realizada</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="integracoes">
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col-lg-8 text-center mb-5">
+            <span class="badge bg-warning-subtle text-warning fs-14 mb-2">Integracoes</span>
+            <h2 class="fw-bold mb-3">Compativel com os principais marketplaces</h2>
+            <p class="text-muted fs-16">Leia codigos de rastreio automaticamente</p>
+          </div>
+        </div>
+        <div class="row justify-content-center align-items-center g-5">
+          <div class="col-auto">
+            <div class="text-center p-4 bg-light rounded">
+              <img src="assets/images/companies/shopee.svg" alt="Shopee" class="integration-logo" style="height: 60px;" onerror="this.outerHTML='<div class=\'text-center\'><i class=\'ri-store-2-line fs-1 text-warning\'></i><p class=\'mb-0 mt-2 fw-semibold\'>Shopee</p></div>'">
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="text-center p-4 bg-light rounded">
+              <img src="assets/images/companies/mercadolivre.svg" alt="Mercado Livre" class="integration-logo" style="height: 60px;" onerror="this.outerHTML='<div class=\'text-center\'><i class=\'ri-shopping-cart-line fs-1 text-warning\'></i><p class=\'mb-0 mt-2 fw-semibold\'>Mercado Livre</p></div>'">
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="text-center p-4 bg-light rounded">
+              <div class="text-center">
+                <i class="ri-barcode-box-line fs-1 text-secondary"></i>
+                <p class="mb-0 mt-2 fw-semibold">Avulsos</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section cta-section text-white">
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col-lg-8 text-center">
+            <h2 class="fw-bold mb-3">Pronto para ter controle total?</h2>
+            <p class="lead mb-4 opacity-75">
+              Teste gratuitamente por 15 dias. Sem compromisso, sem cartao de credito.
+            </p>
+            <a href="auth-signup-tracking-v2.html" class="btn btn-light btn-lg">
+              <i class="ri-rocket-line me-2"></i>Comecar Teste Gratis
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section bg-light" id="contato">
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col-lg-8 text-center mb-5">
+            <span class="badge bg-primary-subtle text-primary fs-14 mb-2">Contato</span>
+            <h2 class="fw-bold mb-3">Fale com a gente</h2>
+            <p class="text-muted fs-16">Duvidas? Quer uma demonstracao personalizada? Entre em contato.</p>
+          </div>
+        </div>
+        <div class="row justify-content-center g-4">
+          <div class="col-lg-4 col-md-6">
+            <div class="card h-100 text-center">
+              <div class="card-body p-4">
+                <div class="avatar-md mx-auto mb-3">
+                  <div class="avatar-title bg-success-subtle text-success rounded-circle fs-24">
+                    <i class="ri-whatsapp-line"></i>
+                  </div>
+                </div>
+                <h5>WhatsApp</h5>
+                <p class="text-muted mb-3">Resposta rapida</p>
+                <a href="https://wa.me/5500000000000" class="btn btn-success">
+                  <i class="ri-whatsapp-line me-1"></i>Chamar no WhatsApp
+                </a>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4 col-md-6">
+            <div class="card h-100 text-center">
+              <div class="card-body p-4">
+                <div class="avatar-md mx-auto mb-3">
+                  <div class="avatar-title bg-primary-subtle text-primary rounded-circle fs-24">
+                    <i class="ri-mail-line"></i>
+                  </div>
+                </div>
+                <h5>E-mail</h5>
+                <p class="text-muted mb-3">Para assuntos comerciais</p>
+                <a href="mailto:comercial@trackingsaidas.com.br" class="btn btn-primary">
+                  <i class="ri-mail-line me-1"></i>Enviar E-mail
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row justify-content-center mt-4">
+          <div class="col-lg-6 text-center">
+            <p class="text-muted small mb-0">
+              <i class="ri-time-line me-1"></i>Atendimento: Segunda a Sabado, horario comercial
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="bg-dark text-white py-4">
+      <div class="container">
+        <div class="row align-items-center">
+          <div class="col-lg-6">
+            <p class="mb-0">&copy; 2025 Tracking Saidas. Todos os direitos reservados.</p>
+          </div>
+          <div class="col-lg-6 text-lg-end">
+            <p class="mb-0 text-muted small">Tecnologia para gestao de entregas last mile</p>
+          </div>
+        </div>
+      </div>
+    </footer>
+
   </div>
-  <!-- end layout wrapper -->
 
   @@include("partials/vendor-scripts.html")
-
-  <!--Swiper slider js-->
   <script src="assets/libs/swiper/swiper-bundle.min.js"></script>
-
-  <!-- landing init -->
   <script src="assets/js/pages/landing.init.js"></script>
 </body>
 
