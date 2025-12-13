@@ -820,7 +820,10 @@ async function registrar() {
           const barcodes = await detector.detect(video);
           if (!barcodes.length) return;
           const code = barcodes[0].rawValue || "";
-          processarCodigo(code);
+          // interrompe a câmera antes de processar para que o usuário
+          // veja o modal/alerta e possa tomar decisões (trocar entregador, etc.)
+          stopScanner();
+          setTimeout(() => processarCodigo(code), 50);
         }, 100);
         return;
       } catch (e) {
@@ -834,7 +837,9 @@ async function registrar() {
       try {
         await reader.decodeFromVideoDevice(null, video, (result, err) => {
           if (!result) return;
-          processarCodigo(result.getText());
+          // interrompe a câmera antes de processar a leitura
+          try { stopScanner(); } catch (_) {}
+          setTimeout(() => processarCodigo(result.getText()), 50);
         });
       } catch (e) {
         console.error("Erro ZXing fallback:", e);
