@@ -26,73 +26,134 @@
     return fmtYMD(d);
   }
 
-  // ---------------------------------------------------------------------------
-  // Helpers de API
-  // ---------------------------------------------------------------------------
-  const API_BASE = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+// ---------------------------------------------------------------------------
+// HELPERS DE API — VERSÃO FINAL (alinhado ao backend real)
+// ---------------------------------------------------------------------------
 
-  async function fetchJson(url) {
-    const res = await fetch(url, { credentials: "include" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+const API_BASE = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+
+// Wrapper seguro para JSON
+async function fetchJson(url) {
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// USUÁRIO LOGADO
+// ---------------------------------------------------------------------------
+async function getCurrentUser() {
+  try {
+    return await fetchJson(`${API_BASE}/auth/me`);
+  } catch (_) {
+    return null;
   }
+}
 
-  async function getCurrentUser() {
-    try {
-      return await fetchJson(`${API_BASE}/auth/me`);
-    } catch (_) {
-      return null;
-    }
+// ---------------------------------------------------------------------------
+// COLETAS — pega tudo do período (sem paginação!)
+// endpoint: GET /coletas
+// retorna: List[ColetaOut]
+// ---------------------------------------------------------------------------
+async function listColetas(from, to) {
+  const params = new URLSearchParams();
+  if (from) params.set("data_inicio", from);
+  if (to)   params.set("data_fim", to);
+
+  // backend não limita → ótimo para dashboards
+  return fetchJson(`${API_BASE}/coletas?${params.toString()}`);
+}
+
+// ---------------------------------------------------------------------------
+// SAÍDAS — puxar tudo do período
+// endpoint: GET /saidas/listar
+// aceita paginação mas NÃO exige limite, então podemos puxar tudo.
+// ---------------------------------------------------------------------------
+async function listSaidasRaw(from, to) {
+  const params = new URLSearchParams();
+
+  if (from) params.set("de", from);
+  if (to)   params.set("ate", to);
+
+  // limite alto para garantir 100% das saídas
+  params.set("limit", "50000");
+  params.set("offset", "0");
+
+  const data = await fetchJson(`${API_BASE}/saidas/listar?${params.toString()}`);
+
+  // normalização resistente (o backend SEMPRE retorna items[])
+  const rows = data.items || data.rows || data.data || [];
+
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
+// TABELA DE PREÇOS — GET /base
+// usada para calcular perdas por cancelamento
+// ---------------------------------------------------------------------------
+async function listBasePrices() {
+  try {
+    const data = await fetchJson(`${API_BASE}/base`);
+
+    const map = {};
+    (data || []).forEach(b => {
+      const nome = (b.base || "").trim();
+      if (!nome) return;
+
+      map[nome.toUpperCase()] = {
+        shopee: parseFloat(b.shopee) || 0,
+        ml:     parseFloat(b.ml)     || 0,
+        avulso: parseFloat(b.avulso) || 0,
+      };
+    });
+
+    return map;
+
+  } catch (_) {
+    return {};
   }
+}
 
-  async function listColetas(from, to) {
-    const params = new URLSearchParams();
-    if (from) params.set("data_inicio", from);
-    if (to) params.set("data_fim", to);
-    return fetchJson(`${API_BASE}/coletas?${params.toString()}`);
-  }
+// ---------------------------------------------------------------------------
+// CLASSIFICA SERVIÇO DE /SAIDAS/LISTAR
+// ---------------------------------------------------------------------------
+function classifyServico(servico) {
+  if (!servico) return "avulso";
+  const s = servico.toLowerCase();
+  if (s.includes("shopee")) return "shopee";
+  if (s.includes("mercado") || s.includes("ml") || s.includes("flex")) return "ml";
+  return "avulso";
+}
 
-  async function listSaidasRaw(from, to) {
-    const params = new URLSearchParams();
-    if (from) params.set("de", from);
-    if (to) params.set("ate", to);
-    params.set("limit", "6000");
-    params.set("offset", "0");
-    return fetchJson(`${API_BASE}/saidas/listar?${params.toString()}`);
-  }
+// ---------------------------------------------------------------------------
+// VERIFICA SE É “SAIU PARA ENTREGA”
+// ---------------------------------------------------------------------------
+function isSaiuParaEntrega(row) {
+  const st = (row?.status || "").toLowerCase();
+  return st.includes("saiu") && st.includes("entrega");
+}
 
-  async function listBasePrices() {
-    try {
-      const data = await fetchJson(`${API_BASE}/base`);
-      const map = {};
-      (data || []).forEach(b => {
-        const nome = (b.base || "").trim();
-        if (!nome) return;
-        map[nome] = {
-          shopee: parseFloat(b.shopee) || 0,
-          ml: parseFloat(b.ml) || 0,
-          avulso: parseFloat(b.avulso) || 0
-        };
-      });
-      return map;
-    } catch (_) {
-      return {};
-    }
-  }
 
-  function classifyServico(servico) {
+// ------------------------------------------------------------
+// Classificação de serviços
+// ------------------------------------------------------------
+function classifyServico(servico) {
     if (!servico) return "outros";
     const v = servico.toString().toLowerCase();
     if (v.includes("shopee")) return "shopee";
     if (v.includes("mercado") || v.includes("ml") || v.includes("flex")) return "ml";
     if (v.includes("avulso")) return "avulso";
     return "outros";
-  }
+}
 
-  function isSaiuParaEntrega(row) {
-    return (row?.status || "").toLowerCase().includes("saiu")
-        && (row?.status || "").toLowerCase().includes("entrega");
-  }
+// ------------------------------------------------------------
+// Detecta "Saiu para entrega"
+// ------------------------------------------------------------
+function isSaiuParaEntrega(row) {
+    const st = (row?.status || "").toLowerCase();
+    return st.includes("saiu");
+}
+
 
   // ---------------------------------------------------------------------------
   // Estado e referências de DOM
@@ -179,21 +240,23 @@ async function init() {
   // Listeners
   btnRefresh.addEventListener("click", loadAll);
 
-  zoomGroup.addEventListener("click", (ev) => {
-    const btn = ev.target.closest("button[data-zoom]");
-    if (!btn) return;
-    const days = parseInt(btn.getAttribute("data-zoom"), 10);
-    if (isNaN(days)) return;
+  if (zoomGroup) {
+    zoomGroup.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("button[data-zoom]");
+      if (!btn) return;
+      const days = parseInt(btn.getAttribute("data-zoom"), 10);
+      if (isNaN(days)) return;
 
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - (days - 1));
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - (days - 1));
 
-    elFrom.value = fmtYMD(start);
-    elTo.value = fmtYMD(end);
+      elFrom.value = fmtYMD(start);
+      elTo.value = fmtYMD(end);
 
-    loadAll();
-  });
+      loadAll();
+    });
+  }
 
   // Carregamento inicial
   await loadAll();

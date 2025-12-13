@@ -469,9 +469,8 @@ async function registrar() {
     if (rowsByKey.has(k)) {
       Sound.play("warn");
 
-      const cameraAtiva = document.getElementById("scanFS")?.classList.contains("show");
-      if (cameraAtiva) showMsg("alerta", `Duplicado • ${codigoFinal}`);
-      else showMsgIcon("alerta", `Duplicado • ${codigoFinal}`);
+      // usa showMsgIcon que funciona tanto na página quanto no overlay
+      showMsgIcon("alerta", `Duplicado • ${codigoFinal}`);
 
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
 
@@ -532,7 +531,15 @@ async function registrar() {
         }
 
         // 🔥 Pergunta se deseja trocar entregador
-        const confirm = await Swal.fire({
+          // se o overlay da câmera estiver aberto, pare a câmera antes do modal
+          const overlay = document.getElementById("scanFS");
+          const wasActiveOverlay = overlay?.classList.contains("show");
+          if (wasActiveOverlay) {
+            try { if (typeof window.leituraStopScanner === 'function') window.leituraStopScanner(); }
+            catch(_) { overlay.style.display = "none"; }
+          }
+
+          const confirm = await Swal.fire({
           icon: "warning",
           title: "Código já saiu para entrega",
           html: `
@@ -550,6 +557,8 @@ async function registrar() {
         });
 
         if (!confirm.isConfirmed) {
+          // se o overlay estava ativo, restaura sua exibição (comportamento consistente)
+          if (wasActiveOverlay) overlay.style.display = "block";
           return { ok:false, tipo:"ja_saiu" };
         }
 
