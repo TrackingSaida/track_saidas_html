@@ -557,8 +557,11 @@ async function registrar() {
         });
 
         if (!confirm.isConfirmed) {
-          // se o overlay estava ativo, restaura sua exibição (comportamento consistente)
-          if (wasActiveOverlay) overlay.style.display = "block";
+          // se o overlay estava ativo, tenta reiniciar o scanner (melhor que apenas mostrar o overlay)
+          if (wasActiveOverlay) {
+            try { if (typeof window.leituraStartScanner === 'function') window.leituraStartScanner(); }
+            catch(_) { overlay.style.display = "block"; }
+          }
           return { ok:false, tipo:"ja_saiu" };
         }
 
@@ -812,6 +815,8 @@ async function registrar() {
 
   // expõe para que `registrar()` possa parar a câmera quando necessário
   try { window.leituraStopScanner = stopScanner; } catch(_) {}
+  // expõe também para reiniciar o scanner quando um modal for cancelado
+  try { window.leituraStartScanner = startScanner; } catch(_) {}
 
   async function startScanner() {
     totalLidos = 0;
