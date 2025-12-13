@@ -785,13 +785,23 @@ async function registrar() {
 
   // Fecha scanner
   function stopScanner() {
-    if (interval) clearInterval(interval);
-    if (stream) { try { stream.getTracks().forEach(t => t.stop()); } catch (_) {} }
-    stream = null;
-    scanLocked = false;
-    overlay.classList.remove("show");
-    overlay.style.display = "none";
-    document.body.style.overflow = "";
+    if (interval) { clearInterval(interval); interval = null; }
+    // animação de fechamento: fade-out
+    try {
+      overlay.style.transition = 'opacity 260ms ease';
+      overlay.style.opacity = '0';
+    } catch(_) {}
+
+    setTimeout(() => {
+      try { if (stream) { stream.getTracks().forEach(t => t.stop()); } } catch(_) {}
+      stream = null;
+      scanLocked = false;
+      overlay.classList.remove("show");
+      overlay.style.display = "none";
+      overlay.style.opacity = '';
+      overlay.style.transition = '';
+      document.body.style.overflow = "";
+    }, 280);
   }
 
   async function startScanner() {
@@ -804,6 +814,8 @@ async function registrar() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
       video.srcObject = stream;
+      // garantir opacidade visível ao abrir
+      overlay.style.opacity = '1';
       await video.play();
     } catch (err) {
       showMsg("erro", "Câmera não disponível");
@@ -820,10 +832,20 @@ async function registrar() {
           const barcodes = await detector.detect(video);
           if (!barcodes.length) return;
           const code = barcodes[0].rawValue || "";
-          // interrompe a câmera antes de processar para que o usuário
-          // veja o modal/alerta e possa tomar decisões (trocar entregador, etc.)
-          stopScanner();
-          setTimeout(() => processarCodigo(code), 50);
+          // decide se deve parar a câmera antes de processar
+          try {
+            const shouldStop = await shouldStopForCode(code);
+            if (shouldStop) {
+              stopScanner();
+              setTimeout(() => processarCodigo(code), 60);
+            } else {
+              processarCodigo(code);
+            }
+          } catch (e) {
+            // em caso de erro na decisão, processa normalmente (sem parar)
+            console.warn('Erro ao decidir stopScanner:', e);
+            processarCodigo(code);
+          }
         }, 100);
         return;
       } catch (e) {
@@ -835,11 +857,21 @@ async function registrar() {
     if (window.ZXingBrowser) {
       const reader = new ZXingBrowser.BrowserMultiFormatReader();
       try {
-        await reader.decodeFromVideoDevice(null, video, (result, err) => {
+        await reader.decodeFromVideoDevice(null, video, async (result, err) => {
           if (!result) return;
-          // interrompe a câmera antes de processar a leitura
-          try { stopScanner(); } catch (_) {}
-          setTimeout(() => processarCodigo(result.getText()), 50);
+          const text = result.getText();
+          try {
+            const shouldStop = await shouldStopForCode(text);
+            if (shouldStop) {
+              try { stopScanner(); } catch (_) {}
+              setTimeout(() => processarCodigo(text), 60);
+            } else {
+              processarCodigo(text);
+            }
+          } catch (ex) {
+            console.warn('Erro ao decidir stopScanner (ZXing):', ex);
+            processarCodigo(text);
+          }
         });
       } catch (e) {
         console.error("Erro ZXing fallback:", e);
@@ -856,6 +888,47 @@ async function registrar() {
         e.stopPropagation();
         stopScanner();
       };
+    }
+  }
+
+  // Decide se devemos interromper a câmera antes de processar o código.
+  // Retorna true quando o fluxo exibirá um modal que exige decisão do usuário
+  // (ex.: código já 'Saiu' -> trocar entregador, ou código não coletado -> confirmar registro).
+  async function shouldStopForCode(code) {
+    if (!code) return false;
+    try {
+      const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
+      const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(String(code))}`, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        credentials: "include"
+      });
+
+      if (!resp.ok) return false;
+      const dados = await resp.json().catch(() => null);
+      if (!dados) return false;
+
+      let registros = [];
+      if (Array.isArray(dados)) registros = dados;
+      else if (Array.isArray(dados?.items)) registros = dados.items;
+      else if (Array.isArray(dados?.rows)) registros = dados.rows;
+      else if (Array.isArray(dados?.data)) registros = dados.data;
+
+      if (registros.length > 0) {
+        const registro = registros[0];
+        const statusAtual = ((registro.status || registro.st || "") + "").toLowerCase();
+        if (statusAtual === 'saiu' || statusAtual === 'saiu para entrega') return true;
+        return false;
+      }
+
+      // sem registro: se IGNORAR_COLETA não estiver ativo, será mostrado modal "Não Coletado"
+      if (window.IGNORAR_COLETA === true) return false;
+      return true;
+    } catch (e) {
+      console.warn('shouldStopForCode failed', e);
+      return false;
     }
   }
 
