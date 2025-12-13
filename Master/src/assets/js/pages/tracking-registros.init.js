@@ -510,7 +510,31 @@ function setupPagerEvents() {
       }
 
       if (!detector) {
-        // sem detector nativo, avisa e fecha
+        // Fallback ZXing para iPhone / Safari quando disponível
+        if (window.ZXingBrowser) {
+          const reader = new ZXingBrowser.BrowserMultiFormatReader();
+          try {
+            // inicia decodificação contínua a partir da câmera
+            reader.decodeFromVideoDevice(null, video, (result, err) => {
+              if (!result) return;
+              const text = result.getText();
+              if (!text) return;
+              // preenche filtro e executa busca
+              if (f.codigo) f.codigo.value = text;
+              state.page = 1;
+              stopScanner();
+              setTimeout(() => refresh(true), 150);
+            });
+            return;
+          } catch (e) {
+            console.error('ZXing fallback error', e);
+            notify('Leitor não suportado neste dispositivo.', 'error');
+            stopScanner();
+            return;
+          }
+        }
+
+        // sem detector nativo e sem ZXing => fecha
         notify('Leitor não suportado neste dispositivo.', 'error');
         stopScanner();
         return;

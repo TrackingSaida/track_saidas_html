@@ -5,6 +5,10 @@
 
 document.addEventListener("DOMContentLoaded", async () => {
 
+  // ====== CACHE GLOBAL (cancelados) ======
+  let cacheCancelados = null;
+  let cacheCanceladosKey = "";
+
   // ====== Validação de sessão ======
   const trackingToken =
     localStorage.getItem("trackingToken") ||
@@ -104,29 +108,44 @@ function updatePager() {
 
   // ====== Buscar Cancelados ======
 async function buscarCancelados() {
+
+    const base = fltBase.value || "";
+    const de   = fltFrom.value || "";
+    const ate  = fltTo.value || "";
+
+    const key = `${base}|${de}|${ate}`;
+
+    // Se já existe no cache → retorna imediatamente
+    if (cacheCancelados && cacheCanceladosKey === key) {
+        return cacheCancelados;
+    }
+
+    // Nova consulta → reseta cache
+    cacheCancelados = null;
+    cacheCanceladosKey = key;
+
     const params = new URLSearchParams();
     params.append("status", "cancelado");
-
-    if (fltBase.value) params.append("base", fltBase.value);
-    if (fltFrom.value) params.append("de", fltFrom.value);
-    if (fltTo.value)   params.append("ate", fltTo.value);
+    if (base) params.append("base", base);
+    if (de)   params.append("de", de);
+    if (ate)  params.append("ate", ate);
 
     const res = await fetch(`${API_SAIDAS}?${params.toString()}`, { credentials: "include" });
     const json = await res.json();
 
     const list = json.items || [];
 
-    return list.map((s) => {
-        // NORMALIZAR timestamp → YYYY-MM-DD igual ao /coletas/resumo
+    cacheCancelados = list.map((s) => {
         const dt = new Date(s.timestamp);
-        const iso = dt.toISOString().slice(0, 10); // YYYY-MM-DD
-
         return {
             base: (s.base || "").trim().toUpperCase(),
-            dataISO: iso
+            dataISO: dt.toISOString().slice(0, 10)
         };
     });
+
+    return cacheCancelados;
 }
+
 
 
   // ====== RENDER ======
@@ -147,41 +166,43 @@ async function buscarCancelados() {
     });
   }
 
-  function atualizarCards(shopee, ml, avulso, valor, canc) {
-    qs("#sum-shopee").textContent  = shopee;
-    qs("#sum-ml").textContent      = ml;
-    qs("#sum-avulso").textContent  = avulso;
-    qs("#sum-total").textContent   = shopee + ml + avulso;
-    qs("#sum-cancelados").textContent = canc;
+function atualizarCards(shopee, ml, avulso, valor, canc, totalColetas) {
+    qs("#sum-shopee").textContent      = shopee;
+    qs("#sum-ml").textContent          = ml;
+    qs("#sum-avulso").textContent      = avulso;
+    qs("#sum-total").textContent       = totalColetas;       // 👈 agora usa o TOTAL da API
+    qs("#sum-cancelados").textContent  = canc;
     qs("#sum-total-valor").textContent = formatarMoeda(valor);
-  }
+}
 
-  // ======================================================
-  // ===============   CARREGAR RESUMO   ==================
-  // ======================================================
+
+ // ======================================================
+// ===============   CARREGAR RESUMO   ==================
+// ======================================================
 async function carregarResumo() {
     qs("#resumoMsg").innerHTML = `<div class="text-muted">Carregando...</div>`;
     tbody.innerHTML = "";
 
-    const offset = (state.page - 1) * state.pageSize;
-
+    // Envia a paginação correta exigida pelo backend
     const params = new URLSearchParams({
-        limit: state.pageSize,
-        offset: offset
+        page: state.page,
+        pageSize: state.pageSize
     });
 
+    // Filtros
     if (fltBase.value) params.append("base", fltBase.value);
     if (fltFrom.value) params.append("data_inicio", fltFrom.value);
     if (fltTo.value)   params.append("data_fim", fltTo.value);
 
+    // Consulta ao backend
     const res = await fetch(`${API_URL}?${params.toString()}`, { credentials: "include" });
     const data = await res.json();
 
-    // CORRETO PARA O NOVO SCHEMA
+    // Atualiza estado
     state.total = Number(data.totalItems || 0);
     state.items = Array.isArray(data.items) ? data.items : [];
 
-    // Cancelados (não paginado)
+    // ===== Buscar cancelados (não paginado) =====
     const cancelados = await buscarCancelados();
     const mapaCanc = {};
     cancelados.forEach(c => {
@@ -189,11 +210,18 @@ async function carregarResumo() {
         mapaCanc[key] = (mapaCanc[key] || 0) + 1;
     });
 
-    let totalShopee = 0, totalML = 0, totalAvulso = 0, totalValor = 0, totalCanc = 0;
+    let totalShopee = 0;
+    let totalML = 0;
+    let totalAvulso = 0;
+    let totalValor = 0;
+    let totalCanc = 0;
 
+    // ===== Monta linhas normalizadas =====
     const linhas = state.items.map((r) => {
         const baseKey = (r.base || "").trim().toUpperCase();
-        const dtISO = r.data; // já vem YYYY-MM-DD
+
+        // r.data já vem em YYYY-MM-DD da API
+        const dtISO = r.data;
         const dtBR = dtISO.split("-").reverse().join("/");
         const key = `${dtISO}_${baseKey}`;
 
@@ -217,12 +245,24 @@ async function carregarResumo() {
         return item;
     });
 
+    // Atualiza tabela e totais
     renderTable(linhas);
-    atualizarCards(totalShopee, totalML, totalAvulso, totalValor, totalCanc);
+    atualizarCards(
+    data.sumShopee,
+    data.sumMercado,
+    data.sumAvulso,
+    data.sumValor,
+    data.sumCancelados,
+    data.sumTotalColetas
+);
+
+
+    // Atualiza paginação
     updatePager();
 
     qs("#resumoMsg").innerHTML = "";
 }
+
 
 async function carregarResumoCompleto() {
 
