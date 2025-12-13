@@ -687,7 +687,14 @@ async function registrar() {
     // FLUXO ORIGINAL — popup "Não Coletado"
     const overlay = document.getElementById("scanFS");
     const wasActive = overlay?.classList.contains("show");
-    if (wasActive) overlay.style.display = "none";
+    if (wasActive) {
+      // stopScanner is exposed as window.leituraStopScanner by the scanner module
+      try { if (typeof window.leituraStopScanner === 'function') window.leituraStopScanner(); }
+      catch(_) {
+        // fallback: hide overlay if stop function not available
+        overlay.style.display = "none";
+      }
+    }
 
     const confirm = await Swal.fire({
       icon: "warning",
@@ -786,23 +793,16 @@ async function registrar() {
   // Fecha scanner
   function stopScanner() {
     if (interval) { clearInterval(interval); interval = null; }
-    // animação de fechamento: fade-out
-    try {
-      overlay.style.transition = 'opacity 260ms ease';
-      overlay.style.opacity = '0';
-    } catch(_) {}
-
-    setTimeout(() => {
-      try { if (stream) { stream.getTracks().forEach(t => t.stop()); } } catch(_) {}
-      stream = null;
-      scanLocked = false;
-      overlay.classList.remove("show");
-      overlay.style.display = "none";
-      overlay.style.opacity = '';
-      overlay.style.transition = '';
-      document.body.style.overflow = "";
-    }, 280);
+    try { if (stream) { stream.getTracks().forEach(t => t.stop()); } } catch(_) {}
+    stream = null;
+    scanLocked = false;
+    overlay.classList.remove("show");
+    overlay.style.display = "none";
+    document.body.style.overflow = "";
   }
+
+  // expõe para que `registrar()` possa parar a câmera quando necessário
+  try { window.leituraStopScanner = stopScanner; } catch(_) {}
 
   async function startScanner() {
     totalLidos = 0;
@@ -814,8 +814,6 @@ async function registrar() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
       video.srcObject = stream;
-      // garantir opacidade visível ao abrir
-      overlay.style.opacity = '1';
       await video.play();
     } catch (err) {
       showMsg("erro", "Câmera não disponível");
@@ -832,20 +830,8 @@ async function registrar() {
           const barcodes = await detector.detect(video);
           if (!barcodes.length) return;
           const code = barcodes[0].rawValue || "";
-          // decide se deve parar a câmera antes de processar
-          try {
-            const shouldStop = await shouldStopForCode(code);
-            if (shouldStop) {
-              stopScanner();
-              setTimeout(() => processarCodigo(code), 60);
-            } else {
-              processarCodigo(code);
-            }
-          } catch (e) {
-            // em caso de erro na decisão, processa normalmente (sem parar)
-            console.warn('Erro ao decidir stopScanner:', e);
+            // processa imediatamente; `registrar()` decide se deve parar a câmera
             processarCodigo(code);
-          }
         }, 100);
         return;
       } catch (e) {
@@ -860,18 +846,8 @@ async function registrar() {
         await reader.decodeFromVideoDevice(null, video, async (result, err) => {
           if (!result) return;
           const text = result.getText();
-          try {
-            const shouldStop = await shouldStopForCode(text);
-            if (shouldStop) {
-              try { stopScanner(); } catch (_) {}
-              setTimeout(() => processarCodigo(text), 60);
-            } else {
-              processarCodigo(text);
-            }
-          } catch (ex) {
-            console.warn('Erro ao decidir stopScanner (ZXing):', ex);
-            processarCodigo(text);
-          }
+          // processa imediatamente; registrar() fará stopScanner() se necessário
+          processarCodigo(text);
         });
       } catch (e) {
         console.error("Erro ZXing fallback:", e);
@@ -891,46 +867,9 @@ async function registrar() {
     }
   }
 
-  // Decide se devemos interromper a câmera antes de processar o código.
-  // Retorna true quando o fluxo exibirá um modal que exige decisão do usuário
-  // (ex.: código já 'Saiu' -> trocar entregador, ou código não coletado -> confirmar registro).
-  async function shouldStopForCode(code) {
-    if (!code) return false;
-    try {
-      const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
-      const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(String(code))}`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        },
-        credentials: "include"
-      });
-
-      if (!resp.ok) return false;
-      const dados = await resp.json().catch(() => null);
-      if (!dados) return false;
-
-      let registros = [];
-      if (Array.isArray(dados)) registros = dados;
-      else if (Array.isArray(dados?.items)) registros = dados.items;
-      else if (Array.isArray(dados?.rows)) registros = dados.rows;
-      else if (Array.isArray(dados?.data)) registros = dados.data;
-
-      if (registros.length > 0) {
-        const registro = registros[0];
-        const statusAtual = ((registro.status || registro.st || "") + "").toLowerCase();
-        if (statusAtual === 'saiu' || statusAtual === 'saiu para entrega') return true;
-        return false;
-      }
-
-      // sem registro: se IGNORAR_COLETA não estiver ativo, será mostrado modal "Não Coletado"
-      if (window.IGNORAR_COLETA === true) return false;
-      return true;
-    } catch (e) {
-      console.warn('shouldStopForCode failed', e);
-      return false;
-    }
-  }
+  // NOTE: removed shouldStopForCode to avoid an extra network request per detection.
+  // The decision to stop the camera is now made inside `registrar()` which already
+  // performs the lookup; `registrar()` calls `window.leituraStopScanner()` when needed.
 
 // 🔹 Processa cada leitura detectada (agora assíncrona)
 async function processarCodigo(text) {
