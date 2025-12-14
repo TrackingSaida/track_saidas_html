@@ -769,10 +769,9 @@ async function registrar() {
 }
 
 
-
-
-// ===== Leitor por Câmera — Full-screen (híbrido BarcodeDetector + ZXing) =====
+// ===== Leitor por Câmera — Fullscreen (ZXing + ROI otimizado) =====
 (function leituraScannerIntegrado() {
+
   const btnScan = document.getElementById("btnScan");
   const inputCodigo = document.getElementById("codigo");
   if (!btnScan) return;
@@ -783,40 +782,56 @@ async function registrar() {
   const contadorEl = document.getElementById("scan-packages-count");
   const closeBtn = document.getElementById("scanCloseBtn");
 
+  const ROI_SIZE = 280;
+
   let totalLidos = 0;
   let scanLocked = false;
-  let interval = null;
+  let scanning = false;
   let stream = null;
+  let reader = null;
 
-  // Atualiza contador
+  // Canvas invisível para ROI
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = ROI_SIZE;
+  canvas.height = ROI_SIZE;
+
   function atualizarContador() {
-    contadorEl.textContent = `${totalLidos} ${totalLidos === 1 ? "Saída Lida" : "Saídas Lidas"}`;
+    contadorEl.textContent =
+      `${totalLidos} ${totalLidos === 1 ? "Saída Lida" : "Saídas Lidas"}`;
   }
 
-  // HUD de mensagens
   function showMsg(tipo, msg) {
     hud.textContent = msg;
     hud.classList.remove("info", "warning", "danger", "show");
-    hud.classList.add(tipo === "erro" ? "danger" : tipo === "alerta" ? "warning" : "info", "show");
+    hud.classList.add(
+      tipo === "erro" ? "danger" : tipo === "alerta" ? "warning" : "info",
+      "show"
+    );
     clearTimeout(hud._t);
-    hud._t = setTimeout(() => hud.classList.remove("show"), tipo === "erro" ? 3000 : 2000);
+    hud._t = setTimeout(() => hud.classList.remove("show"),
+      tipo === "erro" ? 3000 : 2000
+    );
   }
 
-  // Fecha scanner
   function stopScanner() {
-    if (interval) { clearInterval(interval); interval = null; }
-    try { if (stream) { stream.getTracks().forEach(t => t.stop()); } } catch(_) {}
-    stream = null;
-    scanLocked = false;
-    overlay.classList.remove("show");
+    scanning = false;
+    overlay.classList.remove("show", "scan-lock");
     overlay.style.display = "none";
     document.body.style.overflow = "";
+
+    try {
+      stream?.getTracks().forEach(t => t.stop());
+    } catch (_) {}
+
+    stream = null;
+    reader?.reset?.();
+    reader = null;
+    scanLocked = false;
   }
 
-  // expõe para que `registrar()` possa parar a câmera quando necessário
-  try { window.leituraStopScanner = stopScanner; } catch(_) {}
-  // expõe também para reiniciar o scanner quando um modal for cancelado
-  try { window.leituraStartScanner = startScanner; } catch(_) {}
+  window.leituraStopScanner = stopScanner;
+  window.leituraStartScanner = startScanner;
 
   async function startScanner() {
     totalLidos = 0;
@@ -826,64 +841,71 @@ async function registrar() {
     document.body.style.overflow = "hidden";
 
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30 }
+        },
+        audio: false
+      });
+
       video.srcObject = stream;
       await video.play();
-    } catch (err) {
+
+      // zoom digital se disponível
+      const track = stream.getVideoTracks()[0];
+      const caps = track.getCapabilities?.();
+      if (caps?.zoom) {
+        track.applyConstraints({
+          advanced: [{ zoom: caps.zoom.max * 0.6 }]
+        });
+      }
+
+    } catch (e) {
       showMsg("erro", "Câmera não disponível");
-      document.body.style.overflow = "";
       return;
     }
 
-    // --- Verifica suporte nativo ---
-    if ("BarcodeDetector" in window) {
-      try {
-        const detector = new BarcodeDetector({ formats: ["qr_code", "ean_13", "code_128", "code_39", "itf", "upc_a", "upc_e"] });
-        interval = setInterval(async () => {
-          if (scanLocked) return;
-          const barcodes = await detector.detect(video);
-          if (!barcodes.length) return;
-          const code = barcodes[0].rawValue || "";
-            // processa imediatamente; `registrar()` decide se deve parar a câmera
-            processarCodigo(code);
-        }, 25);
-        return;
-      } catch (e) {
-        console.warn("Erro BarcodeDetector, fallback ZXing:", e);
-      }
-    }
-
-    // --- Fallback ZXing para iPhone ---
-    if (window.ZXingBrowser) {
-      const reader = new ZXingBrowser.BrowserMultiFormatReader();
-      try {
-        await reader.decodeFromVideoDevice(null, video, async (result, err) => {
-          if (!result) return;
-          const text = result.getText();
-          // processa imediatamente; registrar() fará stopScanner() se necessário
-          processarCodigo(text);
-        });
-      } catch (e) {
-        console.error("Erro ZXing fallback:", e);
-        showMsg("erro", "Leitor não suportado neste dispositivo.");
-      }
-    } else {
-      showMsg("erro", "Leitor não suportado neste dispositivo.");
-    }
-
-    // Listener do botão Fechar
-    if (closeBtn) {
-      closeBtn.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        stopScanner();
-      };
-    }
+    reader = new ZXingBrowser.BrowserMultiFormatReader();
+    scanning = true;
+    scanLoop();
   }
 
-  // NOTE: removed shouldStopForCode to avoid an extra network request per detection.
-  // The decision to stop the camera is now made inside `registrar()` which already
-  // performs the lookup; `registrar()` calls `window.leituraStopScanner()` when needed.
+  async function scanLoop() {
+    if (!scanning || scanLocked) return;
+
+    try {
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      if (!vw || !vh) return requestAnimationFrame(scanLoop);
+
+      const sx = (vw - ROI_SIZE) / 2;
+      const sy = (vh - ROI_SIZE) / 2;
+
+      ctx.drawImage(video, sx, sy, ROI_SIZE, ROI_SIZE, 0, 0, ROI_SIZE, ROI_SIZE);
+
+      const result = await reader.decodeFromCanvas(canvas);
+      if (result?.getText()) {
+        scanLocked = true;
+        overlay.classList.add("scan-lock");
+        processarCodigo(result.getText());
+        return;
+      }
+
+    } catch (_) {}
+
+    requestAnimationFrame(scanLoop);
+  }
+
+  if (closeBtn) {
+    closeBtn.onclick = e => {
+      e.preventDefault();
+      stopScanner();
+    };
+  }
+
 
 // 🔹 Processa cada leitura detectada (agora assíncrona)
 async function processarCodigo(text) {
@@ -997,8 +1019,12 @@ async function processarCodigo(text) {
     showMsg("erro", "Falha ao registrar saída.");
     Sound.play("err");
   } finally {
-    setTimeout(() => (scanLocked = false), 50);
-  }
+  setTimeout(() => {
+    scanLocked = false;
+    document.getElementById("scanFS")?.classList.remove("scan-lock");
+  }, 180);
+}
+
 }
 
 

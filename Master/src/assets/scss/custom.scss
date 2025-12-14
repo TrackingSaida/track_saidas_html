@@ -4,7 +4,7 @@
 .scanfs {
   position: fixed;
   inset: 0;
-  background: #000; /* fundo sólido, bloqueia totalmente a página */
+  background: #000;
   z-index: 2000;
   display: none;
   overflow: hidden;
@@ -18,31 +18,24 @@
     animation: fadeIn .35s ease forwards;
   }
 
-  /* vídeo da câmera */
+  /* ===============================
+     VÍDEO DA CÂMERA (CRÍTICO)
+     =============================== */
   video {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    opacity: 0.9; /* mais visível */
+
+    /* AJUSTE CAMERA */
+    opacity: 1;
+    filter: none;
+    image-rendering: auto;
+
     z-index: 1;
     pointer-events: none;
   }
-
-  /* camada superior: vinheta suave, sem transparência real 
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(
-      circle at center,
-      rgba(0, 0, 0, 0.25) 0%,
-      rgba(0, 0, 0, 0.55) 100%
-    );
-    z-index: 2;
-    pointer-events: none;
-  }*/
 
   /* Moldura central com laser */
   &-frame {
@@ -53,7 +46,11 @@
     height: 280px;
     transform: translate(-50%, -50%);
     border-radius: 20px;
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.15);
+
+    /* AJUSTE CAMERA */
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+    pointer-events: none;
+
     overflow: hidden;
     z-index: 3;
 
@@ -79,6 +76,14 @@
       background: linear-gradient(90deg, transparent, #00bfff, transparent);
       box-shadow: 0 0 8px #00bfff;
       animation: laserScan 2.5s infinite linear;
+    }
+  }
+
+  /* AJUSTE CAMERA — pausa efeitos durante leitura */
+  &.scan-lock {
+    .scanfs-laser,
+    .corner {
+      animation-play-state: paused;
     }
   }
 
@@ -170,7 +175,16 @@
   }
 }
 
-/* ====== Animações ====== */
+/* ====== AJUSTE CAMERA — mobile mais leve ====== */
+@media (max-width: 768px) {
+  .scanfs-hud,
+  .scanfs-bottom,
+  .scan-packages-count {
+    backdrop-filter: none;
+  }
+}
+
+/* ====== ANIMAÇÕES ====== */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
