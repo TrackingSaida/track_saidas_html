@@ -831,50 +831,70 @@ async function registrar() {
   /* expõe para uso externo */
   window.leituraStopScanner = stopScanner;
 
-  /* ===================================================
-     START SCANNER
-     =================================================== */
-  async function startScanner() {
-    totalLidos = 0;
-    atualizarContador();
+ /* ===================================================
+   START SCANNER
+   =================================================== */
+async function startScanner() {
+  totalLidos = 0;
+  atualizarContador();
 
-    overlay.classList.add("show");
-    overlay.style.display = "block";
-    document.body.style.overflow = "hidden";
+  overlay.classList.add("show");
+  overlay.style.display = "block";
+  document.body.style.overflow = "hidden";
 
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        width:  { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    });
+
+    video.srcObject = stream;
+    await video.play();
+
+    /* =========================================
+       ZOOM DIGITAL LEVE (SE SUPORTADO)
+       ========================================= */
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width:  { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: false
-      });
+      const track = stream.getVideoTracks()[0];
+      const caps = track.getCapabilities?.();
 
-      video.srcObject = stream;
-      await video.play();
-
-    } catch (e) {
-      showMsg("erro", "Câmera não disponível");
-      stopScanner();
-      return;
+      if (caps?.zoom) {
+        track.applyConstraints({
+          advanced: [{
+            zoom: caps.zoom.min + (caps.zoom.max - caps.zoom.min) * 0.25
+          }]
+        });
+      }
+    } catch (_) {
+      // zoom não suportado — ignora silenciosamente
     }
 
-    // 🔥 CLASSE CORRETA PARA QR CODE
-    reader = new ZXingBrowser.BrowserQRCodeReader();
-
-    reader.decodeFromVideoDevice(null, video, (result, err) => {
-  if (scanLocked) return;
-
-  if (result) {
-    scanLocked = true;
-    overlay.classList.add("scan-lock");
-
-    const texto = result.getText?.() || "";
-    processarCodigo(texto);
+  } catch (e) {
+    showMsg("erro", "Câmera não disponível");
+    stopScanner();
+    return;
   }
-});
+
+  /* =========================================
+     LEITOR ZXING — QR CODE
+     ========================================= */
+  reader = new ZXingBrowser.BrowserQRCodeReader();
+
+  reader.decodeFromVideoDevice(null, video, (result, err) => {
+    if (scanLocked) return;
+
+    if (result) {
+      scanLocked = true;
+      overlay.classList.add("scan-lock");
+
+      const texto = result.getText?.() || "";
+      processarCodigo(texto);
+    }
+  });
 
   }
 
