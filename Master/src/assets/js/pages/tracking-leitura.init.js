@@ -869,15 +869,7 @@ async function registrar() {
       video.srcObject = stream;
       await video.play();
 
-      // zoom digital (se suportado)
-      const track = stream.getVideoTracks()[0];
-      const caps = track.getCapabilities?.();
-      if (caps?.zoom) {
-        track.applyConstraints({
-          advanced: [{ zoom: caps.zoom.max * 0.6 }]
-        });
-      }
-
+    
     } catch (e) {
       showMsg("erro", "Câmera não disponível");
       stopScanner();
