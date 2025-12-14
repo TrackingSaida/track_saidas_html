@@ -864,21 +864,18 @@ async function registrar() {
     // 🔥 CLASSE CORRETA PARA QR CODE
     reader = new ZXingBrowser.BrowserQRCodeReader();
 
-    reader.decodeFromVideoElement(video, (result, err) => {
-      try {
-        if (scanLocked) return;
+    reader.decodeFromVideoDevice(null, video, (result, err) => {
+  if (scanLocked) return;
 
-        if (result) {
-          scanLocked = true;
-          overlay.classList.add("scan-lock");
+  if (result) {
+    scanLocked = true;
+    overlay.classList.add("scan-lock");
 
-          const texto = result.getText?.() || "";
-          processarCodigo(texto);
-        }
-      } catch (e) {
-        console.error('Erro no callback do leitor ZXing:', e);
-      }
-    });
+    const texto = result.getText?.() || "";
+    processarCodigo(texto);
+  }
+});
+
   }
 
   /* ===================================================
