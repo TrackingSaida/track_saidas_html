@@ -777,25 +777,30 @@ async function registrar() {
   if (!btnScan) return;
 
   const overlay = document.getElementById("scanFS");
-  const video = document.getElementById("scanFSVideo");
-  const hud = document.getElementById("scanFSMsg");
+  const video   = document.getElementById("scanFSVideo");
+  const hud     = document.getElementById("scanFSMsg");
   const contadorEl = document.getElementById("scan-packages-count");
-  const closeBtn = document.getElementById("scanCloseBtn");
+  const closeBtn   = document.getElementById("scanCloseBtn");
 
-  const ROI_SIZE = 280;
+  const ROI_SIZE = 320; // levemente maior para tolerância
 
   let totalLidos = 0;
   let scanLocked = false;
-  let scanning = false;
-  let stream = null;
-  let reader = null;
+  let scanning   = false;
+  let stream     = null;
+  let reader     = null;
 
-  // Canvas invisível para ROI
+  /* ===================================================
+     CANVAS (ROI)
+     =================================================== */
   const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  canvas.width = ROI_SIZE;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  canvas.width  = ROI_SIZE;
   canvas.height = ROI_SIZE;
 
+  /* ===================================================
+     HELPERS
+     =================================================== */
   function atualizarContador() {
     contadorEl.textContent =
       `${totalLidos} ${totalLidos === 1 ? "Saída Lida" : "Saídas Lidas"}`;
@@ -809,13 +814,19 @@ async function registrar() {
       "show"
     );
     clearTimeout(hud._t);
-    hud._t = setTimeout(() => hud.classList.remove("show"),
+    hud._t = setTimeout(
+      () => hud.classList.remove("show"),
       tipo === "erro" ? 3000 : 2000
     );
   }
 
+  /* ===================================================
+     STOP SCANNER
+     =================================================== */
   function stopScanner() {
     scanning = false;
+    scanLocked = false;
+
     overlay.classList.remove("show", "scan-lock");
     overlay.style.display = "none";
     document.body.style.overflow = "";
@@ -825,17 +836,21 @@ async function registrar() {
     } catch (_) {}
 
     stream = null;
-    reader?.reset?.();
+
+    if (reader?.reset) reader.reset();
     reader = null;
-    scanLocked = false;
   }
 
-  window.leituraStopScanner = stopScanner;
+  window.leituraStopScanner  = stopScanner;
   window.leituraStartScanner = startScanner;
 
+  /* ===================================================
+     START SCANNER
+     =================================================== */
   async function startScanner() {
     totalLidos = 0;
     atualizarContador();
+
     overlay.classList.add("show");
     overlay.style.display = "block";
     document.body.style.overflow = "hidden";
@@ -844,7 +859,7 @@ async function registrar() {
       stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
+          width:  { ideal: 1280 },
           height: { ideal: 720 },
           frameRate: { ideal: 30 }
         },
@@ -854,7 +869,7 @@ async function registrar() {
       video.srcObject = stream;
       await video.play();
 
-      // zoom digital se disponível
+      // zoom digital (se suportado)
       const track = stream.getVideoTracks()[0];
       const caps = track.getCapabilities?.();
       if (caps?.zoom) {
@@ -865,28 +880,49 @@ async function registrar() {
 
     } catch (e) {
       showMsg("erro", "Câmera não disponível");
+      stopScanner();
       return;
     }
 
-    reader = new ZXingBrowser.BrowserMultiFormatReader();
+    reader = new ZXingBrowser.BrowserMultiFormatReader({
+      delayBetweenScanAttempts: 80
+    });
+
     scanning = true;
     scanLoop();
   }
 
+  /* ===================================================
+     SCAN LOOP (requestAnimationFrame)
+     =================================================== */
   async function scanLoop() {
     if (!scanning || scanLocked) return;
 
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+
+    if (!vw || !vh) {
+      requestAnimationFrame(scanLoop);
+      return;
+    }
+
+    const sx = Math.floor((vw - ROI_SIZE) / 2);
+    const sy = Math.floor((vh - ROI_SIZE) / 2);
+
     try {
-      const vw = video.videoWidth;
-      const vh = video.videoHeight;
-      if (!vw || !vh) return requestAnimationFrame(scanLoop);
+      ctx.drawImage(
+        video,
+        sx, sy, ROI_SIZE, ROI_SIZE,
+        0, 0, ROI_SIZE, ROI_SIZE
+      );
 
-      const sx = (vw - ROI_SIZE) / 2;
-      const sy = (vh - ROI_SIZE) / 2;
+      let result;
+      try {
+        result = await reader.decodeFromCanvas(canvas);
+      } catch (_) {
+        // esperado quando não encontra nada
+      }
 
-      ctx.drawImage(video, sx, sy, ROI_SIZE, ROI_SIZE, 0, 0, ROI_SIZE, ROI_SIZE);
-
-      const result = await reader.decodeFromCanvas(canvas);
       if (result?.getText()) {
         scanLocked = true;
         overlay.classList.add("scan-lock");
@@ -894,17 +930,28 @@ async function registrar() {
         return;
       }
 
-    } catch (_) {}
+    } catch (err) {
+      console.warn("Erro no scanLoop:", err);
+    }
 
     requestAnimationFrame(scanLoop);
   }
 
+  /* ===================================================
+     EVENTOS
+     =================================================== */
+  btnScan.addEventListener("click", e => {
+    e.preventDefault();
+    startScanner();
+  });
+
   if (closeBtn) {
-    closeBtn.onclick = e => {
+    closeBtn.addEventListener("click", e => {
       e.preventDefault();
       stopScanner();
-    };
+    });
   }
+
 
 
 // 🔹 Processa cada leitura detectada (agora assíncrona)
