@@ -780,6 +780,7 @@ async function registrar() {
   const hud     = document.getElementById("scanFSMsg");
   const contadorEl = document.getElementById("scan-packages-count");
   const closeBtn   = document.getElementById("scanCloseBtn");
+  const inputCodigo = document.getElementById("codigo");
 
   let stream = null;
   let reader = null;
@@ -864,14 +865,18 @@ async function registrar() {
     reader = new ZXingBrowser.BrowserQRCodeReader();
 
     reader.decodeFromVideoElement(video, (result, err) => {
-      if (scanLocked) return;
+      try {
+        if (scanLocked) return;
 
-      if (result) {
-        scanLocked = true;
-        overlay.classList.add("scan-lock");
+        if (result) {
+          scanLocked = true;
+          overlay.classList.add("scan-lock");
 
-        const texto = result.getText?.() || "";
-        processarCodigo(texto);
+          const texto = result.getText?.() || "";
+          processarCodigo(texto);
+        }
+      } catch (e) {
+        console.error('Erro no callback do leitor ZXing:', e);
       }
     });
   }
