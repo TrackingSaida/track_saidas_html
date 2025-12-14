@@ -769,11 +769,10 @@ async function registrar() {
 }
 
 
-// ===== Leitor por Câmera — Fullscreen (ZXing + ROI otimizado) =====
+// ===== Leitor por Câmera — Fullscreen (ZXing Browser / QR Code) =====
 (function leituraScannerIntegrado() {
 
   const btnScan = document.getElementById("btnScan");
-  const inputCodigo = document.getElementById("codigo");
   if (!btnScan) return;
 
   const overlay = document.getElementById("scanFS");
@@ -782,31 +781,22 @@ async function registrar() {
   const contadorEl = document.getElementById("scan-packages-count");
   const closeBtn   = document.getElementById("scanCloseBtn");
 
-  const ROI_SIZE = 320; // levemente maior para tolerância
-
-  let totalLidos = 0;
+  let stream = null;
+  let reader = null;
   let scanLocked = false;
-  let scanning   = false;
-  let stream     = null;
-  let reader     = null;
-
-  /* ===================================================
-     CANVAS (ROI)
-     =================================================== */
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  canvas.width  = ROI_SIZE;
-  canvas.height = ROI_SIZE;
+  let totalLidos = 0;
 
   /* ===================================================
      HELPERS
      =================================================== */
   function atualizarContador() {
+    if (!contadorEl) return;
     contadorEl.textContent =
       `${totalLidos} ${totalLidos === 1 ? "Saída Lida" : "Saídas Lidas"}`;
   }
 
   function showMsg(tipo, msg) {
+    if (!hud) return;
     hud.textContent = msg;
     hud.classList.remove("info", "warning", "danger", "show");
     hud.classList.add(
@@ -814,17 +804,13 @@ async function registrar() {
       "show"
     );
     clearTimeout(hud._t);
-    hud._t = setTimeout(
-      () => hud.classList.remove("show"),
-      tipo === "erro" ? 3000 : 2000
-    );
+    hud._t = setTimeout(() => hud.classList.remove("show"), 2000);
   }
 
   /* ===================================================
      STOP SCANNER
      =================================================== */
   function stopScanner() {
-    scanning = false;
     scanLocked = false;
 
     overlay.classList.remove("show", "scan-lock");
@@ -841,8 +827,8 @@ async function registrar() {
     reader = null;
   }
 
-  window.leituraStopScanner  = stopScanner;
-  window.leituraStartScanner = startScanner;
+  /* expõe para uso externo */
+  window.leituraStopScanner = stopScanner;
 
   /* ===================================================
      START SCANNER
@@ -860,8 +846,7 @@ async function registrar() {
         video: {
           facingMode: { ideal: "environment" },
           width:  { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 30 }
+          height: { ideal: 720 }
         },
         audio: false
       });
@@ -869,64 +854,26 @@ async function registrar() {
       video.srcObject = stream;
       await video.play();
 
-    
     } catch (e) {
       showMsg("erro", "Câmera não disponível");
       stopScanner();
       return;
     }
 
-    reader = new ZXingBrowser.BrowserMultiFormatReader({
-      delayBetweenScanAttempts: 80
-    });
+    // 🔥 CLASSE CORRETA PARA QR CODE
+    reader = new ZXingBrowser.BrowserQRCodeReader();
 
-    scanning = true;
-    scanLoop();
-  }
+    reader.decodeFromVideoElement(video, (result, err) => {
+      if (scanLocked) return;
 
-  /* ===================================================
-     SCAN LOOP (requestAnimationFrame)
-     =================================================== */
-  async function scanLoop() {
-    if (!scanning || scanLocked) return;
-
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
-
-    if (!vw || !vh) {
-      requestAnimationFrame(scanLoop);
-      return;
-    }
-
-    const sx = Math.floor((vw - ROI_SIZE) / 2);
-    const sy = Math.floor((vh - ROI_SIZE) / 2);
-
-    try {
-      ctx.drawImage(
-        video,
-        sx, sy, ROI_SIZE, ROI_SIZE,
-        0, 0, ROI_SIZE, ROI_SIZE
-      );
-
-      let result;
-      try {
-        result = await reader.decodeFromCanvas(canvas);
-      } catch (_) {
-        // esperado quando não encontra nada
-      }
-
-      if (result?.getText()) {
+      if (result) {
         scanLocked = true;
         overlay.classList.add("scan-lock");
-        processarCodigo(result.getText());
-        return;
+
+        const texto = result.getText?.() || "";
+        processarCodigo(texto);
       }
-
-    } catch (err) {
-      console.warn("Erro no scanLoop:", err);
-    }
-
-    requestAnimationFrame(scanLoop);
+    });
   }
 
   /* ===================================================
@@ -943,6 +890,7 @@ async function registrar() {
       stopScanner();
     });
   }
+
 
 
 
