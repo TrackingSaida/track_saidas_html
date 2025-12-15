@@ -41,6 +41,48 @@
     });
   }
 
+// ======================================================
+// Normalização de código PARA FILTRO (sem classificar)
+// ======================================================
+function normalizeCodigoForFilter(rawInput){
+  let raw = toAsciiDigits(String(rawInput || "")).toUpperCase().trim();
+  const allDigits = raw.replace(/\D+/g, "");
+
+  // QRCode JSON → external_order_id
+  try {
+    if (raw.startsWith("{") && raw.endsWith("}")) {
+      const obj = JSON.parse(raw);
+      if (obj?.external_order_id) {
+        return String(obj.external_order_id).toUpperCase().trim();
+      }
+    }
+  } catch (_) {}
+
+  // external_order_id fora de JSON
+  const extMatch = raw.match(/external_order_id["']?\s*[:=]\s*["']?([\w-]+)/i);
+  if (extMatch) return extMatch[1].toUpperCase();
+
+  // Shopee → mantém BR
+  if (/^BR(\d{13}|\d{12}[A-Z])$/i.test(raw)) {
+    return raw;
+  }
+
+  // Mercado Livre → normaliza para 11 dígitos
+  const mlMatch = allDigits.match(/4[5-9]\d{9,}/);
+  if (mlMatch) {
+    return mlMatch[0].slice(0, 11);
+  }
+
+  // LMxxxx → mantém inteiro
+  if (/^LM[\w\d-]+$/i.test(raw)) {
+    return raw;
+  }
+
+  // fallback
+  return raw;
+}
+
+
   // ================== Classificação de código ==================
   function toAsciiDigits(str){
     return String(str || "").replace(/[\u0660-\u0669\u06F0-\u06F9]/g, function(d){
@@ -459,111 +501,133 @@ function setupPagerEvents() {
   if (btnClear) btnClear.addEventListener("click", clearFilters);
 
   // ===== Scanner rápido para o filtro de Código (QR) =====
-  (function quickScannerForFilter(){
-    const scanBtn = qs('#btnScan');
-    const overlay = document.getElementById('scanFS');
-    const video = document.getElementById('scanFSVideo');
-    const hud = document.getElementById('scanFSMsg');
-    const closeBtn = document.getElementById('scanCloseBtn');
+  // ===== Scanner rápido para o filtro de Código (QR) =====
+(function quickScannerForFilter(){
+  const scanBtn = qs('#btnScan');
+  const overlay = document.getElementById('scanFS');
+  const video = document.getElementById('scanFSVideo');
+  const hud = document.getElementById('scanFSMsg');
+  const closeBtn = document.getElementById('scanCloseBtn');
 
-    if (!scanBtn || !overlay || !video) return; // overlay não disponível
+  if (!scanBtn || !overlay || !video) return;
 
-    let stream = null;
-    let detector = null;
-    let intId = null;
-    let locked = false;
+  let stream = null;
+  let detector = null;
+  let intId = null;
+  let locked = false;
 
-    function stopScanner() {
-      locked = true;
-      if (intId) { clearInterval(intId); intId = null; }
-      if (stream) {
-        try { stream.getTracks().forEach(t => t.stop()); } catch(_){}
-        stream = null;
-      }
-      try { video.pause(); video.srcObject = null; } catch(_){}
-      overlay.classList.remove('show');
-      overlay.style.display = 'none';
-      document.body.style.overflow = '';
-      locked = false;
+  function stopScanner() {
+    locked = true;
+    if (intId) { clearInterval(intId); intId = null; }
+    if (stream) {
+      try { stream.getTracks().forEach(t => t.stop()); } catch(_){}
+      stream = null;
+    }
+    try { video.pause(); video.srcObject = null; } catch(_){}
+    overlay.classList.remove('show');
+    overlay.style.display = 'none';
+    document.body.style.overflow = '';
+    locked = false;
+  }
+
+  async function openScanner() {
+    if (locked) return;
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false
+      });
+    } catch (err) {
+      notify('Câmera não disponível', 'error');
+      return;
     }
 
-    async function openScanner() {
-      if (locked) return;
+    video.srcObject = stream;
+    overlay.classList.add('show');
+    overlay.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    try { await video.play(); } catch(_){}
+
+    // BarcodeDetector nativo
+    if ('BarcodeDetector' in window) {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
-      } catch (err) {
-        notify('Câmera não disponível', 'error');
-        return;
-      }
+        detector = new BarcodeDetector({
+          formats: ['qr_code','ean_13','code_128','code_39','itf','upc_a','upc_e']
+        });
+      } catch (_) { detector = null; }
+    }
 
-      video.srcObject = stream;
-      overlay.classList.add('show');
-      overlay.style.display = 'block';
-      document.body.style.overflow = 'hidden';
-      try { await video.play(); } catch(_){}
-
-      // BarcodeDetector
-      if ('BarcodeDetector' in window) {
+    // ================= Fallback ZXing =================
+    if (!detector) {
+      if (window.ZXingBrowser) {
+        const reader = new ZXingBrowser.BrowserMultiFormatReader();
         try {
-          detector = new BarcodeDetector({ formats: ['qr_code','ean_13','code_128','code_39','itf','upc_a','upc_e'] });
-        } catch (e) { detector = null; }
-      }
+          reader.decodeFromVideoDevice(null, video, (result) => {
+            if (!result) return;
 
-      if (!detector) {
-        // Fallback ZXing para iPhone / Safari quando disponível
-        if (window.ZXingBrowser) {
-          const reader = new ZXingBrowser.BrowserMultiFormatReader();
-          try {
-            // inicia decodificação contínua a partir da câmera
-            reader.decodeFromVideoDevice(null, video, (result, err) => {
-              if (!result) return;
-              const text = result.getText();
-              if (!text) return;
-              // preenche filtro e executa busca
-              if (f.codigo) f.codigo.value = text;
-              state.page = 1;
-              stopScanner();
-              setTimeout(() => refresh(true), 150);
-            });
-            return;
-          } catch (e) {
-            console.error('ZXing fallback error', e);
-            notify('Leitor não suportado neste dispositivo.', 'error');
-            stopScanner();
-            return;
-          }
-        }
+            const raw = result.getText();
+            if (!raw) return;
 
-        // sem detector nativo e sem ZXing => fecha
-        notify('Leitor não suportado neste dispositivo.', 'error');
-        stopScanner();
-        return;
-      }
+            if (f.codigo) {
+              f.codigo.value = normalizeCodigoForFilter(raw);
+            }
 
-      intId = setInterval(async () => {
-        if (locked) return;
-        try {
-          const codes = await detector.detect(video);
-          if (!codes || !codes.length) return;
-          const code = codes[0].rawValue || '';
-          if (code) {
-            // preenche filtro e executa busca
-            if (f.codigo) f.codigo.value = code;
             state.page = 1;
             stopScanner();
-            // pequena espera para garantir UI
             setTimeout(() => refresh(true), 150);
-          }
+          });
+          return;
         } catch (e) {
-          // erro de leitura: ignora
-          console.warn('detector error', e);
+          console.error('ZXing fallback error', e);
+          notify('Leitor não suportado neste dispositivo.', 'error');
+          stopScanner();
+          return;
         }
-      }, 150);
+      }
+
+      notify('Leitor não suportado neste dispositivo.', 'error');
+      stopScanner();
+      return;
     }
 
-    scanBtn.addEventListener('click', (e) => { e.preventDefault(); openScanner(); });
-    if (closeBtn) closeBtn.addEventListener('click', (e) => { e.preventDefault(); stopScanner(); });
-  })();
+    // ================= Detector nativo =================
+    intId = setInterval(async () => {
+      if (locked) return;
+      try {
+        const codes = await detector.detect(video);
+        if (!codes?.length) return;
+
+        const raw = codes[0].rawValue || '';
+        if (!raw) return;
+
+        if (f.codigo) {
+          f.codigo.value = normalizeCodigoForFilter(raw);
+        }
+
+        state.page = 1;
+        stopScanner();
+        setTimeout(() => refresh(true), 150);
+
+      } catch (e) {
+        console.warn('detector error', e);
+      }
+    }, 150);
+  }
+
+  scanBtn.addEventListener('click', e => {
+    e.preventDefault();
+    openScanner();
+  });
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', e => {
+      e.preventDefault();
+      stopScanner();
+    });
+  }
+})();
+
 
   // =====================================================================
   // MODAL DE EDIÇÃO (SINGULAR)

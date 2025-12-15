@@ -769,150 +769,117 @@ async function registrar() {
 }
 
 
-// ===== Leitor por Câmera — Fullscreen (ZXing Browser / QR Code) =====
-(function leituraScannerIntegrado() {
 
+
+// ===== Leitor por Câmera — Full-screen (híbrido BarcodeDetector + ZXing) =====
+(function leituraScannerIntegrado() {
   const btnScan = document.getElementById("btnScan");
+  const inputCodigo = document.getElementById("codigo");
   if (!btnScan) return;
 
   const overlay = document.getElementById("scanFS");
-  const video   = document.getElementById("scanFSVideo");
-  const hud     = document.getElementById("scanFSMsg");
+  const video = document.getElementById("scanFSVideo");
+  const hud = document.getElementById("scanFSMsg");
   const contadorEl = document.getElementById("scan-packages-count");
-  const closeBtn   = document.getElementById("scanCloseBtn");
-  const inputCodigo = document.getElementById("codigo");
+  const closeBtn = document.getElementById("scanCloseBtn");
 
-  let stream = null;
-  let reader = null;
-  let scanLocked = false;
   let totalLidos = 0;
+  let scanLocked = false;
+  let interval = null;
+  let stream = null;
 
-  /* ===================================================
-     HELPERS
-     =================================================== */
+  // Atualiza contador
   function atualizarContador() {
-    if (!contadorEl) return;
-    contadorEl.textContent =
-      `${totalLidos} ${totalLidos === 1 ? "Saída Lida" : "Saídas Lidas"}`;
+    contadorEl.textContent = `${totalLidos} ${totalLidos === 1 ? "Saída Lida" : "Saídas Lidas"}`;
   }
 
+  // HUD de mensagens
   function showMsg(tipo, msg) {
-    if (!hud) return;
     hud.textContent = msg;
     hud.classList.remove("info", "warning", "danger", "show");
-    hud.classList.add(
-      tipo === "erro" ? "danger" : tipo === "alerta" ? "warning" : "info",
-      "show"
-    );
+    hud.classList.add(tipo === "erro" ? "danger" : tipo === "alerta" ? "warning" : "info", "show");
     clearTimeout(hud._t);
-    hud._t = setTimeout(() => hud.classList.remove("show"), 2000);
+    hud._t = setTimeout(() => hud.classList.remove("show"), tipo === "erro" ? 3000 : 2000);
   }
 
-  /* ===================================================
-     STOP SCANNER
-     =================================================== */
+  // Fecha scanner
   function stopScanner() {
+    if (interval) { clearInterval(interval); interval = null; }
+    try { if (stream) { stream.getTracks().forEach(t => t.stop()); } } catch(_) {}
+    stream = null;
     scanLocked = false;
-
-    overlay.classList.remove("show", "scan-lock");
+    overlay.classList.remove("show");
     overlay.style.display = "none";
     document.body.style.overflow = "";
-
-    try {
-      stream?.getTracks().forEach(t => t.stop());
-    } catch (_) {}
-
-    stream = null;
-
-    if (reader?.reset) reader.reset();
-    reader = null;
   }
 
-  /* expõe para uso externo */
-  window.leituraStopScanner = stopScanner;
+  // expõe para que `registrar()` possa parar a câmera quando necessário
+  try { window.leituraStopScanner = stopScanner; } catch(_) {}
+  // expõe também para reiniciar o scanner quando um modal for cancelado
+  try { window.leituraStartScanner = startScanner; } catch(_) {}
 
- /* ===================================================
-   START SCANNER
-   =================================================== */
-async function startScanner() {
-  totalLidos = 0;
-  atualizarContador();
+  async function startScanner() {
+    totalLidos = 0;
+    atualizarContador();
+    overlay.classList.add("show");
+    overlay.style.display = "block";
+    document.body.style.overflow = "hidden";
 
-  overlay.classList.add("show");
-  overlay.style.display = "block";
-  document.body.style.overflow = "hidden";
-
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: "environment" },
-        width:  { ideal: 1280 },
-        height: { ideal: 720 }
-      },
-      audio: false
-    });
-
-    video.srcObject = stream;
-    await video.play();
-
-    /* =========================================
-       ZOOM DIGITAL LEVE (SE SUPORTADO)
-       ========================================= */
     try {
-      const track = stream.getVideoTracks()[0];
-      const caps = track.getCapabilities?.();
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      video.srcObject = stream;
+      await video.play();
+    } catch (err) {
+      showMsg("erro", "Câmera não disponível");
+      document.body.style.overflow = "";
+      return;
+    }
 
-      if (caps?.zoom) {
-        track.applyConstraints({
-          advanced: [{
-            zoom: caps.zoom.min + (caps.zoom.max - caps.zoom.min) * 0.25
-          }]
-        });
+    // --- Verifica suporte nativo ---
+    if ("BarcodeDetector" in window) {
+      try {
+        const detector = new BarcodeDetector({ formats: ["qr_code", "ean_13", "code_128", "code_39", "itf", "upc_a", "upc_e"] });
+        interval = setInterval(async () => {
+          if (scanLocked) return;
+          const barcodes = await detector.detect(video);
+          if (!barcodes.length) return;
+          const code = barcodes[0].rawValue || "";
+            // processa imediatamente; `registrar()` decide se deve parar a câmera
+            processarCodigo(code);
+        }, 100);
+        return;
+      } catch (e) {
+        console.warn("Erro BarcodeDetector, fallback ZXing:", e);
       }
-    } catch (_) {
-      // zoom não suportado — ignora silenciosamente
     }
 
-  } catch (e) {
-    showMsg("erro", "Câmera não disponível");
-    stopScanner();
-    return;
-  }
-
-  /* =========================================
-     LEITOR ZXING — QR CODE
-     ========================================= */
-  reader = new ZXingBrowser.BrowserQRCodeReader();
-
-  reader.decodeFromVideoDevice(null, video, (result, err) => {
-    if (scanLocked) return;
-
-    if (result) {
-      scanLocked = true;
-      overlay.classList.add("scan-lock");
-
-      const texto = result.getText?.() || "";
-      processarCodigo(texto);
+    // --- Fallback ZXing para iPhone ---
+    if (window.ZXingBrowser) {
+      const reader = new ZXingBrowser.BrowserMultiFormatReader();
+      try {
+        await reader.decodeFromVideoDevice(null, video, async (result, err) => {
+          if (!result) return;
+          const text = result.getText();
+          // processa imediatamente; registrar() fará stopScanner() se necessário
+          processarCodigo(text);
+        });
+      } catch (e) {
+        console.error("Erro ZXing fallback:", e);
+        showMsg("erro", "Leitor não suportado neste dispositivo.");
+      }
+    } else {
+      showMsg("erro", "Leitor não suportado neste dispositivo.");
     }
-  });
 
+    // Listener do botão Fechar
+    if (closeBtn) {
+      closeBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        stopScanner();
+      };
+    }
   }
-
-  /* ===================================================
-     EVENTOS
-     =================================================== */
-  btnScan.addEventListener("click", e => {
-    e.preventDefault();
-    startScanner();
-  });
-
-  if (closeBtn) {
-    closeBtn.addEventListener("click", e => {
-      e.preventDefault();
-      stopScanner();
-    });
-  }
-
 
 
 
@@ -1028,12 +995,8 @@ async function processarCodigo(text) {
     showMsg("erro", "Falha ao registrar saída.");
     Sound.play("err");
   } finally {
-  setTimeout(() => {
-    scanLocked = false;
-    document.getElementById("scanFS")?.classList.remove("scan-lock");
-  }, 180);
-}
-
+    setTimeout(() => (scanLocked = false), 180);
+  }
 }
 
 
