@@ -132,24 +132,19 @@ function classifyCodigo(rawInput){
   const allDigits = raw.replace(/\D+/g, "");
 
   // ===========================================================
-  // 🆕 PRIORIDADE MÁXIMA: QRCode JSON contendo external_order_id
+  // PRIORIDADE 1 — QRCode JSON com external_order_id
   // ===========================================================
   try {
     if (raw.startsWith("{") && raw.endsWith("}")) {
       const obj = JSON.parse(raw);
-
-      if (obj && typeof obj.external_order_id === "string") {
-        const cod = obj.external_order_id.toUpperCase().trim();
-        return { ok: true, servico: "Avulso", codigo: cod };
+      if (typeof obj.external_order_id === "string") {
+        return { ok:true, servico:"Avulso", codigo: obj.external_order_id.toUpperCase().trim() };
       }
     }
-  } catch(e) {
-    // ignora erro de JSON e continua fluxo normal
-  }
+  } catch(_) {}
 
-    // ===========================================================
-  // 🆕 PRIORIDADE 2: Detectar external_order_id mesmo sem JSON
-  // ex: sorter_code:LMxxxx;external_order_id:LMxxxx
+  // ===========================================================
+  // PRIORIDADE 2 — external_order_id fora de JSON
   // ===========================================================
   const extMatch = raw.match(/external_order_id["']?\s*[:=]\s*["']?([\w-]+)/i);
   if (extMatch) {
@@ -157,45 +152,79 @@ function classifyCodigo(rawInput){
   }
 
   // ===========================================================
-  // 🆕 PRIORIDADE 3: QUALQUER CÓDIGO COMEÇANDO COM "LM" É AVULSO
-  // Isso evita que LM caia no filtro de Mercado Livre
+  // PRIORIDADE 3 — MAGALU (external_grouper_code)
+  // ===========================================================
+  const magaluMatch = raw.match(/external_grouper_code\^Ç\^(\d{10,})\^/i);
+  if (magaluMatch) {
+    return { ok:true, servico:"Avulso", codigo: magaluMatch[1] };
+  }
+
+  // ===========================================================
+  // PRIORIDADE 4 — LMxxxx é sempre Avulso
   // ===========================================================
   if (/^LM[\w\d-]+$/i.test(raw)) {
     return { ok:true, servico:"Avulso", codigo: raw };
   }
 
+  // ===========================================================
   // 🚫 NF-e (44 dígitos)
-  if (/^\d{44}$/.test(allDigits)) return { ok:false, motivo:"NF-e (44 dígitos)" };
-
-  // Shopee (BR + 13 dígitos OU 12 dígitos + letra)
-  const sh = raw.match(/(?:^|[^A-Z0-9])(BR(?:\d{13}|\d{12}[A-Z]))(?=$|[^A-Z0-9])/i);
-  if (sh) return { ok:true, servico:"Shopee", codigo: sh[1].toUpperCase() };
-
-  // Mercado Livre (11 dígitos começando com 45–49)
-  const mlRun = allDigits.match(/4[5-9]\d{9,}/);
-  if (mlRun) return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11) };
+  // ===========================================================
+  if (/^\d{44}$/.test(allDigits)) {
+    return { ok:false, motivo:"NF-e (44 dígitos)" };
+  }
 
   // ===========================================================
-  // 🟢 AVULSO — padrões existentes (exceto LM manual)
+  // Shopee
+  // ===========================================================
+  const sh = raw.match(/(?:^|[^A-Z0-9])(BR(?:\d{13}|\d{12}[A-Z]))(?=$|[^A-Z0-9])/i);
+  if (sh) {
+    return { ok:true, servico:"Shopee", codigo: sh[1].toUpperCase() };
+  }
+
+  // ===========================================================
+  // Mercado Livre (45–49 → 11 dígitos)
+  // ===========================================================
+  const mlRun = allDigits.match(/4[5-9]\d{9,}/);
+  if (mlRun) {
+    return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11) };
+  }
+
+  // ===========================================================
+  // AVULSO — CEP (8 dígitos)
+  // ===========================================================
+  if (/^\d{8}$/.test(allDigits)) {
+    return { ok:true, servico:"Avulso", codigo: allDigits };
+  }
+
+  // ===========================================================
+  // AVULSO — EVAS (7 dígitos)
+  // ===========================================================
+  if (/^\d{7}$/.test(allDigits)) {
+    return { ok:true, servico:"Avulso", codigo: allDigits };
+  }
+
+  // ===========================================================
+  // AVULSO — padrões antigos
   // ===========================================================
   if (
     /^CP\d{3,}/.test(raw) ||
     /^TIME\d{6}$/i.test(raw)
-    
   ) {
-    return { ok: true, servico: "Avulso", codigo: raw };
+    return { ok:true, servico:"Avulso", codigo: raw };
   }
 
-  // 🟢 Avulso (telefone)
+  // ===========================================================
+  // Avulso — telefone
+  // ===========================================================
   const phone = raw.match(/0?(\d{2})[-\s]?(\d{4,5})[-\s]?(\d{4})/);
   if (phone) {
     const cod = `${phone[1]}${phone[2]}${phone[3]}`;
-    return { ok: true, servico: "Avulso", codigo: cod };
+    return { ok:true, servico:"Avulso", codigo: cod };
   }
 
-  // Sem match
   return { ok:false, motivo:"Padrão não configurado" };
 }
+
 
 
   // helper: detectar 409 de DUPLICADO (não confundir com 409 de créditos)
@@ -213,6 +242,8 @@ function classifyCodigo(rawInput){
     // Após limpar as linhas, zera o resumo de contagens
     updateSummary();
   }
+
+
 
 
 // ===== FUNÇÃO REMOVER SAÍDA =====
