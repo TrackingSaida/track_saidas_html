@@ -533,27 +533,31 @@ async function registrar(leituraMetric = null) {
   try {
     const entregador = selEnt?.value?.trim() || "";
     if (!entregador) {
+      showMsgIcon("erro", "Selecione o entregador.");
+      Sound.play("err");
+
       if (leituraMetric) {
         markRespostaMetric(leituraMetric, false, "sem_entregador");
       }
-      showMsgIcon("erro", "Selecione o entregador.");
-      Sound.play("err");
+
       return { ok:false, tipo:"sem_entregador" };
     }
 
     const rawInput = inpCod?.value || "";
     if (!rawInput.trim()) {
+      showMsgIcon("erro", "Informe o código.");
+      Sound.play("err");
+
       if (leituraMetric) {
         markRespostaMetric(leituraMetric, false, "codigo_vazio");
       }
-      showMsgIcon("erro", "Informe o código.");
-      Sound.play("err");
+
       return { ok:false, tipo:"codigo_vazio" };
     }
 
-    // ======================================================
-    // MÉTRICA DE LEITURA (cria somente se NÃO veio da câmera)
-    // ======================================================
+    // =========================
+    // MÉTRICA (teclado)
+    // =========================
     if (!leituraMetric) {
       leituraMetric = startLeituraMetric({
         origem: "teclado",
@@ -563,10 +567,11 @@ async function registrar(leituraMetric = null) {
 
     const cls = classifyCodigo(rawInput);
     if (!cls.ok) {
-      markRespostaMetric(leituraMetric, false, "codigo_invalido");
       showMsgIcon("erro", `Código inválido: ${cls.motivo}.`);
       Sound.play("err");
       inpCod && inpCod.select();
+
+      markRespostaMetric(leituraMetric, false, "codigo_invalido");
       return { ok:false, tipo:"codigo_invalido", detalhe:cls.motivo };
     }
 
@@ -574,23 +579,28 @@ async function registrar(leituraMetric = null) {
     const servico = cls.servico;
     const k = keyFor(entregador, codigoFinal);
 
-    // 🔹 DUPLICADO LOCAL POR SESSÃO
+    // =========================
+    // DUPLICADO LOCAL
+    // =========================
     if (rowsByKey.has(k)) {
-      markRespostaMetric(leituraMetric, false, "duplicado_local");
       Sound.play("warn");
       showMsgIcon("alerta", `Duplicado • ${codigoFinal}`);
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+
+      markRespostaMetric(leituraMetric, false, "duplicado_local");
       return { ok:false, tipo:"duplicado" };
     }
 
     const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
 
     // =========================
-    // MÉTRICA: ENVIO AO BACKEND
+    // MÉTRICA → ENVIO
     // =========================
     markEnvioMetric(leituraMetric);
 
-    // 🔹 Consulta situação da saída
+    // =========================
+    // CONSULTA EXISTENTE
+    // =========================
     const resp = await fetch(
       `${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`,
       {
@@ -603,13 +613,15 @@ async function registrar(leituraMetric = null) {
     );
 
     if (!resp.ok) {
-      markRespostaMetric(leituraMetric, false, "erro_http");
       const msg = await resp.text().catch(()=> "");
+      showMsgIcon("erro", "Erro ao consultar saída.");
+      Sound.play("err");
+
+      markRespostaMetric(leituraMetric, false, "erro_http");
       return { ok:false, tipo:"erro_http", detalhe:msg };
     }
 
     const dados = await resp.json();
-
     let registros = [];
     if (Array.isArray(dados)) registros = dados;
     else if (Array.isArray(dados?.items)) registros = dados.items;
@@ -617,19 +629,21 @@ async function registrar(leituraMetric = null) {
     else if (Array.isArray(dados?.data)) registros = dados.data;
 
     // =======================================================
-    // 1️⃣ SE EXISTE REGISTRO → TRATAR STATUS
+    // 1️⃣ JÁ EXISTE
     // =======================================================
     if (registros.length > 0) {
-      const registro = registros[0];
-      const statusAtual = ((registro.status || registro.st || "") + "").toLowerCase();
-      const entregadorAtual = registro.entregador || registro.ent || "Desconhecido";
-      const entregadorNovo = entregador;
-      const registroId = registro.id_saida || registro.id || registro._id || registro.idSaida;
+      const r = registros[0];
+      const statusAtual = ((r.status || "") + "").toLowerCase();
+      const entregadorAtual = r.entregador || "Desconhecido";
+      const registroId = r.id_saida || r.id;
 
       // 🚨 JÁ SAIU
       if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
 
-        if (String(entregadorAtual) === String(entregadorNovo)) {
+        if (String(entregadorAtual) === String(entregador)) {
+          showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
+          Sound.play("warn");
+
           markRespostaMetric(leituraMetric, false, "ja_saiu");
           return { ok:false, tipo:"ja_saiu" };
         }
@@ -640,7 +654,7 @@ async function registrar(leituraMetric = null) {
           html: `
             <p><strong>${codigoFinal}</strong></p>
             <p>Entregador atual: ${entregadorAtual}</p>
-            <p>Deseja alterar para ${entregadorNovo}?</p>
+            <p>Deseja alterar para ${entregador}?</p>
           `,
           showCancelButton: true,
           confirmButtonText: "Sim",
@@ -661,52 +675,37 @@ async function registrar(leituraMetric = null) {
           credentials: "include",
           body: JSON.stringify({
             status: "Saiu para entrega",
-            entregador: entregadorNovo
-          })
-        });
-
-        if (!patchResp.ok) {
-          markRespostaMetric(leituraMetric, false, "erro_patch_troca_entregador");
-          const msg = await patchResp.text().catch(() => "");
-          return { ok:false, tipo:"erro_patch_troca_entregador", detalhe:msg };
-        }
-
-        markRespostaMetric(leituraMetric, true, "troca_entregador");
-        return { ok:true, tipo:"troca_entregador" };
-      }
-
-      // 🚚 COLETADO → SAIU
-      if (statusAtual === "coletado") {
-
-        const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registroId}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { "Authorization": `Bearer ${token}` } : {})
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            status: "Saiu para entrega",
             entregador
           })
         });
 
         if (!patchResp.ok) {
-          markRespostaMetric(leituraMetric, false, "erro_patch");
-          const msg = await patchResp.text().catch(() => "");
-          return { ok:false, tipo:"erro_patch", detalhe:msg };
+          markRespostaMetric(leituraMetric, false, "erro_patch_troca_entregador");
+          return { ok:false, tipo:"erro_patch_troca_entregador" };
         }
 
-        markRespostaMetric(leituraMetric, true, "coletado");
-        return { ok:true, tipo:"coletado" };
-      }
+        appendOrUpdateRow({
+          tsFmt: new Date().toLocaleString("pt-BR"),
+          entregador,
+          codigo: codigoFinal,
+          servico,
+          status: "Saiu para entrega",
+          id_saida: registroId
+        });
 
-      markRespostaMetric(leituraMetric, false, "status_desconhecido");
-      return { ok:false, tipo:"status_desconhecido" };
+        updateSummary();
+        showMsgIcon("info", `Entregador alterado ✓ ${codigoFinal}`);
+        Sound.play("ok");
+
+        if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+
+        markRespostaMetric(leituraMetric, true, "troca_entregador");
+        return { ok:true, tipo:"troca_entregador" };
+      }
     }
 
     // =======================================================
-    // 2️⃣ NÃO EXISTE → REGISTRO DIRETO
+    // 2️⃣ NOVO REGISTRO
     // =======================================================
     const postResp = await fetch(`${window.TRACK_API_URL}/saidas/registrar`, {
       method: "POST",
@@ -724,10 +723,33 @@ async function registrar(leituraMetric = null) {
     });
 
     if (!postResp.ok) {
+      const msg = await postResp.text().catch(()=> "");
+      showMsgIcon("erro", "Erro ao registrar saída.");
+      Sound.play("err");
+
       markRespostaMetric(leituraMetric, false, "erro_registrar");
-      const msg = await postResp.text().catch(() => "");
       return { ok:false, tipo:"erro_registrar", detalhe:msg };
     }
+
+    const data = await postResp.json();
+
+    appendOrUpdateRow({
+      tsFmt: new Date().toLocaleString("pt-BR"),
+      entregador,
+      codigo: codigoFinal,
+      servico,
+      status: window.IGNORAR_COLETA ? "Saiu para entrega" : "Não Coletado",
+      id_saida: data.id_saida
+    });
+
+    updateSummary();
+    showMsgIcon(
+      window.IGNORAR_COLETA ? "info" : "alerta",
+      `Registrado ✓ ${codigoFinal}`
+    );
+    Sound.play(window.IGNORAR_COLETA ? "ok" : "warn");
+
+    if (inpCod) { inpCod.value = ""; inpCod.focus(); }
 
     markRespostaMetric(
       leituraMetric,
@@ -744,12 +766,18 @@ async function registrar(leituraMetric = null) {
 
   } catch (err) {
     console.error("Erro registrar():", err);
+
     if (leituraMetric) {
       markRespostaMetric(leituraMetric, false, "erro_excecao");
     }
+
+    showMsgIcon("erro", "Falha interna.");
+    Sound.play("err");
+
     return { ok:false, tipo:"erro_excecao", detalhe:String(err) };
   }
 }
+
 
 
 
@@ -884,7 +912,7 @@ async function processarCodigo(text) {
 
   // =======================================================
   // MÉTRICA: INÍCIO DA LEITURA POR CÂMERA
-  // (somente aqui, com entregador válido)
+  // (somente após validações básicas)
   // =======================================================
   const leituraMetric = startLeituraMetric({
     origem: "camera",
@@ -893,7 +921,7 @@ async function processarCodigo(text) {
 
   try {
     if (typeof registrar === "function") {
-      // 🔹 registrar() é o ÚNICO responsável por fechar a métrica
+      // registrar() cuida de TODA a lógica + fecha a métrica
       const result = await registrar(leituraMetric); // { ok, tipo, detalhe? }
 
       // =======================================================
@@ -904,6 +932,7 @@ async function processarCodigo(text) {
         atualizarContador();
 
         switch (result.tipo) {
+
           case "troca_entregador":
             showMsg("info", `Entregador atualizado ✓ (${totalLidos})`);
             Sound.play("ok");
@@ -926,10 +955,12 @@ async function processarCodigo(text) {
       }
 
       // =======================================================
-      // ERROS & ALERTAS (métrica já fechada pelo registrar)
+      // ERROS & ALERTAS
+      // (UX igual ao original)
       // =======================================================
       else {
         switch (result?.tipo) {
+
           case "duplicado":
             showMsg("alerta", result?.detalhe || "Duplicado — código já lido nesta sessão.");
             Sound.play("warn");
@@ -937,6 +968,11 @@ async function processarCodigo(text) {
 
           case "ja_saiu":
             showMsg("alerta", result?.detalhe || "Código já saiu para entrega.");
+            Sound.play("warn");
+            break;
+
+          case "nao_coletado_cancelado":
+            showMsg("alerta", result?.detalhe || "Registro cancelado (não coletado).");
             Sound.play("warn");
             break;
 
@@ -981,6 +1017,7 @@ async function processarCodigo(text) {
     showMsg("erro", "Falha ao registrar saída.");
     Sound.play("err");
   } finally {
+
     setTimeout(() => (scanLocked = false), 80);
   }
 }
