@@ -263,21 +263,40 @@ function startLeituraMetric({ origem, raw }) {
 
   return {
     seq: window.LeituraMetrics.seq,
-    origem,          // "camera" | "teclado"
+    origem, // "camera" | "teclado"
     raw,
+
+    // timestamps
     ts_read: now,
-    delta_from_last_read_ms: delta
+    ts_send: null,
+    ts_response: null,
+
+    // deltas
+    delta_from_last_read_ms: delta,
+    delta_read_to_send_ms: null,
+    delta_send_to_response_ms: null,
+
+    // resultado
+    ok: null,
+    resultado: null
   };
 }
 
 function markEnvioMetric(m) {
+  if (!m || m.ts_send) return;
+
   m.ts_send = performance.now();
   m.delta_read_to_send_ms = m.ts_send - m.ts_read;
 }
 
 function markRespostaMetric(m, ok, tipo) {
+  if (!m || m.ts_response) return;
+
   m.ts_response = performance.now();
-  m.delta_send_to_response_ms = m.ts_response - m.ts_send;
+  m.delta_send_to_response_ms = m.ts_send
+    ? m.ts_response - m.ts_send
+    : null;
+
   m.ok = ok;
   m.resultado = tipo;
 
@@ -285,6 +304,7 @@ function markRespostaMetric(m, ok, tipo) {
   window.__leituraLogs = window.__leituraLogs || [];
   window.__leituraLogs.push(m);
 }
+
 
 
 // ===== FUNÇÃO REMOVER SAÍDA =====
@@ -509,11 +529,13 @@ function createRow(row){
   }
 
 // ---------- registrar ----------
-// ---------- registrar ----------
 async function registrar(leituraMetric = null) {
   try {
     const entregador = selEnt?.value?.trim() || "";
     if (!entregador) {
+      if (leituraMetric) {
+        markRespostaMetric(leituraMetric, false, "sem_entregador");
+      }
       showMsgIcon("erro", "Selecione o entregador.");
       Sound.play("err");
       return { ok:false, tipo:"sem_entregador" };
@@ -521,6 +543,9 @@ async function registrar(leituraMetric = null) {
 
     const rawInput = inpCod?.value || "";
     if (!rawInput.trim()) {
+      if (leituraMetric) {
+        markRespostaMetric(leituraMetric, false, "codigo_vazio");
+      }
       showMsgIcon("erro", "Informe o código.");
       Sound.play("err");
       return { ok:false, tipo:"codigo_vazio" };
@@ -538,6 +563,7 @@ async function registrar(leituraMetric = null) {
 
     const cls = classifyCodigo(rawInput);
     if (!cls.ok) {
+      markRespostaMetric(leituraMetric, false, "codigo_invalido");
       showMsgIcon("erro", `Código inválido: ${cls.motivo}.`);
       Sound.play("err");
       inpCod && inpCod.select();
@@ -548,8 +574,9 @@ async function registrar(leituraMetric = null) {
     const servico = cls.servico;
     const k = keyFor(entregador, codigoFinal);
 
-    // 🔹 DUPLICADO LOCAL POR SESSÃO (UX → não fecha métrica)
+    // 🔹 DUPLICADO LOCAL POR SESSÃO
     if (rowsByKey.has(k)) {
+      markRespostaMetric(leituraMetric, false, "duplicado_local");
       Sound.play("warn");
       showMsgIcon("alerta", `Duplicado • ${codigoFinal}`);
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
@@ -576,8 +603,8 @@ async function registrar(leituraMetric = null) {
     );
 
     if (!resp.ok) {
+      markRespostaMetric(leituraMetric, false, "erro_http");
       const msg = await resp.text().catch(()=> "");
-      endLeitura(leituraMetric, false, "erro_http");
       return { ok:false, tipo:"erro_http", detalhe:msg };
     }
 
@@ -596,7 +623,6 @@ async function registrar(leituraMetric = null) {
       const registro = registros[0];
       const statusAtual = ((registro.status || registro.st || "") + "").toLowerCase();
       const entregadorAtual = registro.entregador || registro.ent || "Desconhecido";
-      const usuarioRegistro = registro.username || registro.user || registro.usuario || "Desconhecido";
       const entregadorNovo = entregador;
       const registroId = registro.id_saida || registro.id || registro._id || registro.idSaida;
 
@@ -604,6 +630,7 @@ async function registrar(leituraMetric = null) {
       if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
 
         if (String(entregadorAtual) === String(entregadorNovo)) {
+          markRespostaMetric(leituraMetric, false, "ja_saiu");
           return { ok:false, tipo:"ja_saiu" };
         }
 
@@ -621,6 +648,7 @@ async function registrar(leituraMetric = null) {
         });
 
         if (!confirm.isConfirmed) {
+          markRespostaMetric(leituraMetric, false, "troca_cancelada");
           return { ok:false, tipo:"ja_saiu" };
         }
 
@@ -638,12 +666,12 @@ async function registrar(leituraMetric = null) {
         });
 
         if (!patchResp.ok) {
+          markRespostaMetric(leituraMetric, false, "erro_patch_troca_entregador");
           const msg = await patchResp.text().catch(() => "");
-          endLeitura(leituraMetric, false, "erro_patch_troca_entregador");
           return { ok:false, tipo:"erro_patch_troca_entregador", detalhe:msg };
         }
 
-        endLeitura(leituraMetric, true, "troca_entregador");
+        markRespostaMetric(leituraMetric, true, "troca_entregador");
         return { ok:true, tipo:"troca_entregador" };
       }
 
@@ -664,15 +692,16 @@ async function registrar(leituraMetric = null) {
         });
 
         if (!patchResp.ok) {
+          markRespostaMetric(leituraMetric, false, "erro_patch");
           const msg = await patchResp.text().catch(() => "");
-          endLeitura(leituraMetric, false, "erro_patch");
           return { ok:false, tipo:"erro_patch", detalhe:msg };
         }
 
-        endLeitura(leituraMetric, true, "coletado");
+        markRespostaMetric(leituraMetric, true, "coletado");
         return { ok:true, tipo:"coletado" };
       }
 
+      markRespostaMetric(leituraMetric, false, "status_desconhecido");
       return { ok:false, tipo:"status_desconhecido" };
     }
 
@@ -695,12 +724,12 @@ async function registrar(leituraMetric = null) {
     });
 
     if (!postResp.ok) {
+      markRespostaMetric(leituraMetric, false, "erro_registrar");
       const msg = await postResp.text().catch(() => "");
-      endLeitura(leituraMetric, false, "erro_registrar");
       return { ok:false, tipo:"erro_registrar", detalhe:msg };
     }
 
-    endLeitura(
+    markRespostaMetric(
       leituraMetric,
       true,
       window.IGNORAR_COLETA ? "ignorar_coleta_saida" : "nao_coletado_registrado"
@@ -715,7 +744,9 @@ async function registrar(leituraMetric = null) {
 
   } catch (err) {
     console.error("Erro registrar():", err);
-    endLeitura(leituraMetric, false, "erro_excecao");
+    if (leituraMetric) {
+      markRespostaMetric(leituraMetric, false, "erro_excecao");
+    }
     return { ok:false, tipo:"erro_excecao", detalhe:String(err) };
   }
 }
@@ -797,7 +828,7 @@ async function registrar(leituraMetric = null) {
           const code = barcodes[0].rawValue || "";
             // processa imediatamente; `registrar()` decide se deve parar a câmera
             processarCodigo(code);
-        }, 100);
+        }, 50);
         return;
       } catch (e) {
         console.warn("Erro BarcodeDetector, fallback ZXing:", e);
@@ -834,42 +865,35 @@ async function registrar(leituraMetric = null) {
 
 
 
-// 🔹 Processa cada leitura detectada (agora assíncrona)
+// 🔹 Processa cada leitura detectada pela câmera
 async function processarCodigo(text) {
   const codigo = String(text || "").trim();
   if (!codigo || scanLocked) return;
 
   scanLocked = true;
 
+  const entregador = document.getElementById("entregador")?.value;
+  if (!entregador) {
+    showMsg("alerta", "Selecione o entregador antes de escanear.");
+    Sound.play("warn");
+    scanLocked = false;
+    return;
+  }
+
+  if (inputCodigo) inputCodigo.value = codigo;
+
   // =======================================================
-  // LOG: INÍCIO DA LEITURA POR CÂMERA
+  // MÉTRICA: INÍCIO DA LEITURA POR CÂMERA
+  // (somente aqui, com entregador válido)
   // =======================================================
   const leituraMetric = startLeituraMetric({
     origem: "camera",
     raw: codigo
   });
 
-  const entregador = document.getElementById("entregador")?.value;
-  if (!entregador) {
-    showMsg("alerta", "Selecione o entregador antes de escanear.");
-    Sound.play("warn");
-    scanLocked = false;
-
-    // LOG: abortado por falta de entregador
-    leituraMetric?.end?.({
-      status: "erro",
-      motivo: "sem_entregador"
-    });
-
-    return;
-  }
-
-  if (inputCodigo) inputCodigo.value = codigo;
-
   try {
     if (typeof registrar === "function") {
-
-      // 🔹 chama registrar passando a métrica
+      // 🔹 registrar() é o ÚNICO responsável por fechar a métrica
       const result = await registrar(leituraMetric); // { ok, tipo, detalhe? }
 
       // =======================================================
@@ -878,11 +902,6 @@ async function processarCodigo(text) {
       if (result?.ok) {
         totalLidos++;
         atualizarContador();
-
-        leituraMetric?.end?.({
-          status: "ok",
-          tipo: result.tipo
-        });
 
         switch (result.tipo) {
           case "troca_entregador":
@@ -907,15 +926,9 @@ async function processarCodigo(text) {
       }
 
       // =======================================================
-      // ERROS & ALERTAS
+      // ERROS & ALERTAS (métrica já fechada pelo registrar)
       // =======================================================
       else {
-        leituraMetric?.end?.({
-          status: "erro",
-          tipo: result?.tipo,
-          detalhe: result?.detalhe
-        });
-
         switch (result?.tipo) {
           case "duplicado":
             showMsg("alerta", result?.detalhe || "Duplicado — código já lido nesta sessão.");
@@ -924,11 +937,6 @@ async function processarCodigo(text) {
 
           case "ja_saiu":
             showMsg("alerta", result?.detalhe || "Código já saiu para entrega.");
-            Sound.play("warn");
-            break;
-
-          case "nao_coletado_cancelado":
-            showMsg("alerta", result?.detalhe || "Registro cancelado (não coletado).");
             Sound.play("warn");
             break;
 
@@ -970,21 +978,12 @@ async function processarCodigo(text) {
     }
   } catch (err) {
     console.error("Erro ao registrar (camera):", err);
-
-    leituraMetric?.end?.({
-      status: "erro",
-      tipo: "exception",
-      detalhe: String(err)
-    });
-
     showMsg("erro", "Falha ao registrar saída.");
     Sound.play("err");
   } finally {
-    setTimeout(() => (scanLocked = false), 180);
+    setTimeout(() => (scanLocked = false), 80);
   }
 }
-
-
 
 
 // ======== Botões e listeners fixos ========
