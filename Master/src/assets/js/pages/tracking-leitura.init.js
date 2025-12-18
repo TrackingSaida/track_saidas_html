@@ -29,7 +29,7 @@ function updateSummary() {
 
   for (const tr of rowsByKey.values()) {
     const srvCell = tr.querySelector('.srv');
-    const statusCell = tr.querySelector('.status'); // garante captura do status, se existir
+    const statusCell = tr.querySelector('.st'); // garante captura do status, se existir
     const servico = (srvCell?.textContent || '').trim().toLowerCase();
     const status  = (statusCell?.textContent || '').trim().toLowerCase();
 
@@ -70,18 +70,78 @@ function updateSummary() {
   const Sound = (() => {
     let ctx;
     function ensure(){ if (!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); if (ctx.state==='suspended') ctx.resume(); return ctx; }
-    function beep({ freq=880, dur=120, type="sine", vol=0.06, when=0 }){
+    function beep({ freq=880, dur=120, type="sine", vol=1.2, when=0 }){
       const c=ensure(), t0=c.currentTime+when/1000, o=c.createOscillator(), g=c.createGain();
       o.type=type; o.frequency.value=freq; g.gain.setValueAtTime(vol,t0); g.gain.linearRampToValueAtTime(0.0001,t0+dur/1000);
       o.connect(g).connect(c.destination); o.start(t0); o.stop(t0+dur/1000+0.02); return dur;
     }
     function play(kind){
-      if (kind==="ok"){ let d=0; d+=beep({freq:1046,dur:90, type:"sine",vol:0.05,when:d}); beep({freq:1318,dur:140,type:"sine",vol:0.05,when:d+60}); }
-      else if (kind==="warn"){ let d=0; d+=beep({freq:660,dur:120,type:"triangle",vol:0.05,when:d}); beep({freq:660,dur:120,type:"triangle",vol:0.05,when:d+160}); }
-      else { beep({freq:220,dur:240,type:"square",vol:0.06,when:0}); beep({freq:180,dur:220,type:"square",vol:0.06,when:260}); }
+      if (kind==="ok"){ let d=0; d+=beep({freq:1046,dur:90, type:"sine",vol:1.2,when:d}); beep({freq:1318,dur:140,type:"sine",vol:1.2,when:d+60}); }
+      else if (kind==="warn"){ let d=0; d+=beep({freq:660,dur:120,type:"triangle",vol:1.2,when:d}); beep({freq:660,dur:120,type:"triangle",vol:1.2,when:d+160}); }
+      else { beep({freq:220,dur:240,type:"square",vol:1.2,when:0}); beep({freq:180,dur:220,type:"square",vol:1.2,when:260}); }
     }
     return { play };
   })();
+
+// =====================================================
+// MÉTRICAS DE LEITURA (FRONT)
+// =====================================================
+window.LeituraMetrics = {
+  seq: 0,
+  lastReadTs: null
+};
+
+function startLeituraMetric({ origem, raw }) {
+  const now = performance.now();
+  const delta = window.LeituraMetrics.lastReadTs
+    ? now - window.LeituraMetrics.lastReadTs
+    : null;
+
+  window.LeituraMetrics.seq++;
+  window.LeituraMetrics.lastReadTs = now;
+
+  return {
+    seq: window.LeituraMetrics.seq,
+    origem,
+    raw,
+    ts_read: now,
+    delta_from_last_read_ms: delta
+  };
+}
+
+function markEnvioMetric(m) {
+  m.ts_send = performance.now();
+  m.delta_read_to_send_ms = m.ts_send - m.ts_read;
+}
+
+function markRespostaMetric(m, ok, tipo) {
+  m.ts_response = performance.now();
+  m.delta_send_to_response_ms = m.ts_response - m.ts_send;
+  m.ok = ok;
+  m.resultado = tipo;
+}
+
+// =====================================================
+// ENVIO DE LOG (FIRE-AND-FORGET)
+// =====================================================
+function enviarLogLeitura(payload) {
+  try {
+    const token =
+      localStorage.getItem("authToken") ||
+      localStorage.getItem("access_token");
+
+    fetch(`${window.TRACK_API_URL}/logs/leituras`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+      },
+      credentials: "include",
+      body: JSON.stringify(payload)
+    }).catch(() => {});
+  } catch (_) {}
+}
+
 
  // ---------- mensagens ----------
 function showMsgIcon(tipo, texto) {
@@ -458,6 +518,47 @@ function createRow(row){
     }
   }
 
+// =====================================================
+// WRAPPER DE REGISTRO COM LOG
+// =====================================================
+async function registrarComLog(origem = "teclado") {
+  const leituraMetric = startLeituraMetric({
+    origem,
+    raw: inpCod?.value || ""
+  });
+
+  let result;
+  try {
+    // ✅ AQUI: marca o momento em que o envio começa
+    markEnvioMetric(leituraMetric);
+
+    // 🔒 fluxo original intacto
+    result = await registrar();
+    return result;
+
+  } finally {
+    // ✅ aqui mede o tempo até a resposta
+    markRespostaMetric(
+      leituraMetric,
+      !!result?.ok,
+      result?.tipo
+    );
+
+    enviarLogLeitura({
+      origem: leituraMetric.origem,
+      tipo: "saida",
+      codigo: result?.codigo || leituraMetric.raw,
+      resultado: leituraMetric.resultado || result?.tipo || "erro_desconhecido",
+      delta_from_last_read_ms: leituraMetric.delta_from_last_read_ms,
+      delta_read_to_send_ms: leituraMetric.delta_read_to_send_ms,
+      delta_send_to_response_ms: leituraMetric.delta_send_to_response_ms,
+      ts_read: leituraMetric.ts_read
+    });
+  }
+}
+
+
+
 // ---------- registrar ----------
 async function registrar() {
   try {
@@ -620,7 +721,7 @@ async function registrar() {
         showMsgIcon("info", `Entregador alterado ✓ ${codigoFinal}`);
         Sound.play("ok");
 
-        return { ok:true, tipo:"troca_entregador" };
+        return { ok:true, tipo:"troca_entregador", codigo: codigoFinal };
       }
 
       // 🚚 STATUS: COLETADO → virar SAIU PARA ENTREGA
@@ -660,7 +761,7 @@ async function registrar() {
 
         if (inpCod) { inpCod.value = ""; inpCod.focus(); }
 
-        return { ok:true, tipo:"coletado" };
+        return { ok:true, tipo:"coletado", codigo: codigoFinal };
       }
 
       // STATUS NÃO ESPERADO
@@ -715,7 +816,7 @@ async function registrar() {
 
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
 
-      return { ok:true, tipo:"ignorar_coleta_saida" };
+      return { ok:true, tipo:"ignorar_coleta_saida", codigo: codigoFinal };
     }
 
     // FLUXO ORIGINAL — popup "Não Coletado"
@@ -782,7 +883,7 @@ async function registrar() {
     showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
     Sound.play("warn");
 
-    return { ok:true, tipo:"nao_coletado_registrado" };
+    return { ok:true, tipo:"nao_coletado_registrado", codigo: codigoFinal };
 
   } catch (err) {
     console.error("Erro registrar():", err);
@@ -868,7 +969,7 @@ async function registrar() {
           const code = barcodes[0].rawValue || "";
             // processa imediatamente; `registrar()` decide se deve parar a câmera
             processarCodigo(code);
-        }, 100);
+        }, 50);
         return;
       } catch (e) {
         console.warn("Erro BarcodeDetector, fallback ZXing:", e);
@@ -921,7 +1022,7 @@ async function processarCodigo(text) {
 
   try {
     if (typeof registrar === "function") {
-      const result = await registrar(); // { ok, tipo, detalhe? }
+      const result = await registrarComLog("camera");
 
       // =======================================================
       // SUCESSOS
@@ -1015,7 +1116,7 @@ async function processarCodigo(text) {
     showMsg("erro", "Falha ao registrar saída.");
     Sound.play("err");
   } finally {
-    setTimeout(() => (scanLocked = false), 180);
+    setTimeout(() => (scanLocked = false), 80);
   }
 }
 
@@ -1045,13 +1146,14 @@ async function processarCodigo(text) {
 
 // ---------- eventos ----------
 selEnt?.addEventListener("change", onEntregadorChange);
-btnReg?.addEventListener("click", registrar);
+btnReg?.addEventListener("click", () => registrarComLog("teclado"));
 inpCod?.addEventListener("keydown", (e) => { 
   if (e.key === "Enter") { 
     e.preventDefault(); 
-    registrar(); 
+    registrarComLog("teclado"); 
   } 
 });
+
 
 // ---------- init ----------
 loadEntregadores().then(() => { inpCod?.focus(); });
