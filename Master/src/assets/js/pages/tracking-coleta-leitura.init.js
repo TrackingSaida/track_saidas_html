@@ -365,42 +365,39 @@ function renderTabela() {
 async function registrarCodigoComLog(origem = "teclado") {
   const raw = qs("#codigo")?.value || "";
 
-  const leituraMetric = startLeituraMetric({
-    origem,
-    raw
-  });
-
+  const leituraMetric = startLeituraMetric({ origem, raw });
   let resultado = "desconhecido";
 
   try {
     markEnvioMetric(leituraMetric);
 
     const antes = COLETAS.length;
-    registrarCodigo(); // fluxo original
+    registrarCodigo(); // fluxo original (inclui envio automático)
     const depois = COLETAS.length;
 
     if (!raw) resultado = "codigo_vazio";
     else if (depois === antes) resultado = "duplicado_ou_invalido";
     else resultado = "coleta_registrada";
-
   } finally {
-  const sucesso = resultado === "coleta_registrada";
+    const sucesso = resultado === "coleta_registrada";
 
-  markRespostaMetric(leituraMetric, sucesso, resultado);
+    markRespostaMetric(leituraMetric, sucesso, resultado);
 
-  enviarLogLeitura({
-    origem: leituraMetric.origem,
-    tipo: "coleta",
-    codigo: raw,
-    resultado,
-    delta_from_last_read_ms: leituraMetric.delta_from_last_read_ms,
-    delta_read_to_send_ms: leituraMetric.delta_read_to_send_ms,
-    delta_send_to_response_ms: leituraMetric.delta_send_to_response_ms,
-    ts_read: leituraMetric.ts_read
-  });
-}}
+    enviarLogLeitura({
+      origem: leituraMetric.origem,
+      tipo: "coleta",
+      codigo: raw,
+      resultado,
+      delta_from_last_read_ms: leituraMetric.delta_from_last_read_ms,
+      delta_read_to_send_ms: leituraMetric.delta_read_to_send_ms,
+      delta_send_to_response_ms: leituraMetric.delta_send_to_response_ms,
+      ts_read: leituraMetric.ts_read
+    });
 
-
+    // Retorno para o scanner/UX (ex.: contador da câmera)
+    return { resultado, sucesso };
+  }
+}
 
 
 /* =================== Registro e Envio =================== */
@@ -422,34 +419,31 @@ function registrarCodigo() {
   const servico = parsed.servico;
   const hojeStr = new Date().toISOString().slice(0, 10);
 
-  // 🔎 Verifica duplicado
-  if (COLETAS.some(c => c.codigo === codigo)) {
-    COLETAS.push({
-      base: baseSel,
-      codigo,
-      servico,
-      status: "duplicado",
-      tentativas: 0,
-      data: hojeStr
-    });
-    toast("Código duplicado.", false);
-    Sound.play("warn");
-  } else {
-    COLETAS.push({
-      base: baseSel,
-      codigo,
-      servico,
-      status: "pendente",
-      tentativas: 0,
-      data: hojeStr
-    });
-    toast("Código registrado.");
-    Sound.play("ok");
+  
+// 🔎 Verifica duplicado — NÃO registra linha duplicada (não polui a tela)
+if (COLETAS.some(c => c.codigo === codigo)) {
+  toast("Código duplicado.", false);
+  Sound.play("warn");
+  // limpa o campo e volta foco
+  qs("#codigo").value = "";
+  qs("#codigo")?.focus();
+  return;
+}
 
-    // Envio automático do item recém-adicionado (formato correto)
-    const novoItem = COLETAS[COLETAS.length - 1];
-    enviarColetaUnica(novoItem);
-  }
+COLETAS.push({
+  base: baseSel,
+  codigo,
+  servico,
+  status: "pendente",
+  tentativas: 0,
+  data: hojeStr
+});
+toast("Código registrado.");
+Sound.play("ok");
+
+// Envio automático do item recém-adicionado (formato correto)
+const novoItem = COLETAS[COLETAS.length - 1];
+enviarColetaUnica(novoItem);
 
    // 💾 Salva imediatamente no localStorage
   try {
@@ -676,7 +670,14 @@ function registrarLeituraAuto({ codigo = null, origemForcada = null } = {}) {
             if (!barcodes.length) return;
             const code = barcodes[0].rawValue || "";
             if (inputCodigo) inputCodigo.value = code;
-            registrarLeituraAuto({ codigo: code });
+const res = await registrarLeituraAuto({ codigo: code });
+if (res?.sucesso) {
+  totalLidos++;
+  atualizarContador();
+  showMsg("info", `Registrado ✓ (${totalLidos})`);
+} else if (res?.resultado === "duplicado_ou_invalido") {
+  showMsg("alerta", "Duplicado/Inválido");
+}
 
           } catch (e) {
             console.warn("Erro ao detectar código:", e);
@@ -699,7 +700,15 @@ function registrarLeituraAuto({ codigo = null, origemForcada = null } = {}) {
   if (!result) return;
   const code = result.getText();
   if (inputCodigo) inputCodigo.value = code;
-  registrarLeituraAuto({ codigo: result.getText() });
+  registrarLeituraAuto({ codigo: result.getText() }).then((res) => {
+  if (res?.sucesso) {
+    totalLidos++;
+    atualizarContador();
+    showMsg("info", `Registrado ✓ (${totalLidos})`);
+  } else if (res?.resultado === "duplicado_ou_invalido") {
+    showMsg("alerta", "Duplicado/Inválido");
+  }
+});
 
 });
 
@@ -739,18 +748,18 @@ function registrarLeituraAuto({ codigo = null, origemForcada = null } = {}) {
       return;
     }
 
-    const duplicado = COLETAS.some(c => c.codigo === parsed.codigo);
-    if (duplicado) {
-      COLETAS.push({
-        base: baseSel,
-        codigo: parsed.codigo,
-        servico: parsed.servico,
-        status: "duplicado",
-        tentativas: 0
-      });
-      showMsg("alerta", "Duplicado");
-      Sound.play("warn");
-    } else {
+    
+const duplicado = COLETAS.some(c => c.codigo === parsed.codigo);
+if (duplicado) {
+  // NÃO registra linha duplicada (não polui a tela)
+  showMsg("alerta", "Duplicado");
+  Sound.play("warn");
+  if (inputCodigo) inputCodigo.value = "";
+  renderTabela();
+  setTimeout(() => (scanLocked = false), 180);
+  return;
+}
+
       const novoItem = {
         base: baseSel,
         codigo: parsed.codigo,
@@ -767,7 +776,6 @@ function registrarLeituraAuto({ codigo = null, origemForcada = null } = {}) {
       Sound.play("ok");
 
       enviarColetaUnica(novoItem);
-    }
 
     if (inputCodigo) inputCodigo.value = "";
     renderTabela();
