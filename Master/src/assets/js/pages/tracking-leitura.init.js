@@ -244,67 +244,6 @@ function classifyCodigo(rawInput){
   }
 
 
-// =====================================================
-// MÉTRICAS DE LEITURA (FRONT)
-// =====================================================
-window.LeituraMetrics = {
-  seq: 0,
-  lastReadTs: null
-};
-
-function startLeituraMetric({ origem, raw }) {
-  const now = performance.now();
-  const delta = window.LeituraMetrics.lastReadTs
-    ? now - window.LeituraMetrics.lastReadTs
-    : null;
-
-  window.LeituraMetrics.seq++;
-  window.LeituraMetrics.lastReadTs = now;
-
-  return {
-    seq: window.LeituraMetrics.seq,
-    origem, // "camera" | "teclado"
-    raw,
-
-    // timestamps
-    ts_read: now,
-    ts_send: null,
-    ts_response: null,
-
-    // deltas
-    delta_from_last_read_ms: delta,
-    delta_read_to_send_ms: null,
-    delta_send_to_response_ms: null,
-
-    // resultado
-    ok: null,
-    resultado: null
-  };
-}
-
-function markEnvioMetric(m) {
-  if (!m || m.ts_send) return;
-
-  m.ts_send = performance.now();
-  m.delta_read_to_send_ms = m.ts_send - m.ts_read;
-}
-
-function markRespostaMetric(m, ok, tipo) {
-  if (!m || m.ts_response) return;
-
-  m.ts_response = performance.now();
-  m.delta_send_to_response_ms = m.ts_send
-    ? m.ts_response - m.ts_send
-    : null;
-
-  m.ok = ok;
-  m.resultado = tipo;
-
-  // buffer local (por enquanto)
-  window.__leituraLogs = window.__leituraLogs || [];
-  window.__leituraLogs.push(m);
-}
-
 
 
 // ===== FUNÇÃO REMOVER SAÍDA =====
@@ -529,17 +468,12 @@ function createRow(row){
   }
 
 // ---------- registrar ----------
-async function registrar(leituraMetric = null) {
+async function registrar() {
   try {
     const entregador = selEnt?.value?.trim() || "";
     if (!entregador) {
       showMsgIcon("erro", "Selecione o entregador.");
       Sound.play("err");
-
-      if (leituraMetric) {
-        markRespostaMetric(leituraMetric, false, "sem_entregador");
-      }
-
       return { ok:false, tipo:"sem_entregador" };
     }
 
@@ -547,22 +481,7 @@ async function registrar(leituraMetric = null) {
     if (!rawInput.trim()) {
       showMsgIcon("erro", "Informe o código.");
       Sound.play("err");
-
-      if (leituraMetric) {
-        markRespostaMetric(leituraMetric, false, "codigo_vazio");
-      }
-
       return { ok:false, tipo:"codigo_vazio" };
-    }
-
-    // =========================
-    // MÉTRICA (teclado)
-    // =========================
-    if (!leituraMetric) {
-      leituraMetric = startLeituraMetric({
-        origem: "teclado",
-        raw: rawInput
-      });
     }
 
     const cls = classifyCodigo(rawInput);
@@ -570,8 +489,6 @@ async function registrar(leituraMetric = null) {
       showMsgIcon("erro", `Código inválido: ${cls.motivo}.`);
       Sound.play("err");
       inpCod && inpCod.select();
-
-      markRespostaMetric(leituraMetric, false, "codigo_invalido");
       return { ok:false, tipo:"codigo_invalido", detalhe:cls.motivo };
     }
 
@@ -579,49 +496,42 @@ async function registrar(leituraMetric = null) {
     const servico = cls.servico;
     const k = keyFor(entregador, codigoFinal);
 
-    // =========================
-    // DUPLICADO LOCAL
-    // =========================
+    // 🔹 DUPLICADO LOCAL POR SESSÃO
     if (rowsByKey.has(k)) {
       Sound.play("warn");
+
+      // usa showMsgIcon que funciona tanto na página quanto no overlay
       showMsgIcon("alerta", `Duplicado • ${codigoFinal}`);
+
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
 
-      markRespostaMetric(leituraMetric, false, "duplicado_local");
       return { ok:false, tipo:"duplicado" };
     }
 
     const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
 
-    // =========================
-    // MÉTRICA → ENVIO
-    // =========================
-    markEnvioMetric(leituraMetric);
-
-    // =========================
-    // CONSULTA EXISTENTE
-    // =========================
-    const resp = await fetch(
-      `${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        },
-        credentials: "include"
-      }
-    );
+    // 🔹 Consulta situação da saída
+    const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+      },
+      credentials: "include"
+    });
 
     if (!resp.ok) {
+      if (resp.status === 401) {
+        showMsgIcon("erro", "Sessão expirada. Faça login novamente.");
+        Sound.play("err");
+        return { ok:false, tipo:"nao_autorizado" };
+      }
       const msg = await resp.text().catch(()=> "");
-      showMsgIcon("erro", "Erro ao consultar saída.");
-      Sound.play("err");
-
-      markRespostaMetric(leituraMetric, false, "erro_http");
       return { ok:false, tipo:"erro_http", detalhe:msg };
     }
 
     const dados = await resp.json();
+
+    // Normaliza diferentes formatos de resposta: array | { items: [...] } | { rows: [...] } | { data: [...] }
     let registros = [];
     if (Array.isArray(dados)) registros = dados;
     else if (Array.isArray(dados?.items)) registros = dados.items;
@@ -629,42 +539,101 @@ async function registrar(leituraMetric = null) {
     else if (Array.isArray(dados?.data)) registros = dados.data;
 
     // =======================================================
-    // 1️⃣ JÁ EXISTE
+    // 1️⃣ SE EXISTE REGISTRO → TRATAR OS STATUS PRIMEIRO
     // =======================================================
     if (registros.length > 0) {
-      const r = registros[0];
-      const statusAtual = ((r.status || "") + "").toLowerCase();
-      const entregadorAtual = r.entregador || "Desconhecido";
-      const registroId = r.id_saida || r.id;
 
-      // 🚨 JÁ SAIU
+      const registro = registros[0];
+      // normaliza campos possíveis
+      const statusAtual = ((registro.status || registro.st || "") + "").toLowerCase();
+      const entregadorAtual = registro.entregador || registro.ent || "Desconhecido";
+      const usuarioRegistro = registro.username || registro.user || registro.usuario || "Desconhecido";
+      const entregadorNovo = entregador;
+      const registroId = registro.id_saida || registro.id || registro._id || registro.idSaida;
+
+      // 🚨 STATUS: "SAIU" OU "SAIU PARA ENTREGA"
       if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
 
-        if (String(entregadorAtual) === String(entregador)) {
+        // Mesmo entregador → fluxo original
+        if (String(entregadorAtual) === String(entregadorNovo)) {
           showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
           Sound.play("warn");
-
-          markRespostaMetric(leituraMetric, false, "ja_saiu");
           return { ok:false, tipo:"ja_saiu" };
         }
 
-        const confirm = await Swal.fire({
+        // 🔥 Pergunta se deseja trocar entregador
+          // se o overlay da câmera estiver aberto, pare a câmera antes do modal
+          const overlay = document.getElementById("scanFS");
+          const wasActiveOverlay = overlay?.classList.contains("show");
+          if (wasActiveOverlay) {
+            try { if (typeof window.leituraStopScanner === 'function') window.leituraStopScanner(); }
+            catch(_) { overlay.style.display = "none"; }
+          }
+
+          const confirm = await Swal.fire({
           icon: "warning",
           title: "Código já saiu para entrega",
           html: `
-            <p><strong>${codigoFinal}</strong></p>
-            <p>Entregador atual: ${entregadorAtual}</p>
-            <p>Deseja alterar para ${entregador}?</p>
+            <p>O pacote <strong>${codigoFinal}</strong> já foi registrado como <strong>Saiu para entrega</strong>.</p>
+            <p><strong>Registrado por:</strong> ${usuarioRegistro}</p>
+            <p><strong>Entregador atual:</strong> ${entregadorAtual}</p>
+            <hr>
+            <p><strong>Deseja alterar para:</strong> ${entregadorNovo}?</p>
           `,
           showCancelButton: true,
-          confirmButtonText: "Sim",
-          cancelButtonText: "Não"
+          confirmButtonText: "Sim, alterar entregador",
+          cancelButtonText: "Não",
+          allowOutsideClick: false,
+          backdrop: true
         });
 
         if (!confirm.isConfirmed) {
-          markRespostaMetric(leituraMetric, false, "troca_cancelada");
+          // se o overlay estava ativo, tenta reiniciar o scanner (melhor que apenas mostrar o overlay)
+          if (wasActiveOverlay) {
+            try { if (typeof window.leituraStartScanner === 'function') window.leituraStartScanner(); }
+            catch(_) { overlay.style.display = "block"; }
+          }
           return { ok:false, tipo:"ja_saiu" };
         }
+
+        // PATCH alterando entregador
+        const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registroId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            status: "Saiu para entrega",
+            entregador: entregadorNovo
+          })
+        });
+
+        if (!patchResp.ok) {
+          const msg = await patchResp.text().catch(() => "");
+          return { ok:false, tipo:"erro_patch_troca_entregador", detalhe:msg };
+        }
+
+        appendOrUpdateRow({
+          tsFmt: new Date().toLocaleString("pt-BR"),
+          entregador: entregadorNovo,
+          codigo: codigoFinal,
+          servico,
+          status: "Saiu para entrega",
+          id_saida: registro.id_saida,
+          duplicado: false
+        });
+
+        updateSummary();
+        showMsgIcon("info", `Entregador alterado ✓ ${codigoFinal}`);
+        Sound.play("ok");
+
+        return { ok:true, tipo:"troca_entregador" };
+      }
+
+      // 🚚 STATUS: COLETADO → virar SAIU PARA ENTREGA
+      if (statusAtual === "coletado") {
 
         const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registroId}`, {
           method: "PATCH",
@@ -680,8 +649,8 @@ async function registrar(leituraMetric = null) {
         });
 
         if (!patchResp.ok) {
-          markRespostaMetric(leituraMetric, false, "erro_patch_troca_entregador");
-          return { ok:false, tipo:"erro_patch_troca_entregador" };
+          const msg = await patchResp.text().catch(() => "");
+          return { ok:false, tipo:"erro_patch", detalhe:msg };
         }
 
         appendOrUpdateRow({
@@ -690,23 +659,105 @@ async function registrar(leituraMetric = null) {
           codigo: codigoFinal,
           servico,
           status: "Saiu para entrega",
-          id_saida: registroId
+          id_saida: registroId,
+          duplicado: false
         });
 
         updateSummary();
-        showMsgIcon("info", `Entregador alterado ✓ ${codigoFinal}`);
+        showMsgIcon("info", `Registrado ✓ ${codigoFinal} • Saiu para entrega`);
         Sound.play("ok");
 
         if (inpCod) { inpCod.value = ""; inpCod.focus(); }
 
-        markRespostaMetric(leituraMetric, true, "troca_entregador");
-        return { ok:true, tipo:"troca_entregador" };
+        return { ok:true, tipo:"coletado" };
       }
+
+      // STATUS NÃO ESPERADO
+      showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
+      Sound.play("err");
+
+      return { ok:false, tipo:"status_desconhecido", detalhe:registro.status };
     }
 
     // =======================================================
-    // 2️⃣ NOVO REGISTRO
+    // 2️⃣ SOMENTE SE NÃO EXISTE → FLUXO "NÃO COLETADO"
     // =======================================================
+
+    // IGNORAR_COLETA = TRUE → registra direto
+    if (window.IGNORAR_COLETA === true) {
+
+      const postResp = await fetch(`${window.TRACK_API_URL}/saidas/registrar`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          codigo: codigoFinal,
+          entregador,
+          servico,
+          status: "Saiu para entrega"
+        })
+      });
+
+      if (!postResp.ok) {
+        const msg = await postResp.text().catch(() => "");
+        return { ok:false, tipo:"erro_ignorar", detalhe:msg };
+      }
+
+      const data = await postResp.json();
+
+      appendOrUpdateRow({
+        tsFmt: new Date().toLocaleString("pt-BR"),
+        entregador,
+        codigo: codigoFinal,
+        servico,
+        status: "Saiu para entrega",
+        id_saida: data.id_saida,
+        duplicado: false
+      });
+
+      updateSummary();
+      showMsgIcon("info", `Registrado ✓ ${codigoFinal}`);
+      Sound.play("ok");
+
+      if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+
+      return { ok:true, tipo:"ignorar_coleta_saida" };
+    }
+
+    // FLUXO ORIGINAL — popup "Não Coletado"
+    const overlay = document.getElementById("scanFS");
+    const wasActive = overlay?.classList.contains("show");
+    if (wasActive) {
+      // stopScanner is exposed as window.leituraStopScanner by the scanner module
+      try { if (typeof window.leituraStopScanner === 'function') window.leituraStopScanner(); }
+      catch(_) {
+        // fallback: hide overlay if stop function not available
+        overlay.style.display = "none";
+      }
+    }
+
+    const confirm = await Swal.fire({
+      icon: "warning",
+      title: "Código não coletado",
+      html: `
+        <p>O código <strong>${codigoFinal}</strong> ainda não foi coletado.</p>
+        <p>Deseja registrar mesmo assim?</p>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "Sim, registrar",
+      cancelButtonText: "Cancelar",
+      allowOutsideClick: false,
+      backdrop: true
+    });
+
+    if (!confirm.isConfirmed) {
+      if (wasActive) overlay.style.display = "block";
+      return { ok:false, tipo:"nao_coletado_cancelado" };
+    }
+
     const postResp = await fetch(`${window.TRACK_API_URL}/saidas/registrar`, {
       method: "POST",
       headers: {
@@ -718,62 +769,32 @@ async function registrar(leituraMetric = null) {
         codigo: codigoFinal,
         entregador,
         servico,
-        status: window.IGNORAR_COLETA ? "Saiu para entrega" : "Não Coletado"
+        status: "Não Coletado"
       })
     });
 
     if (!postResp.ok) {
-      const msg = await postResp.text().catch(()=> "");
-      showMsgIcon("erro", "Erro ao registrar saída.");
-      Sound.play("err");
-
-      markRespostaMetric(leituraMetric, false, "erro_registrar");
-      return { ok:false, tipo:"erro_registrar", detalhe:msg };
+      const msg = await postResp.text().catch(() => "");
+      return { ok:false, tipo:"erro_registrar_nao_coletado", detalhe:msg };
     }
-
-    const data = await postResp.json();
 
     appendOrUpdateRow({
       tsFmt: new Date().toLocaleString("pt-BR"),
       entregador,
       codigo: codigoFinal,
       servico,
-      status: window.IGNORAR_COLETA ? "Saiu para entrega" : "Não Coletado",
-      id_saida: data.id_saida
+      status: "Não Coletado",
+      duplicado: false
     });
 
     updateSummary();
-    showMsgIcon(
-      window.IGNORAR_COLETA ? "info" : "alerta",
-      `Registrado ✓ ${codigoFinal}`
-    );
-    Sound.play(window.IGNORAR_COLETA ? "ok" : "warn");
+    showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
+    Sound.play("warn");
 
-    if (inpCod) { inpCod.value = ""; inpCod.focus(); }
-
-    markRespostaMetric(
-      leituraMetric,
-      true,
-      window.IGNORAR_COLETA ? "ignorar_coleta_saida" : "nao_coletado_registrado"
-    );
-
-    return {
-      ok:true,
-      tipo: window.IGNORAR_COLETA
-        ? "ignorar_coleta_saida"
-        : "nao_coletado_registrado"
-    };
+    return { ok:true, tipo:"nao_coletado_registrado" };
 
   } catch (err) {
     console.error("Erro registrar():", err);
-
-    if (leituraMetric) {
-      markRespostaMetric(leituraMetric, false, "erro_excecao");
-    }
-
-    showMsgIcon("erro", "Falha interna.");
-    Sound.play("err");
-
     return { ok:false, tipo:"erro_excecao", detalhe:String(err) };
   }
 }
@@ -856,7 +877,7 @@ async function registrar(leituraMetric = null) {
           const code = barcodes[0].rawValue || "";
             // processa imediatamente; `registrar()` decide se deve parar a câmera
             processarCodigo(code);
-        }, 50);
+        }, 100);
         return;
       } catch (e) {
         console.warn("Erro BarcodeDetector, fallback ZXing:", e);
@@ -891,13 +912,10 @@ async function registrar(leituraMetric = null) {
     }
   }
 
-
-
-// 🔹 Processa cada leitura detectada pela câmera
+// 🔹 Processa cada leitura detectada (agora assíncrona)
 async function processarCodigo(text) {
   const codigo = String(text || "").trim();
   if (!codigo || scanLocked) return;
-
   scanLocked = true;
 
   const entregador = document.getElementById("entregador")?.value;
@@ -910,19 +928,9 @@ async function processarCodigo(text) {
 
   if (inputCodigo) inputCodigo.value = codigo;
 
-  // =======================================================
-  // MÉTRICA: INÍCIO DA LEITURA POR CÂMERA
-  // (somente após validações básicas)
-  // =======================================================
-  const leituraMetric = startLeituraMetric({
-    origem: "camera",
-    raw: codigo
-  });
-
   try {
     if (typeof registrar === "function") {
-      // registrar() cuida de TODA a lógica + fecha a métrica
-      const result = await registrar(leituraMetric); // { ok, tipo, detalhe? }
+      const result = await registrar(); // { ok, tipo, detalhe? }
 
       // =======================================================
       // SUCESSOS
@@ -933,7 +941,7 @@ async function processarCodigo(text) {
 
         switch (result.tipo) {
 
-          case "troca_entregador":
+          case "troca_entregador":  // 🔥 NOVO FLUXO
             showMsg("info", `Entregador atualizado ✓ (${totalLidos})`);
             Sound.play("ok");
             break;
@@ -956,7 +964,6 @@ async function processarCodigo(text) {
 
       // =======================================================
       // ERROS & ALERTAS
-      // (UX igual ao original)
       // =======================================================
       else {
         switch (result?.tipo) {
@@ -1017,10 +1024,10 @@ async function processarCodigo(text) {
     showMsg("erro", "Falha ao registrar saída.");
     Sound.play("err");
   } finally {
-
-    setTimeout(() => (scanLocked = false), 80);
+    setTimeout(() => (scanLocked = false), 180);
   }
 }
+
 
 
 // ======== Botões e listeners fixos ========
