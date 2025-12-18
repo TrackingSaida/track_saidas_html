@@ -226,15 +226,6 @@ function classifyCodigo(rawInput){
 }
 
 
-
-  // helper: detectar 409 de DUPLICADO (não confundir com 409 de créditos)
-  function isDupConflict(err){
-    const msg = ((err && (err.error || err.detail || err.message || err.text)) || "").toString();
-    return err?.status === 409
-      && !/cr[ée]dit/i.test(msg) // outro 409 é de créditos insuficientes
-      && /(já\s*(foi\s*)?(registrad[oa]|exist[ea]|cadastrad[oa])|duplicad[oa])/i.test(msg);
-  }
-
   // ---------- últimos registros (DOM) ----------
   function clearUltimos(){
     if (tbLast) tbLast.innerHTML = "";
