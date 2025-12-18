@@ -80,6 +80,52 @@ const toast = (msg, ok = true) => {
   t.show(); setTimeout(()=>el.remove(), 2800);
 };
 
+// =====================================================
+// MÉTRICAS DE LEITURA (FRONT) — COLETAS
+// =====================================================
+window.LeituraMetrics = window.LeituraMetrics || {
+  seq: 0,
+  lastReadTs: null
+};
+
+function startLeituraMetric({ origem, raw }) {
+  const now = performance.now();
+  const delta = window.LeituraMetrics.lastReadTs
+    ? now - window.LeituraMetrics.lastReadTs
+    : null;
+
+  window.LeituraMetrics.seq++;
+  window.LeituraMetrics.lastReadTs = now;
+
+  return {
+    seq: window.LeituraMetrics.seq,
+    origem,
+    raw,
+    ts_read: now,
+    delta_from_last_read_ms: delta
+  };
+}
+
+function markEnvioMetric(m) {
+  m.ts_send = performance.now();
+  m.delta_read_to_send_ms = m.ts_send - m.ts_read;
+}
+
+function markRespostaMetric(m, ok, tipo) {
+  m.ts_response = performance.now();
+  m.delta_send_to_response_ms =
+    typeof m.ts_send === "number"
+      ? m.ts_response - m.ts_send
+      : null;
+
+  m.ok = ok;
+  m.resultado = tipo;
+}
+
+
+
+
+
 /* =============== Estado ============= */
 let COLETAS = [];
 let BASE_ATUAL = null;
@@ -90,6 +136,25 @@ async function carregarBases() {
   if (!r.ok) throw new Error("Falha ao carregar bases");
   return r.json();
 }
+
+function enviarLogLeitura(payload) {
+  try {
+    const token =
+      localStorage.getItem("authToken") ||
+      localStorage.getItem("access_token");
+
+    fetch(`${window.TRACK_API_URL}/logs/leituras`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+      },
+      credentials: "include",
+      body: JSON.stringify(payload)
+    }).catch(() => {});
+  } catch (_) {}
+}
+
 
 /* =================== Envio em Lote =================== */
 async function enviarColetasLote(base, itens) {
@@ -296,6 +361,48 @@ function renderTabela() {
   atualizarResumo();
 }
 
+
+async function registrarCodigoComLog(origem = "teclado") {
+  const raw = qs("#codigo")?.value || "";
+
+  const leituraMetric = startLeituraMetric({
+    origem,
+    raw
+  });
+
+  let resultado = "desconhecido";
+
+  try {
+    markEnvioMetric(leituraMetric);
+
+    const antes = COLETAS.length;
+    registrarCodigo(); // fluxo original
+    const depois = COLETAS.length;
+
+    if (!raw) resultado = "codigo_vazio";
+    else if (depois === antes) resultado = "duplicado_ou_invalido";
+    else resultado = "coleta_registrada";
+
+  } finally {
+  const sucesso = resultado === "coleta_registrada";
+
+  markRespostaMetric(leituraMetric, sucesso, resultado);
+
+  enviarLogLeitura({
+    origem: leituraMetric.origem,
+    tipo: "coleta",
+    codigo: raw,
+    resultado,
+    delta_from_last_read_ms: leituraMetric.delta_from_last_read_ms,
+    delta_read_to_send_ms: leituraMetric.delta_read_to_send_ms,
+    delta_send_to_response_ms: leituraMetric.delta_send_to_response_ms,
+    ts_read: leituraMetric.ts_read
+  });
+}}
+
+
+
+
 /* =================== Registro e Envio =================== */
 function registrarCodigo() {
   const baseSel = qs("#selBase")?.value;
@@ -444,11 +551,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     toast("Falha ao carregar bases.", false);
   }
 
-  qs("#btnRegistrar")?.addEventListener("click", registrarCodigo);
+  qs("#btnRegistrar")?.addEventListener("click", () =>
+  registrarCodigoComLog("teclado")
+);
+
   qs("#codigo")?.addEventListener("keydown", function (e) {
     if (e.key === "Enter") {
-      e.preventDefault();
-      registrarCodigo();
+      e.preventDefault();      
+      registrarLeituraAuto();
     }
   });
 
@@ -471,6 +581,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   atualizarResumo();
 });
 
+function registrarLeituraAuto({ codigo = null, origemForcada = null } = {}) {
+  const origem =
+    origemForcada ||
+    (codigo !== null ? "camera" : "teclado");
+
+  // 🔹 se veio código direto, injeta no input (mantém UX atual)
+  if (codigo !== null && qs("#codigo")) {
+    qs("#codigo").value = codigo;
+  }
+
+  // 🔹 sempre passa pelo fluxo novo (com log)
+  return registrarCodigoComLog(origem);
+}
 
 
 /* ======= Coleta — Scanner híbrido (BarcodeDetector + ZXing) ======= */
@@ -552,7 +675,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             const barcodes = await detector.detect(video);
             if (!barcodes.length) return;
             const code = barcodes[0].rawValue || "";
-            processarCodigo(code);
+            if (inputCodigo) inputCodigo.value = code;
+            registrarLeituraAuto({ codigo: code });
+
           } catch (e) {
             console.warn("Erro ao detectar código:", e);
           }
@@ -571,9 +696,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       const reader = new ZXingBrowser.BrowserMultiFormatReader();
       try {
         await reader.decodeFromVideoDevice(null, video, (result, err) => {
-          if (!result) return;
-          processarCodigo(result.getText());
-        });
+  if (!result) return;
+  const code = result.getText();
+  if (inputCodigo) inputCodigo.value = code;
+  registrarLeituraAuto({ codigo: result.getText() });
+
+});
+
       } catch (err) {
         console.error("Erro ZXing fallback:", err);
         showMsg("erro", "Leitor não suportado neste dispositivo.");
