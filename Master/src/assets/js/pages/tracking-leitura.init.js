@@ -60,6 +60,25 @@ function updateSummary() {
   const rowsById = new Map();  // id pendente -> <tr>
   const inflight = new Set();  // ids em envio
 
+  // ---------- lock temporário por código (anti-rajada) ----------
+const CODE_LOCK_TTL_MS = 3000; // 3 segundos
+const codeLocks = new Map(); // codigo -> timestamp
+
+function isCodeLocked(codigo) {
+  const ts = codeLocks.get(codigo);
+  if (!ts) return false;
+  if (Date.now() - ts > CODE_LOCK_TTL_MS) {
+    codeLocks.delete(codigo);
+    return false;
+  }
+  return true;
+}
+
+function lockCode(codigo) {
+  codeLocks.set(codigo, Date.now());
+}
+
+
   function loadPending(){ try { return JSON.parse(localStorage.getItem(PENDING_KEY)||"[]"); } catch{ return []; } }
   function savePending(list){ localStorage.setItem(PENDING_KEY, JSON.stringify(list||[])); }
   function addPending(p){ const list = loadPending(); list.push(p); savePending(list); }
@@ -400,8 +419,15 @@ function createRow(row){
 
   // ---------- envio (usa fila local) ----------
   async function attemptSend(p){
-    if (inflight.has(p.id)) return;
-    inflight.add(p.id);
+  // 🔒 não reenviar erro de negócio
+  if (p.noRetry === true) {
+    removePending(p.id);
+    return;
+  }
+
+  if (inflight.has(p.id)) return;
+  inflight.add(p.id);
+
     const tr = rowsById.get(p.id);
     if (tr) tr.querySelector('.st').textContent = 'Enviando…';
     try {
@@ -410,6 +436,7 @@ function createRow(row){
       if (!res || !res.ok) {
         // Conflito de duplicidade no backend
         if (res && res.status === 409 && isDupConflict(res)) {
+          p.noRetry = true;
           removePending(p.id);
           if (tr) tr.remove();
           rowsById.delete(p.id);
@@ -529,7 +556,7 @@ async function registrarComLog(origem = "teclado") {
 
   let result;
   try {
-    // ✅ AQUI: marca o momento em que o envio começa
+    // ✅ marca o momento em que o envio começa
     markEnvioMetric(leituraMetric);
 
     // 🔒 fluxo original intacto
@@ -537,18 +564,28 @@ async function registrarComLog(origem = "teclado") {
     return result;
 
   } finally {
-    // ✅ aqui mede o tempo até a resposta
+    // ✅ mede o tempo até a resposta
     markRespostaMetric(
       leituraMetric,
       !!result?.ok,
       result?.tipo
     );
 
+    // 🔎 classifica o tipo de resultado (novo, sem quebrar nada)
+    const resultadoTipo = result?.resultado || result?.tipo || "erro_desconhecido";
+    const resultadoClasse = (
+      resultadoTipo === "duplicado" ||
+      resultadoTipo === "ja_saiu" ||
+      resultadoTipo === "lock_temporario" ||
+      resultadoTipo === "nao_coletado_cancelado"
+    ) ? "negocio" : "tecnico";
+
     enviarLogLeitura({
       origem: leituraMetric.origem,
       tipo: "saida",
       codigo: result?.codigo || leituraMetric.raw,
-      resultado: leituraMetric.resultado || result?.tipo || "erro_desconhecido",
+      resultado: resultadoTipo,
+      resultado_classe: resultadoClasse, // 🔹 campo extra (backend pode ignorar)
       delta_from_last_read_ms: leituraMetric.delta_from_last_read_ms,
       delta_read_to_send_ms: leituraMetric.delta_read_to_send_ms,
       delta_send_to_response_ms: leituraMetric.delta_send_to_response_ms,
@@ -556,7 +593,6 @@ async function registrarComLog(origem = "teclado") {
     });
   }
 }
-
 
 
 // ---------- registrar ----------
@@ -588,17 +624,22 @@ async function registrar() {
     const servico = cls.servico;
     const k = keyFor(entregador, codigoFinal);
 
-    // 🔹 DUPLICADO LOCAL POR SESSÃO
+    // 🔒 LOCK TEMPORÁRIO POR CÓDIGO (novo)
+   if (isCodeLocked(codigoFinal)) {
+   Sound.play("warn");
+   showMsgIcon("alerta", `Aguarde… código ${codigoFinal} já está sendo processado.`);
+   return { ok:false, tipo:"lock_temporario" };
+   }
+    lockCode(codigoFinal);
+
+    // 🔹 DUPLICADO LOCAL POR SESSÃO (mantido)
     if (rowsByKey.has(k)) {
-      Sound.play("warn");
+   Sound.play("warn");
+   showMsgIcon("alerta", `Duplicado • ${codigoFinal}`);
+   if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+   return { ok:false, tipo:"duplicado" };
+   }
 
-      // usa showMsgIcon que funciona tanto na página quanto no overlay
-      showMsgIcon("alerta", `Duplicado • ${codigoFinal}`);
-
-      if (inpCod) { inpCod.value = ""; inpCod.focus(); }
-
-      return { ok:false, tipo:"duplicado" };
-    }
 
     const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
 
@@ -1158,6 +1199,12 @@ inpCod?.addEventListener("keydown", (e) => {
 // ---------- init ----------
 loadEntregadores().then(() => { inpCod?.focus(); });
 // tenta reenviar pendentes (inclusive de sessões anteriores)
-for (const p of loadPending()) attemptSend(p);
+// tenta reenviar SOMENTE pendentes técnicos
+for (const p of loadPending()) {
+  if (p && p.noRetry !== true) {
+    attemptSend(p);
+  }
+}
+// 
 
 })();
