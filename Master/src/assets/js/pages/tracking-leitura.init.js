@@ -1121,7 +1121,21 @@ async function registrar() {
     stopScanner();
   });
 
-  window.addEventListener("beforeunload", stopScanner);
-})();
+    window.addEventListener("beforeunload", stopScanner);
+})(); // 🔚 fecha leituraScannerIntegrado
 
-})();
+
+// ---------- init ----------
+loadEntregadores().then(() => {
+  inpCod?.focus();
+});
+
+// tenta reenviar pendentes (somente técnicos)
+for (const p of loadPending()) {
+  if (p && p.noRetry !== true) {
+    attemptSend(p);
+  }
+}
+
+})(); 
+
