@@ -420,10 +420,13 @@ function createRow(row){
   // ---------- envio (usa fila local) ----------
   async function attemptSend(p){
   // 🔒 não reenviar erro de negócio
+  if (!p) return;
   if (p.noRetry === true) {
-    removePending(p.id);
-    return;
+  removePending(p.id);
+  return;
   }
+
+
 
   if (inflight.has(p.id)) return;
   inflight.add(p.id);
@@ -597,6 +600,9 @@ async function registrarComLog(origem = "teclado") {
 
 // ---------- registrar ----------
 async function registrar() {
+  let codigoFinal;        // 🔹 necessário para o finally
+  let lockAtivo = false;  // 🔹 garante liberação correta do lock
+
   try {
     const entregador = selEnt?.value?.trim() || "";
     if (!entregador) {
@@ -620,37 +626,40 @@ async function registrar() {
       return { ok:false, tipo:"codigo_invalido", detalhe:cls.motivo };
     }
 
-    const codigoFinal = cls.codigo;
+    codigoFinal = cls.codigo;
     const servico = cls.servico;
     const k = keyFor(entregador, codigoFinal);
 
-    // 🔒 LOCK TEMPORÁRIO POR CÓDIGO (novo)
-   if (isCodeLocked(codigoFinal)) {
-   Sound.play("warn");
-   showMsgIcon("alerta", `Aguarde… código ${codigoFinal} já está sendo processado.`);
-   return { ok:false, tipo:"lock_temporario" };
-   }
-    lockCode(codigoFinal);
-
-    // 🔹 DUPLICADO LOCAL POR SESSÃO (mantido)
+    // 🔹 DUPLICADO LOCAL POR SESSÃO (primeiro, sem lock)
     if (rowsByKey.has(k)) {
-   Sound.play("warn");
-   showMsgIcon("alerta", `Duplicado • ${codigoFinal}`);
-   if (inpCod) { inpCod.value = ""; inpCod.focus(); }
-   return { ok:false, tipo:"duplicado" };
-   }
+      Sound.play("warn");
+      showMsgIcon("alerta", `Duplicado • ${codigoFinal}`);
+      if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+      return { ok:false, tipo:"duplicado" };
+    }
 
+    // 🔒 LOCK TEMPORÁRIO POR CÓDIGO (anti-rajada)
+    if (isCodeLocked(codigoFinal)) {
+      Sound.play("warn");
+      showMsgIcon("alerta", `Aguarde… código ${codigoFinal} já está sendo processado.`);
+      return { ok:false, tipo:"lock_temporario" };
+    }
+    lockCode(codigoFinal);
+    lockAtivo = true;
 
     const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
 
     // 🔹 Consulta situação da saída
-    const resp = await fetch(`${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`, {
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { "Authorization": `Bearer ${token}` } : {})
-      },
-      credentials: "include"
-    });
+    const resp = await fetch(
+      `${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        credentials: "include"
+      }
+    );
 
     if (!resp.ok) {
       if (resp.status === 401) {
@@ -664,7 +673,7 @@ async function registrar() {
 
     const dados = await resp.json();
 
-    // Normaliza diferentes formatos de resposta: array | { items: [...] } | { rows: [...] } | { data: [...] }
+    // Normaliza formatos
     let registros = [];
     if (Array.isArray(dados)) registros = dados;
     else if (Array.isArray(dados?.items)) registros = dados.items;
@@ -672,46 +681,40 @@ async function registrar() {
     else if (Array.isArray(dados?.data)) registros = dados.data;
 
     // =======================================================
-    // 1️⃣ SE EXISTE REGISTRO → TRATAR OS STATUS PRIMEIRO
+    // 1️⃣ SE EXISTE REGISTRO → TRATAR STATUS
     // =======================================================
     if (registros.length > 0) {
-
       const registro = registros[0];
-      // normaliza campos possíveis
       const statusAtual = ((registro.status || registro.st || "") + "").toLowerCase();
       const entregadorAtual = registro.entregador || registro.ent || "Desconhecido";
       const usuarioRegistro = registro.username || registro.user || registro.usuario || "Desconhecido";
       const entregadorNovo = entregador;
       const registroId = registro.id_saida || registro.id || registro._id || registro.idSaida;
 
-      // 🚨 STATUS: "SAIU" OU "SAIU PARA ENTREGA"
+      // 🚨 SAIU / SAIU PARA ENTREGA
       if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
-
-        // Mesmo entregador → fluxo original
         if (String(entregadorAtual) === String(entregadorNovo)) {
           showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
           Sound.play("warn");
           return { ok:false, tipo:"ja_saiu" };
         }
 
-        // 🔥 Pergunta se deseja trocar entregador
-          // se o overlay da câmera estiver aberto, pare a câmera antes do modal
-          const overlay = document.getElementById("scanFS");
-          const wasActiveOverlay = overlay?.classList.contains("show");
-          if (wasActiveOverlay) {
-            try { if (typeof window.leituraStopScanner === 'function') window.leituraStopScanner(); }
-            catch(_) { overlay.style.display = "none"; }
-          }
+        const overlay = document.getElementById("scanFS");
+        const wasActiveOverlay = overlay?.classList.contains("show");
+        if (wasActiveOverlay) {
+          try { window.leituraStopScanner?.(); }
+          catch(_) { overlay.style.display = "none"; }
+        }
 
-          const confirm = await Swal.fire({
+        const confirm = await Swal.fire({
           icon: "warning",
           title: "Código já saiu para entrega",
           html: `
-            <p>O pacote <strong>${codigoFinal}</strong> já foi registrado como <strong>Saiu para entrega</strong>.</p>
-            <p><strong>Registrado por:</strong> ${usuarioRegistro}</p>
-            <p><strong>Entregador atual:</strong> ${entregadorAtual}</p>
+            <p><strong>${codigoFinal}</strong></p>
+            <p>Registrado por: ${usuarioRegistro}</p>
+            <p>Entregador atual: ${entregadorAtual}</p>
             <hr>
-            <p><strong>Deseja alterar para:</strong> ${entregadorNovo}?</p>
+            <p>Alterar para ${entregadorNovo}?</p>
           `,
           showCancelButton: true,
           confirmButtonText: "Sim, alterar entregador",
@@ -721,27 +724,28 @@ async function registrar() {
         });
 
         if (!confirm.isConfirmed) {
-          // se o overlay estava ativo, tenta reiniciar o scanner (melhor que apenas mostrar o overlay)
           if (wasActiveOverlay) {
-            try { if (typeof window.leituraStartScanner === 'function') window.leituraStartScanner(); }
+            try { window.leituraStartScanner?.(); }
             catch(_) { overlay.style.display = "block"; }
           }
           return { ok:false, tipo:"ja_saiu" };
         }
 
-        // PATCH alterando entregador
-        const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registroId}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { "Authorization": `Bearer ${token}` } : {})
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            status: "Saiu para entrega",
-            entregador: entregadorNovo
-          })
-        });
+        const patchResp = await fetch(
+          `${window.TRACK_API_URL}/saidas/${registroId}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {})
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              status: "Saiu para entrega",
+              entregador: entregadorNovo
+            })
+          }
+        );
 
         if (!patchResp.ok) {
           const msg = await patchResp.text().catch(() => "");
@@ -754,7 +758,7 @@ async function registrar() {
           codigo: codigoFinal,
           servico,
           status: "Saiu para entrega",
-          id_saida: registro.id_saida,
+          id_saida: registroId,
           duplicado: false
         });
 
@@ -765,21 +769,23 @@ async function registrar() {
         return { ok:true, tipo:"troca_entregador", codigo: codigoFinal };
       }
 
-      // 🚚 STATUS: COLETADO → virar SAIU PARA ENTREGA
+      // 🚚 COLETADO → SAIU
       if (statusAtual === "coletado") {
-
-        const patchResp = await fetch(`${window.TRACK_API_URL}/saidas/${registroId}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { "Authorization": `Bearer ${token}` } : {})
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            status: "Saiu para entrega",
-            entregador
-          })
-        });
+        const patchResp = await fetch(
+          `${window.TRACK_API_URL}/saidas/${registroId}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {})
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              status: "Saiu para entrega",
+              entregador
+            })
+          }
+        );
 
         if (!patchResp.ok) {
           const msg = await patchResp.text().catch(() => "");
@@ -805,14 +811,12 @@ async function registrar() {
         return { ok:true, tipo:"coletado", codigo: codigoFinal };
       }
 
-      // STATUS NÃO ESPERADO
       showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
       Sound.play("err");
-
       return { ok:false, tipo:"status_desconhecido", detalhe:registro.status };
     }
 
-    // =======================================================
+       // =======================================================
     // 2️⃣ SOMENTE SE NÃO EXISTE → FLUXO "NÃO COLETADO"
     // =======================================================
 
@@ -864,12 +868,8 @@ async function registrar() {
     const overlay = document.getElementById("scanFS");
     const wasActive = overlay?.classList.contains("show");
     if (wasActive) {
-      // stopScanner is exposed as window.leituraStopScanner by the scanner module
-      try { if (typeof window.leituraStopScanner === 'function') window.leituraStopScanner(); }
-      catch(_) {
-        // fallback: hide overlay if stop function not available
-        overlay.style.display = "none";
-      }
+      try { window.leituraStopScanner?.(); }
+      catch(_) { overlay.style.display = "none"; }
     }
 
     const confirm = await Swal.fire({
@@ -887,7 +887,10 @@ async function registrar() {
     });
 
     if (!confirm.isConfirmed) {
-      if (wasActive) overlay.style.display = "block";
+      if (wasActive) {
+        try { window.leituraStartScanner?.(); }
+        catch(_) { overlay.style.display = "block"; }
+      }
       return { ok:false, tipo:"nao_coletado_cancelado" };
     }
 
@@ -929,10 +932,16 @@ async function registrar() {
   } catch (err) {
     console.error("Erro registrar():", err);
     return { ok:false, tipo:"erro_excecao", detalhe:String(err) };
+
+  } finally {
+    // 🔓 libera lock somente se foi adquirido
+    if (lockAtivo && codigoFinal) {
+      setTimeout(() => {
+        codeLocks.delete(codigoFinal);
+      }, CODE_LOCK_TTL_MS);
+    }
   }
 }
-
-
 
 
 // ===== Leitor por Câmera — Full-screen (híbrido BarcodeDetector + ZXing) =====
@@ -952,24 +961,47 @@ async function registrar() {
   let interval = null;
   let stream = null;
 
-  // Atualiza contador
-  function atualizarContador() {
-    contadorEl.textContent = `${totalLidos} ${totalLidos === 1 ? "Saída Lida" : "Saídas Lidas"}`;
+  // 🔒 Lock por código visível (anti-repetição)
+  const SCAN_CODE_TTL_MS = 2000;
+  const recentScanCodes = new Map();
+
+  function isRecentlyScanned(code) {
+    const ts = recentScanCodes.get(code);
+    if (!ts) return false;
+    if (Date.now() - ts > SCAN_CODE_TTL_MS) {
+      recentScanCodes.delete(code);
+      return false;
+    }
+    return true;
   }
 
-  // HUD de mensagens
+  function markScanned(code) {
+    recentScanCodes.set(code, Date.now());
+  }
+
+  function atualizarContador() {
+    contadorEl.textContent =
+      `${totalLidos} ${totalLidos === 1 ? "Saída Lida" : "Saídas Lidas"}`;
+  }
+
   function showMsg(tipo, msg) {
     hud.textContent = msg;
     hud.classList.remove("info", "warning", "danger", "show");
-    hud.classList.add(tipo === "erro" ? "danger" : tipo === "alerta" ? "warning" : "info", "show");
+    hud.classList.add(
+      tipo === "erro" ? "danger" :
+      tipo === "alerta" ? "warning" : "info",
+      "show"
+    );
     clearTimeout(hud._t);
-    hud._t = setTimeout(() => hud.classList.remove("show"), tipo === "erro" ? 3000 : 2000);
+    hud._t = setTimeout(
+      () => hud.classList.remove("show"),
+      tipo === "erro" ? 3000 : 2000
+    );
   }
 
-  // Fecha scanner
   function stopScanner() {
     if (interval) { clearInterval(interval); interval = null; }
-    try { if (stream) { stream.getTracks().forEach(t => t.stop()); } } catch(_) {}
+    try { if (stream) stream.getTracks().forEach(t => t.stop()); } catch (_) {}
     stream = null;
     scanLocked = false;
     overlay.classList.remove("show");
@@ -977,234 +1009,119 @@ async function registrar() {
     document.body.style.overflow = "";
   }
 
-  // expõe para que `registrar()` possa parar a câmera quando necessário
-  try { window.leituraStopScanner = stopScanner; } catch(_) {}
-  // expõe também para reiniciar o scanner quando um modal for cancelado
-  try { window.leituraStartScanner = startScanner; } catch(_) {}
-
   async function startScanner() {
     totalLidos = 0;
     atualizarContador();
+
     overlay.classList.add("show");
     overlay.style.display = "block";
     document.body.style.overflow = "hidden";
 
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false
+      });
       video.srcObject = stream;
       await video.play();
-    } catch (err) {
+
+      // 🔍 Zoom automático (quando suportado)
+      try {
+        const track = stream.getVideoTracks()[0];
+        const caps = track?.getCapabilities?.();
+        const settings = track?.getSettings?.();
+        if (caps?.zoom) {
+          const target = Math.min(Math.max(1.5, caps.zoom.min ?? 1), caps.zoom.max ?? 1);
+          if (!settings.zoom || Math.abs(settings.zoom - target) > 0.05) {
+            await track.applyConstraints({ advanced: [{ zoom: target }] });
+          }
+        }
+      } catch (_) {}
+    } catch (_) {
       showMsg("erro", "Câmera não disponível");
       document.body.style.overflow = "";
       return;
     }
 
-    // --- Verifica suporte nativo ---
     if ("BarcodeDetector" in window) {
       try {
-        const detector = new BarcodeDetector({ formats: ["qr_code", "ean_13", "code_128", "code_39", "itf", "upc_a", "upc_e"] });
+        const detector = new BarcodeDetector({
+          formats: ["qr_code", "ean_13", "code_128", "code_39", "itf", "upc_a", "upc_e"]
+        });
+
         interval = setInterval(async () => {
           if (scanLocked) return;
           const barcodes = await detector.detect(video);
-          if (!barcodes.length) return;
-          const code = barcodes[0].rawValue || "";
-            // processa imediatamente; `registrar()` decide se deve parar a câmera
-            processarCodigo(code);
-        }, 50);
+          if (barcodes.length) processarCodigo(barcodes[0].rawValue || "");
+        }, 120);
         return;
-      } catch (e) {
-        console.warn("Erro BarcodeDetector, fallback ZXing:", e);
-      }
+      } catch (_) {}
     }
 
-    // --- Fallback ZXing para iPhone ---
     if (window.ZXingBrowser) {
       const reader = new ZXingBrowser.BrowserMultiFormatReader();
       try {
-        await reader.decodeFromVideoDevice(null, video, async (result, err) => {
-          if (!result) return;
-          const text = result.getText();
-          // processa imediatamente; registrar() fará stopScanner() se necessário
-          processarCodigo(text);
+        await reader.decodeFromVideoDevice(null, video, result => {
+          if (result) processarCodigo(result.getText());
         });
-      } catch (e) {
-        console.error("Erro ZXing fallback:", e);
-        showMsg("erro", "Leitor não suportado neste dispositivo.");
+      } catch (_) {
+        showMsg("erro", "Leitor não suportado.");
       }
     } else {
-      showMsg("erro", "Leitor não suportado neste dispositivo.");
-    }
-
-    // Listener do botão Fechar
-    if (closeBtn) {
-      closeBtn.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        stopScanner();
-      };
+      showMsg("erro", "Leitor não suportado.");
     }
   }
 
-// 🔹 Processa cada leitura detectada (agora assíncrona)
-async function processarCodigo(text) {
-  const codigo = String(text || "").trim();
-  if (!codigo || scanLocked) return;
-  scanLocked = true;
+  // 🌍 Exposição controlada
+  window.leituraStartScanner = startScanner;
+  window.leituraStopScanner  = stopScanner;
 
-  const entregador = document.getElementById("entregador")?.value;
-  if (!entregador) {
-    showMsg("alerta", "Selecione o entregador antes de escanear.");
-    Sound.play("warn");
-    scanLocked = false;
-    return;
-  }
+  async function processarCodigo(text) {
+    const codigo = String(text || "").trim();
+    if (!codigo || scanLocked) return;
 
-  if (inputCodigo) inputCodigo.value = codigo;
+    if (isRecentlyScanned(codigo)) return;
+    markScanned(codigo);
 
-  try {
-    if (typeof registrar === "function") {
+    scanLocked = true;
+    overlay.classList.add("scan-lock");
+
+    const entregador = document.getElementById("entregador")?.value;
+    if (!entregador) {
+      showMsg("alerta", "Selecione o entregador antes de escanear.");
+      scanLocked = false;
+      overlay.classList.remove("scan-lock");
+      return;
+    }
+
+    if (inputCodigo) inputCodigo.value = codigo;
+
+    try {
       const result = await registrarComLog("camera");
 
-      // =======================================================
-      // SUCESSOS
-      // =======================================================
       if (result?.ok) {
         totalLidos++;
         atualizarContador();
-
-        switch (result.tipo) {
-
-          case "troca_entregador":  // 🔥 NOVO FLUXO
-            showMsg("info", `Entregador atualizado ✓ (${totalLidos})`);
-            Sound.play("ok");
-            break;
-
-          case "coletado":
-            showMsg("info", `Saiu para entrega ✓ (${totalLidos})`);
-            Sound.play("ok");
-            break;
-
-          case "nao_coletado_registrado":
-            showMsg("alerta", `Registrado como Não Coletado (${totalLidos})`);
-            Sound.play("warn");
-            break;
-
-          default:
-            showMsg("info", `Registrado ✓ (${totalLidos})`);
-            Sound.play("ok");
-        }
       }
 
-      // =======================================================
-      // ERROS & ALERTAS
-      // =======================================================
-      else {
-        switch (result?.tipo) {
-
-          case "duplicado":
-            showMsg("alerta", result?.detalhe || "Duplicado — código já lido nesta sessão.");
-            Sound.play("warn");
-            break;
-
-          case "ja_saiu":
-            showMsg("alerta", result?.detalhe || "Código já saiu para entrega.");
-            Sound.play("warn");
-            break;
-
-          case "nao_coletado_cancelado":
-            showMsg("alerta", result?.detalhe || "Registro cancelado (não coletado).");
-            Sound.play("warn");
-            break;
-
-          case "erro_patch_troca_entregador":
-            showMsg("erro", "Erro ao alterar entregador.");
-            Sound.play("err");
-            break;
-
-          case "erro_patch":
-            showMsg("erro", "Erro ao atualizar status.");
-            Sound.play("err");
-            break;
-
-          case "codigo_invalido":
-            showMsg("erro", result?.detalhe || "Código inválido.");
-            Sound.play("err");
-            break;
-
-          case "erro_http":
-            showMsg("erro", result?.detalhe || "Erro do servidor.");
-            Sound.play("err");
-            break;
-
-          case "erro_excecao":
-            showMsg("erro", result?.detalhe || "Falha interna.");
-            Sound.play("err");
-            break;
-
-          case "status_desconhecido":
-            showMsg("erro", result?.detalhe || "Status do código desconhecido.");
-            Sound.play("err");
-            break;
-
-          default:
-            showMsg("erro", result?.detalhe || "Leitura ignorada ou erro não especificado.");
-            Sound.play("err");
-        }
-      }
+    } finally {
+      overlay.classList.remove("scan-lock");
+      setTimeout(() => (scanLocked = false), 200);
     }
-  } catch (err) {
-    console.error("Erro ao registrar (camera):", err);
-    showMsg("erro", "Falha ao registrar saída.");
-    Sound.play("err");
-  } finally {
-    setTimeout(() => (scanLocked = false), 80);
   }
-}
 
-
-
-// ======== Botões e listeners fixos ========
-
-  // Botão principal para abrir o scanner
-  btnScan.onclick = (ev) => {
-    ev.preventDefault();
+  btnScan.addEventListener("click", (e) => {
+    e.preventDefault();
     startScanner();
-  };
+  });
 
-  // Botão fechar (X)
-  if (closeBtn) {
-    closeBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      stopScanner();
-    });
-  }
+  closeBtn?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    stopScanner();
+  });
 
-   // Fecha a câmera ao sair da página
   window.addEventListener("beforeunload", stopScanner);
 })();
-
-
-// ---------- eventos ----------
-selEnt?.addEventListener("change", onEntregadorChange);
-btnReg?.addEventListener("click", () => registrarComLog("teclado"));
-inpCod?.addEventListener("keydown", (e) => { 
-  if (e.key === "Enter") { 
-    e.preventDefault(); 
-    registrarComLog("teclado"); 
-  } 
-});
-
-
-// ---------- init ----------
-loadEntregadores().then(() => { inpCod?.focus(); });
-// tenta reenviar pendentes (inclusive de sessões anteriores)
-// tenta reenviar SOMENTE pendentes técnicos
-for (const p of loadPending()) {
-  if (p && p.noRetry !== true) {
-    attemptSend(p);
-  }
-}
-// 
 
 })();
