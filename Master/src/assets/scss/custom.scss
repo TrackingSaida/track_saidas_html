@@ -81,11 +81,15 @@
 
   /* AJUSTE CAMERA — pausa efeitos durante leitura */
   &.scan-lock {
-    .scanfs-laser,
-    .corner {
-      animation-play-state: paused;
-    }
+  .scanfs-frame {
+    box-shadow: 0 0 0 3px rgba(30, 144, 255, 0.45);
   }
+
+  .scanfs-laser {
+    opacity: 0.6;
+  }
+}
+
 
   /* HUD de mensagens */
   &-hud {

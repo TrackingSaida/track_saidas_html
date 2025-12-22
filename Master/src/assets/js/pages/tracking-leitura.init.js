@@ -359,7 +359,7 @@ function createRow(row){
       <td class="ent">${row.entregador || ""}</td>
       <td class="cod">${row.codigo || ""}</td>
       <td class="srv">${row.servico || ""}</td>
-      <td class="st">${row.status || "Enviando…"}</td>
+      <td class="st">${row.status || "Processando..."}</td>
       <td class="remove text-center">
   <button class="btn btn-sm btn-outline-danger btn-remove" data-id="${row.id_saida || ""}">
     <i class="ri-delete-bin-line"></i>
@@ -633,7 +633,7 @@ async function registrar() {
     // 🔹 DUPLICADO LOCAL POR SESSÃO (primeiro, sem lock)
     if (rowsByKey.has(k)) {
       Sound.play("warn");
-      showMsgIcon("alerta", `Duplicado • ${codigoFinal}`);
+      showMsgIcon("alerta", `Já registrado • ${codigoFinal}`);
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
       return { ok:false, tipo:"duplicado" };
     }
@@ -641,7 +641,7 @@ async function registrar() {
     // 🔒 LOCK TEMPORÁRIO POR CÓDIGO (anti-rajada)
     if (isCodeLocked(codigoFinal)) {
       Sound.play("warn");
-      showMsgIcon("alerta", `Aguarde… código ${codigoFinal} já está sendo processado.`);
+      showMsgIcon("info", `Processando ${codigoFinal}…`);
       return { ok:false, tipo:"lock_temporario" };
     }
     lockCode(codigoFinal);
@@ -1085,6 +1085,7 @@ async function registrar() {
 
     scanLocked = true;
     overlay.classList.add("scan-lock");
+    showMsg("info", "Processando…");
 
     const entregador = document.getElementById("entregador")?.value;
     if (!entregador) {
@@ -1095,6 +1096,8 @@ async function registrar() {
     }
 
     if (inputCodigo) inputCodigo.value = codigo;
+
+    showMsg("info", "Processando…");
 
     try {
       const result = await registrarComLog("camera");
