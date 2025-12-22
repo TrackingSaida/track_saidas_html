@@ -1137,5 +1137,18 @@ for (const p of loadPending()) {
   }
 }
 
+// ---------- eventos (registro manual) ----------
+btnReg?.addEventListener("click", (e) => {
+  e.preventDefault();
+  registrarComLog("teclado");
+});
+
+inpCod?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    registrarComLog("teclado");
+  }
+});
+
 })(); 
 
