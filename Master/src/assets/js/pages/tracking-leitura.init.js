@@ -64,6 +64,43 @@ function updateSummary() {
 const CODE_LOCK_TTL_MS = 3000; // 3 segundos
 const codeLocks = new Map(); // codigo -> timestamp
 
+
+// cache simples por sessão
+const codigoCache = new Map(); 
+// codigo -> { ts, registros }
+const CODIGO_CACHE_TTL = 5 * 60 * 1000; // 5 min
+
+
+function getCodigoCache(codigo) {
+  const v = codigoCache.get(codigo);
+  if (!v) return null;
+  if (Date.now() - v.ts > CODIGO_CACHE_TTL) {
+    codigoCache.delete(codigo);
+    return null;
+  }
+  return v.registros;
+}
+
+function setCodigoCache(codigo, registros) {
+  codigoCache.set(codigo, {
+    ts: Date.now(),
+    registros
+  });
+}
+
+
+// =====================================================
+// NORMALIZAÇÃO DE RESPOSTA DA API / CACHE
+// =====================================================
+function normalizarRegistros(dados) {
+  if (Array.isArray(dados)) return dados;
+  if (Array.isArray(dados?.items)) return dados.items;
+  if (Array.isArray(dados?.rows)) return dados.rows;
+  if (Array.isArray(dados?.data)) return dados.data;
+  return [];
+}
+
+
 function isCodeLocked(codigo) {
   const ts = codeLocks.get(codigo);
   if (!ts) return false;
@@ -144,17 +181,10 @@ function markRespostaMetric(m, ok, tipo) {
 // ENVIO DE LOG (FIRE-AND-FORGET)
 // =====================================================
 function enviarLogLeitura(payload) {
-  try {
-    const token =
-      localStorage.getItem("authToken") ||
-      localStorage.getItem("access_token");
-
+  try {  
     fetch(`${window.TRACK_API_URL}/logs/leituras`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { "Authorization": `Bearer ${token}` } : {})
-      },
+      headers: { "Content-Type": "application/json" },     
       credentials: "include",
       body: JSON.stringify(payload)
     }).catch(() => {});
@@ -340,6 +370,11 @@ async function removerSaida(id, tr) {
 
     tr.remove();
     rowsByKey.delete(tr.dataset.key);
+
+    // invalida cache do código removido
+const codigo = tr?.querySelector(".cod")?.textContent;
+if (codigo) codigoCache.delete(codigo);
+
 
     updateSummary();
     showMsgIcon("info", "Leitura removida.");
@@ -647,38 +682,38 @@ async function registrar() {
     lockCode(codigoFinal);
     lockAtivo = true;
 
-    const token = localStorage.getItem("authToken") || localStorage.getItem("access_token");
+   
+    let registros = getCodigoCache(codigoFinal);
 
-    // 🔹 Consulta situação da saída
-    const resp = await fetch(
-      `${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        },
-        credentials: "include"
-      }
-    );
-
-    if (!resp.ok) {
-      if (resp.status === 401) {
-        showMsgIcon("erro", "Sessão expirada. Faça login novamente.");
-        Sound.play("err");
-        return { ok:false, tipo:"nao_autorizado" };
-      }
-      const msg = await resp.text().catch(()=> "");
-      return { ok:false, tipo:"erro_http", detalhe:msg };
+if (!registros) {
+  const resp = await fetch(
+    `${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`,
+    {
+      headers: { "Content-Type": "application/json" },
+      credentials: "include"
     }
+  );
 
-    const dados = await resp.json();
+  if (!resp.ok) {
+    if (resp.status === 401) {
+      showMsgIcon("erro", "Sessão expirada. Faça login novamente.");
+      Sound.play("err");
+      return { ok:false, tipo:"nao_autorizado" };
+    }
+    const msg = await resp.text().catch(() => "");
+    return { ok:false, tipo:"erro_http", detalhe:msg };
+  }
 
-    // Normaliza formatos
-    let registros = [];
-    if (Array.isArray(dados)) registros = dados;
-    else if (Array.isArray(dados?.items)) registros = dados.items;
-    else if (Array.isArray(dados?.rows)) registros = dados.rows;
-    else if (Array.isArray(dados?.data)) registros = dados.data;
+  const dados = await resp.json();
+const normalizados = normalizarRegistros(dados);
+setCodigoCache(codigoFinal, normalizados);
+registros = normalizados;
+
+} else {
+  // ⚠️ garante formato consistente mesmo vindo do cache
+  registros = registros;
+}
+   
 
     // =======================================================
     // 1️⃣ SE EXISTE REGISTRO → TRATAR STATUS
@@ -737,7 +772,7 @@ async function registrar() {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
-              ...(token ? { "Authorization": `Bearer ${token}` } : {})
+             
             },
             credentials: "include",
             body: JSON.stringify({
@@ -766,6 +801,14 @@ async function registrar() {
         showMsgIcon("info", `Entregador alterado ✓ ${codigoFinal}`);
         Sound.play("ok");
 
+        // 🔄 atualiza cache com novo estado
+        setCodigoCache(codigoFinal, [{
+         ...registro,
+         status: "Saiu para entrega",
+         entregador: entregadorNovo
+         }]);
+
+
         return { ok:true, tipo:"troca_entregador", codigo: codigoFinal };
       }
 
@@ -777,7 +820,7 @@ async function registrar() {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
-              ...(token ? { "Authorization": `Bearer ${token}` } : {})
+             
             },
             credentials: "include",
             body: JSON.stringify({
@@ -808,6 +851,14 @@ async function registrar() {
 
         if (inpCod) { inpCod.value = ""; inpCod.focus(); }
 
+        // 🔄 atualiza cache
+        setCodigoCache(codigoFinal, [{
+        ...registro,
+        status: "Saiu para entrega",
+        entregador
+        }]);
+
+
         return { ok:true, tipo:"coletado", codigo: codigoFinal };
       }
 
@@ -827,7 +878,7 @@ async function registrar() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+         
         },
         credentials: "include",
         body: JSON.stringify({
@@ -860,6 +911,15 @@ async function registrar() {
       Sound.play("ok");
 
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+
+      setCodigoCache(codigoFinal, [{
+      id_saida: data.id_saida,
+      codigo: codigoFinal,
+      status: "Saiu para entrega",
+      entregador,
+      servico
+     }]);
+
 
       return { ok:true, tipo:"ignorar_coleta_saida", codigo: codigoFinal };
     }
@@ -898,7 +958,7 @@ async function registrar() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+       
       },
       credentials: "include",
       body: JSON.stringify({
@@ -911,6 +971,7 @@ async function registrar() {
 
     if (!postResp.ok) {
       const msg = await postResp.text().catch(() => "");
+
       return { ok:false, tipo:"erro_registrar_nao_coletado", detalhe:msg };
     }
 
@@ -926,6 +987,14 @@ async function registrar() {
     updateSummary();
     showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
     Sound.play("warn");
+
+    setCodigoCache(codigoFinal, [{
+    codigo: codigoFinal,
+    status: "Não Coletado",
+    entregador,
+    servico
+    }]);
+
 
     return { ok:true, tipo:"nao_coletado_registrado", codigo: codigoFinal };
 
