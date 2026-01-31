@@ -712,11 +712,11 @@ function setupPagerEvents() {
 
       function mapStatusToApi(v){
         return (
-          v === "Saiu para entrega" ? "Saiu" :
+          v === "Saiu para entrega" ? "saiu" :
           v === "Coletado"          ? "coletado" :
           v === "Não Coletado"      ? "Nao Coletado" :
           v === "Cancelado"         ? "cancelado" :
-          "Saiu"
+          "saiu"
         );
       }
 
@@ -847,7 +847,7 @@ function setupPagerEvents() {
 
       function mapStatusToApi(v){
         return (
-          v === "Saiu para entrega" ? "Saiu" :
+          v === "Saiu para entrega" ? "saiu" :
           v === "Coletado"          ? "coletado" :
           v === "Não Coletado"      ? "Nao Coletado" :
           v === "Cancelado"         ? "cancelado" :
