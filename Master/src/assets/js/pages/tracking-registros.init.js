@@ -239,7 +239,7 @@ function augmentEntregadoresFromRows(rows){
 
   // NORMALIZA STATUS PARA API
   let st = status;
-  if (st === "Saiu para entrega") st = "Saiu";
+  if (st === "Saiu para entrega") st = "saiu";
   else if (st === "Coletado") st = "coletado";
   else if (st === "Não Coletado") st = "Nao Coletado";
   else if (st === "Cancelado") st = "cancelado";
