@@ -156,7 +156,7 @@ async function gerarPdfResumoColetas(resumo, base, de, ate) {
      Buscar PREÇOS da base (corrigido)
   ====================================================== */
   async function carregarPrecoBase() {
-    const resp = await fetch(`${window.TRACK_API_URL}/base`, {
+    const resp = await fetch(`${window.TRACK_API_URL}/base/`, {
       credentials: "include"
     });
 

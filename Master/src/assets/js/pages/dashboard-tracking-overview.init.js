@@ -93,7 +93,7 @@ async function listSaidasRaw(from, to) {
 // ---------------------------------------------------------------------------
 async function listBasePrices() {
   try {
-    const data = await fetchJson(`${API_BASE}/base`);
+    const data = await fetchJson(`${API_BASE}/base/`);
 
     const map = {};
     (data || []).forEach(b => {

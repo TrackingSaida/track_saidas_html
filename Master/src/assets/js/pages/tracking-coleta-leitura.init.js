@@ -1,6 +1,6 @@
 /* =================== Config =================== */
 const API_URL = `${window.TRACK_API_URL}/coletas/lote`;
-const API_BASES = `${window.TRACK_API_URL}/base?status=ativo`;
+const API_BASES = `${window.TRACK_API_URL}/base/?status=ativo`;
 
 // ⚙️ Agora a chave do localStorage é dinâmica por base
 let STORAGE_KEY = null;
