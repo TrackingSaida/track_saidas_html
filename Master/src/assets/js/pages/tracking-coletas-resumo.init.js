@@ -9,10 +9,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   let cacheCancelados = null;
   let cacheCanceladosKey = "";
 
-  if (!window.__USER__) {
-    await window.loadUser(); // ou carregarUsuarioLogado()
-  }
-  
 
   // ====== APIs ======
   const API_URL     = `${window.TRACK_API_URL}/coletas/resumo`;
