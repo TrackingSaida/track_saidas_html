@@ -24,7 +24,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ====== APIs ======
   const API_URL     = `${window.TRACK_API_URL}/coletas/resumo`;
-  const API_BASES   = `${window.TRACK_API_URL}/base`;
+  const API_BASES   = `${window.TRACK_API_URL}/base/`;
   const API_SAIDAS  = `${window.TRACK_API_URL}/saidas/listar`;
 
   // ====== Helpers ======
