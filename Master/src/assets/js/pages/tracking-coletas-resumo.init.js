@@ -9,18 +9,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   let cacheCancelados = null;
   let cacheCanceladosKey = "";
 
-  // ====== Validação de sessão ======
-  const trackingToken =
-    localStorage.getItem("trackingToken") ||
-    sessionStorage.getItem("trackingToken") ||
-    localStorage.getItem("access_token") ||
-    sessionStorage.getItem("access_token");
-
-  if (!trackingToken) {
-    const current = window.location.pathname.split("/").pop();
-    window.location.replace(`index.html?next=${encodeURIComponent(current)}`);
-    return;
+  if (!window.__USER__) {
+    await window.loadUser(); // ou carregarUsuarioLogado()
   }
+  
 
   // ====== APIs ======
   const API_URL     = `${window.TRACK_API_URL}/coletas/resumo`;
