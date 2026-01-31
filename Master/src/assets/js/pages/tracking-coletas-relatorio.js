@@ -33,59 +33,7 @@ async function gerarPdfResumoColetas(resumo, base, de, ate) {
     return;
   }
 
-  /* ======================================================
-     LOGO — Carrega conforme sub_base do usuário
-  ====================================================== */
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const subBase = (user.sub_base || "").trim();
 
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: "a4"
-  });
-
-  async function addLogo() {
-    const nomeArquivo = subBase.replace(/\s+/g, "_").toUpperCase() + ".png";
-
-    const caminhos = [
-      `assets/images/logos/${nomeArquivo}`,
-      `/assets/images/logos/${nomeArquivo}`,
-      `./assets/images/logos/${nomeArquivo}`
-    ];
-
-    const fallback = "assets/images/logos/default.png";
-    let caminhoFinal = fallback;
-
-    for (const c of caminhos) {
-      try {
-        const r = await fetch(c);
-        if (r.ok) {
-          caminhoFinal = c;
-          break;
-        }
-      } catch (_) {}
-    }
-
-    try {
-      const blob = await (await fetch(caminhoFinal)).blob();
-
-      return new Promise(resolve => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          doc.addImage(e.target.result, "PNG", 15, 10, 40, 25);
-          resolve();
-        };
-        reader.readAsDataURL(blob);
-      });
-
-    } catch (err) {
-      console.error("Erro ao carregar logo:", err);
-    }
-  }
-
-  await addLogo();
 
   /* ======================================================
      HEADER DO RELATÓRIO
