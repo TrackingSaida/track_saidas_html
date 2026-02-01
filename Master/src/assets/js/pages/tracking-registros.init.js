@@ -197,19 +197,29 @@ function augmentEntregadoresFromRows(rows){
 
 
   // =====================================================================
-  // Carregar Bases
+  // Carregar Bases (filtro, modal edição singular e modal lote)
   // =====================================================================
+  var basesCache = [];
+
   async function carregarBases() {
-    const sel = document.getElementById("flt-base");
     try {
-      const res = await fetch(`${window.TRACK_API_URL}/base`, {
+      const res = await fetch(`${window.TRACK_API_URL}/base/`, {
         credentials: "include"
       });
-      const bases = await res.json();
-      sel.innerHTML = '<option value="">(Todas)</option>';
-      bases.forEach(b => {
-        sel.innerHTML += `<option value="${b.base}">${b.base}</option>`;
-      });
+      const raw = await res.json();
+      var bases = Array.isArray(raw) ? raw : (raw?.items || raw?.data || []);
+      basesCache = bases;
+
+      var opts = bases.map(b => {
+        var v = b.base || b.slug || b.nome || b.name || b;
+        return `<option value="${v}">${v}</option>`;
+      }).join("");
+
+      var selFlt = document.getElementById("flt-base");
+      if (selFlt) selFlt.innerHTML = '<option value="">(Todas)</option>' + opts;
+
+      var selEdit = document.getElementById("edit-base");
+      if (selEdit) selEdit.innerHTML = '<option value="">— selecione —</option>' + opts;
     } catch (err) {
       console.error("Erro ao carregar bases:", err);
     }
@@ -646,10 +656,11 @@ function setupPagerEvents() {
 
   if (eSta){
     eSta.addEventListener("change", () => {
-      var exigir = eSta.value === "Não Coletado";
-      eBaseGrp?.classList.toggle("d-none", !exigir);
-      if (eBase) eBase.required = exigir;
-      if (!exigir && eBase) eBase.value = "";
+      var permitirBase = eSta.value === "Não Coletado" || eSta.value === "Coletado";
+      var exigirBase = eSta.value === "Não Coletado";
+      eBaseGrp?.classList.toggle("d-none", !permitirBase);
+      if (eBase) eBase.required = exigirBase;
+      if (!permitirBase && eBase) eBase.value = "";
     });
   }
 
@@ -727,7 +738,7 @@ function setupPagerEvents() {
         status:     mapStatusToApi(eSta.value)
       };
 
-      if (eSta.value === "Não Coletado" && eBase?.value)
+      if ((eSta.value === "Não Coletado" || eSta.value === "Coletado") && eBase?.value)
         payload.base = eBase.value;
 
       if (!TrackAPI?.updateSaida)
@@ -784,7 +795,7 @@ function setupPagerEvents() {
 
   if (bulkStatus){
     bulkStatus.addEventListener("change", () => {
-      var show = bulkStatus.value === "Não Coletado";
+      var show = bulkStatus.value === "Não Coletado" || bulkStatus.value === "Coletado";
       bulkBaseGrp?.classList.toggle("d-none", !show);
       if (!show && bulkBase) bulkBase.value = "";
     });
@@ -819,25 +830,33 @@ function setupPagerEvents() {
       }
     });
 
-    fetch(`${window.TRACK_API_URL}/base/`, { credentials:"include" })
-      .then(r => r.ok ? r.json() : [])
-      .then(bases => {
-        if (bulkBase){
-          bulkBase.innerHTML = '<option value="">(Manter)</option>' +
-            bases.map(b => {
-              var v = b.base || b.slug || b.nome || b.name || b;
-              var t = b.nome || b.base || b.name || String(v);
-              return `<option value="${v}">${t}</option>`;
-            }).join("");
-        }
+    function fillBulkBases(bases){
+      if (bulkBase && Array.isArray(bases)){
+        var opts = bases.map(b => {
+          var v = b.base || b.slug || b.nome || b.name || b;
+          return `<option value="${v}">${v}</option>`;
+        }).join("");
+        bulkBase.innerHTML = '<option value="">(Manter)</option>' + opts;
+      }
+      if (bulkCount) bulkCount.textContent = ids.length + " registro(s) selecionado(s).";
+      bulkStatus.value = "";
+      bulkBaseGrp?.classList.add("d-none");
+      if (bulkBase) bulkBase.value = "";
+      bulkModal?.show();
+    }
 
-        if (bulkCount) bulkCount.textContent = ids.length + " registro(s) selecionado(s).";
-        bulkStatus.value = "";
-        bulkBaseGrp?.classList.add("d-none");
-        if (bulkBase) bulkBase.value = "";
-
-        bulkModal?.show();
-      });
+    if (basesCache && basesCache.length > 0){
+      fillBulkBases(basesCache);
+    } else {
+      fetch(`${window.TRACK_API_URL}/base/`, { credentials:"include" })
+        .then(r => r.ok ? r.json() : [])
+        .then(bases => {
+          var list = Array.isArray(bases) ? bases : (bases?.items || bases?.data || []);
+          if (list.length) basesCache = list;
+          fillBulkBases(list);
+        })
+        .catch(() => fillBulkBases([]));
+    }
   }
 
   if (bulkApplyBtn){
@@ -858,7 +877,7 @@ function setupPagerEvents() {
       var body = {};
       if (bulkEnt?.value) body.entregador = bulkEnt.value;
       if (bulkStatus?.value) body.status = mapStatusToApi(bulkStatus.value);
-      if (bulkStatus?.value === "Não Coletado" && bulkBase?.value)
+      if ((bulkStatus?.value === "Não Coletado" || bulkStatus?.value === "Coletado") && bulkBase?.value)
         body.base = bulkBase.value;
 
       if (!Object.keys(body).length)
