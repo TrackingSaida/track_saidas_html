@@ -155,19 +155,44 @@ const config = serverMenu.find(s =>
 );
 
 
-    // 🔹 Monta grupo Operação → Coletas / Saídas (se existir)
-    let opHTML = "";
-    if (operacao) {
-      const opItems = operacao.items || [];
-      const grupoColetas = opItems.filter(i => /coleta/i.test(i.href || "") || /coleta/i.test(i.label || ""));
-      const grupoSaidas  = opItems.filter(i => /saida/i.test(i.href || "") || /tracking-(leitura|registros)/i.test(i.href || ""));
+    // 🔹 Monta grupo Operação → Registrar / Registros / Resumos
+let opHTML = "";
 
-      opHTML =
-        makeGroup(toId("Coletas"), "ri-box-3-line me-1", "Coletas",
-          grupoColetas.map(i => makeItem(i.href, i.label)).join("")) +
-        makeGroup(toId("Saídas"), "ri-truck-line me-1", "Saídas",
-          grupoSaidas.map(i => makeItem(i.href, i.label)).join(""));
-    }
+if (operacao) {
+  const opItems = operacao.items || [];
+
+  const grupoRegistrar = opItems.filter(i => i.group === "leituras");
+  const grupoRegistros = opItems.filter(i => i.group === "registros");
+  const grupoResumos   = opItems.filter(i => i.group === "resumos");
+
+  if (grupoRegistrar.length) {
+    opHTML += makeGroup(
+      toId("Leituras"),
+      "ri-edit-line me-1",
+      "Leituras",
+      grupoRegistrar.map(i => makeItem(i.href, i.label)).join("")
+    );
+  }
+
+  if (grupoRegistros.length) {
+    opHTML += makeGroup(
+      toId("Registros"),
+      "ri-folder-open-line me-1",
+      "Registros",
+      grupoRegistros.map(i => makeItem(i.href, i.label)).join("")
+    );
+  }
+
+  if (grupoResumos.length) {
+    opHTML += makeGroup(
+      toId("Resumos"),
+      "ri-bar-chart-2-line me-1",
+      "Resumos",
+      grupoResumos.map(i => makeItem(i.href, i.label)).join("")
+    );
+  }
+}
+
 
     // 🔹 Monta dashboards e config somente se vierem do backend
     const dashHTML = dashboards

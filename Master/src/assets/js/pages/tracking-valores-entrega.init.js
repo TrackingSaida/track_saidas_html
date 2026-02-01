@@ -1,0 +1,306 @@
+// tracking-valores-entrega.init.js
+// Configuração de valores globais e exceções por entregador
+// Padrão: tracking-base.init.js / tracking-usuarios.js
+
+(function () {
+  "use strict";
+
+  const API_URL = window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api";
+  const API_ENTREGADORES = `${API_URL.replace(/\/+$/, "")}/entregadores`;
+  const API_PRECOS_GLOBAL = `${API_ENTREGADORES}/precos/global`;
+  const API_PRECOS_INDIVIDUAIS = `${API_ENTREGADORES}/precos/individuais`;
+
+  const qs = (s) => document.querySelector(s);
+  const qsa = (s) => Array.from(document.querySelectorAll(s));
+
+  const toast = (msg, ok = true) => {
+    const el = document.createElement("div");
+    el.className = `toast align-items-center text-bg-${ok ? "primary" : "danger"} border-0 position-fixed bottom-0 end-0 m-3`;
+    el.innerHTML = `<div class="d-flex">
+        <div class="toast-body">${msg}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>`;
+    el.style.zIndex = 1080;
+    document.body.appendChild(el);
+    const t = new bootstrap.Toast(el, { delay: 2500 });
+    t.show();
+    setTimeout(() => el.remove(), 3000);
+  };
+
+  function parseMoeda(valorRaw = "") {
+    if (valorRaw === "" || valorRaw == null) return null;
+    if (typeof valorRaw === "number") return valorRaw;
+    const clean = String(valorRaw).replace(/[R$\s.]/g, "").replace(",", ".");
+    const num = parseFloat(clean);
+    return isNaN(num) ? null : num;
+  }
+
+  function formatMoeda(val) {
+    if (val == null || val === "") return "Global";
+    const n = Number(val);
+    if (isNaN(n)) return "Global";
+    return "R$ " + n.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+
+  function formatMoedaInput(val) {
+    if (val == null || val === "") return "";
+    const n = Number(val);
+    if (isNaN(n)) return "";
+    return "R$ " + n.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+
+  async function http(url, options = {}) {
+    const opts = {
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    };
+    const r = await fetch(url, opts);
+    if (!r.ok) {
+      let errText = "";
+      try {
+        errText = await r.text();
+      } catch (e) {}
+      const err = new Error(errText || r.statusText);
+      err.status = r.status;
+      throw err;
+    }
+    try {
+      return await r.json();
+    } catch {
+      return null;
+    }
+  }
+
+  // ---------- Valores globais ----------
+  async function loadPrecosGlobal() {
+    try {
+      const data = await http(API_PRECOS_GLOBAL);
+      qs("#globalShopee").value = formatMoedaInput(data?.shopee_valor);
+      qs("#globalMl").value = formatMoedaInput(data?.ml_valor);
+      qs("#globalAvulso").value = formatMoedaInput(data?.avulso_valor);
+    } catch (err) {
+      console.error(err);
+      toast("Falha ao carregar valores globais.", false);
+    }
+  }
+
+  async function savePrecosGlobal() {
+    const shopee = parseMoeda(qs("#globalShopee").value);
+    const ml = parseMoeda(qs("#globalMl").value);
+    const avulso = parseMoeda(qs("#globalAvulso").value);
+    const payload = {};
+    if (shopee != null) payload.shopee_valor = shopee;
+    if (ml != null) payload.ml_valor = ml;
+    if (avulso != null) payload.avulso_valor = avulso;
+    if (Object.keys(payload).length === 0) {
+      toast("Informe ao menos um valor.", false);
+      return;
+    }
+    try {
+      await http(API_PRECOS_GLOBAL, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      toast("Valores globais salvos.");
+      await loadPrecosGlobal();
+    } catch (err) {
+      console.error(err);
+      toast(err.message || "Erro ao salvar valores globais.", false);
+    }
+  }
+
+  // ---------- Lista de exceções ----------
+  let CACHE_EXCECÕES = [];
+  let SELECTED_ID = null;
+  const offcanvasExcecao = new bootstrap.Offcanvas("#oc-excecao");
+
+  function buildRow(item) {
+    const id = item.entregador_id;
+    const nome = item.entregador_nome || "-";
+    const shopee = formatMoeda(item.shopee_valor);
+    const flex = formatMoeda(item.ml_valor);
+    const avulso = formatMoeda(item.avulso_valor);
+    return `<tr class="row-selectable" data-id="${id}">
+        <td class="text-center"><input class="form-check-input sel-row" type="radio" name="sel-excecao" value="${id}"></td>
+        <td>${nome}</td>
+        <td>${shopee}</td>
+        <td>${flex}</td>
+        <td>${avulso}</td>
+      </tr>`;
+  }
+
+  function renderExcecoes(data) {
+    const tbody = qs("#tbody-excecoes");
+    const empty = qs("#emptyExcecoes");
+    if (!tbody) return;
+    const term = (qs("#search")?.value || "").toLowerCase().trim();
+    const filtrados = !term
+      ? data
+      : data.filter((i) => (i.entregador_nome || "").toLowerCase().includes(term));
+    tbody.innerHTML = "";
+    if (!filtrados || !filtrados.length) {
+      empty?.classList.remove("d-none");
+      return;
+    }
+    empty?.classList.add("d-none");
+    tbody.innerHTML = filtrados.map(buildRow).join("");
+  }
+
+  async function loadExcecoes() {
+    try {
+      const data = await http(API_PRECOS_INDIVIDUAIS);
+      const items = data?.items || [];
+      CACHE_EXCECÕES = items;
+      renderExcecoes(items);
+    } catch (err) {
+      console.error(err);
+      toast("Falha ao carregar exceções.", false);
+      CACHE_EXCECÕES = [];
+      renderExcecoes([]);
+    }
+  }
+
+  // ---------- Entregadores (select) ----------
+  async function loadEntregadoresSelect() {
+    try {
+      const list = await http(`${API_ENTREGADORES}?status=ativo`);
+      const arr = Array.isArray(list) ? list : [];
+      const select = qs("#selectEntregador");
+      if (!select) return;
+      const idsComExcecao = CACHE_EXCECÕES.map((e) => e.entregador_id);
+      select.innerHTML = '<option value="">Selecione o entregador</option>' +
+        arr
+          .filter((e) => !idsComExcecao.includes(e.id_entregador))
+          .map((e) => `<option value="${e.id_entregador}">${e.nome || e.id_entregador}</option>`)
+          .join("");
+    } catch (err) {
+      console.error(err);
+      toast("Falha ao carregar entregadores.", false);
+    }
+  }
+
+  // ---------- Offcanvas: Adicionar / Editar ----------
+  function openExcecaoForm(modo, item = null) {
+    const form = qs("#formExcecao");
+    form.reset();
+    form.classList.remove("was-validated");
+    const isEdit = modo === "edit" && item;
+    qs("#ocExcecaoLabel").textContent = isEdit ? "Editar Exceção" : "Adicionar Exceção";
+    qs("#excecaoEntregadorId").value = isEdit ? item.entregador_id : "";
+
+    qs("#groupSelectEntregador").classList.toggle("d-none", isEdit);
+    qs("#groupNomeEntregador").classList.toggle("d-none", !isEdit);
+    if (isEdit) {
+      qs("#nomeEntregadorEdit").textContent = item.entregador_nome || "-";
+    }
+
+    qs("#excecaoShopee").value = item ? formatMoedaInput(item.shopee_valor) : "";
+    qs("#excecaoMl").value = item ? formatMoedaInput(item.ml_valor) : "";
+    qs("#excecaoAvulso").value = item ? formatMoedaInput(item.avulso_valor) : "";
+
+    if (!isEdit) {
+      loadEntregadoresSelect();
+    }
+    offcanvasExcecao.show();
+  }
+
+  function formExcecaoPayload() {
+    const shopee = parseMoeda(qs("#excecaoShopee").value);
+    const ml = parseMoeda(qs("#excecaoMl").value);
+    const avulso = parseMoeda(qs("#excecaoAvulso").value);
+    const payload = {};
+    if (shopee != null) payload.shopee_valor = shopee;
+    if (ml != null) payload.ml_valor = ml;
+    if (avulso != null) payload.avulso_valor = avulso;
+    return payload;
+  }
+
+  async function submitExcecao(ev) {
+    ev.preventDefault();
+    const form = ev.currentTarget;
+    const idHidden = qs("#excecaoEntregadorId").value.trim();
+    const idSelect = qs("#selectEntregador").value;
+    const idEntregador = idHidden ? idHidden : idSelect;
+    if (!idEntregador) {
+      toast("Selecione um entregador.", false);
+      return;
+    }
+    const payload = formExcecaoPayload();
+    if (Object.keys(payload).length === 0) {
+      toast("Informe ao menos um valor.", false);
+      return;
+    }
+    try {
+      await http(`${API_ENTREGADORES}/${idEntregador}/precos`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      toast("Exceção salva.");
+      offcanvasExcecao.hide();
+      await loadExcecoes();
+    } catch (err) {
+      console.error(err);
+      toast(err.message || "Erro ao salvar exceção.", false);
+    }
+  }
+
+  // ---------- Delete ----------
+  function confirmDelete() {
+    if (!SELECTED_ID) return;
+    const modal = new bootstrap.Modal("#modalDelete");
+    modal.show();
+    qs("#btnConfirmDelete").onclick = async () => {
+      try {
+        await http(`${API_ENTREGADORES}/${SELECTED_ID}/precos`, { method: "DELETE" });
+        toast("Exceção excluída.");
+        modal.hide();
+        SELECTED_ID = null;
+        qs("#btnHeaderEdit").disabled = true;
+        qs("#btnHeaderDel").disabled = true;
+        await loadExcecoes();
+      } catch (err) {
+        toast("Erro ao excluir exceção.", false);
+      }
+    };
+  }
+
+  // ---------- Eventos ----------
+  document.addEventListener("DOMContentLoaded", async () => {
+    await loadPrecosGlobal();
+    await loadExcecoes();
+
+    qs("#btnSalvarGlobal")?.addEventListener("click", savePrecosGlobal);
+
+    const tbody = qs("#tbody-excecoes");
+    tbody?.addEventListener("click", (e) => {
+      const tr = e.target.closest("tr.row-selectable");
+      if (!tr) return;
+      qsa("#tbody-excecoes tr").forEach((r) => r.classList.remove("table-active"));
+      tr.classList.add("table-active");
+      SELECTED_ID = tr.dataset.id;
+      qs("#btnHeaderEdit").disabled = false;
+      qs("#btnHeaderDel").disabled = false;
+    });
+
+    qs("#search")?.addEventListener("input", () => renderExcecoes(CACHE_EXCECÕES));
+
+    qs("#btnAddExcecao")?.addEventListener("click", () => {
+      openExcecaoForm("add");
+      qs("#btnHeaderEdit").disabled = true;
+      qs("#btnHeaderDel").disabled = true;
+      SELECTED_ID = null;
+    });
+
+    qs("#btnHeaderEdit")?.addEventListener("click", () => {
+      if (!SELECTED_ID) return;
+      const item = CACHE_EXCECÕES.find((i) => String(i.entregador_id) === String(SELECTED_ID));
+      if (item) openExcecaoForm("edit", item);
+      else toast("Registro não encontrado.", false);
+    });
+
+    qs("#btnHeaderDel")?.addEventListener("click", confirmDelete);
+
+    qs("#formExcecao")?.addEventListener("submit", submitExcecao);
+  });
+})();

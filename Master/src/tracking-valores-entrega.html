@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="pt-br" data-layout="vertical" data-topbar="dark" data-sidebar="dark" data-sidebar-size="lg">
+  <head>
+    @@include("partials/title-meta.html", {"title": "Valores de Entrega"})
+    @@include("partials/head-css.html")
+  </head>
+  <body>
+    <script>
+      if (!window.TRACK_API_URL)
+        window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+    </script>
+    <div id="layout-wrapper">
+      @@include("partials/menu.html")
+
+      <div class="main-content">
+        <div class="page-content">
+          <div class="container-fluid">
+
+            @@include("partials/page-title.html", {"pagetitle": "Configurações", "title": "Valores de Entrega"})
+
+            <!-- Card principal -->
+            <div class="card">
+              <div class="card-header d-flex align-items-center justify-content-between ent-toolbar">
+                <div class="d-flex gap-2 ent-actions">
+                  <button class="btn btn-primary" id="btnAddExcecao">
+                    <i class="ri-add-line align-bottom me-1"></i> Adicionar Exceção
+                  </button>
+                  <button class="btn btn-soft-primary" id="btnHeaderEdit" disabled>
+                    <i class="ri-edit-2-line align-bottom me-1"></i> Editar
+                  </button>
+                  <button class="btn btn-soft-danger" id="btnHeaderDel" disabled>
+                    <i class="ri-delete-bin-6-line align-bottom me-1"></i> Excluir
+                  </button>
+                </div>
+                <div class="d-flex align-items-center gap-2 ent-filters">
+                  <div class="search-box w-100">
+                    <input type="text" id="search" class="form-control" placeholder="Buscar por nome do entregador...">
+                    <i class="ri-search-line search-icon"></i>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card-body">
+                <!-- Bloco: Valores Globais -->
+                <div class="card border mb-4">
+                  <div class="card-header bg-light fw-semibold">Valores Globais por Serviço</div>
+                  <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                      <div class="col-md-4">
+                        <label for="globalShopee" class="form-label">Shopee</label>
+                        <input type="text" id="globalShopee" class="form-control moeda" placeholder="R$ 0,00">
+                      </div>
+                      <div class="col-md-4">
+                        <label for="globalMl" class="form-label">Flex</label>
+                        <input type="text" id="globalMl" class="form-control moeda" placeholder="R$ 0,00">
+                      </div>
+                      <div class="col-md-4">
+                        <label for="globalAvulso" class="form-label">Avulso</label>
+                        <input type="text" id="globalAvulso" class="form-control moeda" placeholder="R$ 0,00">
+                      </div>
+                      <div class="col-12">
+                        <button type="button" class="btn btn-success" id="btnSalvarGlobal">
+                          <i class="ri-save-line align-bottom me-1"></i> Salvar valores globais
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Abas -->
+                <ul class="nav nav-tabs nav-tabs-custom nav-success nav-justified mb-3" role="tablist">
+                  <li class="nav-item">
+                    <a class="nav-link active" data-bs-toggle="tab" href="#tabExcecoes" role="tab">Exceções</a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#tabAjuda" role="tab">Ajuda</a>
+                  </li>
+                </ul>
+
+                <div class="tab-content">
+                  <!-- Aba Exceções -->
+                  <div class="tab-pane fade show active" id="tabExcecoes" role="tabpanel">
+                    <div class="table-responsive table-card">
+                      <table class="table align-middle table-nowrap" id="tbl-excecoes">
+                        <thead class="table-light">
+                          <tr>
+                            <th style="width:56px;">Sel.</th>
+                            <th>Entregador</th>
+                            <th>Shopee</th>
+                            <th>Flex</th>
+                            <th>Avulso</th>
+                          </tr>
+                        </thead>
+                        <tbody id="tbody-excecoes"></tbody>
+                      </table>
+                      <div id="emptyExcecoes" class="text-center text-muted py-4 d-none">
+                        <lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop"
+                          colors="primary:#121331,secondary:#08a88a" style="width:60px;height:60px"></lord-icon>
+                        <div class="mt-2">Nenhuma exceção cadastrada.</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Aba Ajuda -->
+                  <div class="tab-pane fade" id="tabAjuda" role="tabpanel">
+                    <div class="alert alert-info mb-0">
+                      <h6 class="alert-heading">Como funciona</h6>
+                      <ul class="mb-0">
+                        <li><strong>Valores globais</strong> são aplicados a todos os entregadores.</li>
+                        <li><strong>Exceções</strong> substituem os valores globais apenas para o entregador selecionado.</li>
+                        <li>Campos vazios nas exceções herdam o valor global.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        @@include("partials/footer.html")
+      </div>
+    </div>
+
+    @@include("partials/customizer.html")
+    @@include("partials/vendor-scripts.html")
+
+    <!-- Offcanvas: Adicionar/Editar Exceção -->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="oc-excecao" aria-labelledby="ocExcecaoLabel"
+      style="width:480px" data-bs-scroll="false" data-bs-backdrop="true">
+      <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title" id="ocExcecaoLabel">Adicionar Exceção</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+      </div>
+      <form id="formExcecao" class="needs-validation d-flex flex-column h-100" novalidate>
+        <div class="offcanvas-body flex-grow-1">
+          <input type="hidden" id="excecaoEntregadorId" />
+          <div class="card mb-3">
+            <div class="card-header bg-light fw-semibold">Valores por Serviço</div>
+            <div class="card-body">
+              <div class="mb-3" id="groupSelectEntregador">
+                <label for="selectEntregador" class="form-label">Entregador</label>
+                <select id="selectEntregador" class="form-select"></select>
+              </div>
+              <div class="mb-3 d-none" id="groupNomeEntregador">
+                <label class="form-label">Entregador</label>
+                <p class="form-control-plaintext fw-medium" id="nomeEntregadorEdit"></p>
+              </div>
+              <p class="text-muted small mb-3">Campo vazio utiliza o valor global.</p>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label for="excecaoShopee" class="form-label">Shopee</label>
+                  <input type="text" id="excecaoShopee" class="form-control moeda" placeholder="R$ 0,00">
+                </div>
+                <div class="col-12">
+                  <label for="excecaoMl" class="form-label">Flex</label>
+                  <input type="text" id="excecaoMl" class="form-control moeda" placeholder="R$ 0,00">
+                </div>
+                <div class="col-12">
+                  <label for="excecaoAvulso" class="form-label">Avulso</label>
+                  <input type="text" id="excecaoAvulso" class="form-control moeda" placeholder="R$ 0,00">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body">
+          <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnSalvarExcecao">Salvar</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Modal de exclusão -->
+    <div class="modal fade" id="modalDelete" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-body text-center p-4">
+            <lord-icon src="https://cdn.lordicon.com/gsqxdxog.json" trigger="loop"
+              colors="primary:#f7b84b,secondary:#f06548" style="width:80px;height:80px"></lord-icon>
+            <h5 class="mt-3">Excluir exceção?</h5>
+            <p class="text-muted mb-4">O entregador voltará a usar os valores globais.</p>
+            <div class="hstack gap-2 justify-content-center">
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+              <button type="button" class="btn btn-danger" id="btnConfirmDelete">Excluir</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Máscara de moeda -->
+    <script>
+      document.addEventListener("input", (ev) => {
+        const el = ev.target;
+        if (!el.classList.contains("moeda")) return;
+        let v = el.value.replace(/\D/g, "");
+        v = (parseInt(v || "0", 10) / 100).toFixed(2) + "";
+        v = v.replace(".", ",");
+        el.value = "R$ " + v.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      });
+    </script>
+
+    <script src="assets/js/pages/tracking-valores-entrega.init.js?v=1"></script>
+    <script src="assets/js/app.js"></script>
+  </body>
+</html>
