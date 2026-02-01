@@ -819,7 +819,7 @@ function setupPagerEvents() {
       }
     });
 
-    fetch(`${window.TRACK_API_URL}/base`, { credentials:"include" })
+    fetch(`${window.TRACK_API_URL}/base/`, { credentials:"include" })
       .then(r => r.ok ? r.json() : [])
       .then(bases => {
         if (bulkBase){
