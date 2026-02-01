@@ -33,7 +33,15 @@ async function gerarPdfResumoColetas(resumo, base, de, ate) {
     return;
   }
 
-
+  /* ======================================================
+     Documento PDF
+  ====================================================== */
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4"
+  });
 
   /* ======================================================
      HEADER DO RELATÓRIO
