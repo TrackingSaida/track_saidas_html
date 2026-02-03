@@ -33,10 +33,19 @@
                         <label class="form-label">Data fim</label>
                         <input type="date" id="flt-data-fim" class="form-control">
                       </div>
-                      <div class="col-md-3">
+                      <div class="col-md-2">
                         <label class="form-label">Entregador</label>
                         <select id="flt-entregador" class="form-select">
                           <option value="">(Todos)</option>
+                        </select>
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label">Status</label>
+                        <select id="flt-status" class="form-select">
+                          <option value="">(Todos)</option>
+                          <option value="PENDENTE">PENDENTE</option>
+                          <option value="GERADO">GERADO</option>
+                          <option value="REAJUSTADO">REAJUSTADO</option>
                         </select>
                       </div>
                       <div class="col-md-2">
@@ -49,10 +58,14 @@
                           <i class="ri-eraser-line me-1"></i> Limpar
                         </button>
                       </div>
-                      <div class="col-md-2" id="wrapBtnGerarFechamento" title="Preencha Data início, Data fim e Entregador para gerar fechamento" data-bs-toggle="tooltip" data-bs-placement="top">
-                        <button type="button" id="btnGerarFechamento" class="btn btn-success w-100" disabled>
+                      <div class="col-md-2 dropdown" id="wrapBtnGerarFechamento" title="Preencha Data início, Data fim e Entregador" data-bs-toggle="tooltip" data-bs-placement="top">
+                        <button type="button" id="btnGerarFechamento" class="btn btn-success dropdown-toggle w-100" data-bs-toggle="dropdown" aria-expanded="false" disabled>
                           <i class="ri-file-add-line me-1"></i> Gerar Fechamento
                         </button>
+                        <ul class="dropdown-menu w-100" id="dropdownFechamentoMenu">
+                          <li><a class="dropdown-item" href="#" data-acao="gerar"><i class="ri-file-add-line me-1"></i>Gerar Fechamento</a></li>
+                          <li><a class="dropdown-item" href="#" data-acao="reajustar"><i class="ri-edit-line me-1"></i>Reajustar</a></li>
+                        </ul>
                       </div>
                     </div>
 
@@ -157,7 +170,10 @@
             <p class="text-muted small mb-3">Selecione o entregador e adicione ajustes manuais se necessário.</p>
             <div id="fechamentoAlertaDivergencia" class="alert alert-warning d-none mb-3" role="alert">
               <i class="ri-alert-line me-2"></i>
-              <div>O valor base foi alterado devido a mudanças nas entregas.</div>
+              <div class="mb-1">O valor base deste fechamento foi alterado.</div>
+              <div class="small mb-1"><span class="valor-base-anterior"></span></div>
+              <div class="small mb-2"><span class="valor-base-novo"></span></div>
+              <div>Deseja atualizar?</div>
               <div class="form-check mt-2">
                 <input class="form-check-input" type="checkbox" id="fech-atualizar-base" value="1">
                 <label class="form-check-label" for="fech-atualizar-base">Atualizar valor base com o valor recalculado</label>
@@ -169,65 +185,63 @@
             <input type="hidden" id="fech-periodo-fim">
 
             <div class="mb-3">
-              <label class="form-label small text-secondary">Entregador</label>
-              <div class="form-control bg-light" id="fech-entregador-nome" readonly>—</div>
+              <label class="form-label form-label-modal">Entregador</label>
+              <div class="form-control form-control-readonly" id="fech-entregador-nome">—</div>
             </div>
             <div class="mb-3">
-              <label class="form-label small text-secondary">Período</label>
-              <div class="form-control bg-light" id="fech-periodo-display" readonly>—</div>
+              <label class="form-label form-label-modal">Período</label>
+              <div class="form-control form-control-readonly" id="fech-periodo-display">—</div>
             </div>
             <div class="mb-3">
-              <label class="form-label small text-secondary">Valor base (saídas)</label>
-              <input type="text" id="fech-valor-base" class="form-control bg-light" readonly>
+              <label class="form-label form-label-modal">Valor base (saídas)</label>
+              <input type="text" id="fech-valor-base" class="form-control form-control-readonly" readonly>
             </div>
 
             <div class="mb-3">
-              <label class="form-label small fw-semibold">Ajustes Manuais</label>
+              <label class="form-label form-label-modal fw-semibold">Ajustes Manuais</label>
               <div id="fech-lista-ajustes" class="mb-2"></div>
-              <div class="row g-2 align-items-end">
+              <div class="row g-2 align-items-end fechamento-ajuste-row">
                 <div class="col-md-2">
-                  <label class="form-label small">Tipo</label>
+                  <label class="form-label form-label-modal small">Tipo</label>
                   <select id="fech-ajuste-tipo" class="form-select form-select-sm">
                     <option value="ADIÇÃO">+ Adição</option>
                     <option value="SUBTRAÇÃO">- Subtração</option>
                   </select>
                 </div>
                 <div class="col-md-2">
-                  <label class="form-label small">Valor (R$)</label>
-                  <input type="number" id="fech-ajuste-valor" class="form-control form-control-sm" step="0.01" min="0" value="0" placeholder="0,00">
+                  <label class="form-label form-label-modal small">Valor (R$)</label>
+                  <input type="number" id="fech-ajuste-valor" class="form-control form-control-sm fechamento-input-valor" step="0.01" min="0" value="0" placeholder="0,00">
                 </div>
                 <div class="col-md-5">
-                  <label class="form-label small">Justificativa</label>
-                  <input type="text" id="fech-ajuste-motivo" class="form-control form-control-sm" placeholder="Ex: Coletas realizadas (50 x R$ 2,00)">
+                  <label class="form-label form-label-modal small">Justificativa</label>
+                  <input type="text" id="fech-ajuste-motivo" class="form-control form-control-sm fechamento-input-motivo" placeholder="Ex: Coletas realizadas (50 x R$ 2,00)">
                 </div>
-                <div class="col-md-2">
-                  <button type="button" id="btnAdicionarAjuste" class="btn btn-primary btn-sm w-100">
+                <div class="col-md-2 d-flex flex-column">
+                  <label class="form-label form-label-modal small invisible" aria-hidden="true">Ação</label>
+                  <button type="button" id="btnAdicionarAjuste" class="btn btn-primary btn-sm w-100 fechamento-btn-add">
                     <i class="ri-add-line me-1"></i> Adicionar Ajuste
                   </button>
                 </div>
               </div>
             </div>
 
-            <div class="border-top pt-3">
-              <div class="d-flex justify-content-between mb-1">
-                <span class="text-secondary">Valor base (saídas):</span>
-                <span id="fech-total-base">R$ 0,00</span>
-              </div>
-              <div class="d-flex justify-content-between mb-1">
-                <span class="text-secondary">Total ajustes:</span>
-                <span id="fech-total-ajustes">R$ 0,00</span>
-              </div>
-              <div class="d-flex justify-content-between fw-bold fs-5 mt-2">
-                <span>TOTAL A PAGAR:</span>
-                <span id="fech-total-pagar">R$ 0,00</span>
+            <hr class="fechamento-resumo-separator">
+            <div class="fechamento-resumo-compacto">
+              <div class="d-flex flex-wrap align-items-center gap-3 gap-md-4">
+                <span class="form-label-modal"><span class="text-nowrap">Valor base (saídas):</span> <strong id="fech-total-base">R$ 0,00</strong></span>
+                <span class="form-label-modal"><span class="text-nowrap">Total ajustes:</span> <strong id="fech-total-ajustes">R$ 0,00</strong></span>
+                <span class="form-label-modal fw-bold ms-auto fechamento-total-label"><span class="text-nowrap">TOTAL A PAGAR:</span> <span id="fech-total-pagar" class="fechamento-total-valor">R$ 0,00</span></span>
               </div>
             </div>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="button" id="btnGerarFechamentoModal" class="btn btn-primary">
-              <i class="ri-file-add-line me-1"></i> Gerar Fechamento
-            </button>
+          <div class="modal-footer d-flex flex-wrap">
+            <p class="fechamento-microtexto w-100 small text-muted mb-2">Após gerar o fechamento, os valores ficam registrados e podem ser reajustados posteriormente.</p>
+            <div class="d-flex gap-2 ms-auto">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="button" id="btnGerarFechamentoModal" class="btn btn-primary">
+                <i class="ri-file-add-line me-1"></i> Gerar Fechamento
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -242,6 +256,7 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.min.js"></script>
+    <script src="assets/js/pages/tracking-entregadores-fechamento-pdf.js"></script>
     <script src="assets/js/pages/tracking-entregadores-resumo.init.js?v=2"></script>
     <script src="assets/js/app.js"></script>
   </body>

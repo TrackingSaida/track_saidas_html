@@ -454,3 +454,59 @@
   border: 1px solid rgba(220, 53, 69, 0.45);
   color: #dc3545; /* vermelho */
 }
+
+/* ===================================================
+   MODAL FECHAMENTO ENTREGADOR — UI/UX (WCAG, alinhamento, densidade)
+   =================================================== */
+#modalFechamento {
+  .form-label-modal {
+    color: #495057; /* cinza grafite, bom contraste em fundo branco */
+  }
+  .form-control-readonly {
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+    color: #495057;
+    cursor: default;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .form-control-readonly:focus {
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+    box-shadow: none;
+  }
+  input.form-control-readonly {
+    border: 1px solid #dee2e6;
+  }
+  .fechamento-input-motivo::placeholder {
+    color: #6c757d;
+    opacity: 1;
+  }
+  .fechamento-input-valor {
+    min-width: 6rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  .fechamento-resumo-compacto .form-label-modal {
+    color: #495057;
+  }
+  .fechamento-resumo-separator {
+    margin: 0.75rem 0 0;
+    border: 0;
+    border-top: 1px solid var(--bs-border-color, #dee2e6);
+    opacity: 0.9;
+  }
+  .fechamento-resumo-compacto {
+    padding-top: 0.75rem;
+  }
+  .fechamento-total-label {
+    font-weight: 700;
+  }
+  .fechamento-total-valor {
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+  .fechamento-microtexto {
+    line-height: 1.4;
+  }
+}

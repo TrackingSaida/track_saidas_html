@@ -34,11 +34,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       periodoFim: "",
       valorBase: 0,
     },
+    contextoFechamento: null, // { status, id_fechamento, periodo_inicio, periodo_fim, entregador_nome } quando um único entregador
+    entregadoresParaReajuste: [], // quando status GERADO sem entregador no filtro: lista de { entregador_id, entregador_nome, id_fechamento, periodo_inicio, periodo_fim }
+    modalFechamentoFecharConfirmado: false, // true ao fechar por Salvar com sucesso; evita "Descartar alterações?" nesse caso
   };
 
   const fltDataInicio = qs("#flt-data-inicio");
   const fltDataFim = qs("#flt-data-fim");
   const fltEntregador = qs("#flt-entregador");
+  const fltStatus = qs("#flt-status");
   const tbody = qs("#tbody-resumo");
   const emptyEl = qs("#emptyResumo");
   const pagerFirst = qs("#pager-first");
@@ -59,12 +63,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     SUBTRAÇÃO: "Ex: Adiantamento pago",
   };
 
-  function statusIcon(st, idFech, entNome) {
-    const s = (st || "PENDENTE").toUpperCase();
+  function celulaFechamento(r) {
+    const st = (r.fechamento_status || "PENDENTE").toUpperCase();
+    const idFech = r.id_fechamento || "";
     let html = "";
-    if (s === "PENDENTE") {
+    if (st === "PENDENTE") {
       html = '<span class="badge bg-warning-subtle text-warning" title="' + (STATUS_TOOLTIPS.PENDENTE || "Pendente") + '">🟡 PENDENTE</span>';
-    } else if (s === "GERADO") {
+    } else if (st === "GERADO") {
       html = '<span class="badge bg-success-subtle text-success" title="' + (STATUS_TOOLTIPS.GERADO || "Gerado") + '">🟢 GERADO</span>';
       if (idFech) {
         html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
@@ -119,17 +124,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     const totalPagar = base + totalAjustes;
 
     qs("#fech-total-base").textContent = formatarMoeda(base);
-    qs("#fech-total-ajustes").textContent = formatarMoeda(totalAjustes);
-    qs("#fech-total-ajustes").className = totalAjustes < 0 ? "text-danger" : "";
+    const elAjustes = qs("#fech-total-ajustes");
+    if (elAjustes) {
+      elAjustes.textContent = formatarMoeda(totalAjustes);
+      elAjustes.className = totalAjustes < 0 ? "text-danger" : "";
+    }
     qs("#fech-total-pagar").textContent = formatarMoeda(totalPagar);
+  }
+
+  function temAlteracoesPendentesFechamento() {
+    if (state.ajustesFechamento.length > 0) return true;
+    const valor = parseFloat(qs("#fech-ajuste-valor")?.value || 0) || 0;
+    const motivo = (qs("#fech-ajuste-motivo")?.value || "").trim();
+    return valor > 0 || motivo.length > 0;
   }
 
   function renderListaAjustes() {
     const list = qs("#fech-lista-ajustes");
     if (!list) return;
-    list.innerHTML = state.ajustesFechamento
+    const withIdx = state.ajustesFechamento.map((a, idx) => ({ ...a, _idx: idx }));
+    const ordenado = withIdx.slice().sort((a, b) => {
+      if (a.tipo !== b.tipo) return a.tipo === "ADIÇÃO" ? -1 : 1;
+      return a._idx - b._idx;
+    });
+    list.innerHTML = ordenado
       .map(
-        (a, idx) =>
+        (a) =>
           '<div class="d-flex align-items-center justify-content-between py-2 px-2 mb-1 rounded ' +
           (a.tipo === "ADIÇÃO" ? "bg-success bg-opacity-10" : "bg-danger bg-opacity-10") + '">' +
           '<span class="small">' +
@@ -139,7 +159,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           (a.motivo || "—") +
           "</span>" +
           '<button type="button" class="btn btn-link btn-sm text-danger p-0 btn-remover-ajuste" data-idx="' +
-          idx +
+          a._idx +
           '"><i class="ri-delete-bin-line"></i></button>' +
           "</div>"
       )
@@ -164,13 +184,47 @@ document.addEventListener("DOMContentLoaded", async () => {
   function atualizarBtnGerarFechamento() {
     const btn = qs("#btnGerarFechamento");
     const wrap = qs("#wrapBtnGerarFechamento");
+    const menu = qs("#dropdownFechamentoMenu");
     if (!btn || !wrap) return;
     const dataInicio = fltDataInicio?.value || "";
     const dataFim = fltDataFim?.value || "";
     const entregador = fltEntregador?.value || "";
-    const habilitado = !!(dataInicio && dataFim && entregador);
-    btn.disabled = !habilitado;
-    wrap.title = habilitado ? "Gerar fechamento para o período e entregador selecionados" : "Preencha Data início, Data fim e Entregador para gerar fechamento";
+    const statusFiltro = (fltStatus?.value || "").trim().toUpperCase();
+    const habilitadoPeriodoEntregador = !!(dataInicio && dataFim && entregador);
+    const ctx = state.contextoFechamento;
+    const listaReajuste = state.entregadoresParaReajuste || [];
+    // Reajustar habilitado só por status GERADO: um contexto único ou vários entregadores para escolher
+    const podeReajustarSóStatus = statusFiltro === "GERADO" && (ctx?.id_fechamento || listaReajuste.length > 0);
+    const status = (habilitadoPeriodoEntregador && ctx ? (ctx.status || "PENDENTE").toUpperCase() : null) || (podeReajustarSóStatus ? "GERADO" : "PENDENTE");
+
+    const itemGerar = menu?.querySelector('[data-acao="gerar"]')?.closest("li");
+    const itemReajustar = menu?.querySelector('[data-acao="reajustar"]')?.closest("li");
+
+    if (!habilitadoPeriodoEntregador && !podeReajustarSóStatus) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
+      wrap.title = "Preencha Data início, Data fim e Entregador para gerar fechamento; ou filtre por Status GERADO para reajustar.";
+      if (itemGerar) itemGerar.classList.add("d-none");
+      if (itemReajustar) itemReajustar.classList.add("d-none");
+    } else if (status === "REAJUSTADO") {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="ri-check-double-line me-1"></i> Reajustado';
+      wrap.title = "Este fechamento já foi reajustado.";
+      if (itemGerar) itemGerar.classList.add("d-none");
+      if (itemReajustar) itemReajustar.classList.add("d-none");
+    } else if (status === "GERADO") {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ri-edit-line me-1"></i> Reajustar';
+      wrap.title = listaReajuste.length > 1 ? "Reajustar fechamento: selecione o entregador na lista." : "Reajustar fechamento do período e entregador.";
+      if (itemGerar) itemGerar.classList.add("d-none");
+      if (itemReajustar) itemReajustar.classList.remove("d-none");
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
+      wrap.title = "Gerar fechamento para o período e entregador selecionados.";
+      if (itemGerar) itemGerar.classList.remove("d-none");
+      if (itemReajustar) itemReajustar.classList.add("d-none");
+    }
     wrap.setAttribute("data-bs-original-title", wrap.title);
   }
 
@@ -196,8 +250,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const avulsoQtde = r.avulso?.qtde ?? 0;
         const totalEntregas = flexQtde + shopeeQtde + avulsoQtde;
         const valorTotal = r.total_dia != null ? formatarMoeda(r.total_dia) : "—";
-        const status = r.fechamento_status || "PENDENTE";
-        const idFech = r.id_fechamento || "";
+        const celFech = celulaFechamento(r);
 
         return (
           "<tr>" +
@@ -208,7 +261,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           '<td class="text-center">' + avulsoQtde + "</td>" +
           '<td class="text-center">' + totalEntregas + "</td>" +
           '<td class="text-end">' + valorTotal + "</td>" +
-          '<td class="text-center">' + statusIcon(status, idFech) + "</td>" +
+          '<td class="text-center">' + celFech + "</td>" +
           "</tr>"
         );
       })
@@ -217,127 +270,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     tbody.querySelectorAll(".btn-pdf-fechamento").forEach((btn) => {
       btn.addEventListener("click", () => {
         const idFech = parseInt(btn.dataset.idFech, 10);
-        gerarPdfFechamento(idFech);
+        if (window.TrackSaidasFechamentoPdf?.gerar) window.TrackSaidasFechamentoPdf.gerar(idFech);
       });
     });
-  }
-
-  async function gerarPdfFechamento(idFechamento, entNomeParam, periodoInicioParam, periodoFimParam) {
-    try {
-      const fechRes = await fetch(`${API_FECHAMENTOS}/${idFechamento}`, { credentials: "include" });
-      if (!fechRes.ok) throw new Error("Erro ao carregar fechamento");
-      const fech = await fechRes.json();
-      const periodoInicio = periodoInicioParam || fech.periodo_inicio || "";
-      const periodoFim = periodoFimParam || fech.periodo_fim || "";
-      const entId = fech.id_entregador || "";
-
-      const resumoRes = await fetch(
-        `${API_RESUMO}?data_inicio=${periodoInicio}&data_fim=${periodoFim}&entregador_id=${entId}&pageSize=500`,
-        { credentials: "include" }
-      );
-      if (!resumoRes.ok) throw new Error("Erro ao carregar resumo");
-      const resumoData = await resumoRes.json();
-      const itensDiarios = Array.isArray(resumoData.items) ? resumoData.items : [];
-      const entNome = entNomeParam || fech.username_entregador || "entregador";
-      const dIni = (periodoInicio || "").split("-");
-      const dFim = (periodoFim || "").split("-");
-      const ddIni = dIni.length >= 3 ? dIni[2] : "01";
-      const ddFim = dFim.length >= 3 ? dFim[2] : "01";
-      const mm = dFim.length >= 2 ? dFim[1] : dIni.length >= 2 ? dIni[1] : "01";
-      const nomeArq = "fechamento_" + String(entNome).replace(/\s+/g, "_") + "_" + ddIni + "_a_" + ddFim + "_" + mm + ".pdf";
-
-      const ajustes = [];
-      if ((fech.valor_adicao || 0) > 0) ajustes.push({ tipo: "ADIÇÃO", valor: fech.valor_adicao, motivo: fech.motivo_adicao || "" });
-      if ((fech.valor_subtracao || 0) > 0) ajustes.push({ tipo: "SUBTRAÇÃO", valor: fech.valor_subtracao, motivo: fech.motivo_subtracao || "" });
-
-      gerarPdfJs(fech, itensDiarios, ajustes, nomeArq);
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao gerar PDF.");
-    }
-  }
-
-  function gerarPdfJs(fech, itensDiarios, ajustes, nomeArq) {
-    const jspdfLib = window.jspdf || window.jspdf;
-    if (!jspdfLib || !jspdfLib.jsPDF) {
-      alert("Biblioteca jsPDF não carregada.");
-      return;
-    }
-    const { jsPDF } = jspdfLib;
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-
-    const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v) || 0);
-    const fmtData = (ymd) => {
-      if (!ymd) return "—";
-      const [y, m, d] = String(ymd).split("-");
-      return d && m && y ? `${d}/${m}/${y}` : ymd;
-    };
-
-    let y = 15;
-    doc.setFontSize(16);
-    doc.text("FECHAMENTO DE ENTREGAS", 105, y, { align: "center" });
-    y += 10;
-    doc.setFontSize(10);
-    doc.text("Entregador: " + (fech.username_entregador || fech.entregador_nome || "—"), 14, y);
-    y += 6;
-    doc.text("Período: " + fmtData(fech.periodo_inicio) + " a " + fmtData(fech.periodo_fim), 14, y);
-    y += 6;
-    doc.text("Data de geração: " + new Date().toLocaleDateString("pt-BR"), 14, y);
-    y += 12;
-
-    const colsDiaria = ["Data", "Shopee", "Mercado Livre", "Avulso", "Total", "Valor do dia"];
-    const rowsDiaria = itensDiarios.map((r) => [
-      fmtData(r.data),
-      r.shopee?.qtde ?? 0,
-      r.flex?.qtde ?? 0,
-      r.avulso?.qtde ?? 0,
-      (r.shopee?.qtde ?? 0) + (r.flex?.qtde ?? 0) + (r.avulso?.qtde ?? 0),
-      fmt(r.total_dia),
-    ]);
-
-    doc.autoTable({ startY: y, head: [colsDiaria], body: rowsDiaria, theme: "grid" });
-    y = doc.lastAutoTable.finalY + 10;
-
-    const sumShopee = itensDiarios.reduce((s, r) => s + (r.shopee?.qtde ?? 0), 0);
-    const sumFlex = itensDiarios.reduce((s, r) => s + (r.flex?.qtde ?? 0), 0);
-    const sumAvulso = itensDiarios.reduce((s, r) => s + (r.avulso?.qtde ?? 0), 0);
-    doc.setFontSize(11);
-    doc.text("Resumo das Saídas", 14, y);
-    y += 6;
-    doc.setFontSize(10);
-    doc.text("Shopee: " + sumShopee + " saídas | Mercado Livre: " + sumFlex + " saídas | Avulso: " + sumAvulso + " saídas | Total: " + (sumShopee + sumFlex + sumAvulso) + " | Valor Base: " + fmt(fech.valor_base), 14, y);
-    y += 12;
-
-    if (ajustes.length) {
-      doc.setFontSize(11);
-      doc.text("Ajustes Manuais", 14, y);
-      y += 6;
-      doc.autoTable({
-        startY: y,
-        head: [["Tipo", "Justificativa", "Valor"]],
-        body: ajustes.map((a) => [(a.tipo === "ADIÇÃO" ? "+ Adição" : "- Subtração"), a.motivo || "—", (a.tipo === "ADIÇÃO" ? "+" : "-") + fmt(a.valor)]),
-        theme: "grid",
-      });
-      y = doc.lastAutoTable.finalY + 8;
-    }
-
-    doc.setFontSize(11);
-    doc.text("Resumo Financeiro", 14, y);
-    y += 6;
-    doc.setFontSize(10);
-    doc.text("Valor Base (Saídas): " + fmt(fech.valor_base), 14, y);
-    y += 6;
-    const totalAjustes = (fech.valor_adicao || 0) - (fech.valor_subtracao || 0);
-    doc.text("Total Ajustes: " + fmt(totalAjustes), 14, y);
-    y += 6;
-    doc.setFontSize(12);
-    doc.text("TOTAL A PAGAR: " + fmt(fech.valor_final), 14, y);
-    y += 12;
-
-    doc.setFontSize(9);
-    doc.text("Documento gerado automaticamente pelo Sistema de Gestão de Entregas", 105, doc.internal.pageSize.height - 10, { align: "center" });
-
-    doc.save(nomeArq);
   }
 
   async function abrirModalFechamento(modoEdicao, idFech, entId, periodoInicio, periodoFim, entNome) {
@@ -345,6 +280,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     state.divergenciaValorBase = false;
     state.valorBaseRecalculado = null;
     state.ajustesFechamento = [];
+
+    const titleEl = qs("#modalFechamentoLabel");
+    const btnModal = qs("#btnGerarFechamentoModal");
+    if (state.modoEdicao) {
+      if (titleEl) titleEl.innerHTML = '<i class="ri-user-line me-2"></i>Reajustar Fechamento de Entregador';
+      if (btnModal) btnModal.innerHTML = '<i class="ri-save-line me-1"></i> Salvar Reajuste';
+    } else {
+      if (titleEl) titleEl.innerHTML = '<i class="ri-user-line me-2"></i>Gerar Fechamento de Entregador';
+      if (btnModal) btnModal.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
+    }
 
     qs("#fech-id").value = idFech || "";
     qs("#fech-entregador-id").value = entId || "";
@@ -367,12 +312,30 @@ document.addEventListener("DOMContentLoaded", async () => {
         if ((data.valor_subtracao || 0) > 0) state.ajustesFechamento.push({ tipo: "SUBTRAÇÃO", valor: data.valor_subtracao, motivo: data.motivo_subtracao || "" });
         if (data.divergencia_valor_base && data.valor_base_recalculado != null) {
           state.divergenciaValorBase = true;
-          if (alertDiverg) alertDiverg.classList.remove("d-none");
-          qs("#fech-atualizar-base").checked = false;
+          if (alertDiverg) alertDiverg.classList.add("d-none");
+          const valorAntigo = Number(data.valor_base || 0);
+          const valorNovo = Number(data.valor_base_recalculado || 0);
+          const atualizar = window.Swal ? (await Swal.fire({
+            icon: "warning",
+            title: "Valor base alterado",
+            html: "O valor base deste fechamento foi alterado.<br><br><strong>Valor anterior:</strong> " + formatarMoeda(valorAntigo) + "<br><strong>Novo valor:</strong> " + formatarMoeda(valorNovo) + "<br><br>Deseja atualizar?",
+            showCancelButton: true,
+            confirmButtonText: "Atualizar",
+            cancelButtonText: "Manter valor antigo",
+            confirmButtonColor: "#0d6efd",
+          })).isConfirmed : confirm("Deseja atualizar o valor base para " + formatarMoeda(valorNovo) + "?");
+          if (atualizar) {
+            state.fechModal.valorBase = valorNovo;
+            qs("#fech-valor-base").value = formatarMoeda(valorNovo);
+            if (qs("#fech-atualizar-base")) qs("#fech-atualizar-base").checked = true;
+          } else {
+            if (qs("#fech-atualizar-base")) qs("#fech-atualizar-base").checked = false;
+          }
         }
       } catch (err) {
         console.error(err);
-        alert("Erro ao carregar fechamento.");
+        if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao carregar fechamento." });
+        else alert("Erro ao carregar fechamento.");
         return;
       }
     } else {
@@ -421,8 +384,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     atualizarPlaceholderMotivo();
     renderListaAjustes();
     atualizarTotaisModal();
+    state.modalFechamentoFecharConfirmado = false;
     const modal = new bootstrap.Modal(qs("#modalFechamento"));
     modal.show();
+  }
+
+  const modalFechamentoEl = qs("#modalFechamento");
+  if (modalFechamentoEl) {
+    modalFechamentoEl.addEventListener("hide.bs.modal", async (e) => {
+      if (state.modalFechamentoFecharConfirmado) return;
+      if (!temAlteracoesPendentesFechamento()) return;
+      e.preventDefault();
+      const confirmado = window.Swal
+        ? (await Swal.fire({ icon: "question", title: "Descartar alterações?", text: "Deseja descartar as alterações?", showCancelButton: true, confirmButtonText: "Sim, descartar", cancelButtonText: "Cancelar", confirmButtonColor: "#dc3545" })).isConfirmed
+        : confirm("Deseja descartar as alterações?");
+      if (!confirmado) return;
+      state.modalFechamentoFecharConfirmado = true;
+      bootstrap.Modal.getInstance(modalFechamentoEl)?.hide();
+    });
+    modalFechamentoEl.addEventListener("hidden.bs.modal", () => {
+      state.modalFechamentoFecharConfirmado = false;
+    });
   }
 
   async function salvarEGerarFechamento() {
@@ -459,7 +441,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         fechSalvo = await res.json();
       } else {
         if (!periodoInicio || !periodoFim || !entId || entId <= 0) {
-          alert("Informe período e entregador.");
+          if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: "Informe período e entregador." });
+          else alert("Informe período e entregador.");
           return;
         }
         const body = { id_entregador: entId, periodo_inicio: periodoInicio, periodo_fim: periodoFim, valor_adicao: valorAdicao, motivo_adicao: motivoAdicao || null, valor_subtracao: valorSubtracao, motivo_subtracao: motivoSubtracao || null };
@@ -471,17 +454,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         fechSalvo = await res.json();
       }
 
+      state.modalFechamentoFecharConfirmado = true;
       bootstrap.Modal.getInstance(qs("#modalFechamento"))?.hide();
       await carregarResumo();
 
+      if (window.Swal) {
+        if (state.modoEdicao) Swal.fire({ icon: "success", title: "Reajuste salvo", text: "O reajuste foi salvo com sucesso." });
+        else Swal.fire({ icon: "success", title: "Fechamento gerado", text: "Fechamento gerado com sucesso." });
+      }
+
       const idNovo = fechSalvo?.id_fechamento;
-      if (idNovo) {
+      if (idNovo && window.TrackSaidasFechamentoPdf?.gerar) {
         const entLabel = qs("#fech-entregador-nome")?.textContent || fltEntregador?.options[fltEntregador.selectedIndex]?.text || entNome;
-        gerarPdfFechamento(idNovo, entLabel, periodoInicio, periodoFim);
+        window.TrackSaidasFechamentoPdf.gerar(idNovo, entLabel, periodoInicio, periodoFim);
       }
     } catch (err) {
       console.error(err);
-      alert("Erro: " + (err.message || "Falha ao salvar."));
+      if (window.Swal) Swal.fire({ icon: "error", title: "Erro ao salvar", text: err.message || "Falha ao salvar. Tente novamente." });
+      else alert("Erro: " + (err.message || "Falha ao salvar."));
     } finally {
       if (btnSalvar) btnSalvar.disabled = false;
     }
@@ -525,6 +515,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (dataInicio) params.append("data_inicio", dataInicio);
     if (dataFim) params.append("data_fim", dataFim);
     if (entregadorId) params.append("entregador_id", entregadorId);
+    const statusFiltro = fltStatus?.value?.trim() || "";
+    if (statusFiltro) params.append("fechamento_status", statusFiltro);
 
     try {
       const res = await fetch(`${API_RESUMO}?${params.toString()}`, { credentials: "include" });
@@ -537,10 +529,49 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       const label = entregadorId ? (fltEntregador.options[fltEntregador.selectedIndex]?.text || "Entregador") : "Todos";
       state.entregadorLabel = label;
-      updateCards(data);
 
+      state.entregadoresParaReajuste = [];
+      if (entregadorId && state.items.length > 0) {
+        const primeiro = state.items.find((i) => String(i.entregador_id) === String(entregadorId)) || state.items[0];
+        state.contextoFechamento = {
+          status: (primeiro.fechamento_status || "PENDENTE").toUpperCase(),
+          id_fechamento: primeiro.id_fechamento || null,
+          periodo_inicio: primeiro.periodo_inicio || dataInicio,
+          periodo_fim: primeiro.periodo_fim || dataFim,
+          entregador_nome: primeiro.entregador_nome || label,
+        };
+      } else if (!entregadorId && statusFiltro === "GERADO" && state.items.length > 0) {
+        const seen = new Set();
+        const lista = [];
+        state.items.forEach((i) => {
+          const id = i.entregador_id;
+          if (id != null && !seen.has(id)) {
+            seen.add(id);
+            lista.push({
+              entregador_id: id,
+              entregador_nome: i.entregador_nome || "—",
+              id_fechamento: i.id_fechamento || null,
+              periodo_inicio: i.periodo_inicio || dataInicio,
+              periodo_fim: i.periodo_fim || dataFim,
+            });
+          }
+        });
+        state.entregadoresParaReajuste = lista.filter((e) => e.id_fechamento != null);
+        if (lista.length === 1 && state.entregadoresParaReajuste.length === 1) {
+          const u = state.entregadoresParaReajuste[0];
+          state.contextoFechamento = { status: "GERADO", id_fechamento: u.id_fechamento, periodo_inicio: u.periodo_inicio, periodo_fim: u.periodo_fim, entregador_nome: u.entregador_nome, entregador_id: u.entregador_id };
+          state.entregadoresParaReajuste = [];
+        } else {
+          state.contextoFechamento = state.entregadoresParaReajuste.length > 0 ? { status: "GERADO", id_fechamento: null, periodo_inicio: dataInicio, periodo_fim: dataFim, entregador_nome: "" } : null;
+        }
+      } else {
+        state.contextoFechamento = entregadorId && dataInicio && dataFim ? { status: "PENDENTE", id_fechamento: null, periodo_inicio: dataInicio, periodo_fim: dataFim, entregador_nome: label } : null;
+      }
+
+      updateCards(data);
       renderTable(state.items);
       updatePager();
+      atualizarBtnGerarFechamento();
       if (msgEl) msgEl.innerHTML = "";
     } catch (err) {
       console.error(err);
@@ -549,21 +580,59 @@ document.addEventListener("DOMContentLoaded", async () => {
       state.total = 0;
       state.totalPages = 0;
       state.items = [];
+      state.contextoFechamento = null;
       renderTable([]);
       updatePager();
+      atualizarBtnGerarFechamento();
     }
   }
 
   qs("#btnBuscar")?.addEventListener("click", () => { state.page = 1; carregarResumo(); });
-  qs("#btnGerarFechamento")?.addEventListener("click", () => {
+
+  qs("#dropdownFechamentoMenu")?.addEventListener("click", async (e) => {
+    const item = e.target.closest("[data-acao]");
+    if (!item || item.tagName !== "A") return;
+    e.preventDefault();
+    const acao = item.getAttribute("data-acao");
+    const ctx = state.contextoFechamento;
+    const listaReajuste = state.entregadoresParaReajuste || [];
     const periodoInicio = fltDataInicio?.value || "";
     const periodoFim = fltDataFim?.value || "";
     const entId = parseInt(fltEntregador?.value || "0", 10);
     const entNome = fltEntregador?.options[fltEntregador.selectedIndex]?.text || "";
-    if (periodoInicio && periodoFim && entId > 0) abrirModalFechamento(false, null, entId, periodoInicio, periodoFim, entNome);
+
+    if (acao === "reajustar") {
+      if (listaReajuste.length > 1) {
+        const opcoes = listaReajuste.map((e) => ({ id: e.entregador_id, nome: e.entregador_nome, ...e }));
+        const { value: selecionado } = await window.Swal.fire({
+          title: "Selecione o entregador",
+          html: "Há mais de um entregador com fechamento GERADO. Escolha qual deseja reajustar.",
+          showCancelButton: true,
+          cancelButtonText: "Cancelar",
+          confirmButtonText: "Reajustar",
+          input: "select",
+          inputOptions: opcoes.reduce((acc, o) => { acc[o.id] = o.nome; return acc; }, {}),
+          inputPlaceholder: "Selecione o entregador",
+          inputValidator: (v) => (!v ? "Selecione um entregador" : null),
+        });
+        if (selecionado) {
+          const u = opcoes.find((o) => String(o.id) === String(selecionado));
+          if (u?.id_fechamento) abrirModalFechamento(true, u.id_fechamento, u.entregador_id, u.periodo_inicio, u.periodo_fim, u.entregador_nome);
+        }
+      } else if (ctx?.id_fechamento) {
+        const id = entId > 0 ? entId : (ctx.entregador_id != null ? ctx.entregador_id : 0);
+        const nome = ctx.entregador_nome || entNome;
+        abrirModalFechamento(true, ctx.id_fechamento, id, ctx.periodo_inicio, ctx.periodo_fim, nome);
+      }
+      return;
+    }
+    if (acao === "gerar") {
+      if (!periodoInicio || !periodoFim || entId <= 0) return;
+      abrirModalFechamento(false, null, entId, periodoInicio, periodoFim, entNome);
+    }
   });
 
-  [fltDataInicio, fltDataFim, fltEntregador].forEach((el) => {
+  [fltDataInicio, fltDataFim, fltEntregador, fltStatus].forEach((el) => {
     el?.addEventListener("change", atualizarBtnGerarFechamento);
     el?.addEventListener("input", atualizarBtnGerarFechamento);
   });
@@ -572,8 +641,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (fltDataInicio) fltDataInicio.value = "";
     if (fltDataFim) fltDataFim.value = "";
     if (fltEntregador) fltEntregador.value = "";
+    if (fltStatus) fltStatus.value = "";
     state.page = 1;
     state.entregadorLabel = "Todos";
+    state.contextoFechamento = null;
     atualizarBtnGerarFechamento();
     carregarResumo();
   });
