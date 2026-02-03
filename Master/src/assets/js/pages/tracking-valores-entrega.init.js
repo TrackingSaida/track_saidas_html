@@ -49,6 +49,13 @@
     return "R$ " + n.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   }
 
+  function formatMoedaGrid(val) {
+    if (val == null || val === "") return "—";
+    const n = Number(val);
+    if (isNaN(n)) return "—";
+    return "R$ " + n.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+
   async function http(url, options = {}) {
     const opts = {
       credentials: "include",
@@ -72,23 +79,38 @@
     }
   }
 
-  // ---------- Valores globais ----------
+  // ---------- Valores globais (grid = estado persistido) ----------
+  const offcanvasGlobal = new bootstrap.Offcanvas("#oc-global");
+
   async function loadPrecosGlobal() {
     try {
       const data = await http(API_PRECOS_GLOBAL);
-      qs("#globalShopee").value = formatMoedaInput(data?.shopee_valor);
-      qs("#globalMl").value = formatMoedaInput(data?.ml_valor);
-      qs("#globalAvulso").value = formatMoedaInput(data?.avulso_valor);
+      qs("#globalShopeeVal").textContent = formatMoedaGrid(data?.shopee_valor);
+      qs("#globalMlVal").textContent = formatMoedaGrid(data?.ml_valor);
+      qs("#globalAvulsoVal").textContent = formatMoedaGrid(data?.avulso_valor);
     } catch (err) {
       console.error(err);
       toast("Falha ao carregar valores globais.", false);
     }
   }
 
-  async function savePrecosGlobal() {
-    const shopee = parseMoeda(qs("#globalShopee").value);
-    const ml = parseMoeda(qs("#globalMl").value);
-    const avulso = parseMoeda(qs("#globalAvulso").value);
+  function openGlobalEdit() {
+    http(API_PRECOS_GLOBAL).then((data) => {
+      qs("#editGlobalShopee").value = formatMoedaInput(data?.shopee_valor);
+      qs("#editGlobalMl").value = formatMoedaInput(data?.ml_valor);
+      qs("#editGlobalAvulso").value = formatMoedaInput(data?.avulso_valor);
+      offcanvasGlobal.show();
+    }).catch((err) => {
+      console.error(err);
+      toast("Falha ao carregar valores para edição.", false);
+    });
+  }
+
+  async function savePrecosGlobal(ev) {
+    ev.preventDefault();
+    const shopee = parseMoeda(qs("#editGlobalShopee").value);
+    const ml = parseMoeda(qs("#editGlobalMl").value);
+    const avulso = parseMoeda(qs("#editGlobalAvulso").value);
     const payload = {};
     if (shopee != null) payload.shopee_valor = shopee;
     if (ml != null) payload.ml_valor = ml;
@@ -103,6 +125,7 @@
         body: JSON.stringify(payload),
       });
       toast("Valores globais salvos.");
+      offcanvasGlobal.hide();
       await loadPrecosGlobal();
     } catch (err) {
       console.error(err);
@@ -270,7 +293,8 @@
     await loadPrecosGlobal();
     await loadExcecoes();
 
-    qs("#btnSalvarGlobal")?.addEventListener("click", savePrecosGlobal);
+    qs("#btnEditarGlobal")?.addEventListener("click", openGlobalEdit);
+    qs("#formGlobal")?.addEventListener("submit", savePrecosGlobal);
 
     const tbody = qs("#tbody-excecoes");
     tbody?.addEventListener("click", (e) => {

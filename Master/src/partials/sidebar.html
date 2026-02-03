@@ -155,7 +155,7 @@ const config = serverMenu.find(s =>
 );
 
 
-    // 🔹 Monta grupo Operação → Registrar / Registros / Resumos
+    // 🔹 Monta grupo Operação → Leituras / Registros
 let opHTML = "";
 
 if (operacao) {
@@ -163,7 +163,6 @@ if (operacao) {
 
   const grupoRegistrar = opItems.filter(i => i.group === "leituras");
   const grupoRegistros = opItems.filter(i => i.group === "registros");
-  const grupoResumos   = opItems.filter(i => i.group === "resumos");
 
   if (grupoRegistrar.length) {
     opHTML += makeGroup(
@@ -182,16 +181,24 @@ if (operacao) {
       grupoRegistros.map(i => makeItem(i.href, i.label)).join("")
     );
   }
-
-  if (grupoResumos.length) {
-    opHTML += makeGroup(
-      toId("Resumos"),
-      "ri-bar-chart-2-line me-1",
-      "Resumos",
-      grupoResumos.map(i => makeItem(i.href, i.label)).join("")
-    );
-  }
 }
+
+    // 🔹 Monta grupo Financeiro → Resumo
+    const financeiro = serverMenu.find(s =>
+      (s.section || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes("financeiro")
+    );
+    let finHTML = "";
+    if (financeiro) {
+      const grupoResumos = (financeiro.items || []).filter(i => i.group === "resumos");
+      if (grupoResumos.length) {
+        finHTML += makeGroup(
+          toId("FinanceiroResumo"),
+          "ri-bar-chart-2-line me-1",
+          "Resumo",
+          grupoResumos.map(i => makeItem(i.href, i.label)).join("")
+        );
+      }
+    }
 
 
     // 🔹 Monta dashboards e config somente se vierem do backend
@@ -205,6 +212,7 @@ if (operacao) {
     // 🔹 Monta HTML final, apenas se existir
     let finalHTML = "";
     if (operacao) finalHTML += makeGroup(toId(operacao.section), operacao.icon, operacao.section, opHTML);
+    if (financeiro && finHTML) finalHTML += makeGroup(toId(financeiro.section), financeiro.icon, financeiro.section, finHTML);
     if (dashboards) finalHTML += makeGroup(toId(dashboards.section), dashboards.icon, dashboards.section, dashHTML);
     if (config) finalHTML += makeGroup(toId(config.section), config.icon, config.section, cfgHTML);
 
