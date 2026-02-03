@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    @@include("partials/title-meta.html", {"title": "TrackSaídas — Contabilidade"})
+    @@include("partials/head-css.html")
+  </head>
+  <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
+    <div id="layout-wrapper">
+      @@include("partials/menu.html")
+
+      <div class="main-content">
+        <div class="page-content">
+          <div class="container-fluid">
+
+            @@include("partials/page-title.html", {"pagetitle": "Financeiro", "title": "Contabilidade"})
+
+            <div class="row">
+              <div class="col-12">
+                <div class="card">
+                  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <h4 class="card-title mb-0">Análise financeira detalhada</h4>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                      <div class="d-flex align-items-center gap-1 flex-wrap">
+                        <label class="form-label mb-0 text-nowrap">Período</label>
+                        <select id="flt-preset" class="form-select form-select-sm" style="width: auto; min-width: 180px;">
+                          <option value="quinzena_atual">Quinzena atual</option>
+                          <option value="quinzena_anterior">Quinzena anterior</option>
+                          <option value="mes_atual">Mês atual</option>
+                          <option value="personalizado">Personalizado</option>
+                        </select>
+                        <input type="date" id="flt-data-inicio" class="form-control form-control-sm" style="width: 130px;" title="Data início">
+                        <span class="text-muted">a</span>
+                        <input type="date" id="flt-data-fim" class="form-control form-control-sm" style="width: 130px;" title="Data fim">
+                      </div>
+                      <button type="button" id="btnAplicar" class="btn btn-primary btn-sm">
+                        <i class="ri-check-line me-1"></i> Aplicar
+                      </button>
+                      <button type="button" id="btnLimpar" class="btn btn-outline-secondary btn-sm">
+                        <i class="ri-eraser-line me-1"></i> Limpar
+                      </button>
+                    </div>
+                  </div>
+                  <div class="card-body">
+                    <div id="resumoMsg" class="mb-3"></div>
+                    <div id="avisoFechamentos" class="alert alert-info d-none mb-3" role="alert">
+                      <i class="ri-information-line me-2"></i>
+                      <span id="avisoFechamentosTexto"></span>
+                    </div>
+                   
+
+                    <!-- Cards principais -->
+                    <div class="row g-3 mb-4">
+                      <div class="col-6 col-lg-3">
+                        <div class="card border-0 shadow-sm bg-success bg-opacity-10">
+                          <div class="card-body">
+                            <div class="d-flex align-items-center">
+                              <div class="flex-shrink-0 me-2"><i class="ri-wallet-3-line fs-2 text-success"></i></div>
+                              <div>
+                                <span class="text-uppercase small text-muted fw-semibold">Receita bruta</span>
+                                <div class="fs-5 fw-bold text-success" id="card-receita">R$ 0,00</div>
+                                <span class="small text-muted d-block" id="card-receita-detalhe">— coletas</span>
+                                <span class="small text-muted d-block" id="card-receita-variacao"></span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="col-6 col-lg-3">
+                        <div class="card border-0 shadow-sm bg-danger bg-opacity-10">
+                          <div class="card-body">
+                            <div class="d-flex align-items-center">
+                              <div class="flex-shrink-0 me-2"><i class="ri-money-dollar-circle-line fs-2 text-danger"></i></div>
+                              <div>
+                                <span class="text-uppercase small text-muted fw-semibold">Despesas totais</span>
+                                <div class="fs-5 fw-bold text-danger" id="card-despesas">R$ 0,00</div>
+                                <span class="small text-muted d-block" id="card-despesas-detalhe">— saídas</span>
+                                <span class="small text-muted d-block" id="card-despesas-variacao"></span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="col-6 col-lg-3">
+                        <div class="card border-0 shadow-sm bg-primary bg-opacity-10">
+                          <div class="card-body">
+                            <div class="d-flex align-items-center">
+                              <div class="flex-shrink-0 me-2"><i class="ri-line-chart-line fs-2 text-primary"></i></div>
+                              <div>
+                                <span class="text-uppercase small text-muted fw-semibold">Lucro líquido</span>
+                                <div class="fs-5 fw-bold text-primary" id="card-lucro">R$ 0,00</div>
+                                <span class="small text-muted d-block">Receita − Despesas</span>
+                                <span class="small text-muted d-block" id="card-lucro-variacao"></span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="col-6 col-lg-3">
+                        <div class="card border-0 shadow-sm bg-warning bg-opacity-10">
+                          <div class="card-body">
+                            <div class="d-flex align-items-center">
+                              <div class="flex-shrink-0 me-2"><i class="ri-percent-line fs-2 text-warning"></i></div>
+                              <div>
+                                <span class="text-uppercase small text-muted fw-semibold">Margem líquida</span>
+                                <div class="fs-5 fw-bold text-warning" id="card-margem">0%</div>
+                                <span class="small text-muted d-block">Lucro / Receita</span>
+                                <span class="small text-muted d-block" id="card-margem-variacao"></span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Cards secundários -->
+                    <div class="row g-2 mb-4">
+                      <div class="col-6 col-md-3">
+                        <div class="p-3 rounded bg-light text-center">
+                          <span class="d-block small text-muted fw-semibold">Ticket médio (coleta)</span>
+                          <span class="fw-bold" id="card-ticket">R$ 0,00</span>
+                          <span class="d-block small text-muted">Receita / Total Coletas</span>
+                        </div>
+                      </div>
+                      <div class="col-6 col-md-3">
+                        <div class="p-3 rounded bg-light text-center">
+                          <span class="d-block small text-muted fw-semibold">Custo médio (saída)</span>
+                          <span class="fw-bold" id="card-custo">R$ 0,00</span>
+                          <span class="d-block small text-muted">Despesa / Total Saídas</span>
+                        </div>
+                      </div>
+                      <div class="col-6 col-md-3">
+                        <div class="p-3 rounded bg-light text-center">
+                          <span class="d-block small text-muted fw-semibold">Lucro por pacote</span>
+                          <span class="fw-bold" id="card-lucro-pacote">R$ 0,00</span>
+                          <span class="d-block small text-muted">Lucro / Total Coletas</span>
+                        </div>
+                      </div>
+                      <div class="col-6 col-md-3">
+                        <div class="p-3 rounded bg-light text-center">
+                          <span class="d-block small text-muted fw-semibold">Taxa de conversão</span>
+                          <span class="fw-bold" id="card-taxa">0%</span>
+                          <span class="d-block small text-muted">Saídas / Coletas</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Análise por Serviço -->
+                    <h5 class="mb-2"><i class="ri-pie-chart-line me-2"></i>Análise por Serviço</h5>
+                    <p class="text-muted small mb-3">Breakdown de receita, despesa e margem por tipo de serviço.</p>
+                    <div class="row g-3 mb-4" id="container-servicos">
+                      <!-- preenchido por JS -->
+                    </div>
+
+                    <!-- Participação na Receita (barras) -->
+                    <div class="mb-4" id="container-participacao">
+                      <h6 class="text-muted mb-2">Participação na Receita Total</h6>
+                      <div id="barras-participacao"></div>
+                    </div>
+
+                    <div class="row">
+                      <!-- Rentabilidade por Base -->
+                      <div class="col-lg-6 mb-4">
+                        <div class="card h-100">
+                          <div class="card-header">
+                            <h5 class="card-title mb-0"><i class="ri-home-4-line me-2"></i>Rentabilidade por Base</h5>
+                            <span class="small text-muted">Ranking de bases ordenado por lucro líquido</span>
+                          </div>
+                          <div class="card-body">
+                            <div id="lista-rentabilidade-base"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <!-- Distribuição de Despesas -->
+                      <div class="col-lg-6 mb-4">
+                        <div class="card h-100">
+                          <div class="card-header">
+                            <h5 class="card-title mb-0"><i class="ri-truck-line me-2"></i>Distribuição de Despesas</h5>
+                            <span class="small text-muted">Custo operacional por entregador</span>
+                          </div>
+                          <div class="card-body">
+                            <div id="lista-despesas-entregador"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- DRE Simplificado -->
+                    <div class="card mb-4">
+                      <div class="card-header">
+                        <h5 class="card-title mb-0"><i class="ri-bar-chart-2-line me-2"></i>Demonstrativo de Resultado (DRE Simplificado)</h5>
+                      </div>
+                      <div class="card-body">
+                        <div id="container-dre"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        @@include("partials/footer.html")
+      </div>
+    </div>
+    @@include("partials/main.html")
+    <script>
+      if (!window.TRACK_API_URL) window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+    </script>
+    <script src="assets/js/pages/tracking-contabilidade.init.js"></script>
+  </body>
+</html>

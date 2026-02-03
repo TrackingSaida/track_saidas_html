@@ -183,21 +183,14 @@ if (operacao) {
   }
 }
 
-    // 🔹 Monta grupo Financeiro → Resumo
+    // 🔹 Monta grupo Financeiro (itens diretos: Resumo de Coletas, Resumo por Entregador, Contabilidade)
     const financeiro = serverMenu.find(s =>
       (s.section || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes("financeiro")
     );
     let finHTML = "";
     if (financeiro) {
-      const grupoResumos = (financeiro.items || []).filter(i => i.group === "resumos");
-      if (grupoResumos.length) {
-        finHTML += makeGroup(
-          toId("FinanceiroResumo"),
-          "ri-bar-chart-2-line me-1",
-          "Resumo",
-          grupoResumos.map(i => makeItem(i.href, i.label)).join("")
-        );
-      }
+      const itensFinanceiro = financeiro.items || [];
+      finHTML = itensFinanceiro.map(i => makeItem(i.href, i.label)).join("");
     }
 
 
