@@ -1,7 +1,7 @@
 /* ======================================================
    TrackSaídas — Contabilidade / Financeiro
    GET /api/contabilidade/resumo?data_inicio=&data_fim=
-   Exibe apenas dados consolidados (coletas + fechamentos GERADO/REAJUSTADO).
+   Despesas confirmadas + pendentes (alinhado ao Resumo por Entregador).
    ====================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
   try {
     initContabilidade();
   } catch (e) {
-    console.error("[Contabilidade] Erro na inicialização:", e);
+    try { console.error("[Contabilidade] Erro na inicialização:", e); } catch (_) {}
   }
 
   function initContabilidade() {
@@ -25,14 +25,25 @@ document.addEventListener("DOMContentLoaded", () => {
   const formatarPct = (v) =>
     new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Number(v) || 0) + "%";
 
+  function mensagemErroPorStatus(status) {
+    if (status === 401 || status === 403) {
+      return "Sessão expirada ou acesso não autorizado. Faça login novamente.";
+    }
+    if (status >= 500) {
+      return "Erro ao carregar dados da contabilidade. Tente novamente.";
+    }
+    return "Não foi possível obter os dados. Tente novamente.";
+  }
+
   function mensagemErroAmigavel(err) {
     if (!err || !err.message) {
-      return "Não foi possível obter os dados para este período. Pode ser que não haja informações no período selecionado. Tente outro período ou novamente mais tarde.";
+      return "Não foi possível obter os dados para este período. Tente outro período ou novamente mais tarde.";
     }
+    if (err.message.indexOf("Sessão expirada") !== -1) return err.message;
     if (err.message.indexOf("Faça login") !== -1) return err.message;
     if (err.message.indexOf("Rota de contabilidade") !== -1) return err.message;
-    if (err.message.indexOf("servidor está temporariamente") !== -1) return err.message;
-    return "Não foi possível obter os dados para este período. Pode ser que não haja informações no período selecionado. Tente outro período ou novamente mais tarde.";
+    if (err.message.indexOf("carregar dados") !== -1) return err.message;
+    return "Não foi possível obter os dados. Tente novamente.";
   }
 
   const fltPreset = qs("#flt-preset");
@@ -141,38 +152,67 @@ document.addEventListener("DOMContentLoaded", () => {
     const dataInicio = fltDataInicio?.value || "";
     const dataFim = fltDataFim?.value || "";
     if (!dataInicio || !dataFim) {
-      if (resumoMsg) resumoMsg.innerHTML = "<div class=\"text-warning\">Informe o período (data início e data fim).</div>";
+      try { if (resumoMsg) resumoMsg.innerHTML = "<div class=\"text-warning\">Informe o período (data início e data fim).</div>"; } catch (_) {}
       return;
     }
-    if (resumoMsg) resumoMsg.innerHTML = "<div class=\"text-muted\">Carregando...</div>";
+    try { if (resumoMsg) resumoMsg.innerHTML = "<div class=\"text-muted\">Carregando...</div>"; } catch (_) {}
     try {
       const res = await fetch(`${API_RESUMO}?data_inicio=${dataInicio}&data_fim=${dataFim}`, { credentials: "include" });
       if (!res.ok) {
-        if (res.status === 401) throw new Error("Faça login.");
-        if (res.status === 404) throw new Error("Rota de contabilidade não encontrada. Atualize o backend da API.");
-        if (res.status >= 500) throw new Error("O servidor está temporariamente indisponível. Tente novamente mais tarde.");
-        throw new Error("Não foi possível carregar os dados. Tente novamente.");
+        const msg = mensagemErroPorStatus(res.status);
+        try { if (resumoMsg) resumoMsg.innerHTML = "<div class=\"alert alert-warning mb-0\"><i class=\"ri-error-warning-line me-2\"></i>" + msg + "</div>"; } catch (_) {}
+        return;
       }
       const data = await res.json();
 
-      qs("#card-receita").textContent = formatarMoeda(data.receita_bruta);
-      qs("#card-receita-detalhe").textContent = `${Number(data.indicadores?.total_coletas ?? 0).toLocaleString("pt-BR")} coletas`;
-      qs("#card-despesas").textContent = formatarMoeda(data.despesas_totais);
-      qs("#card-despesas-detalhe").textContent = `${Number(data.indicadores?.total_saidas ?? 0).toLocaleString("pt-BR")} saídas`;
-      qs("#card-lucro").textContent = formatarMoeda(data.lucro_liquido);
-      qs("#card-margem").textContent = formatarPct(data.margem_liquida);
+      try {
+        const elRec = qs("#card-receita");
+        if (elRec) elRec.textContent = formatarMoeda(data.receita_bruta);
+        const elRecDet = qs("#card-receita-detalhe");
+        if (elRecDet) elRecDet.textContent = `${Number(data.indicadores?.total_coletas ?? 0).toLocaleString("pt-BR")} coletas`;
+      } catch (_) {}
+      try {
+        const elDesp = qs("#card-despesas");
+        if (elDesp) elDesp.textContent = formatarMoeda(data.despesas_totais);
+        const elDespDet = qs("#card-despesas-detalhe");
+        if (elDespDet) {
+          const conf = Number(data.despesas_confirmadas ?? 0);
+          const pend = Number(data.despesas_pendentes ?? 0);
+          elDespDet.textContent = `Confirmadas: ${formatarMoeda(conf)} · Pendentes: ${formatarMoeda(pend)}`;
+          const elDespAviso = qs("#card-despesas-aviso");
+          if (elDespAviso) {
+            if (pend > 0) {
+              elDespAviso.classList.remove("d-none");
+            } else {
+              elDespAviso.classList.add("d-none");
+            }
+          }
+        }
+      } catch (_) {}
+      try {
+        const elLucro = qs("#card-lucro");
+        if (elLucro) elLucro.textContent = formatarMoeda(data.lucro_liquido);
+        const elMargem = qs("#card-margem");
+        if (elMargem) elMargem.textContent = formatarPct(data.margem_liquida);
+      } catch (_) {}
+      try {
+        const ind = data.indicadores || {};
+        const elTicket = qs("#card-ticket");
+        if (elTicket) elTicket.textContent = formatarMoeda(ind.ticket_medio_coleta);
+        const elCusto = qs("#card-custo");
+        if (elCusto) elCusto.textContent = formatarMoeda(ind.custo_medio_saida);
+        const elLucroPacote = qs("#card-lucro-pacote");
+        if (elLucroPacote) elLucroPacote.textContent = formatarMoeda(ind.lucro_por_pacote);
+        const elTaxa = qs("#card-taxa");
+        if (elTaxa) elTaxa.textContent = formatarPct(ind.taxa_conversao);
+      } catch (_) {}
 
-      const ind = data.indicadores || {};
-      qs("#card-ticket").textContent = formatarMoeda(ind.ticket_medio_coleta);
-      qs("#card-custo").textContent = formatarMoeda(ind.custo_medio_saida);
-      qs("#card-lucro-pacote").textContent = formatarMoeda(ind.lucro_por_pacote);
-      qs("#card-taxa").textContent = formatarPct(ind.taxa_conversao);
-
-      renderComparacao(data.comparacao_periodo_anterior);
+      try { renderComparacao(data.comparacao_periodo_anterior); } catch (_) {}
 
       const servicos = data.analise_por_servico || [];
       const labels = { shopee: "Shopee", mercado_livre: "Mercado Livre", avulso: "Avulso" };
       const cores = { shopee: "warning", mercado_livre: "info", avulso: "primary" };
+      try {
       const containerServicos = qs("#container-servicos");
       if (containerServicos) {
         containerServicos.innerHTML = servicos
@@ -194,7 +234,9 @@ document.addEventListener("DOMContentLoaded", () => {
           )
           .join("");
       }
+      } catch (_) {}
 
+      try {
       const receitaTotal = Number(data.receita_bruta) || 1;
       const barrasParticipacao = qs("#barras-participacao");
       if (barrasParticipacao) {
@@ -214,7 +256,9 @@ document.addEventListener("DOMContentLoaded", () => {
           })
           .join("");
       }
+      } catch (_) {}
 
+      try {
       const rentabilidade = data.rentabilidade_por_base || [];
       const listaRent = qs("#lista-rentabilidade-base");
       if (listaRent) {
@@ -240,7 +284,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 )
                 .join("");
       }
+      } catch (_) {}
 
+      try {
       const distDespesas = data.distribuicao_despesas || [];
       const listaDesp = qs("#lista-despesas-entregador");
       if (listaDesp) {
@@ -269,7 +315,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 )
                 .join("");
       }
+      } catch (_) {}
 
+      try {
       const dre = data.dre || [];
       const containerDre = qs("#container-dre");
       if (containerDre) {
@@ -288,7 +336,9 @@ document.addEventListener("DOMContentLoaded", () => {
           })
           .join("");
       }
+      } catch (_) {}
 
+      try {
       if (data.aviso_pendentes && avisoFechamentos && avisoFechamentosTexto) {
         avisoFechamentos.classList.remove("d-none");
         avisoFechamentosTexto.textContent = "Há saídas no período mas nenhum fechamento com status GERADO ou REAJUSTADO. Fechamentos PENDENTES não entram nas despesas. Gere os fechamentos na página Resumo por Entregador para refletir os valores.";
@@ -308,14 +358,12 @@ document.addEventListener("DOMContentLoaded", () => {
           resumoMsg.innerHTML = "";
         }
       }
+      } catch (_) {}
     } catch (err) {
-      console.error(err);
       try {
         const msg = mensagemErroAmigavel(err);
         if (resumoMsg) resumoMsg.innerHTML = "<div class=\"alert alert-warning mb-0\"><i class=\"ri-error-warning-line me-2\"></i>" + String(msg) + "</div>";
-      } catch (e2) {
-        console.error("[Contabilidade] Erro ao exibir mensagem:", e2);
-      }
+      } catch (_) {}
     }
   }
 
@@ -337,8 +385,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   setPeriodoPadrao();
-  carregarResumo().catch(function (err) {
-    console.error("[Contabilidade] Falha ao carregar resumo:", err);
+  carregarResumo().catch(function () {
+    try {
+      if (resumoMsg) resumoMsg.innerHTML = "<div class=\"alert alert-warning mb-0\"><i class=\"ri-error-warning-line me-2\"></i>Erro ao carregar dados. Tente novamente.</div>";
+    } catch (_) {}
   });
   } // initContabilidade
 });
