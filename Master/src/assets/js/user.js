@@ -159,7 +159,13 @@
       if (ddHeader) ddHeader.textContent = `Bem-vindo(a) ${nome}!`;
 
     } catch (e) {
-      console.error("[auth] erro ao carregar usuário:", e);
+      // Não logar falhas de rede/API indisponível para reduzir ruído no console
+      const isNetworkError =
+        e?.name === "TypeError" &&
+        (e?.message?.includes("fetch") || e?.message?.includes("Failed to fetch") || e?.message?.includes("NetworkError"));
+      if (!isNetworkError) {
+        console.error("[auth] erro ao carregar usuário:", e);
+      }
     }
   }
 

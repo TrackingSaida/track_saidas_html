@@ -112,7 +112,7 @@
 
   const makeGroup = (id, icon, title, innerHTML) => (`
     <li class="nav-item">
-      <a class="nav-link menu-link" href="#${id}" data-bs-toggle="collapse" role="button"
+      <a class="nav-link menu-link" href="javascript:void(0)" data-bs-toggle="collapse" data-bs-target="#${id}" role="button"
         aria-expanded="false" aria-controls="${id}">
         <i class="${icon || ''}"></i>
         <span>${title}</span>
