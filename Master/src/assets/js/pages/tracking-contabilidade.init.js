@@ -7,6 +7,13 @@
 document.addEventListener("DOMContentLoaded", () => {
   "use strict";
 
+  try {
+    initContabilidade();
+  } catch (e) {
+    console.error("[Contabilidade] Erro na inicialização:", e);
+  }
+
+  function initContabilidade() {
   const API_URL = (window.TRACK_API_URL || "").replace(/\/+$/, "");
   const API_RESUMO = `${API_URL}/contabilidade/resumo`;
 
@@ -303,24 +310,35 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (err) {
       console.error(err);
-      const msg = mensagemErroAmigavel(err);
-      if (resumoMsg) resumoMsg.innerHTML = "<div class=\"alert alert-warning mb-0\"><i class=\"ri-error-warning-line me-2\"></i>" + msg + "</div>";
+      try {
+        const msg = mensagemErroAmigavel(err);
+        if (resumoMsg) resumoMsg.innerHTML = "<div class=\"alert alert-warning mb-0\"><i class=\"ri-error-warning-line me-2\"></i>" + String(msg) + "</div>";
+      } catch (e2) {
+        console.error("[Contabilidade] Erro ao exibir mensagem:", e2);
+      }
     }
   }
 
   fltPreset?.addEventListener("change", () => {
-    applyPresetToDates();
-    if (resumoMsg) resumoMsg.innerHTML = "";
+    try {
+      applyPresetToDates();
+      if (resumoMsg) resumoMsg.innerHTML = "";
+    } catch (e) { console.error(e); }
   });
 
-  btnAplicar?.addEventListener("click", () => carregarResumo());
+  btnAplicar?.addEventListener("click", () => { try { carregarResumo(); } catch (e) { console.error(e); } });
   btnLimpar?.addEventListener("click", () => {
-    setPeriodoPadrao();
-    if (resumoMsg) resumoMsg.innerHTML = "";
-    if (avisoFechamentos) avisoFechamentos.classList.add("d-none");
-    carregarResumo();
+    try {
+      setPeriodoPadrao();
+      if (resumoMsg) resumoMsg.innerHTML = "";
+      if (avisoFechamentos) avisoFechamentos.classList.add("d-none");
+      carregarResumo();
+    } catch (e) { console.error(e); }
   });
 
   setPeriodoPadrao();
-  carregarResumo();
+  carregarResumo().catch(function (err) {
+    console.error("[Contabilidade] Falha ao carregar resumo:", err);
+  });
+  } // initContabilidade
 });
