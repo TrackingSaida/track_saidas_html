@@ -3,7 +3,24 @@
    Compatível com /coletas/resumo (items + total)
    ====================================================== */
 
+(function checkIgnorarColeta() {
+  if (window.IGNORAR_COLETA === true || localStorage.getItem("ignorar_coleta") === "1") {
+    window.location.replace("dashboard-tracking-overview.html");
+    return;
+  }
+})();
+
 document.addEventListener("DOMContentLoaded", async () => {
+  if (window.IGNORAR_COLETA === true) {
+    window.location.replace("dashboard-tracking-overview.html");
+    return;
+  }
+  setTimeout(() => {
+    if (window.IGNORAR_COLETA === true) {
+      window.location.replace("dashboard-tracking-overview.html");
+      return;
+    }
+  }, 600);
 
   // ====== CACHE GLOBAL (cancelados) ======
   let cacheCancelados = null;

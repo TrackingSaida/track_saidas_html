@@ -1,4 +1,18 @@
 /* =================== Config =================== */
+(function checkIgnorarColeta() {
+  if (window.IGNORAR_COLETA === true || localStorage.getItem("ignorar_coleta") === "1") {
+    window.location.replace("dashboard-tracking-overview.html");
+    return;
+  }
+  document.addEventListener("DOMContentLoaded", () => {
+    setTimeout(() => {
+      if (window.IGNORAR_COLETA === true) {
+        window.location.replace("dashboard-tracking-overview.html");
+      }
+    }, 600);
+  }, { once: true });
+})();
+
 const API_URL = `${window.TRACK_API_URL}/coletas/lote`;
 const API_BASES = `${window.TRACK_API_URL}/base/?status=ativo`;
 

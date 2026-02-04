@@ -225,6 +225,12 @@ async function init() {
   greetingSubEl.textContent =
     "Aqui está o desempenho da sua operação na quinzena atual";
 
+  // Ocultar link "Ver resumo" (Resumo de Coletas) quando owner usa só saídas
+  const linkVerResumo = document.getElementById("link-ver-resumo-coletas");
+  if (linkVerResumo && (user?.ignorar_coleta || window.IGNORAR_COLETA)) {
+    linkVerResumo.style.display = "none";
+  }
+
   // Define quinzena inicial
   (function setDefaultFortnight() {
     const now = new Date();
