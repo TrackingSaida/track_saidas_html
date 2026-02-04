@@ -203,10 +203,16 @@
         @@include("partials/footer.html")
       </div>
     </div>
-    @@include("partials/main.html")
+    @@include("partials/vendor-scripts.html")
+
     <script>
-      if (!window.TRACK_API_URL) window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+      if (!window.TRACK_API_URL) {
+        window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+      }
     </script>
+    
     <script src="assets/js/pages/tracking-contabilidade.init.js"></script>
+    <script src="assets/js/app.js"></script>
+    
   </body>
 </html>
