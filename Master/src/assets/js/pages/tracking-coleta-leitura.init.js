@@ -13,9 +13,13 @@
   }, { once: true });
 })();
 
-const API_URL = `${window.TRACK_API_URL}/coletas/lote`;
-const API_BASES = `${window.TRACK_API_URL}/base/?status=ativo`;
-const API_ENTREGADORES = `${(window.TRACK_API_URL || "").replace(/\/+$/, "")}/entregadores`;
+function getBaseUrl() {
+  const url = (typeof window !== "undefined" && window.TRACK_API_URL) ? window.TRACK_API_URL : "";
+  return String(url).replace(/\/+$/, "");
+}
+const API_URL = () => `${getBaseUrl()}/coletas/lote`;
+const API_BASES = () => `${getBaseUrl()}/base/?status=ativo`;
+const API_ENTREGADORES = () => `${getBaseUrl()}/entregadores`;
 
 // ⚙️ Agora a chave do localStorage é dinâmica por base
 let STORAGE_KEY = null;
@@ -147,9 +151,34 @@ let BASE_ATUAL = null;
 
 /* =============== API ================= */
 async function carregarBases() {
-  const r = await fetch(API_BASES, { credentials: "include" });
-  if (!r.ok) throw new Error("Falha ao carregar bases");
-  return r.json();
+  const url = API_BASES();
+  if (!url || url.includes("undefined")) {
+    throw new Error("URL da API não configurada. Verifique TRACK_API_URL.");
+  }
+  const r = await fetch(url, { credentials: "include" });
+  if (!r.ok) {
+    const msg = r.status === 401 ? "Faça login para carregar as bases." : (r.status === 403 ? "Sem permissão para listar bases." : `Falha ao carregar bases (${r.status}).`);
+    throw new Error(msg);
+  }
+  const data = await r.json();
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.items)) return data.items;
+  return [];
+}
+
+async function carregarEntregadores() {
+  const url = API_ENTREGADORES();
+  if (!url || url.includes("undefined")) return [];
+  try {
+    const r = await fetch(url, { credentials: "include" });
+    if (!r.ok) return [];
+    const data = await r.json();
+    const raw = Array.isArray(data) ? data : (data?.data ?? []);
+    return raw.filter(e => e && (e.id_entregador != null || e.id != null));
+  } catch (_) {
+    return [];
+  }
 }
 
 function enviarLogLeitura(payload) {
@@ -158,7 +187,7 @@ function enviarLogLeitura(payload) {
       localStorage.getItem("authToken") ||
       localStorage.getItem("access_token");
 
-    fetch(`${window.TRACK_API_URL}/logs/leituras`, {
+    fetch(`${getBaseUrl()}/logs/leituras`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -180,7 +209,7 @@ async function enviarColetasLote(base, itens, entregadorId = null) {
   if (entregadorId != null && entregadorId !== "") {
     body.entregador_id = parseInt(entregadorId, 10);
   }
-  const r = await fetch(API_URL, {
+  const r = await fetch(API_URL(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -203,7 +232,7 @@ async function enviarColetaUnica(item, entregadorId = null) {
       body.entregador_id = parseInt(entregadorId, 10);
     }
 
-    const r = await fetch(API_URL, {
+    const r = await fetch(API_URL(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -528,15 +557,28 @@ async function reenviarPendentes() {
 
 /* =================== Init =================== */
 document.addEventListener("DOMContentLoaded", async () => {
+  const sel = qs("#selBase");
+  if (!sel) return;
+
   try {
-    const [bases, entregadores] = await Promise.all([carregarBases(), carregarEntregadores()]);
-    const sel = qs("#selBase");
+    const bases = await carregarBases();
+    const list = Array.isArray(bases) ? bases : [];
     sel.innerHTML =
       '<option value="" disabled selected>Selecione...</option>' +
-      bases.map(b => `<option value="${b.base}">${b.base}</option>`).join("");
+      list.map(b => `<option value="${(b.base != null ? b.base : b).toString()}">${(b.base != null ? b.base : b).toString()}</option>`).join("");
+    if (list.length === 0) {
+      toast("Nenhuma base ativa cadastrada. Cadastre uma base para registrar coletas.", false);
+    }
+  } catch (err) {
+    const msg = err && err.message ? err.message : "Falha ao carregar bases.";
+    toast(msg, false);
+    sel.innerHTML = '<option value="" disabled selected>Selecione...</option>';
+  }
 
+  try {
+    const entregadores = await carregarEntregadores();
     const selEnt = qs("#selEntregador");
-    if (selEnt) {
+    if (selEnt && Array.isArray(entregadores)) {
       selEnt.innerHTML =
         '<option value="">Usuário logado</option>' +
         entregadores.map(e => {
@@ -545,6 +587,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           return `<option value="${id}">${nome}</option>`;
         }).join("");
     }
+  } catch (_) {
+    const selEnt = qs("#selEntregador");
+    if (selEnt) selEnt.innerHTML = '<option value="">Usuário logado</option>';
+  }
 
     // 🟢 Função util para data local (Brasil)
     function hojeBR() {
@@ -574,9 +620,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       atualizarResumo();
       toast(`Base alterada para ${BASE_ATUAL}.`, true);
     });
-  } catch {
-    toast("Falha ao carregar bases.", false);
-  }
 
   qs("#btnRegistrar")?.addEventListener("click", () =>
   registrarCodigoComLog("teclado")
