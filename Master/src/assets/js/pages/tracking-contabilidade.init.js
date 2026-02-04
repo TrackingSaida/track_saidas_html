@@ -341,7 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
       if (data.aviso_pendentes && avisoFechamentos && avisoFechamentosTexto) {
         avisoFechamentos.classList.remove("d-none");
-        avisoFechamentosTexto.textContent = "Há saídas no período mas nenhum fechamento com status GERADO ou REAJUSTADO. Fechamentos PENDENTES não entram nas despesas. Gere os fechamentos na página Resumo por Entregador para refletir os valores.";
+        avisoFechamentosTexto.textContent = "Há saídas no período sem fechamento GERADO/REAJUSTADO. Essas saídas já entram como \"Despesas pendentes\" e são consideradas no total, no lucro e na margem. Para convertê-las em despesas confirmadas, gere o fechamento na página Resumo por Entregador.";
       } else if (avisoFechamentos) {
         avisoFechamentos.classList.add("d-none");
       }

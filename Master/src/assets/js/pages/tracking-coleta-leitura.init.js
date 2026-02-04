@@ -152,14 +152,6 @@ async function carregarBases() {
   return r.json();
 }
 
-async function carregarEntregadores() {
-  const r = await fetch(API_ENTREGADORES, { credentials: "include" });
-  if (!r.ok) return [];
-  const data = await r.json();
-  const raw = Array.isArray(data) ? data : (data?.data ?? []);
-  return raw.filter(e => e && (e.id_entregador != null || e.id != null));
-}
-
 function enviarLogLeitura(payload) {
   try {
     const token =
