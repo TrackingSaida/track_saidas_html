@@ -446,9 +446,9 @@ function createRow(row){
       ? TrackAPI.getEntregadores()
       : Promise.reject(new Error("TrackAPI.getEntregadores não disponível"));
   }
-  function apiRegistrarSaida({ entregador, codigo, servico }){
+  function apiRegistrarSaida({ entregador_id, entregador, codigo, servico }){
     return window.TrackAPI?.registerSaida
-      ? TrackAPI.registerSaida({ entregador, codigo, servico })
+      ? TrackAPI.registerSaida({ entregador_id, entregador, codigo, servico })
       : Promise.reject(new Error("TrackAPI.registerSaida não disponível"));
   }
 
@@ -469,7 +469,12 @@ function createRow(row){
     const tr = rowsById.get(p.id);
     if (tr) tr.querySelector('.st').textContent = 'Enviando…';
     try {
-      const res = await apiRegistrarSaida({ entregador: p.entregador, codigo: p.codigo, servico: p.servico });
+      const res = await apiRegistrarSaida({
+        entregador_id: p.entregador_id,
+        entregador: p.entregador || entregadoresMap.get(String(p.entregador_id)),
+        codigo: p.codigo,
+        servico: p.servico
+      });
       // Se a resposta não for OK, lidar com conflitos e outros erros
       if (!res || !res.ok) {
         // Conflito de duplicidade no backend
@@ -551,14 +556,24 @@ function createRow(row){
   }
 
   // ---------- carregar entregadores (sempre inicia vazio) ----------
+  // Cache id -> nome para lookups (usado quando value é id_entregador)
+  let entregadoresMap = new Map(); // id_entregador -> nome
   function loadEntregadores(){
     return apiGetEntregadores().then(res => {
       const raw = Array.isArray(res) ? res : (res?.data ?? []);
-      const lista = raw.map(e => typeof e === "string" ? e : (e?.nome || e?.name)).filter(Boolean);
+      entregadoresMap = new Map();
+      const opts = raw
+        .filter(e => e && (e.id_entregador != null || e.id != null))
+        .map(e => {
+          const id = e.id_entregador ?? e.id;
+          const nome = (e?.nome || e?.name || String(id)).trim() || String(id);
+          entregadoresMap.set(String(id), nome);
+          return { id, nome };
+        });
       if (!selEnt) return;
       selEnt.innerHTML =
         '<option value="" selected disabled>Selecione entregador</option>' +
-        lista.map(n => `<option value="${n}">${n}</option>`).join("");
+        opts.map(o => `<option value="${o.id}">${o.nome}</option>`).join("");
       selEnt.selectedIndex = 0; // não lembrar último
       onEntregadorChange();
     }).catch(() => { showMsgIcon("erro","Falha ao carregar entregadores."); Sound.play("err"); });
@@ -569,11 +584,14 @@ function createRow(row){
     const entNow = selEnt?.value || "";
     if (!entNow) return;
     // renderiza pendentes deste entregador (ficam como "Enviando…")
-    const pend = loadPending().filter(p => p.entregador === entNow);
+    const pend = loadPending().filter(p =>
+      String(p.entregador_id) === String(entNow) || (p.entregador_id == null && p.entregador === entregadoresMap.get(entNow))
+    );
     for (const p of pend) {
+      const entNome = p.entregador || entregadoresMap.get(String(p.entregador_id)) || "";
       const tr = appendOrUpdateRow({
         tsFmt: new Date().toLocaleString("pt-BR"),
-        entregador: p.entregador,
+        entregador: entNome,
         codigo: p.codigo,
         servico: p.servico || "",
         status: "Enviando…",
@@ -639,12 +657,14 @@ async function registrar() {
   let lockAtivo = false;  // 🔹 garante liberação correta do lock
 
   try {
-    const entregador = selEnt?.value?.trim() || "";
-    if (!entregador) {
+    const entregadorIdRaw = selEnt?.value?.trim() || "";
+    if (!entregadorIdRaw) {
       showMsgIcon("erro", "Selecione o entregador.");
       Sound.play("err");
       return { ok:false, tipo:"sem_entregador" };
     }
+    const entregadorId = parseInt(entregadorIdRaw, 10);
+    const entregador = selEnt?.options[selEnt.selectedIndex]?.text?.trim() || entregadoresMap.get(entregadorIdRaw) || "";
 
     const rawInput = inpCod?.value || "";
     if (!rawInput.trim()) {
@@ -775,10 +795,11 @@ registros = normalizados;
              
             },
             credentials: "include",
-            body: JSON.stringify({
-              status: "Saiu para entrega",
-              entregador: entregadorNovo
-            })
+        body: JSON.stringify({
+          status: "Saiu para entrega",
+          entregador_id: entregadorId,
+          entregador: entregadorNovo
+        })
           }
         );
 
@@ -825,6 +846,7 @@ registros = normalizados;
             credentials: "include",
             body: JSON.stringify({
               status: "Saiu para entrega",
+              entregador_id: entregadorId,
               entregador
             })
           }
@@ -883,6 +905,7 @@ registros = normalizados;
         credentials: "include",
         body: JSON.stringify({
           codigo: codigoFinal,
+          entregador_id: entregadorId,
           entregador,
           servico,
           status: "Saiu para entrega"
@@ -963,6 +986,7 @@ registros = normalizados;
       credentials: "include",
       body: JSON.stringify({
         codigo: codigoFinal,
+        entregador_id: entregadorId,
         entregador,
         servico,
         status: "Não Coletado"

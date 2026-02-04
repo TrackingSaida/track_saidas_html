@@ -15,6 +15,7 @@
 
 const API_URL = `${window.TRACK_API_URL}/coletas/lote`;
 const API_BASES = `${window.TRACK_API_URL}/base/?status=ativo`;
+const API_ENTREGADORES = `${(window.TRACK_API_URL || "").replace(/\/+$/, "")}/entregadores`;
 
 // ⚙️ Agora a chave do localStorage é dinâmica por base
 let STORAGE_KEY = null;
@@ -151,6 +152,14 @@ async function carregarBases() {
   return r.json();
 }
 
+async function carregarEntregadores() {
+  const r = await fetch(API_ENTREGADORES, { credentials: "include" });
+  if (!r.ok) return [];
+  const data = await r.json();
+  const raw = Array.isArray(data) ? data : (data?.data ?? []);
+  return raw.filter(e => e && (e.id_entregador != null || e.id != null));
+}
+
 function enviarLogLeitura(payload) {
   try {
     const token =
@@ -171,17 +180,19 @@ function enviarLogLeitura(payload) {
 
 
 /* =================== Envio em Lote =================== */
-async function enviarColetasLote(base, itens) {
-  const body = JSON.stringify({
+async function enviarColetasLote(base, itens, entregadorId = null) {
+  const body = {
     base,
     itens: itens.map(i => ({ codigo: i.codigo, servico: i.servico }))
-  });
-
+  };
+  if (entregadorId != null && entregadorId !== "") {
+    body.entregador_id = parseInt(entregadorId, 10);
+  }
   const r = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body
+    body: JSON.stringify(body)
   });
 
   return r;
@@ -189,19 +200,22 @@ async function enviarColetasLote(base, itens) {
 
 
 /* =================== Envio Imediato =================== */
-async function enviarColetaUnica(item) {
+async function enviarColetaUnica(item, entregadorId = null) {
   try {
     // 🔹 Monta corpo apenas com os campos esperados pela API
-    const body = JSON.stringify({
+    const body = {
       base: item.base,
       itens: [{ codigo: item.codigo, servico: item.servico }]
-    });
+    };
+    if (entregadorId != null && entregadorId !== "") {
+      body.entregador_id = parseInt(entregadorId, 10);
+    }
 
     const r = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body
+      body: JSON.stringify(body)
     });
 
     if (r.status === 201) {
@@ -457,7 +471,8 @@ Sound.play("ok");
 
 // Envio automático do item recém-adicionado (formato correto)
 const novoItem = COLETAS[COLETAS.length - 1];
-enviarColetaUnica(novoItem);
+const entId = qs("#selEntregador")?.value || null;
+enviarColetaUnica(novoItem, entId);
 
    // 💾 Salva imediatamente no localStorage
   try {
@@ -495,7 +510,8 @@ async function reenviarPendentes() {
   Sound.play("warn");
 
   try {
-    const r = await enviarColetasLote(BASE_ATUAL, pendentes);
+    const entId = qs("#selEntregador")?.value || null;
+    const r = await enviarColetasLote(BASE_ATUAL, pendentes, entId);
     if (r.status === 201) {
       // marca todos os pendentes como enviados
       COLETAS.forEach(c => {
@@ -521,11 +537,22 @@ async function reenviarPendentes() {
 /* =================== Init =================== */
 document.addEventListener("DOMContentLoaded", async () => {
   try {
-    const bases = await carregarBases();
+    const [bases, entregadores] = await Promise.all([carregarBases(), carregarEntregadores()]);
     const sel = qs("#selBase");
     sel.innerHTML =
       '<option value="" disabled selected>Selecione...</option>' +
       bases.map(b => `<option value="${b.base}">${b.base}</option>`).join("");
+
+    const selEnt = qs("#selEntregador");
+    if (selEnt) {
+      selEnt.innerHTML =
+        '<option value="">Usuário logado</option>' +
+        entregadores.map(e => {
+          const id = e.id_entregador ?? e.id;
+          const nome = (e.nome || e.name || String(id)).trim() || String(id);
+          return `<option value="${id}">${nome}</option>`;
+        }).join("");
+    }
 
     // 🟢 Função util para data local (Brasil)
     function hojeBR() {
@@ -789,7 +816,8 @@ if (duplicado) {
       showMsg("info", `Registrado ✓ (${totalLidos})`);
       Sound.play("ok");
 
-      enviarColetaUnica(novoItem);
+      const entId = qs("#selEntregador")?.value || null;
+      enviarColetaUnica(novoItem, entId);
 
     if (inputCodigo) inputCodigo.value = "";
     renderTabela();

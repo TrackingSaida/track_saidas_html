@@ -94,12 +94,15 @@
   // ============================================================
   // REGISTRAR SAÍDA
   // ============================================================
-  window.TrackAPI.registerSaida = async function ({ entregador, codigo, servico, status }) {
+  window.TrackAPI.registerSaida = async function ({ entregador_id, entregador, codigo, servico, status }) {
     try {
+      const body = { codigo, servico, status };
+      if (entregador_id != null) body.entregador_id = entregador_id;
+      if (entregador != null) body.entregador = entregador;
       const res = await req("/saidas/registrar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entregador, codigo, servico, status })
+        body: JSON.stringify(body)
       });
 
       let data = null;
