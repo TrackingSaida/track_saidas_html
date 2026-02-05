@@ -44,8 +44,8 @@
       })
       .then(function (blob) {
         var url = URL.createObjectURL(blob);
-        window.open(url, "_blank");
         if (previewIframe) {
+          // Atualiza somente a pré-visualização em iframe
           previewIframe.src = url;
           if (previewCard) previewCard.classList.remove("d-none");
         }
