@@ -163,6 +163,7 @@ if (operacao) {
 
   const grupoRegistrar = opItems.filter(i => i.group === "leituras");
   const grupoRegistros = opItems.filter(i => i.group === "registros");
+  const itensDiretos = opItems.filter(i => i.group === "operacao_direto");
 
   if (grupoRegistrar.length) {
     opHTML += makeGroup(
@@ -181,6 +182,8 @@ if (operacao) {
       grupoRegistros.map(i => makeItem(i.href, i.label)).join("")
     );
   }
+
+  itensDiretos.forEach(i => { opHTML += makeItem(i.href, i.label); });
 }
 
     // 🔹 Monta grupo Financeiro (itens diretos: Resumo de Coletas, Resumo por Entregador, Contabilidade)
