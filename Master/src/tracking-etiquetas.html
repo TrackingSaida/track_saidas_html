@@ -19,27 +19,16 @@
           <div class="card">
             <div class="card-body">
               <div class="row g-3 align-items-end">
-                <div class="col-md-4">
+                <div class="col-md-6">
                   <label class="form-label">Código de rastreio</label>
-                  <input type="text" id="etiqueta-codigo" class="form-control" placeholder="Ex.: BR1234567890123 ou código ML" />
+                  <input type="text" id="etiqueta-codigo" class="form-control" placeholder="Ex.: BR1234567890123" />
                 </div>
-                <div class="col-md-3">
-                  <label class="form-label">Modo</label>
-                  <select id="etiqueta-modo" class="form-select">
-                    <option value="generic">Genérico</option>
-                    <option value="shopee">Shopee</option>
-                    <option value="ml">Mercado Livre</option>
-                  </select>
-                </div>
-                <div class="col-md-3">
+                <div class="col-md-4">
                   <button type="button" id="btn-gerar-etiqueta" class="btn btn-primary">
-                    <i class="ri-printer-line me-1"></i> Gerar Etiqueta
+                    <i class="ri-printer-line me-1"></i> Gerar
                   </button>
                 </div>
               </div>
-              <p class="text-muted small mt-2 mb-0">
-                Modo Genérico: gera etiqueta com código apenas. Shopee/ML: tenta buscar dados do destinatário na API; em falha, usa modo genérico.
-              </p>
             </div>
           </div>
 

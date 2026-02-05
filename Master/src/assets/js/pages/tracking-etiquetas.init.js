@@ -5,12 +5,11 @@
   var API_URL = (window.TRACK_API_URL || "/api").replace(/\/$/, "") + "/etiquetas/gerar";
 
   var inpCodigo = document.getElementById("etiqueta-codigo");
-  var selModo = document.getElementById("etiqueta-modo");
   var btnGerar = document.getElementById("btn-gerar-etiqueta");
   var previewCard = document.getElementById("preview-card");
   var previewIframe = document.getElementById("preview-iframe");
 
-  function gerarEtiqueta(codigo, modo) {
+  function gerarEtiqueta(codigo) {
     codigo = (codigo || "").trim();
     if (!codigo) {
       if (window.Swal) {
@@ -21,16 +20,13 @@
       return;
     }
 
-    modo = modo || "generic";
-    if (!["generic", "shopee", "ml"].includes(modo)) modo = "generic";
-
     if (btnGerar) btnGerar.disabled = true;
 
     fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ codigo: codigo, modo: modo })
+      body: JSON.stringify({ codigo: codigo })
     })
       .then(function (res) {
         if (!res.ok) {
@@ -64,7 +60,7 @@
 
   if (btnGerar) {
     btnGerar.addEventListener("click", function () {
-      gerarEtiqueta(inpCodigo?.value, selModo?.value);
+      gerarEtiqueta(inpCodigo?.value);
     });
   }
 
