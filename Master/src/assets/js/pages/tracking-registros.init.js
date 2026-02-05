@@ -353,7 +353,7 @@ function augmentEntregadoresFromRows(rows){
             <td>${r.base || "-"}</td>
             <td>${r.username || "-"}</td>
             <td>${r.entregador || "-"}</td>
-            <td>${r.codigo || "-"}</td>
+            <td><span class="d-inline-flex align-items-center gap-1">${r.codigo || "-"} <button type="button" class="btn btn-link btn-sm p-0 text-primary" title="Gerar etiqueta" data-etiqueta="${(r.codigo || "").replace(/"/g, "&quot;")}"><i class="ri-printer-line"></i></button></span></td>
             <td>${r.servico || "-"}</td>
             <td>${r.status || "-"}</td>
           </tr>`;
@@ -474,6 +474,43 @@ function setupPagerEvents() {
     tblBody.addEventListener("change", (e) => {
       if (e.target.matches(".rowchk")) updateEditButtonState();
     });
+
+    tblBody.addEventListener("click", function(e) {
+      var btn = e.target.closest("[data-etiqueta]");
+      if (!btn) return;
+      var codigo = btn.dataset.etiqueta;
+      if (!codigo) return;
+      e.preventDefault();
+      e.stopPropagation();
+      gerarEtiquetaPdf(codigo);
+    });
+  }
+
+  function gerarEtiquetaPdf(codigo) {
+    var apiUrl = (window.TRACK_API_URL || "/api").replace(/\/$/, "") + "/etiquetas/gerar";
+    fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ codigo: codigo, modo: "generic" })
+    })
+      .then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.detail || body.message || "Erro ao gerar etiqueta");
+          }).catch(function() {
+            throw new Error("Erro ao gerar etiqueta");
+          });
+        }
+        return res.blob();
+      })
+      .then(function(blob) {
+        var url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+      })
+      .catch(function(err) {
+        notify(err.message || "Falha ao gerar etiqueta.", "error");
+      });
   }
 
   if (chkAll){
