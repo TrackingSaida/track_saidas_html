@@ -806,6 +806,7 @@ async function registrar() {
       revertOtimista();
       const idSaida = res.data?.id_saida;
       const entregadorAtual = res.data?.entregador_atual || "Desconhecido";
+      const usuarioRegistro = res.data?.username || "Desconhecido";
       const overlay = document.getElementById("scanFS");
       const wasActiveOverlay = overlay?.classList.contains("show");
       if (wasActiveOverlay) {
@@ -814,7 +815,13 @@ async function registrar() {
       const confirm = await Swal.fire({
         icon: "warning",
         title: "Código já saiu para entrega",
-        html: `<p><strong>${codigoFinal}</strong></p><p>Entregador atual: ${entregadorAtual}</p><hr><p>Alterar para ${entregador}?</p>`,
+        html: `
+          <p>O pacote <strong>${codigoFinal}</strong> já foi registrado como <strong>Saiu para entrega.</strong></p>
+          <p>Registrado por: <strong>${usuarioRegistro}</strong></p>
+          <p>Entregador atual: <strong>${entregadorAtual}</strong></p>
+          <hr>
+          <p>Deseja alterar para: <strong>${entregador}</strong>?</p>
+        `,
         showCancelButton: true,
         confirmButtonText: "Sim, alterar entregador",
         cancelButtonText: "Não",
@@ -832,6 +839,7 @@ async function registrar() {
         const msg = patchResp.error || "";
         showMsgIcon("erro", msg || "Erro ao alterar entregador.");
         Sound.play("err");
+        if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
         return { ok:false, tipo:"erro_patch_troca_entregador", detalhe:msg };
       }
       appendOrUpdateRow({
@@ -848,6 +856,7 @@ async function registrar() {
       showMsgIcon("info", `Entregador alterado ✓ ${codigoFinal}`);
       Sound.play("ok");
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+      if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
       return { ok:true, tipo:"troca_entregador", codigo: codigoFinal };
     }
 
