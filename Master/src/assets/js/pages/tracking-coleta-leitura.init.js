@@ -450,7 +450,10 @@ async function registrarCodigoComLog(origem = "teclado") {
       delta_from_last_read_ms: leituraMetric.delta_from_last_read_ms,
       delta_read_to_send_ms: leituraMetric.delta_read_to_send_ms,
       delta_send_to_response_ms: leituraMetric.delta_send_to_response_ms,
-      ts_read: leituraMetric.ts_read
+      ts_read: leituraMetric.ts_read,
+      network_status: navigator.connection?.effectiveType ?? "unknown",
+      device_type: /mobile/i.test(navigator.userAgent) ? "mobile" : "desktop",
+      os: navigator.platform || "unknown"
     });
 
     // Retorno para o scanner/UX (ex.: contador da câmera)

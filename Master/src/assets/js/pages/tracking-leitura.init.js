@@ -684,7 +684,11 @@ async function registrarComLog(origem = "teclado") {
       delta_from_last_read_ms: leituraMetric.delta_from_last_read_ms,
       delta_read_to_send_ms: leituraMetric.delta_read_to_send_ms,
       delta_send_to_response_ms: leituraMetric.delta_send_to_response_ms,
-      ts_read: leituraMetric.ts_read
+      ts_read: leituraMetric.ts_read,
+      backend_processing_ms: result?.backend_processing_ms ?? null,
+      network_status: navigator.connection?.effectiveType ?? "unknown",
+      device_type: /mobile/i.test(navigator.userAgent) ? "mobile" : "desktop",
+      os: navigator.platform || "unknown"
     });
   }
 }
@@ -766,6 +770,7 @@ async function registrar() {
       codigo: codigoFinal,
       servico
     });
+    const backend_processing_ms = res?.backend_processing_ms ?? null;
 
     const revertOtimista = () => {
       trOtimista?.remove();
@@ -777,7 +782,7 @@ async function registrar() {
       revertOtimista();
       showMsgIcon("erro", "Sessão expirada. Faça login novamente.");
       Sound.play("err");
-      return { ok:false, tipo:"nao_autorizado" };
+      return { ok:false, tipo:"nao_autorizado", backend_processing_ms };
     }
 
     if (res.ok) {
@@ -799,7 +804,7 @@ async function registrar() {
       showMsgIcon("info", `Registrado ✓ ${codigoFinal}${novoServico ? " • " + novoServico : ""}`);
       Sound.play("ok");
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
-      return { ok:true, tipo:"ok", codigo: codigoFinal };
+      return { ok:true, tipo:"ok", codigo: codigoFinal, backend_processing_ms };
     }
 
     if (res.status === 409 && res.code === "TROCA_ENTREGADOR") {
@@ -830,7 +835,7 @@ async function registrar() {
       });
       if (!confirm.isConfirmed) {
         if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
-        return { ok:false, tipo:"ja_saiu" };
+        return { ok:false, tipo:"ja_saiu", backend_processing_ms };
       }
       const patchResp = window.TrackAPI?.updateSaida
         ? await TrackAPI.updateSaida(idSaida, { status: "Saiu para entrega", entregador_id: entregadorId, entregador })
@@ -840,7 +845,7 @@ async function registrar() {
         showMsgIcon("erro", msg || "Erro ao alterar entregador.");
         Sound.play("err");
         if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
-        return { ok:false, tipo:"erro_patch_troca_entregador", detalhe:msg };
+        return { ok:false, tipo:"erro_patch_troca_entregador", detalhe:msg, backend_processing_ms };
       }
       appendOrUpdateRow({
         tsFmt: new Date().toLocaleString("pt-BR"),
@@ -857,7 +862,7 @@ async function registrar() {
       Sound.play("ok");
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
       if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
-      return { ok:true, tipo:"troca_entregador", codigo: codigoFinal };
+      return { ok:true, tipo:"troca_entregador", codigo: codigoFinal, backend_processing_ms };
     }
 
     if (res.status === 422 && res.code === "NAO_COLETADO") {
@@ -865,7 +870,7 @@ async function registrar() {
       if (window.IGNORAR_COLETA === true) {
         showMsgIcon("erro", res.error || "Código não coletado.");
         Sound.play("err");
-        return { ok:false, tipo:"nao_coletado" };
+        return { ok:false, tipo:"nao_coletado", backend_processing_ms };
       }
       const overlay = document.getElementById("scanFS");
       const wasActive = overlay?.classList.contains("show");
@@ -882,7 +887,7 @@ async function registrar() {
       });
       if (!confirm.isConfirmed) {
         if (wasActive) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
-        return { ok:false, tipo:"nao_coletado_cancelado" };
+        return { ok:false, tipo:"nao_coletado_cancelado", backend_processing_ms };
       }
       const postResp = window.TrackAPI?.registerSaida
         ? await TrackAPI.registerSaida({ codigo: codigoFinal, entregador_id: entregadorId, entregador, servico, status: "Não Coletado" })
@@ -890,7 +895,7 @@ async function registrar() {
       if (!postResp.ok) {
         showMsgIcon("erro", postResp.error || "Erro ao registrar.");
         Sound.play("err");
-        return { ok:false, tipo:"erro_registrar_nao_coletado", detalhe:postResp.error };
+        return { ok:false, tipo:"erro_registrar_nao_coletado", detalhe:postResp.error, backend_processing_ms };
       }
       const data = postResp.data || {};
       appendOrUpdateRow({
@@ -907,13 +912,13 @@ async function registrar() {
       showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
       Sound.play("warn");
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
-      return { ok:true, tipo:"nao_coletado_registrado", codigo: codigoFinal };
+      return { ok:true, tipo:"nao_coletado_registrado", codigo: codigoFinal, backend_processing_ms };
     }
 
     revertOtimista();
     showMsgIcon("erro", res.error || "Erro ao registrar.");
     Sound.play("err");
-    return { ok:false, tipo:"erro_http", detalhe:res.error };
+    return { ok:false, tipo:"erro_http", detalhe:res.error, backend_processing_ms };
 
   } catch (err) {
     console.error("Erro registrar():", err);

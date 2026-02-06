@@ -120,13 +120,16 @@
       const error = res.ok ? null : (data?.message || data?.error || null);
       // Para 409/422, manter data para o front usar (id_saida, entregador_atual, etc.)
       const outData = res.ok ? data : (code ? data : null);
+      const backendMs = res.headers.get("X-Backend-Process-Time");
+      const backend_processing_ms = backendMs ? parseFloat(backendMs) : null;
 
       return {
         ok: res.ok,
         status: res.status,
         data: outData,
         error,
-        code
+        code,
+        backend_processing_ms: Number.isFinite(backend_processing_ms) ? backend_processing_ms : null
       };
 
     } catch (err) {
