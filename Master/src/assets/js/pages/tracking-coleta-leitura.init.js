@@ -266,6 +266,12 @@ function toAsciiDigits(s){
   return s;
 }
 
+function isCodigoShopee(codigo) {
+  if (!codigo || typeof codigo !== "string") return false;
+  const c = String(codigo).toUpperCase().trim();
+  return /^BR(\d{13}|\d{12}[A-Z])$/.test(c);
+}
+
 function classifyCodigo(rawInput){
   const raw = toAsciiDigits(String(rawInput || "")).toUpperCase().trim();
   const allDigits = raw.replace(/\D+/g, "");
@@ -277,7 +283,9 @@ function classifyCodigo(rawInput){
     if (raw.startsWith("{") && raw.endsWith("}")) {
       const obj = JSON.parse(raw);
       if (typeof obj.external_order_id === "string") {
-        return { ok:true, servico:"Avulso", codigo: obj.external_order_id.toUpperCase().trim() };
+        const codigo = obj.external_order_id.toUpperCase().trim();
+        const servico = isCodigoShopee(codigo) ? "Shopee" : "Avulso";
+        return { ok:true, servico, codigo };
       }
     }
   } catch(_) {}
@@ -287,7 +295,9 @@ function classifyCodigo(rawInput){
   // ===========================================================
   const extMatch = raw.match(/external_order_id["']?\s*[:=]\s*["']?([\w-]+)/i);
   if (extMatch) {
-    return { ok:true, servico:"Avulso", codigo: extMatch[1].toUpperCase() };
+    const codigo = extMatch[1].toUpperCase();
+    const servico = isCodigoShopee(codigo) ? "Shopee" : "Avulso";
+    return { ok:true, servico, codigo };
   }
 
   // ===========================================================
