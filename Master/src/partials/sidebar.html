@@ -105,9 +105,10 @@
   );
 
   const currentFile = (location.pathname.split("/").pop() || "").toLowerCase();
-  const makeItem = (href, label) => {
+  const makeItem = (href, label, icon) => {
     const isActive = currentFile && href && href.toLowerCase().endsWith(currentFile);
-    return `<li class="nav-item"><a href="${href || '#'}" class="nav-link ${isActive ? 'active' : ''}">${label}</a></li>`;
+    const iconHtml = icon ? `<i class="${icon} me-1"></i>` : "";
+    return `<li class="nav-item"><a href="${href || '#'}" class="nav-link ${isActive ? 'active' : ''}">${iconHtml}${label}</a></li>`;
   };
 
   const makeGroup = (id, icon, title, innerHTML) => (`
@@ -183,7 +184,7 @@ if (operacao) {
     );
   }
 
-  itensDiretos.forEach(i => { opHTML += makeItem(i.href, i.label); });
+  itensDiretos.forEach(i => { opHTML += makeItem(i.href, i.label, i.icon); });
 }
 
     // 🔹 Monta grupo Financeiro (itens diretos: Resumo de Coletas, Resumo por Entregador, Contabilidade)
