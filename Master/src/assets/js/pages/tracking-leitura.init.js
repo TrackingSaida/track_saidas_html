@@ -781,7 +781,7 @@ async function registrar() {
     }
 
     if (res.ok) {
-      // 200 ou 201 — sucesso ou idempotente (ja_saiu mesmo entregador)
+      // 200 ou 201 — sucesso ou idempotente [ja_saiu mesmo entregador]
       const apiRow = res.data || {};
       const novoServico = apiRow.servico ?? servico ?? "";
       const novoStatus = apiRow.status ?? "Saiu";
