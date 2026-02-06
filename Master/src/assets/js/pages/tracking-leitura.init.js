@@ -60,12 +60,15 @@ function updateSummary() {
   const rowsById = new Map();  // id pendente -> <tr>
   const inflight = new Set();  // ids em envio
 
-  // ---------- lock temporário por código (anti-rajada) ----------
-const CODE_LOCK_TTL_MS = 3000; // 3 segundos
-const codeLocks = new Map(); // codigo -> timestamp
+  // Lock temporário por código (anti-rajada câmera/teclado). TTL 2–3s evita rajadas sem bloquear leituras legítimas.
+  const CODE_LOCK_TTL_MS = 3000; // 3 segundos
+  const codeLocks = new Map(); // codigo -> timestamp
 
+// Set de códigos já lidos na sessão — bloqueia duplicidade antes de qualquer request.
+// Performance: evita round-trip de rede quando o mesmo código é lido de novo (como COLETAS na coleta).
+const codigosLidosSessao = new Set();
 
-// cache simples por sessão
+// cache simples por sessão (usado em outras telas; leitura rápida agora usa POST /saidas/ler)
 const codigoCache = new Map(); 
 // codigo -> { ts, registros }
 const CODIGO_CACHE_TTL = 5 * 60 * 1000; // 5 min
@@ -350,6 +353,7 @@ function classifyCodigo(rawInput){
   function clearUltimos(){
     if (tbLast) tbLast.innerHTML = "";
     rowsByKey.clear();
+    codigosLidosSessao.clear(); // permite re-leitura ao trocar entregador
     // Após limpar as linhas, zera o resumo de contagens
     updateSummary();
   }
@@ -382,9 +386,12 @@ async function removerSaida(id, tr) {
     tr.remove();
     rowsByKey.delete(tr.dataset.key);
 
-    // invalida cache do código removido
+    // invalida cache + permite nova leitura do mesmo código nesta sessão
 const codigo = tr?.querySelector(".cod")?.textContent;
-if (codigo) codigoCache.delete(codigo);
+if (codigo) {
+  codigoCache.delete(codigo);
+  codigosLidosSessao.delete(codigo);
+}
 
 
     updateSummary();
@@ -430,8 +437,10 @@ function createRow(row){
   if (ex) {
     ex.querySelector(".srv").textContent = row.servico || ex.querySelector(".srv").textContent;
     ex.querySelector(".st").textContent  = row.status  || ex.querySelector(".st").textContent;
-
-    // Atualiza o resumo após editar a linha existente
+    if (row.id_saida != null) {
+      const btn = ex.querySelector(".btn-remove");
+      if (btn) btn.dataset.id = String(row.id_saida);
+    }
     updateSummary();
     return ex;
   }
@@ -457,15 +466,27 @@ function createRow(row){
       ? TrackAPI.getEntregadores()
       : Promise.reject(new Error("TrackAPI.getEntregadores não disponível"));
   }
+  // Leitura otimizada de saída: usa POST /saidas/ler (1 SELECT + INSERT/UPDATE no backend).
+  function apiLerSaida({ entregador_id, entregador, codigo, servico }){
+    return window.TrackAPI?.lerSaida
+      ? TrackAPI.lerSaida({ entregador_id, entregador, codigo, servico })
+      : Promise.reject(new Error("TrackAPI.lerSaida não disponível"));
+  }
   function apiRegistrarSaida({ entregador_id, entregador, codigo, servico }){
     return window.TrackAPI?.registerSaida
       ? TrackAPI.registerSaida({ entregador_id, entregador, codigo, servico })
       : Promise.reject(new Error("TrackAPI.registerSaida não disponível"));
   }
 
+  // Detecta conflito de duplicidade (409) — sem retry automático.
+  function isDupConflict(res) {
+    const code = res?.code ?? res?.data?.code ?? res?.data?.detail?.code;
+    return code === "DUPLICATE_SAIDA" || code === "TROCA_ENTREGADOR";
+  }
+
   // ---------- envio (usa fila local) ----------
   async function attemptSend(p){
-  // 🔒 não reenviar erro de negócio
+  // 🔒 não reenviar erro de negócio (NAO_COLETADO, ja_saiu, TROCA_ENTREGADOR)
   if (!p) return;
   if (p.noRetry === true) {
   removePending(p.id);
@@ -480,14 +501,21 @@ function createRow(row){
     const tr = rowsById.get(p.id);
     if (tr) tr.querySelector('.st').textContent = 'Enviando…';
     try {
-      const res = await apiRegistrarSaida({
-        entregador_id: p.entregador_id,
-        entregador: p.entregador || entregadoresMap.get(String(p.entregador_id)),
-        codigo: p.codigo,
-        servico: p.servico
-      });
+      const res = await (window.TrackAPI?.registerSaida
+        ? apiRegistrarSaida({
+            entregador_id: p.entregador_id,
+            entregador: p.entregador || entregadoresMap.get(String(p.entregador_id)),
+            codigo: p.codigo,
+            servico: p.servico
+          })
+        : Promise.reject({ error: "TrackAPI.registerSaida não disponível" }));
       // Se a resposta não for OK, lidar com conflitos e outros erros
       if (!res || !res.ok) {
+        // Erros de negócio: sem retry (NAO_COLETADO, TROCA_ENTREGADOR, DUPLICATE_SAIDA)
+        const resCode = res?.code ?? res?.data?.code ?? res?.data?.detail?.code;
+        if (res && (res.status === 422 || res.status === 409) && ["NAO_COLETADO", "TROCA_ENTREGADOR", "DUPLICATE_SAIDA"].includes(resCode)) {
+          p.noRetry = true;
+        }
         // Conflito de duplicidade no backend
         if (res && res.status === 409 && isDupConflict(res)) {
           p.noRetry = true;
@@ -696,7 +724,15 @@ async function registrar() {
     const servico = cls.servico;
     const k = keyFor(entregador, codigoFinal);
 
-    // 🔹 DUPLICADO LOCAL POR SESSÃO (primeiro, sem lock)
+    // Bloqueio por Set de sessão (evita request quando código já foi lido — performance).
+    if (codigosLidosSessao.has(codigoFinal)) {
+      Sound.play("warn");
+      showMsgIcon("alerta", `Já registrado • ${codigoFinal}`);
+      if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+      return { ok:false, tipo:"duplicado" };
+    }
+
+    // DUPLICADO LOCAL (ent,cod) — redundância com rowsByKey
     if (rowsByKey.has(k)) {
       Sound.play("warn");
       showMsgIcon("alerta", `Já registrado • ${codigoFinal}`);
@@ -704,7 +740,7 @@ async function registrar() {
       return { ok:false, tipo:"duplicado" };
     }
 
-    // 🔒 LOCK TEMPORÁRIO POR CÓDIGO (anti-rajada)
+    // Lock anti-rajada (câmera/teclado)
     if (isCodeLocked(codigoFinal)) {
       Sound.play("warn");
       showMsgIcon("info", `Processando ${codigoFinal}…`);
@@ -713,325 +749,162 @@ async function registrar() {
     lockCode(codigoFinal);
     lockAtivo = true;
 
-   
-    let registros = getCodigoCache(codigoFinal);
+    // UX otimista: mostra linha antes da resposta (como na coleta) — feedback imediato, reverte em erro
+    const trOtimista = appendOrUpdateRow({
+      tsFmt: new Date().toLocaleString("pt-BR"),
+      entregador,
+      codigo: codigoFinal,
+      servico,
+      status: "Processando…",
+      duplicado: false
+    });
 
-if (!registros) {
-  const resp = await fetch(
-    `${window.TRACK_API_URL}/saidas/listar?codigo=${encodeURIComponent(codigoFinal)}`,
-    {
-      headers: { "Content-Type": "application/json" },
-      credentials: "include"
-    }
-  );
+    // POST /saidas/ler — 1 request leve (sem GET listar). Backend: 1 SELECT + 1 INSERT/UPDATE.
+    const res = await apiLerSaida({
+      entregador_id: entregadorId,
+      entregador,
+      codigo: codigoFinal,
+      servico
+    });
 
-  if (!resp.ok) {
-    if (resp.status === 401) {
+    const revertOtimista = () => {
+      trOtimista?.remove();
+      rowsByKey.delete(k);
+      updateSummary();
+    };
+
+    if (res.status === 401) {
+      revertOtimista();
       showMsgIcon("erro", "Sessão expirada. Faça login novamente.");
       Sound.play("err");
       return { ok:false, tipo:"nao_autorizado" };
     }
-    const msg = await resp.text().catch(() => "");
-    return { ok:false, tipo:"erro_http", detalhe:msg };
-  }
 
-  const dados = await resp.json();
-const normalizados = normalizarRegistros(dados);
-setCodigoCache(codigoFinal, normalizados);
-registros = normalizados;
-
-} else {
-  // ⚠️ garante formato consistente mesmo vindo do cache
-  registros = registros;
-}
-   
-
-    // =======================================================
-    // 1️⃣ SE EXISTE REGISTRO → TRATAR STATUS
-    // =======================================================
-    if (registros.length > 0) {
-      const registro = registros[0];
-      const statusAtual = ((registro.status || registro.st || "") + "").toLowerCase();
-      const entregadorAtual = registro.entregador || registro.ent || "Desconhecido";
-      const usuarioRegistro = registro.username || registro.user || registro.usuario || "Desconhecido";
-      const entregadorNovo = entregador;
-      const registroId = registro.id_saida || registro.id || registro._id || registro.idSaida;
-
-      // 🚨 SAIU / SAIU PARA ENTREGA
-      if (statusAtual === "saiu" || statusAtual === "saiu para entrega") {
-        if (String(entregadorAtual) === String(entregadorNovo)) {
-          showMsgIcon("alerta", `O código ${codigoFinal} já saiu para entrega.`);
-          Sound.play("warn");
-          return { ok:false, tipo:"ja_saiu" };
-        }
-
-        const overlay = document.getElementById("scanFS");
-        const wasActiveOverlay = overlay?.classList.contains("show");
-        if (wasActiveOverlay) {
-          try { window.leituraStopScanner?.(); }
-          catch(_) { overlay.style.display = "none"; }
-        }
-
-        const confirm = await Swal.fire({
-          icon: "warning",
-          title: "Código já saiu para entrega",
-          html: `
-            <p><strong>${codigoFinal}</strong></p>
-            <p>Registrado por: ${usuarioRegistro}</p>
-            <p>Entregador atual: ${entregadorAtual}</p>
-            <hr>
-            <p>Alterar para ${entregadorNovo}?</p>
-          `,
-          showCancelButton: true,
-          confirmButtonText: "Sim, alterar entregador",
-          cancelButtonText: "Não",
-          allowOutsideClick: false,
-          backdrop: true
-        });
-
-        if (!confirm.isConfirmed) {
-          if (wasActiveOverlay) {
-            try { window.leituraStartScanner?.(); }
-            catch(_) { overlay.style.display = "block"; }
-          }
-          return { ok:false, tipo:"ja_saiu" };
-        }
-
-        const patchResp = await fetch(
-          `${window.TRACK_API_URL}/saidas/${registroId}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-             
-            },
-            credentials: "include",
-        body: JSON.stringify({
-          status: "Saiu para entrega",
-          entregador_id: entregadorId,
-          entregador: entregadorNovo
-        })
-          }
-        );
-
-        if (!patchResp.ok) {
-          const msg = await patchResp.text().catch(() => "");
-          return { ok:false, tipo:"erro_patch_troca_entregador", detalhe:msg };
-        }
-
-        appendOrUpdateRow({
-          tsFmt: new Date().toLocaleString("pt-BR"),
-          entregador: entregadorNovo,
-          codigo: codigoFinal,
-          servico,
-          status: "Saiu para entrega",
-          id_saida: registroId,
-          duplicado: false
-        });
-
-        updateSummary();
-        showMsgIcon("info", `Entregador alterado ✓ ${codigoFinal}`);
-        Sound.play("ok");
-
-        // 🔄 atualiza cache com novo estado
-        setCodigoCache(codigoFinal, [{
-         ...registro,
-         status: "Saiu para entrega",
-         entregador: entregadorNovo
-         }]);
-
-
-        return { ok:true, tipo:"troca_entregador", codigo: codigoFinal };
-      }
-
-      // 🚚 COLETADO → SAIU
-      if (statusAtual === "coletado") {
-        const patchResp = await fetch(
-          `${window.TRACK_API_URL}/saidas/${registroId}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-             
-            },
-            credentials: "include",
-            body: JSON.stringify({
-              status: "Saiu para entrega",
-              entregador_id: entregadorId,
-              entregador
-            })
-          }
-        );
-
-        if (!patchResp.ok) {
-          const msg = await patchResp.text().catch(() => "");
-          return { ok:false, tipo:"erro_patch", detalhe:msg };
-        }
-
-        appendOrUpdateRow({
-          tsFmt: new Date().toLocaleString("pt-BR"),
-          entregador,
-          codigo: codigoFinal,
-          servico,
-          status: "Saiu para entrega",
-          id_saida: registroId,
-          duplicado: false
-        });
-
-        updateSummary();
-        showMsgIcon("info", `Registrado ✓ ${codigoFinal} • Saiu para entrega`);
-        Sound.play("ok");
-
-        if (inpCod) { inpCod.value = ""; inpCod.focus(); }
-
-        // 🔄 atualiza cache
-        setCodigoCache(codigoFinal, [{
-        ...registro,
-        status: "Saiu para entrega",
-        entregador
-        }]);
-
-
-        return { ok:true, tipo:"coletado", codigo: codigoFinal };
-      }
-
-      showMsgIcon("erro", `Status atual: ${registro.status || "desconhecido"}`);
-      Sound.play("err");
-      return { ok:false, tipo:"status_desconhecido", detalhe:registro.status };
+    if (res.ok) {
+      // 200 ou 201 — sucesso ou idempotente (ja_saiu mesmo entregador)
+      const apiRow = res.data || {};
+      const novoServico = apiRow.servico ?? servico ?? "";
+      const novoStatus = apiRow.status ?? "Saiu";
+      appendOrUpdateRow({
+        tsFmt: new Date().toLocaleString("pt-BR"),
+        entregador,
+        codigo: codigoFinal,
+        servico: novoServico,
+        status: novoStatus,
+        id_saida: apiRow.id_saida,
+        duplicado: false
+      });
+      codigosLidosSessao.add(codigoFinal);
+      updateSummary();
+      showMsgIcon("info", `Registrado ✓ ${codigoFinal}${novoServico ? " • " + novoServico : ""}`);
+      Sound.play("ok");
+      if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+      return { ok:true, tipo:"ok", codigo: codigoFinal };
     }
 
-       // =======================================================
-    // 2️⃣ SOMENTE SE NÃO EXISTE → FLUXO "NÃO COLETADO"
-    // =======================================================
-
-    // IGNORAR_COLETA = TRUE → registra direto
-    if (window.IGNORAR_COLETA === true) {
-
-      const postResp = await fetch(`${window.TRACK_API_URL}/saidas/registrar`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-         
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          codigo: codigoFinal,
-          entregador_id: entregadorId,
-          entregador,
-          servico,
-          status: "Saiu para entrega"
-        })
-      });
-
-      if (!postResp.ok) {
-        const msg = await postResp.text().catch(() => "");
-        return { ok:false, tipo:"erro_ignorar", detalhe:msg };
+    if (res.status === 409 && res.code === "TROCA_ENTREGADOR") {
+      revertOtimista();
+      const idSaida = res.data?.id_saida;
+      const entregadorAtual = res.data?.entregador_atual || "Desconhecido";
+      const overlay = document.getElementById("scanFS");
+      const wasActiveOverlay = overlay?.classList.contains("show");
+      if (wasActiveOverlay) {
+        try { window.leituraStopScanner?.(); } catch (_) { overlay.style.display = "none"; }
       }
-
-      const data = await postResp.json();
-
+      const confirm = await Swal.fire({
+        icon: "warning",
+        title: "Código já saiu para entrega",
+        html: `<p><strong>${codigoFinal}</strong></p><p>Entregador atual: ${entregadorAtual}</p><hr><p>Alterar para ${entregador}?</p>`,
+        showCancelButton: true,
+        confirmButtonText: "Sim, alterar entregador",
+        cancelButtonText: "Não",
+        allowOutsideClick: false,
+        backdrop: true
+      });
+      if (!confirm.isConfirmed) {
+        if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
+        return { ok:false, tipo:"ja_saiu" };
+      }
+      const patchResp = window.TrackAPI?.updateSaida
+        ? await TrackAPI.updateSaida(idSaida, { status: "Saiu para entrega", entregador_id: entregadorId, entregador })
+        : { ok: false, error: "TrackAPI.updateSaida não disponível" };
+      if (!patchResp.ok) {
+        const msg = patchResp.error || "";
+        showMsgIcon("erro", msg || "Erro ao alterar entregador.");
+        Sound.play("err");
+        return { ok:false, tipo:"erro_patch_troca_entregador", detalhe:msg };
+      }
       appendOrUpdateRow({
         tsFmt: new Date().toLocaleString("pt-BR"),
         entregador,
         codigo: codigoFinal,
         servico,
         status: "Saiu para entrega",
-        id_saida: data.id_saida,
+        id_saida: idSaida,
         duplicado: false
       });
-
+      codigosLidosSessao.add(codigoFinal);
       updateSummary();
-      showMsgIcon("info", `Registrado ✓ ${codigoFinal}`);
+      showMsgIcon("info", `Entregador alterado ✓ ${codigoFinal}`);
       Sound.play("ok");
-
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
-
-      setCodigoCache(codigoFinal, [{
-      id_saida: data.id_saida,
-      codigo: codigoFinal,
-      status: "Saiu para entrega",
-      entregador,
-      servico
-     }]);
-
-
-      return { ok:true, tipo:"ignorar_coleta_saida", codigo: codigoFinal };
+      return { ok:true, tipo:"troca_entregador", codigo: codigoFinal };
     }
 
-    // FLUXO ORIGINAL — popup "Não Coletado"
-    const overlay = document.getElementById("scanFS");
-    const wasActive = overlay?.classList.contains("show");
-    if (wasActive) {
-      try { window.leituraStopScanner?.(); }
-      catch(_) { overlay.style.display = "none"; }
-    }
-
-    const confirm = await Swal.fire({
-      icon: "warning",
-      title: "Código não coletado",
-      html: `
-        <p>O código <strong>${codigoFinal}</strong> ainda não foi coletado.</p>
-        <p>Deseja registrar mesmo assim?</p>
-      `,
-      showCancelButton: true,
-      confirmButtonText: "Sim, registrar",
-      cancelButtonText: "Cancelar",
-      allowOutsideClick: false,
-      backdrop: true
-    });
-
-    if (!confirm.isConfirmed) {
-      if (wasActive) {
-        try { window.leituraStartScanner?.(); }
-        catch(_) { overlay.style.display = "block"; }
+    if (res.status === 422 && res.code === "NAO_COLETADO") {
+      revertOtimista();
+      if (window.IGNORAR_COLETA === true) {
+        showMsgIcon("erro", res.error || "Código não coletado.");
+        Sound.play("err");
+        return { ok:false, tipo:"nao_coletado" };
       }
-      return { ok:false, tipo:"nao_coletado_cancelado" };
-    }
-
-    const postResp = await fetch(`${window.TRACK_API_URL}/saidas/registrar`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-       
-      },
-      credentials: "include",
-      body: JSON.stringify({
-        codigo: codigoFinal,
-        entregador_id: entregadorId,
+      const overlay = document.getElementById("scanFS");
+      const wasActive = overlay?.classList.contains("show");
+      if (wasActive) { try { window.leituraStopScanner?.(); } catch (_) { overlay.style.display = "none"; } }
+      const confirm = await Swal.fire({
+        icon: "warning",
+        title: "Código não coletado",
+        html: `<p>O código <strong>${codigoFinal}</strong> ainda não foi coletado.</p><p>Deseja registrar mesmo assim?</p>`,
+        showCancelButton: true,
+        confirmButtonText: "Sim, registrar",
+        cancelButtonText: "Cancelar",
+        allowOutsideClick: false,
+        backdrop: true
+      });
+      if (!confirm.isConfirmed) {
+        if (wasActive) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
+        return { ok:false, tipo:"nao_coletado_cancelado" };
+      }
+      const postResp = window.TrackAPI?.registerSaida
+        ? await TrackAPI.registerSaida({ codigo: codigoFinal, entregador_id: entregadorId, entregador, servico, status: "Não Coletado" })
+        : { ok: false, data: null, error: "TrackAPI.registerSaida não disponível" };
+      if (!postResp.ok) {
+        showMsgIcon("erro", postResp.error || "Erro ao registrar.");
+        Sound.play("err");
+        return { ok:false, tipo:"erro_registrar_nao_coletado", detalhe:postResp.error };
+      }
+      const data = postResp.data || {};
+      appendOrUpdateRow({
+        tsFmt: new Date().toLocaleString("pt-BR"),
         entregador,
+        codigo: codigoFinal,
         servico,
-        status: "Não Coletado"
-      })
-    });
-
-    if (!postResp.ok) {
-      const msg = await postResp.text().catch(() => "");
-
-      return { ok:false, tipo:"erro_registrar_nao_coletado", detalhe:msg };
+        status: "Não Coletado",
+        id_saida: data?.id_saida,
+        duplicado: false
+      });
+      codigosLidosSessao.add(codigoFinal);
+      updateSummary();
+      showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
+      Sound.play("warn");
+      if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+      return { ok:true, tipo:"nao_coletado_registrado", codigo: codigoFinal };
     }
 
-    appendOrUpdateRow({
-      tsFmt: new Date().toLocaleString("pt-BR"),
-      entregador,
-      codigo: codigoFinal,
-      servico,
-      status: "Não Coletado",
-      duplicado: false
-    });
-
-    updateSummary();
-    showMsgIcon("alerta", `Registrado como Não Coletado: ${codigoFinal}`);
-    Sound.play("warn");
-
-    setCodigoCache(codigoFinal, [{
-    codigo: codigoFinal,
-    status: "Não Coletado",
-    entregador,
-    servico
-    }]);
-
-
-    return { ok:true, tipo:"nao_coletado_registrado", codigo: codigoFinal };
+    revertOtimista();
+    showMsgIcon("erro", res.error || "Erro ao registrar.");
+    Sound.play("err");
+    return { ok:false, tipo:"erro_http", detalhe:res.error };
 
   } catch (err) {
     console.error("Erro registrar():", err);
@@ -1065,7 +938,7 @@ registros = normalizados;
   let interval = null;
   let stream = null;
 
-  // 🔒 Lock por código visível (anti-repetição)
+  // Lock por código no scanner (anti-repetição). TTL 2s evita múltiplas leituras do mesmo QR em rajada.
   const SCAN_CODE_TTL_MS = 2000;
   const recentScanCodes = new Map();
 

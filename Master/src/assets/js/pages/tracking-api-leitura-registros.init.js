@@ -92,7 +92,50 @@
   };
 
   // ============================================================
-  // REGISTRAR SAÍDA
+  // LER SAÍDA (POST /saidas/ler — fluxo unificado de leitura)
+  // ============================================================
+  // Foco em performance:
+  // - 1 único request leve (1 SELECT + 1 INSERT/UPDATE no backend)
+  // - Sem GET /saidas/listar?codigo= antes de decidir POST/PATCH
+  // - 200/201 tratam idempotência; 409 é reservado para troca de entregador.
+  window.TrackAPI.lerSaida = async function ({ entregador_id, entregador, codigo, servico }) {
+    try {
+      const body = {
+        codigo,
+        servico
+      };
+      if (entregador_id != null) body.entregador_id = entregador_id;
+      if (entregador != null) body.entregador = entregador;
+
+      const res = await req("/saidas/ler", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      let data = null;
+      try { data = await res.json(); } catch {}
+
+      const code = data?.code;
+      const error = res.ok ? null : (data?.message || data?.error || null);
+      // Para 409/422, manter data para o front usar (id_saida, entregador_atual, etc.)
+      const outData = res.ok ? data : (code ? data : null);
+
+      return {
+        ok: res.ok,
+        status: res.status,
+        data: outData,
+        error,
+        code
+      };
+
+    } catch (err) {
+      return { ok: false, status: 0, error: String(err?.message || err) };
+    }
+  };
+
+  // ============================================================
+  // REGISTRAR SAÍDA (legado — mantido para compatibilidade)
   // ============================================================
   window.TrackAPI.registerSaida = async function ({ entregador_id, entregador, codigo, servico, status }) {
     try {
