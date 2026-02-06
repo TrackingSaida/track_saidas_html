@@ -164,7 +164,7 @@ if (operacao) {
 
   const grupoRegistrar = opItems.filter(i => i.group === "leituras");
   const grupoRegistros = opItems.filter(i => i.group === "registros");
-  const itensDiretos = opItems.filter(i => i.group === "operacao_direto");
+  const grupoEtiquetas = opItems.filter(i => i.group === "etiquetas");
 
   if (grupoRegistrar.length) {
     opHTML += makeGroup(
@@ -184,7 +184,14 @@ if (operacao) {
     );
   }
 
-  itensDiretos.forEach(i => { opHTML += makeItem(i.href, i.label, i.icon); });
+  if (grupoEtiquetas.length) {
+    opHTML += makeGroup(
+      toId("Etiquetas"),
+      "ri-qr-code-line me-1",
+      "Etiquetas",
+      grupoEtiquetas.map(i => makeItem(i.href, i.label, i.icon)).join("")
+    );
+  }
 }
 
     // 🔹 Monta grupo Financeiro (itens diretos: Resumo de Coletas, Resumo por Entregador, Contabilidade)
