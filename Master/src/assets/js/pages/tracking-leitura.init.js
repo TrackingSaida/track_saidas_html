@@ -889,9 +889,9 @@ async function registrar() {
         if (wasActive) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
         return { ok:false, tipo:"nao_coletado_cancelado", backend_processing_ms };
       }
-      const postResp = window.TrackAPI?.registerSaida
-        ? await TrackAPI.registerSaida({ codigo: codigoFinal, entregador_id: entregadorId, entregador, servico, status: "Não Coletado" })
-        : { ok: false, data: null, error: "TrackAPI.registerSaida não disponível" };
+      const postResp = window.TrackAPI?.lerSaida
+        ? await TrackAPI.lerSaida({ codigo: codigoFinal, entregador_id: entregadorId, entregador, servico, registrar_nao_coletado: true })
+        : { ok: false, data: null, error: "TrackAPI.lerSaida não disponível" };
       if (!postResp.ok) {
         showMsgIcon("erro", postResp.error || "Erro ao registrar.");
         Sound.play("err");

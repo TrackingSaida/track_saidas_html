@@ -98,7 +98,7 @@
   // - 1 único request leve (1 SELECT + 1 INSERT/UPDATE no backend)
   // - Sem GET /saidas/listar?codigo= antes de decidir POST/PATCH
   // - 200/201 tratam idempotência; 409 é reservado para troca de entregador.
-  window.TrackAPI.lerSaida = async function ({ entregador_id, entregador, codigo, servico }) {
+  window.TrackAPI.lerSaida = async function ({ entregador_id, entregador, codigo, servico, registrar_nao_coletado }) {
     try {
       const body = {
         codigo,
@@ -106,6 +106,7 @@
       };
       if (entregador_id != null) body.entregador_id = entregador_id;
       if (entregador != null) body.entregador = entregador;
+      if (registrar_nao_coletado === true) body.registrar_nao_coletado = true;
 
       const res = await req("/saidas/ler", {
         method: "POST",
