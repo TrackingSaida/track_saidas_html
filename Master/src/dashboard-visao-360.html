@@ -30,10 +30,37 @@
                 <p id="visao360-subtitle" class="text-muted mb-0">Visão operacional do dia</p>
               </div>
               <div class="col-auto">
-                <div class="d-flex gap-2 align-items-center">
-                  <input type="date" id="visao360-data-inicio" class="form-control form-control-sm" style="min-width: 140px;" />
-                  <input type="date" id="visao360-data-fim" class="form-control form-control-sm" style="min-width: 140px;" />
-                  <button id="visao360-btn-refresh" class="btn btn-soft-primary btn-sm">Atualizar</button>
+                <div class="dropdown">
+                  <button class="btn btn-soft-primary btn-sm dropdown-toggle d-flex align-items-center gap-2" type="button" id="visao360-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                    <i class="bx bx-calendar"></i>
+                    <span id="visao360-period-label">Hoje</span>
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-end p-3" id="visao360-period-panel" style="min-width: 320px;">
+                    <h6 class="dropdown-header text-uppercase">Período</h6>
+                    <div class="row g-2 mb-3">
+                      <div class="col-6">
+                        <label class="form-label small mb-0">De</label>
+                        <input type="date" id="visao360-data-inicio" class="form-control form-control-sm" />
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label small mb-0">Até</label>
+                        <input type="date" id="visao360-data-fim" class="form-control form-control-sm" />
+                      </div>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label small mb-1">Atalhos</label>
+                      <div class="d-flex flex-column gap-1">
+                        <button type="button" class="btn btn-outline-secondary btn-sm text-start visao360-preset" data-preset="hoje">Hoje (D0)</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm text-start visao360-preset" data-preset="semana">Semana atual</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm text-start visao360-preset" data-preset="quinzena">Quinzena atual</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm text-start visao360-preset" data-preset="quinzena-ant">Quinzena anterior</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm text-start visao360-preset" data-preset="mes">Mês atual</button>
+                      </div>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                      <button type="button" class="btn btn-primary btn-sm" id="visao360-btn-aplicar">Aplicar</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -101,7 +128,7 @@
               <div class="card">
                 <div class="card-header d-flex align-items-center justify-content-between">
                   <h5 class="card-title mb-0">Capacidade vs Demanda — Same Day</h5>
-                  <span id="capacidade-alerta" class="badge bg-warning d-none">Atenção</span>
+                  <span id="capacidade-status" class="badge">—</span>
                 </div>
                 <div class="card-body">
                   <div class="row g-3 mb-3">
@@ -115,14 +142,19 @@
                     </div>
                     <div class="col-md-4">
                       <p class="text-muted mb-1">Saturação</p>
-                      <h4 id="capacidade-saturacao" class="text-warning">0%</h4>
+                      <h4 id="capacidade-saturacao">0%</h4>
                     </div>
                   </div>
-                  <div class="progress" style="height: 8px;">
-                    <div id="capacidade-bar" class="progress-bar bg-warning" role="progressbar" style="width: 0%;"></div>
+                  <div class="progress" style="height: 10px;">
+                    <div id="capacidade-bar" class="progress-bar" role="progressbar" style="width: 0%;"></div>
                   </div>
-                  <p class="text-muted fs-12 mb-0 mt-2">
-                    <span id="capacidade-msg" class="d-none text-warning">Capacidade próxima do limite — monitorar alocação</span>
+                  <div class="d-flex justify-content-between mt-1 mb-2">
+                    <span class="text-muted fs-12">0%</span>
+                    <span class="text-muted fs-12">85%</span>
+                    <span class="text-muted fs-12 text-danger">100%</span>
+                  </div>
+                  <p class="text-muted fs-12 mb-0" id="capacidade-msg-container">
+                    <span id="capacidade-msg"></span>
                   </p>
                 </div>
               </div>
@@ -137,13 +169,20 @@
               <div class="row g-4">
                 <div class="col-lg-6">
                   <div class="card">
-                    <div class="card-header">
-                      <h5 class="card-title mb-0">Taxa de Aceitação Logística</h5>
-                      <small class="text-muted">Same Day — Saídas / Coletas</small>
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                      <div>
+                        <h5 class="card-title mb-0">Taxa de Aceitação Logística</h5>
+                        <small class="text-muted">Same Day — Saídas / Coletas</small>
+                      </div>
+                      <span id="aceitacao-status" class="badge">—</span>
                     </div>
                     <div class="card-body">
-                      <h3 id="aceitacao-taxa" class="mb-3">0%</h3>
-                      <div id="aceitacao-marketplaces" class="mb-0"></div>
+                      <div class="text-center mb-3">
+                        <h2 class="display-5 mb-1" id="aceitacao-taxa">0%</h2>
+                        <p class="text-muted fs-12 mb-0">≥99% Ideal | ≥98.5% Aceitável | &lt;98% Risco</p>
+                      </div>
+                      <div id="aceitacao-marketplaces" class="mb-2"></div>
+                      <p class="text-muted fs-12 mb-0">Indicador crítico para manutenção do SLA Same Day nos marketplaces.</p>
                     </div>
                   </div>
                 </div>
@@ -172,13 +211,36 @@
               <div class="card">
                 <div class="card-header d-flex align-items-center justify-content-between">
                   <h5 class="card-title mb-0">Alerta FIFO — Pacotes Parados</h5>
-                  <span id="fifo-total" class="badge bg-danger">0</span>
+                  <h4 class="mb-0"><span id="fifo-total" class="badge bg-danger fs-6">0</span></h4>
                 </div>
                 <div class="card-body">
                   <p class="text-muted mb-2">Pedidos que não saíram por faixa de Idade:</p>
-                  <div id="fifo-bands" class="d-flex gap-2 flex-wrap mb-3"></div>
-                  <p id="fifo-alerta" class="text-danger fs-12 d-none">▲ FIFO CRÍTICO — risco imediato de cancelamento e penalização</p>
-                  <a href="tracking-registros.html?status=coletado" class="text-primary fs-12">Ver detalhes dos pacotes</a>
+                  <div id="fifo-cards" class="row g-2 mb-3"></div>
+                  <div id="fifo-bar-container" class="mb-3">
+                    <div class="d-flex" id="fifo-bar" style="height: 24px; border-radius: 4px; overflow: hidden;"></div>
+                  </div>
+                  <p id="fifo-marketplace" class="text-muted fs-12 mb-2"></p>
+                  <p id="fifo-alerta-critico" class="text-danger fs-12 mb-0 d-none">▲ FIFO CRÍTICO — risco imediato de cancelamento e penalização</p>
+                  <p id="fifo-alerta-risco" class="text-warning fs-12 mb-2 d-none">▲ FIFO em risco — ação recomendada</p>
+                  <button type="button" class="btn btn-link btn-sm p-0 text-primary" id="fifo-toggle-detalhes">Ver detalhes dos pacotes</button>
+                  <div id="fifo-drilldown" class="mt-3 d-none">
+                    <div class="d-flex gap-2 mb-2 flex-wrap">
+                      <select id="fifo-filtro-base" class="form-select form-select-sm" style="max-width: 180px;">
+                        <option value="">Todas as bases</option>
+                      </select>
+                      <select id="fifo-filtro-marketplace" class="form-select form-select-sm" style="max-width: 160px;">
+                        <option value="">Todos os marketplaces</option>
+                      </select>
+                    </div>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-bordered">
+                        <thead>
+                          <tr><th>Base</th><th>Código</th><th>Marketplace</th><th>Data Coleta</th><th>Dias</th><th>Status</th></tr>
+                        </thead>
+                        <tbody id="fifo-tabela"></tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </div>
             </section>
@@ -212,7 +274,7 @@
               </div>
             </section>
 
-            <!-- Seção: Apoio & Responsabilidade -->
+            <!-- Seção: Apoio & Responsabilidade (secundária) -->
             <section class="mb-5">
               <h6 class="text-uppercase text-muted mb-3">
                 <span class="d-inline-block rounded-circle bg-secondary me-2" style="width:6px;height:6px;vertical-align:middle;"></span>
@@ -221,12 +283,12 @@
 
               <!-- Gráfico Evolução Diária -->
               <div class="card mb-4">
-                <div class="card-header">
-                  <h5 class="card-title mb-0">Evolução Diária</h5>
+                <div class="card-header py-2">
+                  <h6 class="card-title mb-0 fs-14 text-muted">Evolução Diária</h6>
                   <small class="text-muted">Coletas vs Saídas + Taxa de Conversão</small>
                 </div>
-                <div class="card-body">
-                  <div id="chart-evolucao-diaria" style="height: 320px;"></div>
+                <div class="card-body py-2">
+                  <div id="chart-evolucao-diaria" style="height: 260px;"></div>
                 </div>
               </div>
 
@@ -234,8 +296,8 @@
               <div class="row g-4">
                 <div class="col-lg-6">
                   <div class="card">
-                    <div class="card-header">
-                      <h5 class="card-title mb-0">Ranking de Motoboys</h5>
+                    <div class="card-header py-2">
+                      <h6 class="card-title mb-0 fs-14 text-muted">Ranking de Motoboys</h6>
                       <small class="text-muted">Confiança operacional • Período atual</small>
                     </div>
                     <div class="card-body">
@@ -245,8 +307,8 @@
                 </div>
                 <div class="col-lg-6">
                   <div class="card">
-                    <div class="card-header">
-                      <h5 class="card-title mb-0">Ranking por Base</h5>
+                    <div class="card-header py-2">
+                      <h6 class="card-title mb-0 fs-14 text-muted">Ranking por Base</h6>
                       <small class="text-muted">Distribuição das SAÍDAS por serviço</small>
                     </div>
                     <div class="card-body">
@@ -257,7 +319,7 @@
               </div>
             </section>
 
-            <p class="text-center text-muted fs-12 mt-4" id="visao360-footer">Atualizado há poucos segundos</p>
+            <p class="text-center text-muted fs-12 mt-4" id="visao360-footer">Torre de Controle • Atualizado há poucos segundos</p>
           </div>
 
         </div>

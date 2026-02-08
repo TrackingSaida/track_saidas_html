@@ -10,7 +10,79 @@
   function fmtYMD(d) {
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
-    return `${d.getFullYear()}-${mm}-${dd}`;
+    return d.getFullYear() + "-" + mm + "-" + dd;
+  }
+
+  function fmtDMY(d) {
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return dd + "/" + mm + "/" + d.getFullYear();
+  }
+
+  function getPresetRange(preset) {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const d = now.getDate();
+    let start, end;
+    switch (preset) {
+      case "hoje":
+        start = new Date(y, m, d);
+        end = new Date(y, m, d);
+        break;
+      case "semana": {
+        const day = now.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        start = new Date(now);
+        start.setDate(d + diff);
+        end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        break;
+      }
+      case "quinzena":
+        if (d > 15) {
+          start = new Date(y, m, 16);
+          end = new Date(y, m + 1, 0);
+        } else {
+          start = new Date(y, m, 1);
+          end = new Date(y, m, 15);
+        }
+        break;
+      case "quinzena-ant":
+        if (d > 15) {
+          start = new Date(y, m, 1);
+          end = new Date(y, m, 15);
+        } else {
+          start = new Date(y, m - 1, 16);
+          end = new Date(y, m - 1 + 1, 0);
+        }
+        break;
+      case "mes":
+        start = new Date(y, m, 1);
+        end = new Date(y, m + 1, 0);
+        break;
+      default:
+        start = new Date(y, m, d);
+        end = new Date(y, m, d);
+    }
+    return { start: fmtYMD(start), end: fmtYMD(end) };
+  }
+
+  function updatePeriodLabel(from, to) {
+    const label = document.getElementById("visao360-period-label");
+    if (!label) return;
+    const today = fmtYMD(new Date());
+    const fromD = from ? new Date(from + "T12:00:00") : null;
+    const toD = to ? new Date(to + "T12:00:00") : null;
+    if (from === to && from === today && fromD) {
+      label.textContent = "Hoje — " + fmtDMY(fromD);
+    } else if (from === to && fromD) {
+      label.textContent = fmtDMY(fromD);
+    } else if (from && to && fromD && toD) {
+      label.textContent = fmtDMY(fromD) + " — " + fmtDMY(toD);
+    } else {
+      label.textContent = "Período";
+    }
   }
 
   async function fetchJson(url) {
@@ -70,40 +142,77 @@
 
     setText("capacidade-demanda", demanda);
     setText("capacidade-total", capacidade);
-    setText("capacidade-saturacao", saturacao + "%");
+    const satEl = document.getElementById("capacidade-saturacao");
+    if (satEl) {
+      satEl.textContent = saturacao + "%";
+      satEl.className = saturacao <= 85 ? "text-success" : (saturacao <= 100 ? "text-warning" : "text-danger");
+    }
 
     const bar = document.getElementById("capacidade-bar");
     if (bar) {
-      bar.style.width = Math.min(100, saturacao) + "%";
+      bar.style.width = Math.min(100, Math.max(0, saturacao)) + "%";
       bar.classList.remove("bg-success", "bg-warning", "bg-danger");
-      if (saturacao >= 85) bar.classList.add("bg-warning");
-      if (saturacao >= 100) bar.classList.add("bg-danger");
-      if (saturacao < 85) bar.classList.add("bg-success");
+      if (saturacao <= 85) bar.classList.add("bg-success");
+      else if (saturacao <= 100) bar.classList.add("bg-warning");
+      else bar.classList.add("bg-danger");
     }
 
-    const alerta = document.getElementById("capacidade-alerta");
+    const statusEl = document.getElementById("capacidade-status");
+    if (statusEl) {
+      if (saturacao <= 85) {
+        statusEl.textContent = "Ideal";
+        statusEl.className = "badge bg-success";
+      } else if (saturacao <= 100) {
+        statusEl.textContent = "Atenção";
+        statusEl.className = "badge bg-warning";
+      } else {
+        statusEl.textContent = "Crítico";
+        statusEl.className = "badge bg-danger";
+      }
+    }
+
     const msg = document.getElementById("capacidade-msg");
-    if (saturacao >= 85) {
-      if (alerta) alerta.classList.remove("d-none");
-      if (msg) msg.classList.remove("d-none");
-    } else {
-      if (alerta) alerta.classList.add("d-none");
-      if (msg) msg.classList.add("d-none");
+    if (msg) {
+      if (saturacao > 100) {
+        msg.textContent = "Demanda acima da capacidade — alto risco de quebra do Same Day";
+        msg.className = "text-danger";
+      } else if (saturacao > 85) {
+        msg.textContent = "Capacidade próxima do limite — monitorar alocação";
+        msg.className = "text-warning";
+      } else {
+        msg.textContent = "";
+      }
     }
   }
 
   function renderAceitacao(data) {
     const a = data.aceitacao || {};
     const taxa = a.taxa_aceitacao ?? 0;
-    setText("aceitacao-taxa", taxa + "%");
-
+    const taxaEl = document.getElementById("aceitacao-taxa");
+    if (taxaEl) {
+      taxaEl.textContent = taxa + "%";
+      taxaEl.className = "display-5 mb-1 " + (taxa >= 99 ? "text-success" : (taxa >= 98.5 ? "text-warning" : "text-danger"));
+    }
+    const statusEl = document.getElementById("aceitacao-status");
+    if (statusEl) {
+      if (taxa >= 99) {
+        statusEl.textContent = "Ideal";
+        statusEl.className = "badge bg-success";
+      } else if (taxa >= 98.5) {
+        statusEl.textContent = "Aceitável";
+        statusEl.className = "badge bg-warning";
+      } else {
+        statusEl.textContent = "Risco";
+        statusEl.className = "badge bg-danger";
+      }
+    }
     const container = document.getElementById("aceitacao-marketplaces");
     if (!container) return;
     const items = a.por_marketplace || [];
     let html = "";
     items.forEach(function (m) {
       const cls = m.taxa_aceitacao >= 99 ? "text-success" : (m.taxa_aceitacao >= 98.5 ? "text-warning" : "text-danger");
-      html += "<div class='d-flex justify-content-between mb-1'><span>" + escapeHtml(m.nome) + "</span><span class='" + cls + "'>" + m.coletas + "/" + m.saidas + " (" + m.taxa_aceitacao + "%)</span></div>";
+      html += "<div class='d-flex justify-content-between mb-1'><span>" + escapeHtml(m.nome) + "</span><span class='" + cls + "'>" + m.saidas + "/" + m.coletas + " (" + m.taxa_aceitacao + "%)</span></div>";
     });
     container.innerHTML = html || "<p class='text-muted mb-0'>Sem dados</p>";
   }
@@ -117,23 +226,104 @@
     if (alerta) alerta.classList.toggle("d-none", gap <= 0);
   }
 
+  let fifoPackagesCache = [];
+
   function renderFifo(data) {
     const fifo = data.fifo || {};
     const bands = fifo.bands || [];
+    const packages = fifo.packages || [];
     const total = fifo.total_parados ?? 0;
+    fifoPackagesCache = packages;
 
     setText("fifo-total", total);
 
-    const bandsEl = document.getElementById("fifo-bands");
-    if (bandsEl) {
-      const colors = ["success", "warning", "info", "danger"];
-      bandsEl.innerHTML = bands.map(function (b, i) {
-        return "<span class='badge bg-" + (colors[i] || "secondary") + "'>" + b.label + ": " + b.count + "</span>";
-      }).join(" ");
+    var bandColors = [
+      { label: "D-1", color: "success", bg: "#28a745" },
+      { label: "D-2", color: "warning", bg: "#ffc107" },
+      { label: "D-3", color: "orange", bg: "#fd7e14" },
+      { label: "≥ D-4", color: "danger", bg: "#dc3545" }
+    ];
+    const cardsEl = document.getElementById("fifo-cards");
+    if (cardsEl) {
+      cardsEl.innerHTML = bands.map(function (b, i) {
+        var c = bandColors[i] || bandColors[0];
+        var borderCls = c.color === "orange" ? "border-warning" : "border-" + c.color;
+        return "<div class='col-6 col-md-3'><div class='card " + borderCls + "'><div class='card-body py-2 text-center'><small class='text-muted'>" + b.label + "</small><h5 class='mb-0'>" + b.count + "</h5></div></div></div>";
+      }).join("");
     }
 
-    const alerta = document.getElementById("fifo-alerta");
-    if (alerta) alerta.classList.toggle("d-none", total <= 0);
+    var barEl = document.getElementById("fifo-bar");
+    if (barEl && total > 0) {
+      var html = "";
+      bands.forEach(function (b, i) {
+        if (b.count > 0) {
+          html += "<div style='flex:" + b.count + " 1 0;background:" + bandColors[i].bg + ";min-width:4px;' title='" + b.label + ": " + b.count + "'></div>";
+        }
+      });
+      barEl.innerHTML = html || "<div class='text-muted small'>Nenhum pacote parado</div>";
+      barEl.className = "d-flex";
+    } else if (barEl) {
+      barEl.innerHTML = "<div class='text-muted small w-100 text-center py-1'>Nenhum pacote parado</div>";
+      barEl.className = "";
+    }
+
+    var mp = {};
+    packages.forEach(function (p) {
+      var m = p.marketplace || "Outros";
+      mp[m] = (mp[m] || 0) + 1;
+    });
+    var mpEl = document.getElementById("fifo-marketplace");
+    if (mpEl) {
+      var parts = Object.keys(mp).map(function (k) { return k + ": " + mp[k]; });
+      mpEl.textContent = parts.length ? "Por marketplace: " + parts.join(" | ") : "";
+    }
+
+    var d4 = bands[3] && bands[3].count > 0;
+    var d3 = bands[2] && bands[2].count > 0;
+    var critEl = document.getElementById("fifo-alerta-critico");
+    var riskEl = document.getElementById("fifo-alerta-risco");
+    if (critEl) critEl.classList.toggle("d-none", !d4);
+    if (riskEl) riskEl.classList.toggle("d-none", d4 || !d3);
+
+    renderFifoTable();
+    populateFifoFilters();
+  }
+
+  function populateFifoFilters() {
+    var bases = {};
+    var mps = {};
+    fifoPackagesCache.forEach(function (p) {
+      if (p.cliente_base) bases[p.cliente_base] = 1;
+      if (p.marketplace) mps[p.marketplace] = 1;
+    });
+    var baseSel = document.getElementById("fifo-filtro-base");
+    var mpSel = document.getElementById("fifo-filtro-marketplace");
+    if (baseSel) {
+      var opts = "<option value=''>Todas as bases</option>";
+      Object.keys(bases).sort().forEach(function (b) { opts += "<option value='" + escapeHtml(b) + "'>" + escapeHtml(b) + "</option>"; });
+      baseSel.innerHTML = opts;
+    }
+    if (mpSel) {
+      var opts = "<option value=''>Todos os marketplaces</option>";
+      Object.keys(mps).sort().forEach(function (m) { opts += "<option value='" + escapeHtml(m) + "'>" + escapeHtml(m) + "</option>"; });
+      mpSel.innerHTML = opts;
+    }
+  }
+
+  function renderFifoTable() {
+    var baseF = (document.getElementById("fifo-filtro-base") || {}).value || "";
+    var mpF = (document.getElementById("fifo-filtro-marketplace") || {}).value || "";
+    var rows = fifoPackagesCache.filter(function (p) {
+      if (baseF && p.cliente_base !== baseF) return false;
+      if (mpF && p.marketplace !== mpF) return false;
+      return true;
+    });
+    rows.sort(function (a, b) { return (b.dias_em_fila || 0) - (a.dias_em_fila || 0); });
+    var tbody = document.getElementById("fifo-tabela");
+    if (!tbody) return;
+    tbody.innerHTML = rows.map(function (p) {
+      return "<tr><td>" + escapeHtml(p.cliente_base) + "</td><td>" + escapeHtml(p.codigo_pacote) + "</td><td>" + escapeHtml(p.marketplace) + "</td><td>" + escapeHtml(p.data_coleta) + "</td><td>" + (p.dias_em_fila || 0) + "</td><td>" + escapeHtml(p.status) + "</td></tr>";
+    }).join("");
   }
 
   function renderSla(data) {
@@ -151,7 +341,7 @@
     setText("sla-sucesso", sucesso + "%");
 
     const risco = document.getElementById("sla-risco");
-    if (risco) risco.classList.toggle("d-none", sla >= 98);
+    if (risco) risco.classList.toggle("d-none", sla >= 97);
   }
 
   function renderDailyEvolution(data) {
@@ -261,8 +451,10 @@
     const today = fmtYMD(new Date());
     const dataInicioEl = document.getElementById("visao360-data-inicio");
     const dataFimEl = document.getElementById("visao360-data-fim");
+    const periodBtn = document.getElementById("visao360-period-btn");
     if (dataInicioEl) dataInicioEl.value = today;
     if (dataFimEl) dataFimEl.value = today;
+    updatePeriodLabel(today, today);
 
     async function load() {
       const from = dataInicioEl ? dataInicioEl.value : today;
@@ -287,8 +479,58 @@
       }
     }
 
-    const btnRefresh = document.getElementById("visao360-btn-refresh");
-    if (btnRefresh) btnRefresh.addEventListener("click", load);
+    document.querySelectorAll(".visao360-preset").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const preset = this.getAttribute("data-preset");
+        const range = getPresetRange(preset);
+        if (dataInicioEl) dataInicioEl.value = range.start;
+        if (dataFimEl) dataFimEl.value = range.end;
+      });
+    });
+
+    document.getElementById("visao360-btn-aplicar").addEventListener("click", function () {
+      let from = dataInicioEl ? dataInicioEl.value : today;
+      let to = dataFimEl ? dataFimEl.value : today;
+      if (!from || !to) return;
+      if (to < from) {
+        const tmp = from;
+        from = to;
+        to = tmp;
+        dataInicioEl.value = from;
+        dataFimEl.value = to;
+      }
+      updatePeriodLabel(from, to);
+      if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
+        const d = bootstrap.Dropdown.getInstance(periodBtn);
+        if (d) d.hide();
+      }
+      load();
+    });
+
+    if (dataInicioEl) {
+      dataInicioEl.addEventListener("change", function () {
+        const to = dataFimEl ? dataFimEl.value : "";
+        if (to && to < this.value) dataFimEl.value = this.value;
+      });
+    }
+    if (dataFimEl) {
+      dataFimEl.addEventListener("change", function () {
+        const from = dataInicioEl ? dataInicioEl.value : "";
+        if (from && this.value < from) dataInicioEl.value = this.value;
+      });
+    }
+
+    var fifoToggle = document.getElementById("fifo-toggle-detalhes");
+    if (fifoToggle) {
+      fifoToggle.addEventListener("click", function () {
+        var d = document.getElementById("fifo-drilldown");
+        if (d) d.classList.toggle("d-none");
+      });
+    }
+    var fb = document.getElementById("fifo-filtro-base");
+    var fm = document.getElementById("fifo-filtro-marketplace");
+    if (fb) fb.addEventListener("change", renderFifoTable);
+    if (fm) fm.addEventListener("change", renderFifoTable);
 
     await load();
   }
