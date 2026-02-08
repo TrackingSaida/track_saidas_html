@@ -1,0 +1,282 @@
+@@include("partials/main.html")
+
+<head>
+  @@include("partials/title-meta.html", {"title": "Dashboard – Visão 360"})
+  @@include("partials/head-css.html")
+</head>
+
+<body>
+  <div id="layout-wrapper">
+    @@include("partials/menu.html")
+
+    <div class="main-content">
+      <div class="page-content">
+        <div class="container-fluid">
+
+          @@include("partials/page-title.html", {"pagetitle": "Dashboards", "title": "Visão 360"})
+
+          <!-- Acesso negado (visível quando ignorar_coleta=true) -->
+          <div id="visao360-acesso-negado" class="alert alert-warning d-none">
+            <h5 class="alert-heading">Acesso restrito</h5>
+            <p class="mb-0">O dashboard Visão 360 está disponível apenas para operações com coleta ativa.</p>
+          </div>
+
+          <!-- Conteúdo principal (oculto quando acesso negado) -->
+          <div id="visao360-content">
+            <!-- Header: saudação e filtro de data -->
+            <div class="row align-items-center mb-4">
+              <div class="col">
+                <h4 id="visao360-greeting" class="fs-18 fw-semibold"></h4>
+                <p id="visao360-subtitle" class="text-muted mb-0">Visão operacional do dia</p>
+              </div>
+              <div class="col-auto">
+                <div class="d-flex gap-2 align-items-center">
+                  <input type="date" id="visao360-data-inicio" class="form-control form-control-sm" style="min-width: 140px;" />
+                  <input type="date" id="visao360-data-fim" class="form-control form-control-sm" style="min-width: 140px;" />
+                  <button id="visao360-btn-refresh" class="btn btn-soft-primary btn-sm">Atualizar</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Seção: Status Operacional -->
+            <section class="mb-5">
+              <h6 class="text-uppercase text-muted mb-3">
+                <span class="d-inline-block rounded-circle bg-success me-2" style="width:6px;height:6px;vertical-align:middle;"></span>
+                Status Operacional
+              </h6>
+              <div class="row g-3">
+                <div class="col-md-6 col-xl-3">
+                  <div class="card card-height-100">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Coletas do dia</p>
+                        <h4 class="mb-0"><span id="kpi-coletas-dia">0</span></h4>
+                      </div>
+                      <i class="bx bx-package fs-2 text-success"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                  <div class="card card-height-100">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Saídas do dia</p>
+                        <h4 class="mb-0"><span id="kpi-saidas-dia">0</span></h4>
+                      </div>
+                      <i class="bx bx-truck fs-2 text-info"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                  <div class="card card-height-100">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Entregadores ativos</p>
+                        <h4 class="mb-0"><span id="kpi-entregadores-ativos">0</span></h4>
+                      </div>
+                      <i class="bx bx-user fs-2 text-primary"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                  <div class="card card-height-100">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Cancelamentos</p>
+                        <h4 class="mb-0"><span id="kpi-cancelamentos">0</span></h4>
+                      </div>
+                      <i class="bx bx-x-circle fs-2 text-danger"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Seção: Capacidade & Promessa -->
+            <section class="mb-5">
+              <h6 class="text-uppercase text-muted mb-3">
+                <span class="d-inline-block rounded-circle bg-warning me-2" style="width:6px;height:6px;vertical-align:middle;"></span>
+                Capacidade & Promessa
+              </h6>
+              <div class="card">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                  <h5 class="card-title mb-0">Capacidade vs Demanda — Same Day</h5>
+                  <span id="capacidade-alerta" class="badge bg-warning d-none">Atenção</span>
+                </div>
+                <div class="card-body">
+                  <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                      <p class="text-muted mb-1">Demanda</p>
+                      <h4 id="capacidade-demanda">0</h4>
+                    </div>
+                    <div class="col-md-4">
+                      <p class="text-muted mb-1">Capacidade</p>
+                      <h4 id="capacidade-total">0</h4>
+                    </div>
+                    <div class="col-md-4">
+                      <p class="text-muted mb-1">Saturação</p>
+                      <h4 id="capacidade-saturacao" class="text-warning">0%</h4>
+                    </div>
+                  </div>
+                  <div class="progress" style="height: 8px;">
+                    <div id="capacidade-bar" class="progress-bar bg-warning" role="progressbar" style="width: 0%;"></div>
+                  </div>
+                  <p class="text-muted fs-12 mb-0 mt-2">
+                    <span id="capacidade-msg" class="d-none text-warning">Capacidade próxima do limite — monitorar alocação</span>
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <!-- Seção: Execução -->
+            <section class="mb-5">
+              <h6 class="text-uppercase text-muted mb-3">
+                <span class="d-inline-block rounded-circle bg-primary me-2" style="width:6px;height:6px;vertical-align:middle;"></span>
+                Execução
+              </h6>
+              <div class="row g-4">
+                <div class="col-lg-6">
+                  <div class="card">
+                    <div class="card-header">
+                      <h5 class="card-title mb-0">Taxa de Aceitação Logística</h5>
+                      <small class="text-muted">Same Day — Saídas / Coletas</small>
+                    </div>
+                    <div class="card-body">
+                      <h3 id="aceitacao-taxa" class="mb-3">0%</h3>
+                      <div id="aceitacao-marketplaces" class="mb-0"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-6">
+                  <div class="card">
+                    <div class="card-header">
+                      <h5 class="card-title mb-0">Gap de Aceitação</h5>
+                      <small class="text-muted">Pedidos coletados sem saída</small>
+                    </div>
+                    <div class="card-body">
+                      <h3 id="gap-valor">0</h3>
+                      <p class="text-muted mb-0 fs-14" id="gap-desc"></p>
+                      <p id="gap-alerta" class="text-danger fs-12 mt-2 d-none">▲ Backlog operacional criado — verificar capacidade e FIFO</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Seção: Qualidade & Risco (FIFO) -->
+            <section class="mb-5">
+              <h6 class="text-uppercase text-muted mb-3">
+                <span class="d-inline-block rounded-circle bg-danger me-2" style="width:6px;height:6px;vertical-align:middle;"></span>
+                Qualidade & Risco
+              </h6>
+              <div class="card">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                  <h5 class="card-title mb-0">Alerta FIFO — Pacotes Parados</h5>
+                  <span id="fifo-total" class="badge bg-danger">0</span>
+                </div>
+                <div class="card-body">
+                  <p class="text-muted mb-2">Pedidos que não saíram por faixa de Idade:</p>
+                  <div id="fifo-bands" class="d-flex gap-2 flex-wrap mb-3"></div>
+                  <p id="fifo-alerta" class="text-danger fs-12 d-none">▲ FIFO CRÍTICO — risco imediato de cancelamento e penalização</p>
+                  <a href="tracking-registros.html?status=coletado" class="text-primary fs-12">Ver detalhes dos pacotes</a>
+                </div>
+              </div>
+            </section>
+
+            <!-- Seção: SLA Preventivo -->
+            <section class="mb-5">
+              <h6 class="text-uppercase text-muted mb-3">
+                <span class="d-inline-block rounded-circle me-2" style="width:6px;height:6px;vertical-align:middle;background:#ffc107;"></span>
+                SLA Preventivo
+              </h6>
+              <div class="card">
+                <div class="card-header">
+                  <h5 class="card-title mb-0">SLA Same Day — Estimado</h5>
+                  <small class="text-muted">Indicador preventivo</small>
+                </div>
+                <div class="card-body">
+                  <h3 id="sla-valor" class="mb-3">0%</h3>
+                  <div class="row g-2 mb-2">
+                    <div class="col-6">
+                      <small class="text-muted">Aceitação:</small>
+                      <span id="sla-aceitacao">0%</span>
+                    </div>
+                    <div class="col-6">
+                      <small class="text-muted">Sucesso histórico:</small>
+                      <span id="sla-sucesso">0%</span>
+                    </div>
+                  </div>
+                  <div id="sla-risco" class="alert alert-danger py-2 mb-0 d-none">Risco de penalização em marketplace</div>
+                  <p class="text-muted fs-11 mt-2 mb-0">Este indicador NÃO substitui o SLA oficial — serve para antecipar risco.</p>
+                </div>
+              </div>
+            </section>
+
+            <!-- Seção: Apoio & Responsabilidade -->
+            <section class="mb-5">
+              <h6 class="text-uppercase text-muted mb-3">
+                <span class="d-inline-block rounded-circle bg-secondary me-2" style="width:6px;height:6px;vertical-align:middle;"></span>
+                Apoio & Responsabilidade
+              </h6>
+
+              <!-- Gráfico Evolução Diária -->
+              <div class="card mb-4">
+                <div class="card-header">
+                  <h5 class="card-title mb-0">Evolução Diária</h5>
+                  <small class="text-muted">Coletas vs Saídas + Taxa de Conversão</small>
+                </div>
+                <div class="card-body">
+                  <div id="chart-evolucao-diaria" style="height: 320px;"></div>
+                </div>
+              </div>
+
+              <!-- Rankings -->
+              <div class="row g-4">
+                <div class="col-lg-6">
+                  <div class="card">
+                    <div class="card-header">
+                      <h5 class="card-title mb-0">Ranking de Motoboys</h5>
+                      <small class="text-muted">Confiança operacional • Período atual</small>
+                    </div>
+                    <div class="card-body">
+                      <div id="ranking-motoboys"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-6">
+                  <div class="card">
+                    <div class="card-header">
+                      <h5 class="card-title mb-0">Ranking por Base</h5>
+                      <small class="text-muted">Distribuição das SAÍDAS por serviço</small>
+                    </div>
+                    <div class="card-body">
+                      <div id="ranking-bases"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <p class="text-center text-muted fs-12 mt-4" id="visao360-footer">Atualizado há poucos segundos</p>
+          </div>
+
+        </div>
+      </div>
+
+      @@include("partials/footer.html")
+    </div>
+  </div>
+
+  @@include("partials/customizer.html")
+  @@include("partials/vendor-scripts.html")
+  <script src="assets/libs/echarts/echarts.min.js"></script>
+
+  <script>
+    window.TRACK_API_URL = (window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api").replace(/\/$/, "");
+  </script>
+  <script src="assets/js/user.js"></script>
+  <script src="assets/js/pages/dashboard-visao-360.init.js"></script>
+  <script src="assets/js/app.js"></script>
+
+</body>
+</html>
