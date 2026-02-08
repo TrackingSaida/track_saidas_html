@@ -382,14 +382,35 @@
       container.innerHTML = "<p class='text-muted mb-0'>Sem dados</p>";
       return;
     }
+    const maxEntregas = Math.max.apply(null, items.slice(0, 6).map(function (x) { return x.entregas || 0; })) || 1;
+    const statusByPos = [
+      { label: "Referência", icon: "✩", cls: "bg-warning text-dark" },
+      { label: "Confiável", icon: "", cls: "", style: "background:#fd7e14;color:#fff" },
+      { label: "Firme", icon: "", cls: "bg-success text-white" },
+      { label: "Firme", icon: "", cls: "bg-success text-white" },
+      { label: "Ativo", icon: "🛵", cls: "bg-primary text-white" },
+      { label: "Iniciante", icon: "🕐", cls: "bg-secondary text-white" },
+    ];
+    const avatarColors = ["#f0ad4e", "#fd7e14", "#28a745", "#28a745", "#6f42c1", "#6c757d"];
     container.innerHTML = items.slice(0, 6).map(function (r, i) {
       const iniciais = (r.nome || "").split(" ").map(function (w) { return w[0] || ""; }).join("").slice(0, 2).toUpperCase();
-      return "<div class='d-flex align-items-center justify-content-between py-2 border-bottom'>" +
-        "<div class='d-flex align-items-center'>" +
-        "<span class='rounded-circle d-inline-flex align-items-center justify-content-center me-2 text-white' style='width:32px;height:32px;background:#6f42c1;font-size:11px;'>" + iniciais + "</span>" +
-        "<div><strong>" + escapeHtml(r.nome) + "</strong><br><small class='text-muted'>" + r.entregas + " entregas • " + r.dias_ativos + "d ativos</small></div>" +
+      const st = statusByPos[i] || statusByPos[5];
+      const barPct = Math.min(100, ((r.entregas || 0) / maxEntregas) * 100);
+      return "<div class='d-flex align-items-center justify-content-between py-2 border-bottom border-light'>" +
+        "<div class='d-flex align-items-center flex-grow-1 min-w-0'>" +
+        "<span class='badge rounded-pill me-2 flex-shrink-0' style='min-width:28px;background:rgba(0,0,0,.08);color:#333'>" + (i + 1) + "°</span>" +
+        "<span class='rounded-circle d-inline-flex align-items-center justify-content-center me-2 text-white flex-shrink-0' style='width:36px;height:36px;background:" + (avatarColors[i] || "#6f42c1") + ";font-size:12px;font-weight:600'>" + iniciais + "</span>" +
+        "<div class='min-w-0'>" +
+        "<div class='d-flex align-items-center flex-wrap gap-1'>" +
+        "<strong class='text-truncate'>" + escapeHtml(r.nome) + "</strong>" +
+        "<span class='badge rounded-pill px-2 py-0 " + (st.cls || "") + "' style='font-size:10px;" + (st.style || "") + "'>" + (st.icon ? st.icon + " " : "") + st.label + "</span>" +
         "</div>" +
-        "<span class='badge bg-soft-success'>" + r.taxa_sucesso + "%</span>" +
+        "<small class='text-muted d-block'>" + (r.taxa_sucesso || 0) + "% • " + (r.dias_ativos || 0) + "d ativos • " + (r.entregas || 0) + " entregas</small>" +
+        "<div class='mt-1 rounded' style='height:4px;background:rgba(0,0,0,.08);overflow:hidden'>" +
+        "<div style='width:" + barPct + "%;height:100%;background:" + (avatarColors[i] || "#6f42c1") + ";border-radius:2px'></div>" +
+        "</div>" +
+        "</div>" +
+        "</div>" +
         "</div>";
     }).join("");
   }
@@ -402,12 +423,38 @@
       container.innerHTML = "<p class='text-muted mb-0'>Sem dados</p>";
       return;
     }
-    container.innerHTML = items.slice(0, 6).map(function (r) {
-      const total = r.saidas || r.coletas || 0;
-      const pct = total > 0 ? Math.round((r.saidas / (r.coletas || 1)) * 1000) / 10 : 0;
-      return "<div class='d-flex align-items-center justify-content-between py-2 border-bottom'>" +
-        "<div><strong>" + escapeHtml(r.nome) + "</strong><br><small class='text-muted'>" + r.saidas + " saídas</small></div>" +
-        "<span class='badge bg-soft-primary'>" + pct + "%</span>" +
+    const COLORS = { shopee: "#ee4d2d", mercado_livre: "#ffe600", avulso: "#6f42c1" };
+    container.innerHTML = items.slice(0, 6).map(function (r, i) {
+      const coletas = r.coletas || 0;
+      const saidas = r.saidas || 0;
+      const shopee = r.shopee || 0;
+      const ml = r.mercado_livre || 0;
+      const avulso = r.avulso || 0;
+      const pct = coletas > 0 ? Math.round((saidas / coletas) * 1000) / 10 : 0;
+      const totalMkp = shopee + ml + avulso || 1;
+      const pShopee = totalMkp > 0 ? Math.round((shopee / totalMkp) * 100) : 0;
+      const pMl = totalMkp > 0 ? Math.round((ml / totalMkp) * 100) : 0;
+      const pAvulso = totalMkp > 0 ? Math.round((avulso / totalMkp) * 100) : 0;
+      var parts = [];
+      if (shopee > 0) parts.push("<span style='color:" + COLORS.shopee + "'>Shopee: " + shopee + " (" + pShopee + "%)</span>");
+      if (ml > 0) parts.push("<span style='color:" + COLORS.mercado_livre + "'>Mercado: " + ml + " (" + pMl + "%)</span>");
+      if (avulso > 0) parts.push("<span style='color:" + COLORS.avulso + "'>Avulso: " + avulso + " (" + pAvulso + "%)</span>");
+      const barParts = [];
+      if (pShopee > 0) barParts.push("<div style='width:" + pShopee + "%;background:" + COLORS.shopee + ";height:100%'></div>");
+      if (pMl > 0) barParts.push("<div style='width:" + pMl + "%;background:" + COLORS.mercado_livre + ";height:100%'></div>");
+      if (pAvulso > 0) barParts.push("<div style='width:" + pAvulso + "%;background:" + COLORS.avulso + ";height:100%'></div>");
+      return "<div class='py-2 border-bottom border-light'>" +
+        "<div class='d-flex align-items-center justify-content-between mb-1'>" +
+        "<span class='badge rounded-pill me-2' style='min-width:24px;background:rgba(0,0,0,.08);color:#333'>" + (i + 1) + "</span>" +
+        "<strong>" + escapeHtml(r.nome) + "</strong>" +
+        "<span class='badge bg-primary rounded-pill px-2'>" + pct + "%</span>" +
+        "</div>" +
+        "<div class='d-flex align-items-baseline mb-1'>" +
+        "<span class='fs-5 fw-bold text-dark me-1'>" + coletas.toLocaleString("pt-BR") + "</span>" +
+        "<small class='text-muted'>" + saidas + " saídas</small>" +
+        "</div>" +
+        "<div class='d-flex flex-wrap gap-2 mb-1 small' style='font-size:11px'>" + (parts.join(" • ") || "-") + "</div>" +
+        "<div class='d-flex rounded' style='height:6px;overflow:hidden;background:rgba(0,0,0,.06)'>" + barParts.join("") + "</div>" +
         "</div>";
     }).join("");
   }
