@@ -130,7 +130,7 @@
     setText("card-cancelados-taxa-valor", (c.taxa_cancelamento ?? 0) + "%");
     setText("card-cancelados", c.cancelados ?? 0);
 
-    var singleDay = from && to && from === to;
+    var singleDay = from && to && String(from) === String(to);
     var cardSingle = document.getElementById("card-bases-ativas-single");
     var cardMultiday = document.getElementById("card-bases-ativas-multiday");
     var painelBases = document.getElementById("painel-bases-por-dia");
@@ -139,13 +139,13 @@
       var totalAtivas = c.bases_total_ativas ?? (c.bases_com_coletas ?? 0) + (c.bases_sem_coletas ?? 0);
       setText("card-bases-single-text", (totalAtivas || 0) + " ativas • " + (c.bases_com_coletas ?? 0) + " com • " + (c.bases_sem_coletas ?? 0) + " sem coletas");
       if (cardSingle) { cardSingle.classList.remove("d-none"); cardSingle.classList.add("d-block"); }
-      if (cardMultiday) cardMultiday.classList.add("d-none");
-      if (painelBases) painelBases.classList.add("d-none");
+      if (cardMultiday) { cardMultiday.classList.add("d-none"); cardMultiday.classList.remove("d-block"); }
+      if (painelBases) { painelBases.classList.add("d-none"); painelBases.classList.remove("d-block"); }
       var btnBasesSem = document.getElementById("coletas-btn-bases-sem");
       if (btnBasesSem) btnBasesSem.style.display = (c.bases_sem_coletas ?? 0) > 0 ? "inline" : "none";
     } else {
       setText("card-bases-total", c.bases_total_ativas ?? (c.bases_com_coletas ?? 0) + (c.bases_sem_coletas ?? 0));
-      if (cardSingle) cardSingle.classList.add("d-none");
+      if (cardSingle) { cardSingle.classList.add("d-none"); cardSingle.classList.remove("d-block"); }
       if (cardMultiday) { cardMultiday.classList.remove("d-none"); cardMultiday.classList.add("d-block"); }
       if (painelBases) { painelBases.classList.remove("d-none"); painelBases.classList.add("d-block"); }
       renderBasesPorDiaChart(data);
