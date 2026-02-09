@@ -125,34 +125,76 @@
 
   function renderCards(data) {
     const c = data.cards || {};
-    setText("card-shopee", c.shopee ?? 0);
-    setText("card-ml", c.mercado_livre ?? 0);
-    setText("card-avulso", c.avulso ?? 0);
-    setText("card-cancelados", c.cancelados ?? 0);
-    setText("card-cancelados-taxa", "Taxa: " + (c.taxa_cancelamento ?? 0) + "%");
     setText("card-total", c.total_coletas ?? 0);
     setText("card-valor", formatMoeda(c.valor_total));
+    setText("card-cancelados-taxa-valor", (c.taxa_cancelamento ?? 0) + "%");
+    setText("card-cancelados", c.cancelados ?? 0);
+    setText("card-bases-com", c.bases_com_coletas ?? 0);
+    setText("card-bases-sem", c.bases_sem_coletas ?? 0);
 
-    // Card Cancelados: cor conforme taxa (verde ≤1%, amarelo 1-3%, vermelho >3%)
+    var btnBasesSem = document.getElementById("coletas-btn-bases-sem");
+    if (btnBasesSem) {
+      btnBasesSem.style.display = (c.bases_sem_coletas ?? 0) > 0 ? "inline" : "none";
+    }
+
+    // Card Cancelados: cor conforme taxa
     const wrap = document.getElementById("card-cancelados-wrapper");
     if (wrap) {
-      wrap.className = "p-3 rounded text-center";
+      wrap.className = "card card-height-100";
       const tx = c.taxa_cancelamento ?? 0;
-      if (tx <= 1) {
-        wrap.classList.add("border", "border-success");
-        wrap.style.backgroundColor = "rgba(25,135,84,0.15)";
-        wrap.style.color = "#198754";
-      } else if (tx <= 3) {
-        wrap.classList.add("border", "border-warning");
-        wrap.style.backgroundColor = "rgba(255,193,7,0.2)";
-        wrap.style.color = "#856404";
-      } else {
-        wrap.classList.add("card-cancelados");
-        wrap.style.backgroundColor = "";
-        wrap.style.color = "";
-      }
+      wrap.classList.remove("border-success", "border-warning", "border-danger");
+      if (tx <= 1) wrap.classList.add("border", "border-success");
+      else if (tx <= 3) wrap.classList.add("border", "border-warning");
+      else wrap.classList.add("border", "border-danger");
       const insight = document.getElementById("card-cancelados-insight");
       if (insight) insight.classList.toggle("d-none", tx <= 1);
+    }
+
+    // Cards por serviço (Shopee, ML, Avulso)
+    var total = c.total_coletas || 1;
+    var totalValor = c.valor_total || 0;
+    var pctShopee = total > 0 ? Math.round(((c.shopee || 0) / total) * 100) : 0;
+    var pctMl = total > 0 ? Math.round(((c.mercado_livre || 0) / total) * 100) : 0;
+    var pctAvulso = total > 0 ? Math.round(((c.avulso || 0) / total) * 100) : 0;
+
+    setText("card-servico-shopee-qty", c.shopee ?? 0);
+    setText("card-servico-shopee-pct", pctShopee + "% do total");
+    setText("card-servico-shopee-valor", formatMoeda(c.valor_shopee));
+    var barShopee = document.getElementById("bar-servico-shopee");
+    if (barShopee) barShopee.style.width = pctShopee + "%";
+
+    setText("card-servico-ml-qty", c.mercado_livre ?? 0);
+    setText("card-servico-ml-pct", pctMl + "% do total");
+    setText("card-servico-ml-valor", formatMoeda(c.valor_mercado_livre));
+    var barMl = document.getElementById("bar-servico-ml");
+    if (barMl) barMl.style.width = pctMl + "%";
+
+    setText("card-servico-avulso-qty", c.avulso ?? 0);
+    setText("card-servico-avulso-pct", pctAvulso + "% do total");
+    setText("card-servico-avulso-valor", formatMoeda(c.valor_avulso));
+    var barAvulso = document.getElementById("bar-servico-avulso");
+    if (barAvulso) barAvulso.style.width = pctAvulso + "%";
+  }
+
+  function renderModalBasesSemColetas(data) {
+    var modalBody = document.getElementById("modal-bases-sem-coletas-body");
+    if (!modalBody) return;
+    var c = data.cards || {};
+    var detalhe = c.bases_sem_coletas_detalhe || [];
+    if (detalhe.length > 0) {
+      modalBody.innerHTML = detalhe.map(function (item) {
+        var dataFmt = item.data;
+        if (dataFmt.length >= 10) {
+          dataFmt = dataFmt.substr(8, 2) + "/" + dataFmt.substr(5, 2) + "/" + dataFmt.substr(0, 4);
+        }
+        var basesList = (item.bases || []).map(function (b) { return "<li>" + escapeHtml(b) + "</li>"; }).join("");
+        return "<div class='mb-3'><strong>" + dataFmt + "</strong><ul class='mb-0 mt-1'>" + basesList + "</ul></div>";
+      }).join("");
+    } else {
+      var bases = c.bases_sem_coletas_lista || [];
+      modalBody.innerHTML = bases.length > 0
+        ? "<ul class='mb-0'>" + bases.map(function (b) { return "<li>" + escapeHtml(b) + "</li>"; }).join("") + "</ul>"
+        : "<p class='text-muted mb-0'>Nenhuma base sem coletas no período.</p>";
     }
   }
 
@@ -175,10 +217,12 @@
     const shopee = items.map(function (x) { return x.shopee || 0; });
     const ml = items.map(function (x) { return x.mercado_livre || 0; });
     const avulso = items.map(function (x) { return x.avulso || 0; });
+    const valorDia = items.map(function (x) { return x.valor_total || 0; });
 
     const totShopee = shopee.reduce(function (a, b) { return a + b; }, 0);
     const totMl = ml.reduce(function (a, b) { return a + b; }, 0);
     const totAvulso = avulso.reduce(function (a, b) { return a + b; }, 0);
+    const totValor = valorDia.reduce(function (a, b) { return a + b; }, 0);
 
     let chart = echarts.getInstanceByDom(el);
     if (!chart) chart = echarts.init(el);
@@ -195,31 +239,35 @@
         series: [{ type: "pie", radius: ["35%", "65%"], center: ["50%", "45%"], data: pieData }]
       };
     } else if (chartColetasType === "area") {
-      var totaisDia = dates.map(function (_, i) { return (shopee[i] || 0) + (ml[i] || 0) + (avulso[i] || 0); });
       opt = {
         tooltip: { trigger: "axis" },
-        legend: { data: ["Shopee (" + totShopee + ")", "Mercado Livre (" + totMl + ")", "Avulso (" + totAvulso + ")", "Total"] },
+        legend: { data: ["Shopee (" + totShopee + ")", "Mercado Livre (" + totMl + ")", "Avulso (" + totAvulso + ")", "Valor (R$)"] },
         xAxis: { type: "category", data: dates },
-        yAxis: { type: "value" },
+        yAxis: [
+          { type: "value", name: "Qtd" },
+          { type: "value", name: "R$", axisLabel: { formatter: "R$ {value}" } }
+        ],
         series: [
           { name: "Shopee", type: "line", stack: "total", areaStyle: {}, data: shopee, itemStyle: { color: "#ee4d2d" } },
           { name: "Mercado Livre", type: "line", stack: "total", areaStyle: {}, data: ml, itemStyle: { color: "#ffe600" } },
           { name: "Avulso", type: "line", stack: "total", areaStyle: {}, data: avulso, itemStyle: { color: "#6c757d" } },
-          { name: "Total", type: "line", data: totaisDia, symbol: "circle", symbolSize: 6, lineStyle: { type: "solid", width: 2 }, itemStyle: { color: "#0d6efd" } }
+          { name: "Valor (R$)", type: "line", yAxisIndex: 1, data: valorDia, symbol: "circle", symbolSize: 6, lineStyle: { type: "solid", width: 2 }, itemStyle: { color: "#0d6efd" } }
         ]
       };
     } else {
-      var totaisDia = dates.map(function (_, i) { return (shopee[i] || 0) + (ml[i] || 0) + (avulso[i] || 0); });
       opt = {
         tooltip: { trigger: "axis" },
-        legend: { data: ["Shopee (" + totShopee + ")", "Mercado Livre (" + totMl + ")", "Avulso (" + totAvulso + ")", "Total"] },
+        legend: { data: ["Shopee (" + totShopee + ")", "Mercado Livre (" + totMl + ")", "Avulso (" + totAvulso + ")", "Valor (R$)"] },
         xAxis: { type: "category", data: dates },
-        yAxis: { type: "value" },
+        yAxis: [
+          { type: "value", name: "Qtd" },
+          { type: "value", name: "R$", axisLabel: { formatter: "R$ {value}" } }
+        ],
         series: [
           { name: "Shopee", type: "bar", data: shopee, stack: "total", itemStyle: { color: "#ee4d2d" } },
           { name: "Mercado Livre", type: "bar", data: ml, stack: "total", itemStyle: { color: "#ffe600" } },
           { name: "Avulso", type: "bar", data: avulso, stack: "total", itemStyle: { color: "#6c757d" } },
-          { name: "Total", type: "line", data: totaisDia, symbol: "circle", symbolSize: 6, lineStyle: { type: "solid", width: 2 }, itemStyle: { color: "#0d6efd" } }
+          { name: "Valor (R$)", type: "line", yAxisIndex: 1, data: valorDia, symbol: "circle", symbolSize: 6, lineStyle: { type: "solid", width: 2 }, itemStyle: { color: "#0d6efd" } }
         ]
       };
     }
@@ -290,12 +338,15 @@
       ["Dashboard de Coletas"],
       ["Período", document.getElementById("coletas-period-label").textContent],
       [],
-      ["Shopee", c.shopee],
-      ["Mercado Livre", c.mercado_livre],
-      ["Avulso", c.avulso],
-      ["Cancelados", c.cancelados, "Taxa: " + (c.taxa_cancelamento || 0) + "%"],
       ["Total Coletas", c.total_coletas],
       ["Valor Total", formatMoeda(c.valor_total)],
+      ["Cancelados", c.cancelados, "Taxa: " + (c.taxa_cancelamento || 0) + "%"],
+      ["Bases com coletas", c.bases_com_coletas],
+      ["Bases sem coletas", c.bases_sem_coletas],
+      [],
+      ["Shopee", c.shopee, formatMoeda(c.valor_shopee)],
+      ["Mercado Livre", c.mercado_livre, formatMoeda(c.valor_mercado_livre)],
+      ["Avulso", c.avulso, formatMoeda(c.valor_avulso)],
       [],
       ["Ranking por Base"],
       ["Base", "Coletas", "%", "Valor", "Variação"]
@@ -413,6 +464,13 @@
         if (window._coletasDashData) renderChart(window._coletasDashData);
       });
     });
+
+    var modalBases = document.getElementById("modal-bases-sem-coletas");
+    if (modalBases && typeof bootstrap !== "undefined") {
+      modalBases.addEventListener("show.bs.modal", function () {
+        if (window._coletasDashData) renderModalBasesSemColetas(window._coletasDashData);
+      });
+    }
 
     await load();
   }

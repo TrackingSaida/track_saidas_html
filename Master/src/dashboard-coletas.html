@@ -69,49 +69,127 @@
               </div>
             </div>
 
-            <!-- Cards de topo -->
+            <!-- Cards de topo — estilo Owner Saídas -->
             <section class="mb-4">
               <div class="row g-3">
-                <div class="col-6 col-md-4 col-xl-2">
-                  <div class="p-3 rounded card-shopee text-center">
-                    <span class="fw-semibold">Shopee</span>
-                    <div class="fs-5 fw-semibold" id="card-shopee">0</div>
+                <div class="col-6 col-xl-3">
+                  <div class="card card-height-100">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Total de Coletas</p>
+                        <h4 class="mb-0"><span id="card-total">0</span></h4>
+                        <small class="text-muted">Coletas no período</small>
+                      </div>
+                      <i class="bx bx-package fs-2 text-primary"></i>
+                    </div>
                   </div>
                 </div>
-                <div class="col-6 col-md-4 col-xl-2">
-                  <div class="p-3 rounded card-ml text-center">
-                    <span class="fw-semibold">Mercado Livre</span>
-                    <div class="fs-5 fw-semibold" id="card-ml">0</div>
+                <div class="col-6 col-xl-3">
+                  <div class="card card-height-100">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Valor Total</p>
+                        <h4 class="mb-0"><span id="card-valor">R$ 0,00</span></h4>
+                        <small class="text-muted">Valor das coletas</small>
+                      </div>
+                      <i class="bx bx-dollar fs-2 text-success"></i>
+                    </div>
                   </div>
                 </div>
-                <div class="col-6 col-md-4 col-xl-2">
-                  <div class="p-3 rounded card-avulso text-center">
-                    <span class="fw-semibold">Avulso</span>
-                    <div class="fs-5 fw-semibold" id="card-avulso">0</div>
+                <div class="col-6 col-xl-3">
+                  <div id="card-cancelados-wrapper" class="card card-height-100">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Taxa Cancelamento</p>
+                        <h4 class="mb-0"><span id="card-cancelados-taxa-valor">0%</span></h4>
+                        <small class="text-muted"><span id="card-cancelados">0</span> cancelados</small>
+                        <p id="card-cancelados-insight" class="text-danger fs-11 mb-0 mt-1 d-none">Cancelamentos acima do esperado</p>
+                      </div>
+                      <i class="bx bx-x-circle fs-2 text-warning"></i>
+                    </div>
                   </div>
                 </div>
-                <div class="col-6 col-md-4 col-xl-2">
-                  <div id="card-cancelados-wrapper" class="p-3 rounded card-cancelados text-center">
-                    <span class="fw-semibold">Cancelados</span>
-                    <div class="fs-5 fw-semibold" id="card-cancelados">0</div>
-                    <small class="d-block" id="card-cancelados-taxa">Taxa: 0%</small>
-                    <p id="card-cancelados-insight" class="text-danger fs-11 mb-0 mt-1 d-none">Cancelamentos acima do esperado — verificar origem da coleta</p>
-                  </div>
-                </div>
-                <div class="col-6 col-md-4 col-xl-2">
-                  <div class="p-3 rounded card-total text-center">
-                    <span class="fw-semibold">Total Coletas</span>
-                    <div class="fs-5 fw-semibold" id="card-total">0</div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-4 col-xl-2">
-                  <div class="p-3 rounded card-valor-total text-center">
-                    <span class="fw-semibold">Valor Total (R$)</span>
-                    <div class="fs-5 fw-semibold" id="card-valor">R$ 0,00</div>
+                <div class="col-6 col-xl-3">
+                  <div class="card card-height-100" id="card-bases-ativas-wrapper">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Bases Ativas</p>
+                        <h4 class="mb-0"><span id="card-bases-com">0</span> com / <span id="card-bases-sem">0</span> sem coletas</h4>
+                        <small class="text-muted">No período</small>
+                        <button type="button" class="btn btn-link btn-sm p-0 mt-1" id="coletas-btn-bases-sem" data-bs-toggle="modal" data-bs-target="#modal-bases-sem-coletas" style="display:none;">Ver bases sem coletas</button>
+                      </div>
+                      <i class="bx bx-building fs-2 text-info"></i>
+                    </div>
                   </div>
                 </div>
               </div>
             </section>
+
+            <!-- Segunda linha: cards por serviço -->
+            <section class="mb-4">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <div class="card border-0 overflow-hidden" style="border-left: 4px solid #ee4d2d !important;">
+                    <div class="card-body">
+                      <h6 class="card-title text-uppercase mb-2">Shopee</h6>
+                      <div class="d-flex justify-content-between align-items-baseline mb-1">
+                        <span class="fs-4 fw-bold" id="card-servico-shopee-qty">0</span>
+                        <span class="text-muted small" id="card-servico-shopee-pct">0% do total</span>
+                      </div>
+                      <div class="text-success small mb-2" id="card-servico-shopee-valor">R$ 0,00</div>
+                      <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-opacity-75" style="background-color: #ee4d2d; width: 0%;" id="bar-servico-shopee"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="card border-0 overflow-hidden" style="border-left: 4px solid #ffe600 !important;">
+                    <div class="card-body">
+                      <h6 class="card-title text-uppercase mb-2">Mercado Livre</h6>
+                      <div class="d-flex justify-content-between align-items-baseline mb-1">
+                        <span class="fs-4 fw-bold" id="card-servico-ml-qty">0</span>
+                        <span class="text-muted small" id="card-servico-ml-pct">0% do total</span>
+                      </div>
+                      <div class="text-success small mb-2" id="card-servico-ml-valor">R$ 0,00</div>
+                      <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-opacity-75" style="background-color: #ffe600; width: 0%;" id="bar-servico-ml"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="card border-0 overflow-hidden" style="border-left: 4px solid #6c757d !important;">
+                    <div class="card-body">
+                      <h6 class="card-title text-uppercase mb-2">Avulso</h6>
+                      <div class="d-flex justify-content-between align-items-baseline mb-1">
+                        <span class="fs-4 fw-bold" id="card-servico-avulso-qty">0</span>
+                        <span class="text-muted small" id="card-servico-avulso-pct">0% do total</span>
+                      </div>
+                      <div class="text-success small mb-2" id="card-servico-avulso-valor">R$ 0,00</div>
+                      <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-opacity-75" style="background-color: #6c757d; width: 0%;" id="bar-servico-avulso"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Modal: bases sem coletas (drill-down) -->
+            <div class="modal fade" id="modal-bases-sem-coletas" tabindex="-1">
+              <div class="modal-dialog modal-dialog-scrollable">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title">Bases sem coletas registradas</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <div class="modal-body" id="modal-bases-sem-coletas-body">
+                    <p class="text-muted mb-0">Carregando...</p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <!-- Concentração -->
             <section class="mb-4">
