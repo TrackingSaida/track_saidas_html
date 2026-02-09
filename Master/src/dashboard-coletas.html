@@ -1,0 +1,203 @@
+@@include("partials/main.html")
+
+<head>
+  @@include("partials/title-meta.html", {"title": "Dashboard – Coletas"})
+  @@include("partials/head-css.html")
+</head>
+
+<body>
+  <div id="layout-wrapper">
+    @@include("partials/menu.html")
+
+    <div class="main-content">
+      <div class="page-content">
+        <div class="container-fluid">
+
+          @@include("partials/page-title.html", {"pagetitle": "Dashboards", "title": "Dashboard de Coletas"})
+
+          <!-- Acesso negado -->
+          <div id="coletas-dash-acesso-negado" class="alert alert-warning d-none">
+            <h5 class="alert-heading">Acesso restrito</h5>
+            <p class="mb-0">O Dashboard de Coletas está disponível apenas para operações com coleta ativa e usuários com permissão de administrador.</p>
+          </div>
+
+          <div id="coletas-dash-content">
+            <!-- Header -->
+            <div class="row align-items-center mb-4">
+              <div class="col">
+                <h4 id="coletas-dash-greeting" class="fs-18 fw-semibold"></h4>
+                <p class="text-muted mb-0 d-flex align-items-center gap-2">
+                  Promessa, origem e volume de coletas registradas
+                  <i class="bx bx-info-circle text-muted fs-16" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="Todos os números representam COLETAS REGISTRADAS. Valores em R$ = valor de coleta. Este dashboard NÃO mede entregas nem performance de saída."></i>
+                </p>
+              </div>
+              <div class="col-auto d-flex gap-2">
+                <div class="dropdown">
+                  <button class="btn btn-soft-primary btn-sm dropdown-toggle d-flex align-items-center gap-2" type="button" id="coletas-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                    <i class="bx bx-calendar"></i>
+                    <span id="coletas-period-label">Hoje</span>
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-end p-3" id="coletas-period-panel" style="min-width: 320px;">
+                    <h6 class="dropdown-header text-uppercase">Período</h6>
+                    <div class="row g-2 mb-3">
+                      <div class="col-6">
+                        <label class="form-label small mb-0">De</label>
+                        <input type="date" id="coletas-data-inicio" class="form-control form-control-sm" />
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label small mb-0">Até</label>
+                        <input type="date" id="coletas-data-fim" class="form-control form-control-sm" />
+                      </div>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label small mb-1">Atalhos</label>
+                      <div class="d-flex flex-column gap-1">
+                        <button type="button" class="btn btn-outline-secondary btn-sm text-start coletas-preset" data-preset="hoje">Hoje (D0)</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm text-start coletas-preset" data-preset="semana">Semana atual</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm text-start coletas-preset" data-preset="quinzena">Quinzena atual</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm text-start coletas-preset" data-preset="quinzena-ant">Quinzena anterior</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm text-start coletas-preset" data-preset="mes">Mês atual</button>
+                      </div>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                      <button type="button" class="btn btn-primary btn-sm" id="coletas-btn-aplicar">Aplicar</button>
+                    </div>
+                  </div>
+                </div>
+                <button id="coletas-btn-exportar" class="btn btn-outline-secondary btn-sm"><i class="ri-file-download-line me-1"></i> Exportar</button>
+                <button id="coletas-btn-refresh" class="btn btn-soft-primary btn-sm"><i class="ri-refresh-line"></i></button>
+              </div>
+            </div>
+
+            <!-- Cards de topo -->
+            <section class="mb-4">
+              <div class="row g-3">
+                <div class="col-6 col-md-4 col-xl-2">
+                  <div class="p-3 rounded card-shopee text-center">
+                    <span class="fw-semibold">Shopee</span>
+                    <div class="fs-5 fw-semibold" id="card-shopee">0</div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-4 col-xl-2">
+                  <div class="p-3 rounded card-ml text-center">
+                    <span class="fw-semibold">Mercado Livre</span>
+                    <div class="fs-5 fw-semibold" id="card-ml">0</div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-4 col-xl-2">
+                  <div class="p-3 rounded card-avulso text-center">
+                    <span class="fw-semibold">Avulso</span>
+                    <div class="fs-5 fw-semibold" id="card-avulso">0</div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-4 col-xl-2">
+                  <div id="card-cancelados-wrapper" class="p-3 rounded card-cancelados text-center">
+                    <span class="fw-semibold">Cancelados</span>
+                    <div class="fs-5 fw-semibold" id="card-cancelados">0</div>
+                    <small class="d-block" id="card-cancelados-taxa">Taxa: 0%</small>
+                    <p id="card-cancelados-insight" class="text-danger fs-11 mb-0 mt-1 d-none">Cancelamentos acima do esperado — verificar origem da coleta</p>
+                  </div>
+                </div>
+                <div class="col-6 col-md-4 col-xl-2">
+                  <div class="p-3 rounded card-total text-center">
+                    <span class="fw-semibold">Total Coletas</span>
+                    <div class="fs-5 fw-semibold" id="card-total">0</div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-4 col-xl-2">
+                  <div class="p-3 rounded card-valor-total text-center">
+                    <span class="fw-semibold">Valor Total (R$)</span>
+                    <div class="fs-5 fw-semibold" id="card-valor">R$ 0,00</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Concentração -->
+            <section class="mb-4">
+              <div class="card">
+                <div class="card-header d-flex align-items-center gap-2">
+                  <h5 class="card-title mb-0">Concentração de Coletas</h5>
+                  <i class="bx bx-info-circle text-muted fs-16" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="Risco de dependência operacional. Top 1 base e serviço indicam onde está a maior parte do volume."></i>
+                </div>
+                <div class="card-body py-3">
+                  <p class="text-muted small mb-1">Risco de dependência operacional</p>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <div class="d-flex align-items-center gap-2">
+                        <i class="bx bx-building fs-4 text-muted"></i>
+                        <div>
+                          <small class="text-muted">Top 1 base</small>
+                          <div><span id="conc-top1-base">-</span> concentra <strong id="conc-top1-base-pct">0</strong>% das coletas</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="d-flex align-items-center gap-2">
+                        <i class="bx bx-shopping-bag fs-4 text-muted"></i>
+                        <div>
+                          <small class="text-muted">Top 1 serviço</small>
+                          <div><span id="conc-top1-servico">-</span> representa <strong id="conc-top1-servico-pct">0</strong>% do volume</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Coletas por Período + Ranking -->
+            <div class="row g-4">
+              <div class="col-lg-8">
+                <div class="card">
+                  <div class="card-header d-flex align-items-center gap-2">
+                    <div>
+                      <h5 class="card-title mb-0">Coletas por Período</h5>
+                      <small class="text-muted">Distribuição por serviço</small>
+                    </div>
+                    <i class="bx bx-info-circle text-muted fs-16" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="Este gráfico representa coletas registradas no período, não garante execução ou saída."></i>
+                  </div>
+                  <div class="card-body">
+                    <div id="chart-coletas-periodo" style="height: 280px;"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-4">
+                <div class="card">
+                  <div class="card-header d-flex align-items-center gap-2">
+                    <div>
+                      <h5 class="card-title mb-0">Ranking por Base/Cliente</h5>
+                      <small class="text-muted">Volume de coletas registradas por base</small>
+                    </div>
+                    <i class="bx bx-info-circle text-muted fs-14" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="Bases ordenadas por volume. Percentual = participação no total. Variação vs período anterior."></i>
+                  </div>
+                  <div class="card-body">
+                    <div id="ranking-bases-coletas"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p class="text-center text-muted fs-12 mt-4" id="coletas-dash-footer">Atualizado há poucos segundos</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    @@include("partials/footer.html")
+  </div>
+
+  @@include("partials/customizer.html")
+  @@include("partials/vendor-scripts.html")
+  <script src="assets/libs/echarts/echarts.min.js"></script>
+
+  <script>
+    window.TRACK_API_URL = (window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api").replace(/\/$/, "");
+  </script>
+  <script src="assets/js/user.js"></script>
+  <script src="assets/js/pages/dashboard-coletas.init.js"></script>
+  <script src="assets/js/app.js"></script>
+
+</body>
+</html>

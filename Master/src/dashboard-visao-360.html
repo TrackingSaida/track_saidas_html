@@ -18,7 +18,7 @@
           <!-- Acesso negado (visível quando ignorar_coleta=true) -->
           <div id="visao360-acesso-negado" class="alert alert-warning d-none">
             <h5 class="alert-heading">Acesso restrito</h5>
-            <p class="mb-0">O dashboard Visão 360 está disponível apenas para operações com coleta ativa.</p>
+            <p class="mb-0">O dashboard Visão 360 está disponível apenas para operações com coleta ativa e usuários com permissão de administrador.</p>
           </div>
 
           <!-- Conteúdo principal (oculto quando acesso negado) -->
@@ -127,7 +127,10 @@
               </h6>
               <div class="card">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                  <h5 class="card-title mb-0">Capacidade vs Demanda — Same Day</h5>
+                  <div class="d-flex align-items-center gap-2">
+                    <h5 class="card-title mb-0">Capacidade vs Demanda — Same Day</h5>
+                    <i class="bx bx-info-circle text-muted fs-16" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="Compara a demanda (coletas) com a capacidade estimada (entregadores × entregas/rota). Saturação ideal &lt;85%, Atenção 85–100%, Crítico &gt;100%."></i>
+                  </div>
                   <span id="capacidade-status" class="badge">—</span>
                 </div>
                 <div class="card-body">
@@ -141,7 +144,7 @@
                       <h4 id="capacidade-total">0</h4>
                     </div>
                     <div class="col-md-4">
-                      <p class="text-muted mb-1">Saturação</p>
+                      <p class="text-muted mb-1">Saturação <i class="bx bx-info-circle text-muted fs-14" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="Demanda ÷ Capacidade. Quanto maior, mais próxima do limite operacional."></i></p>
                       <h4 id="capacidade-saturacao">0%</h4>
                     </div>
                   </div>
@@ -170,9 +173,12 @@
                 <div class="col-lg-6">
                   <div class="card">
                     <div class="card-header d-flex align-items-center justify-content-between">
-                      <div>
-                        <h5 class="card-title mb-0">Taxa de Aceitação Logística</h5>
-                        <small class="text-muted">Same Day — Saídas / Coletas</small>
+                      <div class="d-flex align-items-center gap-2">
+                        <div>
+                          <h5 class="card-title mb-0">Taxa de Aceitação Logística</h5>
+                          <small class="text-muted">Same Day — Saídas / Coletas</small>
+                        </div>
+                        <i class="bx bx-info-circle text-muted fs-16" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="Percentual de coletas que viraram saídas no mesmo dia. Crítico para SLA Same Day dos marketplaces."></i>
                       </div>
                       <span id="aceitacao-status" class="badge">—</span>
                     </div>
@@ -188,9 +194,12 @@
                 </div>
                 <div class="col-lg-6">
                   <div class="card">
-                    <div class="card-header">
-                      <h5 class="card-title mb-0">Gap de Aceitação</h5>
-                      <small class="text-muted">Pedidos coletados sem saída</small>
+                    <div class="card-header d-flex align-items-center gap-2">
+                      <div>
+                        <h5 class="card-title mb-0">Gap de Aceitação</h5>
+                        <small class="text-muted">Pedidos coletados sem saída</small>
+                      </div>
+                      <i class="bx bx-info-circle text-muted fs-16" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="Quantidade de pedidos coletados que ainda não saíram para entrega. Alerta se &gt;0 e crescente."></i>
                     </div>
                     <div class="card-body">
                       <h3 id="gap-valor">0</h3>
@@ -210,7 +219,10 @@
               </h6>
               <div class="card">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                  <h5 class="card-title mb-0">Alerta FIFO — Pacotes Parados</h5>
+                  <div class="d-flex align-items-center gap-2">
+                    <h5 class="card-title mb-0">Alerta FIFO — Pacotes Parados</h5>
+                    <i class="bx bx-info-circle text-muted fs-16" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="FIFO = First In, First Out. Pacotes coletados que ainda não saíram, por tempo de espera. D-1 a D-2 ok; D-3 e D-4+ indicam risco de cancelamento."></i>
+                  </div>
                   <h4 class="mb-0"><span id="fifo-total" class="badge bg-danger fs-6">0</span></h4>
                 </div>
                 <div class="card-body">
@@ -252,9 +264,12 @@
                 SLA Preventivo
               </h6>
               <div class="card">
-                <div class="card-header">
-                  <h5 class="card-title mb-0">SLA Same Day — Estimado</h5>
-                  <small class="text-muted">Indicador preventivo</small>
+                <div class="card-header d-flex align-items-center gap-2">
+                  <div>
+                    <h5 class="card-title mb-0">SLA Same Day — Estimado</h5>
+                    <small class="text-muted">Indicador preventivo</small>
+                  </div>
+                  <i class="bx bx-info-circle text-muted fs-16" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="Estimativa a partir de aceitação + sucesso histórico. NÃO substitui o SLA oficial — serve para antecipar risco de penalização."></i>
                 </div>
                 <div class="card-body">
                   <h3 id="sla-valor" class="mb-3">0%</h3>
@@ -297,9 +312,12 @@
                 <div class="col-lg-6">
                   <div class="card">
                     <div class="card-header py-2 d-flex justify-content-between align-items-start">
-                      <div>
-                        <h6 class="card-title mb-0 fs-14 text-muted">Ranking de Motoboys</h6>
-                        <small class="text-muted">Confiança operacional • Período atual</small>
+                      <div class="d-flex align-items-center gap-2">
+                        <div>
+                          <h6 class="card-title mb-0 fs-14 text-muted">Ranking de Motoboys</h6>
+                          <small class="text-muted">Confiança operacional • Período atual</small>
+                        </div>
+                        <i class="bx bx-info-circle text-muted fs-14" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="Entregadores ordenados por volume de entregas. Taxa de sucesso = entregues / total. Níveis: Referência, Confiável, Firme, Ativo, Iniciante."></i>
                       </div>
                       <span class="badge bg-danger bg-opacity-10 text-danger px-2 py-1" style="font-size:10px">🔥 Ao vivo</span>
                     </div>
@@ -310,9 +328,12 @@
                 </div>
                 <div class="col-lg-6">
                   <div class="card">
-                    <div class="card-header py-2">
-                      <h6 class="card-title mb-0 fs-14 text-muted">Ranking por Base</h6>
-                      <small class="text-muted">Distribuição das SAÍDAS por serviço</small>
+                    <div class="card-header py-2 d-flex align-items-center gap-2">
+                      <div>
+                        <h6 class="card-title mb-0 fs-14 text-muted">Ranking por Base</h6>
+                        <small class="text-muted">Distribuição das SAÍDAS por serviço</small>
+                      </div>
+                      <i class="bx bx-info-circle text-muted fs-14" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="Bases ordenadas por volume de saídas. O percentual azul é saídas/coletas. A barra mostra a divisão por marketplace (Shopee, Mercado Livre, Avulso)."></i>
                     </div>
                     <div class="card-body">
                       <div id="ranking-bases"></div>

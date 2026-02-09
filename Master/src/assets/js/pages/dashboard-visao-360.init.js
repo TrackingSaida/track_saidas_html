@@ -436,18 +436,20 @@
       const pMl = totalMkp > 0 ? Math.round((ml / totalMkp) * 100) : 0;
       const pAvulso = totalMkp > 0 ? Math.round((avulso / totalMkp) * 100) : 0;
       var parts = [];
-      if (shopee > 0) parts.push("<span style='color:" + COLORS.shopee + "'>Shopee: " + shopee + " (" + pShopee + "%)</span>");
-      if (ml > 0) parts.push("<span style='color:" + COLORS.mercado_livre + "'>Mercado: " + ml + " (" + pMl + "%)</span>");
-      if (avulso > 0) parts.push("<span style='color:" + COLORS.avulso + "'>Avulso: " + avulso + " (" + pAvulso + "%)</span>");
+      var tipServico = "Participação deste marketplace no total de saídas da base";
+      if (shopee > 0) parts.push("<span style='color:" + COLORS.shopee + "' title='" + tipServico + "'>Shopee: " + shopee + " (" + pShopee + "%)</span>");
+      if (ml > 0) parts.push("<span style='color:" + COLORS.mercado_livre + "' title='" + tipServico + "'>Mercado: " + ml + " (" + pMl + "%)</span>");
+      if (avulso > 0) parts.push("<span style='color:" + COLORS.avulso + "' title='" + tipServico + "'>Avulso: " + avulso + " (" + pAvulso + "%)</span>");
       const barParts = [];
       if (pShopee > 0) barParts.push("<div style='width:" + pShopee + "%;background:" + COLORS.shopee + ";height:100%'></div>");
       if (pMl > 0) barParts.push("<div style='width:" + pMl + "%;background:" + COLORS.mercado_livre + ";height:100%'></div>");
       if (pAvulso > 0) barParts.push("<div style='width:" + pAvulso + "%;background:" + COLORS.avulso + ";height:100%'></div>");
+      var tipTotal = "Taxa de conversão: saídas realizadas / coletas do período nesta base";
       return "<div class='py-2 border-bottom border-light'>" +
         "<div class='d-flex align-items-center justify-content-between mb-1'>" +
         "<span class='badge rounded-pill me-2' style='min-width:24px;background:rgba(0,0,0,.08);color:#333'>" + (i + 1) + "</span>" +
         "<strong>" + escapeHtml(r.nome) + "</strong>" +
-        "<span class='badge bg-primary rounded-pill px-2'>" + pct + "%</span>" +
+        "<span class='badge bg-primary rounded-pill px-2' title='" + tipTotal + "'>" + pct + "%</span>" +
         "</div>" +
         "<div class='d-flex align-items-baseline mb-1'>" +
         "<span class='fs-5 fw-bold text-dark me-1'>" + coletas.toLocaleString("pt-BR") + "</span>" +
@@ -485,7 +487,8 @@
       return;
     }
 
-    if (user.ignorar_coleta) {
+    const role = parseInt(user.role, 10);
+    if (user.ignorar_coleta || (role !== 0 && role !== 1)) {
       showAcessoNegado();
       return;
     }
