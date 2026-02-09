@@ -530,44 +530,26 @@
       }
     }
 
-    document.querySelectorAll(".visao360-preset").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        const preset = this.getAttribute("data-preset");
-        const range = getPresetRange(preset);
-        if (dataInicioEl) dataInicioEl.value = range.start;
-        if (dataFimEl) dataFimEl.value = range.end;
-      });
-    });
-
-    document.getElementById("visao360-btn-aplicar").addEventListener("click", function () {
-      let from = dataInicioEl ? dataInicioEl.value : today;
-      let to = dataFimEl ? dataFimEl.value : today;
-      if (!from || !to) return;
-      if (to < from) {
-        const tmp = from;
-        from = to;
-        to = tmp;
-        dataInicioEl.value = from;
-        dataFimEl.value = to;
-      }
-      updatePeriodLabel(from, to);
-      if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
-        const d = bootstrap.Dropdown.getInstance(periodBtn);
-        if (d) d.hide();
-      }
-      load();
-    });
-
-    if (dataInicioEl) {
-      dataInicioEl.addEventListener("change", function () {
-        const to = dataFimEl ? dataFimEl.value : "";
-        if (to && to < this.value) dataFimEl.value = this.value;
-      });
-    }
-    if (dataFimEl) {
-      dataFimEl.addEventListener("change", function () {
-        const from = dataInicioEl ? dataInicioEl.value : "";
-        if (from && this.value < from) dataInicioEl.value = this.value;
+    if (typeof window.initDatePickerDashboard === "function") {
+      window.initDatePickerDashboard({
+        containerId: "visao360-date-picker-container",
+        prefix: "visao360-dp",
+        onApply: function (start, end) {
+          if (dataInicioEl) dataInicioEl.value = start;
+          if (dataFimEl) dataFimEl.value = end;
+          updatePeriodLabel(start, end);
+          if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
+            const d = bootstrap.Dropdown.getInstance(periodBtn);
+            if (d) d.hide();
+          }
+          load();
+        },
+        onCancel: function () {
+          if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
+            const d = bootstrap.Dropdown.getInstance(periodBtn);
+            if (d) d.hide();
+          }
+        }
       });
     }
 

@@ -203,7 +203,23 @@
     var chart = echarts.getInstanceByDom(el);
     if (!chart) chart = echarts.init(el);
     chart.setOption({
-      tooltip: { trigger: "axis" },
+      tooltip: {
+        trigger: "axis",
+        formatter: function (params) {
+          if (!params || !params.length) return "";
+          var idx = params[0].dataIndex;
+          var item = items[idx];
+          var dataFmt = item && item.data ? (item.data.length >= 10 ? item.data.substr(8, 2) + "/" + item.data.substr(5, 2) + "/" + item.data.substr(0, 4) : item.data) : "";
+          var lines = params.map(function (p) {
+            return p.marker + " " + p.seriesName + ": " + p.value;
+          });
+          var comBases = (item && item.bases_com_coletas_lista || []).join(", ");
+          var semBases = (item && item.bases_sem_coletas_lista || []).join(", ");
+          if (comBases) lines.push("<br/><small class='text-primary'>Com coletas: " + escapeHtml(comBases) + "</small>");
+          if (semBases) lines.push("<br/><small class='text-danger'>Sem coletas: " + escapeHtml(semBases) + "</small>");
+          return dataFmt + "<br/>" + lines.join("<br/>");
+        }
+      },
       legend: { data: ["Com coletas", "Sem coletas"], bottom: 0 },
       xAxis: { type: "category", data: dates },
       yAxis: { type: "value", name: "Bases" },
@@ -458,9 +474,15 @@
     if (dataFimEl) dataFimEl.value = today;
     updatePeriodLabel(today, today);
 
+    function showLoading(show) {
+      const loading = document.getElementById("coletas-dash-loading");
+      if (loading) loading.classList.toggle("d-none", !show);
+    }
+
     async function load() {
       const from = dataInicioEl ? dataInicioEl.value : today;
       const to = dataFimEl ? dataFimEl.value : today;
+      showLoading(true);
       try {
         const data = await loadDashboard(from, to);
         renderCards(data, from, to);
@@ -474,36 +496,33 @@
         console.error("[Dashboard Coletas] Erro:", err);
         const footer = document.getElementById("coletas-dash-footer");
         if (footer) footer.textContent = "Erro ao carregar dados";
+      } finally {
+        showLoading(false);
       }
     }
 
-    document.querySelectorAll(".coletas-preset").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        const preset = this.getAttribute("data-preset");
-        const range = getPresetRange(preset);
-        if (dataInicioEl) dataInicioEl.value = range.start;
-        if (dataFimEl) dataFimEl.value = range.end;
+    if (typeof window.initDatePickerDashboard === "function") {
+      window.initDatePickerDashboard({
+        containerId: "coletas-date-picker-container",
+        prefix: "coletas-dp",
+        onApply: function (start, end) {
+          if (dataInicioEl) dataInicioEl.value = start;
+          if (dataFimEl) dataFimEl.value = end;
+          updatePeriodLabel(start, end);
+          if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
+            const d = bootstrap.Dropdown.getInstance(periodBtn);
+            if (d) d.hide();
+          }
+          load();
+        },
+        onCancel: function () {
+          if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
+            const d = bootstrap.Dropdown.getInstance(periodBtn);
+            if (d) d.hide();
+          }
+        }
       });
-    });
-
-    document.getElementById("coletas-btn-aplicar").addEventListener("click", function () {
-      let from = dataInicioEl ? dataInicioEl.value : today;
-      let to = dataFimEl ? dataFimEl.value : today;
-      if (!from || !to) return;
-      if (to < from) {
-        var tmp = from;
-        from = to;
-        to = tmp;
-        dataInicioEl.value = from;
-        dataFimEl.value = to;
-      }
-      updatePeriodLabel(from, to);
-      if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
-        const d = bootstrap.Dropdown.getInstance(periodBtn);
-        if (d) d.hide();
-      }
-      load();
-    });
+    }
 
     document.getElementById("coletas-btn-refresh").addEventListener("click", load);
     document.getElementById("coletas-btn-exportar").addEventListener("click", function () {

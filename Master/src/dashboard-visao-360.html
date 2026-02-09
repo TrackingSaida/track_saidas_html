@@ -35,31 +35,10 @@
                     <i class="bx bx-calendar"></i>
                     <span id="visao360-period-label">Hoje</span>
                   </button>
-                  <div class="dropdown-menu dropdown-menu-end p-3" id="visao360-period-panel" style="min-width: 320px;">
-                    <h6 class="dropdown-header text-uppercase">Período</h6>
-                    <div class="row g-2 mb-3">
-                      <div class="col-6">
-                        <label class="form-label small mb-0">De</label>
-                        <input type="date" id="visao360-data-inicio" class="form-control form-control-sm" />
-                      </div>
-                      <div class="col-6">
-                        <label class="form-label small mb-0">Até</label>
-                        <input type="date" id="visao360-data-fim" class="form-control form-control-sm" />
-                      </div>
-                    </div>
-                    <div class="mb-3">
-                      <label class="form-label small mb-1">Atalhos</label>
-                      <div class="d-flex flex-column gap-1">
-                        <button type="button" class="btn btn-outline-secondary btn-sm text-start visao360-preset" data-preset="hoje">Hoje (D0)</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm text-start visao360-preset" data-preset="semana">Semana atual</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm text-start visao360-preset" data-preset="quinzena">Quinzena atual</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm text-start visao360-preset" data-preset="quinzena-ant">Quinzena anterior</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm text-start visao360-preset" data-preset="mes">Mês atual</button>
-                      </div>
-                    </div>
-                    <div class="d-flex justify-content-end">
-                      <button type="button" class="btn btn-primary btn-sm" id="visao360-btn-aplicar">Aplicar</button>
-                    </div>
+                  <div class="dropdown-menu dropdown-menu-end p-0" id="visao360-period-panel" style="min-width: 540px;">
+                    <input type="hidden" id="visao360-data-inicio" />
+                    <input type="hidden" id="visao360-data-fim" />
+                    <div id="visao360-date-picker-container"></div>
                   </div>
                 </div>
               </div>
@@ -361,6 +340,7 @@
     window.TRACK_API_URL = (window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api").replace(/\/$/, "");
   </script>
   <script src="assets/js/user.js"></script>
+  <script src="assets/js/components/date-picker-dashboard.js"></script>
   <script src="assets/js/pages/dashboard-visao-360.init.js"></script>
   <script src="assets/js/app.js"></script>
 
