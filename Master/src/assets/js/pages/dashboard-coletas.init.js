@@ -217,7 +217,7 @@
     const shopee = items.map(function (x) { return x.shopee || 0; });
     const ml = items.map(function (x) { return x.mercado_livre || 0; });
     const avulso = items.map(function (x) { return x.avulso || 0; });
-    const valorDia = items.map(function (x) { return x.valor_total || 0; });
+    const valorDia = items.map(function (x) { return Math.round((x.valor_total || 0) * 100) / 100; });
 
     const totShopee = shopee.reduce(function (a, b) { return a + b; }, 0);
     const totMl = ml.reduce(function (a, b) { return a + b; }, 0);
@@ -238,36 +238,48 @@
         legend: { bottom: 0 },
         series: [{ type: "pie", radius: ["35%", "65%"], center: ["50%", "45%"], data: pieData }]
       };
-    } else if (chartColetasType === "area") {
+    var tooltipFormatter = function (params) {
+      if (!params || !Array.isArray(params)) return "";
+      var lines = params.map(function (p) {
+        var v = p.value;
+        if (p.seriesName && p.seriesName.indexOf("Valor") >= 0) {
+          v = Number(v);
+          return p.marker + " " + p.seriesName + ": " + formatMoeda(isNaN(v) ? 0 : v);
+        }
+        return p.marker + " " + p.seriesName + ": " + v;
+      });
+      return (params[0] ? params[0].axisValue : "") + "<br/>" + lines.join("<br/>");
+    };
+    if (chartColetasType === "area") {
       opt = {
-        tooltip: { trigger: "axis" },
+        tooltip: { trigger: "axis", formatter: tooltipFormatter },
         legend: { data: ["Shopee (" + totShopee + ")", "Mercado Livre (" + totMl + ")", "Avulso (" + totAvulso + ")", "Valor (R$)"] },
         xAxis: { type: "category", data: dates },
         yAxis: [
           { type: "value", name: "Qtd" },
-          { type: "value", name: "R$", axisLabel: { formatter: "R$ {value}" } }
+          { type: "value", name: "R$", axisLabel: { formatter: function (v) { return "R$ " + Number(v).toFixed(2).replace(".", ","); } } }
         ],
         series: [
           { name: "Shopee", type: "line", stack: "total", areaStyle: {}, data: shopee, itemStyle: { color: "#ee4d2d" } },
           { name: "Mercado Livre", type: "line", stack: "total", areaStyle: {}, data: ml, itemStyle: { color: "#ffe600" } },
           { name: "Avulso", type: "line", stack: "total", areaStyle: {}, data: avulso, itemStyle: { color: "#6c757d" } },
-          { name: "Valor (R$)", type: "line", yAxisIndex: 1, data: valorDia, symbol: "circle", symbolSize: 6, lineStyle: { type: "solid", width: 2 }, itemStyle: { color: "#0d6efd" } }
+          { name: "Valor (R$)", type: "line", yAxisIndex: 1, data: valorDia, symbol: "circle", symbolSize: 6, lineStyle: { type: "solid", width: 2 }, itemStyle: { color: "#0d6efd" }, tooltip: { valueFormatter: function (v) { return formatMoeda(Number(v) || 0); } } }
         ]
       };
     } else {
       opt = {
-        tooltip: { trigger: "axis" },
+        tooltip: { trigger: "axis", formatter: tooltipFormatter },
         legend: { data: ["Shopee (" + totShopee + ")", "Mercado Livre (" + totMl + ")", "Avulso (" + totAvulso + ")", "Valor (R$)"] },
         xAxis: { type: "category", data: dates },
         yAxis: [
           { type: "value", name: "Qtd" },
-          { type: "value", name: "R$", axisLabel: { formatter: "R$ {value}" } }
+          { type: "value", name: "R$", axisLabel: { formatter: function (v) { return "R$ " + Number(v).toFixed(2).replace(".", ","); } } }
         ],
         series: [
           { name: "Shopee", type: "bar", data: shopee, stack: "total", itemStyle: { color: "#ee4d2d" } },
           { name: "Mercado Livre", type: "bar", data: ml, stack: "total", itemStyle: { color: "#ffe600" } },
           { name: "Avulso", type: "bar", data: avulso, stack: "total", itemStyle: { color: "#6c757d" } },
-          { name: "Valor (R$)", type: "line", yAxisIndex: 1, data: valorDia, symbol: "circle", symbolSize: 6, lineStyle: { type: "solid", width: 2 }, itemStyle: { color: "#0d6efd" } }
+          { name: "Valor (R$)", type: "line", yAxisIndex: 1, data: valorDia, symbol: "circle", symbolSize: 6, lineStyle: { type: "solid", width: 2 }, itemStyle: { color: "#0d6efd" }, tooltip: { valueFormatter: function (v) { return formatMoeda(Number(v) || 0); } } }
         ]
       };
     }
