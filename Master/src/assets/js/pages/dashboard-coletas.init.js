@@ -164,6 +164,8 @@
     setText("conc-top1-servico-pct", conc.top1_servico_pct ?? 0);
   }
 
+  var chartColetasType = "bar";
+
   function renderChart(data) {
     const items = data.chart_data || [];
     const el = document.getElementById("chart-coletas-periodo");
@@ -174,27 +176,58 @@
     const ml = items.map(function (x) { return x.mercado_livre || 0; });
     const avulso = items.map(function (x) { return x.avulso || 0; });
 
+    const totShopee = shopee.reduce(function (a, b) { return a + b; }, 0);
+    const totMl = ml.reduce(function (a, b) { return a + b; }, 0);
+    const totAvulso = avulso.reduce(function (a, b) { return a + b; }, 0);
+
     let chart = echarts.getInstanceByDom(el);
     if (!chart) chart = echarts.init(el);
 
-    chart.setOption({
-      tooltip: { trigger: "axis" },
-      legend: {
-        data: [
-          "Shopee (" + (shopee.reduce(function (a, b) { return a + b; }, 0)) + ")",
-          "Mercado Livre (" + (ml.reduce(function (a, b) { return a + b; }, 0)) + ")",
-          "Avulso (" + (avulso.reduce(function (a, b) { return a + b; }, 0)) + ")"
+    var opt;
+    if (chartColetasType === "pie") {
+      var pieData = [];
+      if (totShopee > 0) pieData.push({ name: "Shopee (" + totShopee + ")", value: totShopee, itemStyle: { color: "#ee4d2d" } });
+      if (totMl > 0) pieData.push({ name: "Mercado Livre (" + totMl + ")", value: totMl, itemStyle: { color: "#ffe600" } });
+      if (totAvulso > 0) pieData.push({ name: "Avulso (" + totAvulso + ")", value: totAvulso, itemStyle: { color: "#6c757d" } });
+      opt = {
+        tooltip: { trigger: "item" },
+        legend: { bottom: 0 },
+        series: [{ type: "pie", radius: ["35%", "65%"], center: ["50%", "45%"], data: pieData }]
+      };
+    } else if (chartColetasType === "area") {
+      var totaisDia = dates.map(function (_, i) { return (shopee[i] || 0) + (ml[i] || 0) + (avulso[i] || 0); });
+      opt = {
+        tooltip: { trigger: "axis" },
+        legend: { data: ["Shopee (" + totShopee + ")", "Mercado Livre (" + totMl + ")", "Avulso (" + totAvulso + ")", "Total"] },
+        xAxis: { type: "category", data: dates },
+        yAxis: { type: "value" },
+        series: [
+          { name: "Shopee", type: "line", stack: "total", areaStyle: {}, data: shopee, itemStyle: { color: "#ee4d2d" } },
+          { name: "Mercado Livre", type: "line", stack: "total", areaStyle: {}, data: ml, itemStyle: { color: "#ffe600" } },
+          { name: "Avulso", type: "line", stack: "total", areaStyle: {}, data: avulso, itemStyle: { color: "#6c757d" } },
+          { name: "Total", type: "line", data: totaisDia, symbol: "circle", symbolSize: 6, lineStyle: { type: "solid", width: 2 }, itemStyle: { color: "#0d6efd" } }
         ]
-      },
-      xAxis: { type: "category", data: dates },
-      yAxis: { type: "value" },
-      series: [
-        { name: "Shopee", type: "bar", data: shopee, stack: "total", itemStyle: { color: "#ee4d2d" } },
-        { name: "Mercado Livre", type: "bar", data: ml, stack: "total", itemStyle: { color: "#ffe600" } },
-        { name: "Avulso", type: "bar", data: avulso, stack: "total", itemStyle: { color: "#6c757d" } }
-      ]
-    });
-    window.addEventListener("resize", function () { chart.resize(); });
+      };
+    } else {
+      var totaisDia = dates.map(function (_, i) { return (shopee[i] || 0) + (ml[i] || 0) + (avulso[i] || 0); });
+      opt = {
+        tooltip: { trigger: "axis" },
+        legend: { data: ["Shopee (" + totShopee + ")", "Mercado Livre (" + totMl + ")", "Avulso (" + totAvulso + ")", "Total"] },
+        xAxis: { type: "category", data: dates },
+        yAxis: { type: "value" },
+        series: [
+          { name: "Shopee", type: "bar", data: shopee, stack: "total", itemStyle: { color: "#ee4d2d" } },
+          { name: "Mercado Livre", type: "bar", data: ml, stack: "total", itemStyle: { color: "#ffe600" } },
+          { name: "Avulso", type: "bar", data: avulso, stack: "total", itemStyle: { color: "#6c757d" } },
+          { name: "Total", type: "line", data: totaisDia, symbol: "circle", symbolSize: 6, lineStyle: { type: "solid", width: 2 }, itemStyle: { color: "#0d6efd" } }
+        ]
+      };
+    }
+    chart.setOption(opt, true);
+    if (!window._chartColetasResize) {
+      window._chartColetasResize = true;
+      window.addEventListener("resize", function () { chart.resize(); });
+    }
   }
 
   function renderRankingBases(data) {
@@ -229,16 +262,12 @@
       }
       return "<div class='py-2 border-bottom border-light'>" +
         "<div class='d-flex align-items-center justify-content-between mb-1'>" +
-        "<strong>" + escapeHtml(r.nome) + "</strong>" +
-        "<span title='Participação no total de coletas' class='badge bg-primary rounded-pill'>" + r.pct_total + "%</span>" +
+        "<span class='badge rounded-pill me-2' style='min-width:24px;background:rgba(0,0,0,.08);color:#333'>" + (i + 1) + "</span>" +
+        "<strong class='flex-grow-1'>" + escapeHtml(r.nome) + "</strong>" +
+        "<span title='Variação vs período anterior'>" + variacao + "</span>" +
         "</div>" +
-        "<div class='d-flex align-items-baseline mb-1'>" +
-        "<span class='fw-bold'>" + r.coletas + "</span> coletas — " + r.pct_total + "% do total" +
-        "</div>" +
-        "<div class='d-flex justify-content-between align-items-center mb-1'>" +
-        "<small class='text-success'>" + formatMoeda(r.valor_total) + "</small>" +
-        "<span>" + variacao + "</span>" +
-        "</div>" +
+        "<div class='mb-1'><span class='fw-bold'>" + r.coletas + "</span> <span>coletas</span> — <span title='Participação no total de coletas'>" + r.pct_total + "% do total</span></div>" +
+        "<div class='mb-1'><small class='text-success'>" + formatMoeda(r.valor_total) + "</small></div>" +
         "<div class='d-flex flex-wrap gap-2 mb-1 small' style='font-size:11px'>" + (parts.join(" • ") || "-") + "</div>" +
         "<div class='d-flex rounded' style='height:6px;overflow:hidden;background:rgba(0,0,0,.06)'>" + barParts.join("") + "</div>" +
         "</div>";
@@ -310,7 +339,8 @@
     hideAcessoNegado();
 
     const greeting = document.getElementById("coletas-dash-greeting");
-    if (greeting) greeting.textContent = "Olá, " + (user.username || user.email || "Usuário") + "!";
+    const displayName = (user.nome && user.nome.trim()) ? user.nome.trim() : (user.username || user.email || "Usuário");
+    if (greeting) greeting.textContent = "Olá, " + displayName + "!";
 
     const today = fmtYMD(new Date());
     const dataInicioEl = document.getElementById("coletas-data-inicio");
@@ -372,6 +402,15 @@
       if (window._coletasDashData) exportCsv(window._coletasDashData);
       else load().then(function () {
         if (window._coletasDashData) exportCsv(window._coletasDashData);
+      });
+    });
+
+    document.querySelectorAll("[data-chart-type]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        chartColetasType = this.getAttribute("data-chart-type");
+        document.querySelectorAll("[data-chart-type]").forEach(function (b) { b.classList.remove("active"); });
+        this.classList.add("active");
+        if (window._coletasDashData) renderChart(window._coletasDashData);
       });
     });
 

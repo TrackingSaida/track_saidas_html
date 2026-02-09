@@ -496,7 +496,8 @@
     hideAcessoNegado();
 
     const greeting = document.getElementById("visao360-greeting");
-    if (greeting) greeting.textContent = "Olá, " + (user.username || user.email || "Usuário") + "!";
+    const displayName = (user.nome && user.nome.trim()) ? user.nome.trim() : (user.username || user.email || "Usuário");
+    if (greeting) greeting.textContent = "Olá, " + displayName + "!";
 
     const today = fmtYMD(new Date());
     const dataInicioEl = document.getElementById("visao360-data-inicio");

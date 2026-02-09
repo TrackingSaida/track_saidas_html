@@ -150,12 +150,19 @@
             <div class="row g-4">
               <div class="col-lg-8">
                 <div class="card">
-                  <div class="card-header d-flex align-items-center gap-2">
-                    <div>
-                      <h5 class="card-title mb-0">Coletas por Período</h5>
-                      <small class="text-muted">Distribuição por serviço</small>
+                  <div class="card-header d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                    <div class="d-flex align-items-center gap-2">
+                      <div>
+                        <h5 class="card-title mb-0">Coletas por Período</h5>
+                        <small class="text-muted">Distribuição por serviço</small>
+                      </div>
+                      <i class="bx bx-info-circle text-muted fs-16" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="Este gráfico representa coletas registradas no período, não garante execução ou saída."></i>
                     </div>
-                    <i class="bx bx-info-circle text-muted fs-16" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="Este gráfico representa coletas registradas no período, não garante execução ou saída."></i>
+                    <div class="btn-group btn-group-sm" role="group">
+                      <button type="button" class="btn btn-outline-primary active" data-chart-type="bar" title="Barras"><i class="bx bx-bar-chart-alt"></i></button>
+                      <button type="button" class="btn btn-outline-primary" data-chart-type="area" title="Área"><i class="bx bx-area"></i></button>
+                      <button type="button" class="btn btn-outline-primary" data-chart-type="pie" title="Pizza"><i class="bx bx-pie-chart-alt"></i></button>
+                    </div>
                   </div>
                   <div class="card-body">
                     <div id="chart-coletas-periodo" style="height: 280px;"></div>
