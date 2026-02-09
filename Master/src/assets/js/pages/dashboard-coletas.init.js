@@ -123,18 +123,32 @@
     return fetchJson(API_BASE + "/dashboard/coletas?" + params.toString());
   }
 
-  function renderCards(data) {
+  function renderCards(data, from, to) {
     const c = data.cards || {};
     setText("card-total", c.total_coletas ?? 0);
     setText("card-valor", formatMoeda(c.valor_total));
     setText("card-cancelados-taxa-valor", (c.taxa_cancelamento ?? 0) + "%");
     setText("card-cancelados", c.cancelados ?? 0);
-    setText("card-bases-com", c.bases_com_coletas ?? 0);
-    setText("card-bases-sem", c.bases_sem_coletas ?? 0);
 
-    var btnBasesSem = document.getElementById("coletas-btn-bases-sem");
-    if (btnBasesSem) {
-      btnBasesSem.style.display = (c.bases_sem_coletas ?? 0) > 0 ? "inline" : "none";
+    var singleDay = from && to && from === to;
+    var cardSingle = document.getElementById("card-bases-ativas-single");
+    var cardMultiday = document.getElementById("card-bases-ativas-multiday");
+    var painelBases = document.getElementById("painel-bases-por-dia");
+
+    if (singleDay) {
+      var totalAtivas = c.bases_total_ativas ?? (c.bases_com_coletas ?? 0) + (c.bases_sem_coletas ?? 0);
+      setText("card-bases-single-text", (totalAtivas || 0) + " ativas • " + (c.bases_com_coletas ?? 0) + " com • " + (c.bases_sem_coletas ?? 0) + " sem coletas");
+      if (cardSingle) { cardSingle.classList.remove("d-none"); cardSingle.classList.add("d-block"); }
+      if (cardMultiday) cardMultiday.classList.add("d-none");
+      if (painelBases) painelBases.classList.add("d-none");
+      var btnBasesSem = document.getElementById("coletas-btn-bases-sem");
+      if (btnBasesSem) btnBasesSem.style.display = (c.bases_sem_coletas ?? 0) > 0 ? "inline" : "none";
+    } else {
+      setText("card-bases-total", c.bases_total_ativas ?? (c.bases_com_coletas ?? 0) + (c.bases_sem_coletas ?? 0));
+      if (cardSingle) cardSingle.classList.add("d-none");
+      if (cardMultiday) { cardMultiday.classList.remove("d-none"); cardMultiday.classList.add("d-block"); }
+      if (painelBases) { painelBases.classList.remove("d-none"); painelBases.classList.add("d-block"); }
+      renderBasesPorDiaChart(data);
     }
 
     // Card Cancelados: cor conforme taxa
@@ -174,6 +188,34 @@
     setText("card-servico-avulso-valor", formatMoeda(c.valor_avulso));
     var barAvulso = document.getElementById("bar-servico-avulso");
     if (barAvulso) barAvulso.style.width = pctAvulso + "%";
+  }
+
+  function renderBasesPorDiaChart(data) {
+    var items = (data.cards || {}).bases_por_dia || [];
+    var el = document.getElementById("chart-bases-por-dia");
+    if (!el || typeof echarts === "undefined" || items.length === 0) return;
+    var dates = items.map(function (x) {
+      var d = x.data || "";
+      return d.length >= 10 ? d.substr(8, 2) + "/" + d.substr(5, 2) : d;
+    });
+    var comColetas = items.map(function (x) { return x.bases_com_coletas || 0; });
+    var semColetas = items.map(function (x) { return x.bases_sem_coletas || 0; });
+    var chart = echarts.getInstanceByDom(el);
+    if (!chart) chart = echarts.init(el);
+    chart.setOption({
+      tooltip: { trigger: "axis" },
+      legend: { data: ["Com coletas", "Sem coletas"], bottom: 0 },
+      xAxis: { type: "category", data: dates },
+      yAxis: { type: "value", name: "Bases" },
+      series: [
+        { name: "Com coletas", type: "bar", data: comColetas, itemStyle: { color: "#0d6efd" } },
+        { name: "Sem coletas", type: "bar", data: semColetas, itemStyle: { color: "#dc3545" } }
+      ]
+    }, true);
+    if (!window._chartBasesPorDiaResize) {
+      window._chartBasesPorDiaResize = true;
+      window.addEventListener("resize", function () { chart.resize(); });
+    }
   }
 
   function renderModalBasesSemColetas(data) {
@@ -353,6 +395,7 @@
       ["Total Coletas", c.total_coletas],
       ["Valor Total", formatMoeda(c.valor_total)],
       ["Cancelados", c.cancelados, "Taxa: " + (c.taxa_cancelamento || 0) + "%"],
+      ["Bases ativas (total)", c.bases_total_ativas ?? 0],
       ["Bases com coletas", c.bases_com_coletas],
       ["Bases sem coletas", c.bases_sem_coletas],
       [],
@@ -418,7 +461,7 @@
       const to = dataFimEl ? dataFimEl.value : today;
       try {
         const data = await loadDashboard(from, to);
-        renderCards(data);
+        renderCards(data, from, to);
         renderConcentracao(data);
         renderChart(data);
         renderRankingBases(data);
