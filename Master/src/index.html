@@ -35,7 +35,17 @@
           if (!localStorage.getItem('trackingToken')) {
             localStorage.setItem('trackingToken', 'cookie-session');
           }
-          return location.replace(next || 'dashboard-tracking-overview.html');
+          let destino = next;
+          if (!destino) {
+            const user = await me.json().catch(() => ({}));
+            const role = Number(user?.role ?? 0);
+            if ((role === 0 || role === 1) && user?.ignorar_coleta === true) {
+              destino = 'dashboard-saidas.html';
+            } else {
+              destino = 'dashboard-tracking-overview.html';
+            }
+          }
+          return location.replace(destino);
         }
       } catch (e) {
         // Em caso de erro de rede, continua para limpeza e landing

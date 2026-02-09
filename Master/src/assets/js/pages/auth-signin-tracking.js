@@ -171,11 +171,13 @@ if (!resp.ok) {
         if (me.ok) userData = await me.json();
       } catch (_) {}
 
-      // Redirecionamento por role
+      // Redirecionamento por role e ignorar_coleta
       const role = Number(userData?.role || 0);
+      const ignorarColeta = userData?.ignorar_coleta === true;
 
       let destino;
-      if (role === 1) destino = "dashboard-tracking-overview.html";
+      if ((role === 0 || role === 1) && ignorarColeta) destino = "dashboard-saidas.html";
+      else if (role === 1) destino = "dashboard-tracking-overview.html";
       else destino = "dashboard-tracking-saidas.html";
 
       window.location.href = destino;

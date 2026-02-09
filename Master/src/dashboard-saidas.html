@@ -1,0 +1,244 @@
+@@include("partials/main.html")
+
+<head>
+  @@include("partials/title-meta.html", {"title": "Dashboard – Saídas"})
+  @@include("partials/head-css.html")
+</head>
+
+<body>
+  <div id="layout-wrapper">
+    @@include("partials/menu.html")
+
+    <div class="main-content">
+      <div class="page-content">
+        <div class="container-fluid">
+
+          @@include("partials/page-title.html", {"pagetitle": "Dashboards", "title": "Dashboard de Saídas"})
+
+          <!-- Acesso negado -->
+          <div id="saidas-dash-acesso-negado" class="alert alert-warning d-none">
+            <h5 class="alert-heading">Acesso restrito</h5>
+            <p class="mb-0">O Dashboard de Saídas está disponível apenas para usuários com permissão de administrador (role 0 ou 1).</p>
+          </div>
+
+          <div id="saidas-dash-content" class="position-relative">
+            <!-- Overlay de carregamento -->
+            <div id="saidas-dash-loading" class="position-absolute top-0 start-0 end-0 bottom-0 d-flex align-items-center justify-content-center bg-white bg-opacity-75 d-none" style="z-index: 10; min-height: 200px;">
+              <div class="text-center">
+                <div class="spinner-border text-primary mb-2" role="status" style="width: 2.5rem; height: 2.5rem;">
+                  <span class="visually-hidden">Carregando</span>
+                </div>
+                <div class="text-muted">Carregando...</div>
+              </div>
+            </div>
+            <!-- Header -->
+            <div class="row align-items-center mb-4">
+              <div class="col">
+                <h4 id="saidas-dash-greeting" class="fs-18 fw-semibold"></h4>
+                <p class="text-muted mb-0">Visão operacional — somente entregas</p>
+              </div>
+              <div class="col-auto d-flex gap-2">
+                <div class="dropdown">
+                  <button class="btn btn-soft-primary btn-sm dropdown-toggle d-flex align-items-center gap-2" type="button" id="saidas-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                    <i class="bx bx-calendar"></i>
+                    <span id="saidas-period-label">Hoje</span>
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-end p-0" id="saidas-period-panel" style="min-width: 540px;">
+                    <input type="hidden" id="saidas-data-inicio" />
+                    <input type="hidden" id="saidas-data-fim" />
+                    <div id="saidas-date-picker-container"></div>
+                  </div>
+                </div>
+                <button id="saidas-btn-refresh" class="btn btn-soft-primary btn-sm"><i class="ri-refresh-line"></i></button>
+              </div>
+            </div>
+
+            <!-- Cards de topo -->
+            <section class="mb-4">
+              <div class="row g-3">
+                <div class="col-6 col-xl-3">
+                  <div class="card card-height-100 border border-primary">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Total de Saídas</p>
+                        <h4 class="mb-0"><span id="card-total-saidas">0</span></h4>
+                        <small class="text-muted">Entregas no período</small>
+                      </div>
+                      <i class="bx bx-package fs-2 text-primary"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                  <div class="card card-height-100 border border-success">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Custo Total</p>
+                        <h4 class="mb-0"><span id="card-custo-total">R$ 0,00</span></h4>
+                        <small class="text-muted">Custo das entregas</small>
+                      </div>
+                      <i class="bx bx-dollar fs-2 text-success"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                  <div class="card card-height-100 border border-info">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Custo Médio/Pacote</p>
+                        <h4 class="mb-0"><span id="card-custo-medio">R$ 0,00</span></h4>
+                        <small class="text-muted">Por entrega</small>
+                      </div>
+                      <i class="bx bx-trending-up fs-2 text-info"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                  <div class="card card-height-100 border border-warning">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Entregadores Ativos</p>
+                        <h4 class="mb-0"><span id="card-entregadores-ativos">0</span></h4>
+                        <small class="text-muted">No período</small>
+                      </div>
+                      <i class="bx bx-user fs-2 text-warning"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Cards por marketplace -->
+            <section class="mb-4">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <div class="card border overflow-hidden" style="border-color: rgba(238,77,45,0.5) !important; border-left: 4px solid #ee4d2d !important;">
+                    <div class="card-body">
+                      <h6 class="card-title text-uppercase mb-2">Shopee</h6>
+                      <div class="d-flex justify-content-between align-items-baseline mb-1">
+                        <span class="fs-4 fw-bold" id="card-marketplace-shopee-qty">0</span>
+                        <span class="text-muted small" id="card-marketplace-shopee-pct">0% do total</span>
+                      </div>
+                      <div class="text-success small mb-2" id="card-marketplace-shopee-valor">R$ 0,00</div>
+                      <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-opacity-75" style="background-color: #ee4d2d; width: 0%;" id="bar-marketplace-shopee"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="card border overflow-hidden" style="border-color: rgba(255,230,0,0.6) !important; border-left: 4px solid #ffe600 !important;">
+                    <div class="card-body">
+                      <h6 class="card-title text-uppercase mb-2">Mercado Livre</h6>
+                      <div class="d-flex justify-content-between align-items-baseline mb-1">
+                        <span class="fs-4 fw-bold" id="card-marketplace-ml-qty">0</span>
+                        <span class="text-muted small" id="card-marketplace-ml-pct">0% do total</span>
+                      </div>
+                      <div class="text-success small mb-2" id="card-marketplace-ml-valor">R$ 0,00</div>
+                      <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-opacity-75" style="background-color: #ffe600; width: 0%;" id="bar-marketplace-ml"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="card border overflow-hidden" style="border-color: rgba(108,117,125,0.5) !important; border-left: 4px solid #6c757d !important;">
+                    <div class="card-body">
+                      <h6 class="card-title text-uppercase mb-2">Avulso</h6>
+                      <div class="d-flex justify-content-between align-items-baseline mb-1">
+                        <span class="fs-4 fw-bold" id="card-marketplace-avulso-qty">0</span>
+                        <span class="text-muted small" id="card-marketplace-avulso-pct">0% do total</span>
+                      </div>
+                      <div class="text-success small mb-2" id="card-marketplace-avulso-valor">R$ 0,00</div>
+                      <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-opacity-75" style="background-color: #6c757d; width: 0%;" id="bar-marketplace-avulso"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Card Cancelamentos -->
+            <section class="mb-4">
+              <div class="card border border-danger" id="card-cancelamentos-wrapper">
+                <div class="card-body d-flex align-items-center">
+                  <div class="flex-grow-1">
+                    <p class="text-muted mb-1">Cancelamentos</p>
+                    <h4 class="mb-0"><span id="card-cancelamentos">0</span> cancelamentos — <span id="card-cancelamentos-taxa">0%</span> taxa</h4>
+                    <small class="text-muted">Evolução no período</small>
+                  </div>
+                  <i class="bx bx-x-circle fs-2 text-danger"></i>
+                </div>
+              </div>
+            </section>
+
+            <!-- Evolução Diária + Ranking Entregadores -->
+            <div class="row g-4">
+              <div class="col-lg-8">
+                <div class="card">
+                  <div class="card-header d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                    <div>
+                      <h5 class="card-title mb-0">Evolução Diária</h5>
+                      <small class="text-muted">Volume por serviço e custo acumulado</small>
+                    </div>
+                    <div class="btn-group btn-group-sm" role="group">
+                      <button type="button" class="btn btn-outline-primary active" data-chart-type="bar" title="Barras"><i class="bx bx-bar-chart-alt"></i></button>
+                      <button type="button" class="btn btn-outline-primary" data-chart-type="line" title="Linha"><i class="bx bx-line-chart"></i></button>
+                      <button type="button" class="btn btn-outline-primary" data-chart-type="area" title="Área"><i class="bx bx-area"></i></button>
+                    </div>
+                  </div>
+                  <div class="card-body">
+                    <div id="chart-evolucao-saidas" style="height: 280px;"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-4">
+                <div class="card">
+                  <div class="card-header">
+                    <h5 class="card-title mb-0">Performance por Entregador</h5>
+                    <small class="text-muted">Ranking por volume e custo</small>
+                  </div>
+                  <div class="card-body">
+                    <div id="ranking-entregadores-saidas"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ranking Bases -->
+            <section class="mb-4">
+              <div class="card">
+                <div class="card-header">
+                  <h5 class="card-title mb-0">Ranking por Base</h5>
+                  <small class="text-muted">Volume de saídas por base</small>
+                </div>
+                <div class="card-body">
+                  <div id="ranking-bases-saidas"></div>
+                </div>
+              </div>
+            </section>
+
+            <p class="text-center text-muted fs-12 mt-4" id="saidas-dash-footer">Atualizado há poucos segundos</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    @@include("partials/footer.html")
+  </div>
+
+  @@include("partials/customizer.html")
+  @@include("partials/vendor-scripts.html")
+  <script src="assets/libs/echarts/echarts.min.js"></script>
+
+  <script>
+    window.TRACK_API_URL = (window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api").replace(/\/$/, "");
+  </script>
+  <script src="assets/js/user.js"></script>
+  <script src="assets/js/components/date-picker-dashboard.js"></script>
+  <script src="assets/js/pages/dashboard-saidas.init.js"></script>
+  <script src="assets/js/app.js"></script>
+
+</body>
+</html>
