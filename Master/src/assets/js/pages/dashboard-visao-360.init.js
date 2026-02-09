@@ -131,6 +131,7 @@
     setText("kpi-coletas-dia", s.coletas_dia ?? 0);
     setText("kpi-saidas-dia", s.saidas_dia ?? 0);
     setText("kpi-entregadores-ativos", s.entregadores_ativos ?? 0);
+    setText("kpi-bases-ativas", s.bases_ativas ?? 0);
     setText("kpi-cancelamentos", s.cancelamentos_dia ?? 0);
   }
 
