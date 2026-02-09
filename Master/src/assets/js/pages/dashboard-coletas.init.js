@@ -280,6 +280,7 @@
         legend: { bottom: 0 },
         series: [{ type: "pie", radius: ["35%", "65%"], center: ["50%", "45%"], data: pieData }]
       };
+    } else {
     var tooltipFormatter = function (params) {
       if (!params || !Array.isArray(params)) return "";
       var lines = params.map(function (p) {
@@ -324,6 +325,7 @@
           { name: "Valor (R$)", type: "line", yAxisIndex: 1, data: valorDia, symbol: "circle", symbolSize: 6, lineStyle: { type: "solid", width: 2 }, itemStyle: { color: "#0d6efd" }, tooltip: { valueFormatter: function (v) { return formatMoeda(Number(v) || 0); } } }
         ]
       };
+    }
     }
     chart.setOption(opt, true);
     if (!window._chartColetasResize) {
