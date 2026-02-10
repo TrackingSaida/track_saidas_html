@@ -1,0 +1,193 @@
+@@include("partials/main.html")
+
+<head>
+  @@include("partials/title-meta.html", {"title": "Dashboard – Admin"})
+  @@include("partials/head-css.html")
+</head>
+
+<body>
+  <div id="layout-wrapper">
+    @@include("partials/menu.html")
+
+    <div class="main-content">
+      <div class="page-content">
+        <div class="container-fluid">
+
+          @@include("partials/page-title.html", {"pagetitle": "Dashboards", "title": "Dashboard Administrativo"})
+
+          <!-- Acesso negado -->
+          <div id="admin-dash-acesso-negado" class="alert alert-warning d-none">
+            <h5 class="alert-heading">Acesso restrito</h5>
+            <p class="mb-0">O Dashboard Administrativo está disponível apenas para o perfil administrador (role 0).</p>
+          </div>
+
+          <div id="admin-dash-content" class="position-relative">
+            <!-- Overlay de carregamento -->
+            <div id="admin-dash-loading" class="position-absolute top-0 start-0 end-0 bottom-0 d-flex align-items-center justify-content-center bg-white bg-opacity-75 d-none" style="z-index: 10; min-height: 200px;">
+              <div class="text-center">
+                <div class="spinner-border text-primary mb-2" role="status" style="width: 2.5rem; height: 2.5rem;">
+                  <span class="visually-hidden">Carregando</span>
+                </div>
+                <div class="text-muted">Carregando...</div>
+              </div>
+            </div>
+            <!-- Header -->
+            <div class="row align-items-center mb-4">
+              <div class="col">
+                <h4 id="admin-dash-greeting" class="fs-18 fw-semibold"></h4>
+                <p class="text-muted mb-0">Supervisão de todos os owners</p>
+              </div>
+              <div class="col-auto d-flex gap-2 flex-wrap">
+                <select id="admin-owner-filter" class="form-select form-select-sm" style="min-width: 180px;">
+                  <option value="">Todos os Owners</option>
+                </select>
+                <div class="dropdown">
+                  <button class="btn btn-soft-primary btn-sm dropdown-toggle d-flex align-items-center gap-2" type="button" id="admin-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                    <i class="bx bx-calendar"></i>
+                    <span id="admin-period-label">Hoje</span>
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-end p-0" id="admin-period-panel" style="min-width: 540px;">
+                    <input type="hidden" id="admin-data-inicio" />
+                    <input type="hidden" id="admin-data-fim" />
+                    <div id="admin-date-picker-container"></div>
+                  </div>
+                </div>
+                <button id="admin-btn-refresh" class="btn btn-soft-primary btn-sm"><i class="ri-refresh-line"></i></button>
+              </div>
+            </div>
+
+            <!-- Cards de topo -->
+            <section class="mb-4">
+              <div class="row g-3">
+                <div class="col-6 col-xl-3">
+                  <div class="card card-height-100 border border-success">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Total Coletas</p>
+                        <h4 class="mb-0"><span id="card-total-coletas">0</span></h4>
+                        <small class="text-muted">Pacotes coletados</small>
+                      </div>
+                      <i class="bx bx-package fs-2 text-success"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                  <div class="card card-height-100 border border-danger">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Total Saídas</p>
+                        <h4 class="mb-0"><span id="card-total-saidas">0</span></h4>
+                        <small class="text-muted">Pacotes entregues</small>
+                      </div>
+                      <i class="bx bx-truck fs-2 text-danger"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                  <div class="card card-height-100 border border-info">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Receita Admin</p>
+                        <h4 class="mb-0"><span id="card-receita-admin">R$ 0,00</span></h4>
+                        <small class="text-muted">Valores config owner</small>
+                      </div>
+                      <i class="bx bx-dollar-circle fs-2 text-info"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                  <div class="card card-height-100 border border-secondary">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Owners Ativos</p>
+                        <h4 class="mb-0"><span id="card-owners-ativos">0</span></h4>
+                        <small class="text-muted">No período</small>
+                      </div>
+                      <i class="bx bx-building fs-2 text-secondary"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Gráfico Volume por Owner -->
+            <section class="mb-4">
+              <div class="card">
+                <div class="card-header">
+                  <h5 class="card-title mb-0">Volume por Owner</h5>
+                  <small class="text-muted">Comparativo de coletas, saídas e receita</small>
+                </div>
+                <div class="card-body">
+                  <div id="chart-volume-owner" style="height: 280px;"></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Painéis Receita por Owner e Performance por Owner -->
+            <div class="row g-4">
+              <div class="col-lg-5">
+                <div class="card h-100">
+                  <div class="card-header">
+                    <h5 class="card-title mb-0">Receita por Owner</h5>
+                    <small class="text-muted">Top 5 maiores receitas</small>
+                  </div>
+                  <div class="card-body">
+                    <div class="mb-3">
+                      <strong>Receita Total Admin:</strong>
+                      <span id="total-receita-admin" class="text-success fw-bold ms-2">R$ 0,00</span>
+                    </div>
+                    <div id="receita-por-owner"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-7">
+                <div class="card h-100">
+                  <div class="card-header">
+                    <h5 class="card-title mb-0">Performance por Owner</h5>
+                    <small class="text-muted">Detalhamento operacional e financeiro</small>
+                  </div>
+                  <div class="card-body overflow-auto">
+                    <div class="table-responsive">
+                      <table class="table table-sm table-hover mb-0">
+                        <thead>
+                          <tr>
+                            <th>Owner</th>
+                            <th>Tipo</th>
+                            <th class="text-end">Coletas</th>
+                            <th class="text-end">Saídas</th>
+                            <th class="text-end">Base Cobrança</th>
+                            <th class="text-end text-success">Receita Admin</th>
+                          </tr>
+                        </thead>
+                        <tbody id="performance-por-owner"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p class="text-center text-muted fs-12 mt-4" id="admin-dash-footer">Atualizado há poucos segundos</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    @@include("partials/footer.html")
+  </div>
+
+  @@include("partials/customizer.html")
+  @@include("partials/vendor-scripts.html")
+  <script src="assets/libs/echarts/echarts.min.js"></script>
+
+  <script>
+    window.TRACK_API_URL = (window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api").replace(/\/$/, "");
+  </script>
+  <script src="assets/js/user.js"></script>
+  <script src="assets/js/components/date-picker-dashboard.js"></script>
+  <script src="assets/js/pages/dashboard-admin.init.js"></script>
+  <script src="assets/js/app.js"></script>
+
+</body>
+</html>

@@ -176,7 +176,8 @@ if (!resp.ok) {
       const ignorarColeta = userData?.ignorar_coleta === true;
 
       let destino;
-      if ((role === 0 || role === 1) && ignorarColeta) destino = "dashboard-saidas.html";
+      if (role === 0) destino = "dashboard-admin.html";
+      else if ((role === 0 || role === 1) && ignorarColeta) destino = "dashboard-saidas.html";
       else if (role === 1) destino = "dashboard-tracking-overview.html";
       else destino = "dashboard-tracking-saidas.html";
 
