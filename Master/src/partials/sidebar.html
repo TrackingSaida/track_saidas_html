@@ -142,11 +142,13 @@
     .includes("oper")
 );
 
-const dashboards = serverMenu.find(s =>
-  (s.section || "")
+const dashboards = serverMenu.find(s => {
+  const name = (s.section || "")
     .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") === "dashboards"
-);
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  // Compatível com seções chamadas "Dashboards" ou "Indicadores"
+  return name === "dashboards" || name.includes("indicador");
+});
 
 const config = serverMenu.find(s =>
   (s.section || "")
