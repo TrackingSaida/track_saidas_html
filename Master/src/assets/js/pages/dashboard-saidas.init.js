@@ -180,12 +180,18 @@
       container.innerHTML = "<p class='text-muted mb-0'>Sem dados</p>";
       return;
     }
+    const maxVolume = Math.max.apply(null, items.map(function (x) { return x.volume || 0; })) || 1;
     const COLORS = { shopee: "#ee4d2d", mercado_livre: "#ffe600", avulso: "#6c757d" };
     container.innerHTML = items.slice(0, 10).map(function (r, i) {
       const total = (r.shopee || 0) + (r.mercado_livre || 0) + (r.avulso || 0) || 1;
       const pShopee = total > 0 ? Math.round((r.shopee || 0) / total * 100) : 0;
       const pMl = total > 0 ? Math.round((r.mercado_livre || 0) / total * 100) : 0;
       const pAvulso = total > 0 ? Math.round((r.avulso || 0) / total * 100) : 0;
+      const pctTotal = Math.round((r.volume || 0) / maxVolume * 100);
+      var labels = [];
+      if ((r.shopee || 0) > 0) labels.push("<span class='badge me-1' style='background:" + COLORS.shopee + ";color:#fff'>Shopee: " + r.shopee + "</span>");
+      if ((r.mercado_livre || 0) > 0) labels.push("<span class='badge me-1' style='background:" + COLORS.mercado_livre + ";color:#333'>ML: " + r.mercado_livre + "</span>");
+      if ((r.avulso || 0) > 0) labels.push("<span class='badge me-1' style='background:" + COLORS.avulso + ";color:#fff'>Avulso: " + r.avulso + "</span>");
       var barParts = [];
       if (pShopee > 0) barParts.push("<div style='width:" + pShopee + "%;background:" + COLORS.shopee + ";height:100%'></div>");
       if (pMl > 0) barParts.push("<div style='width:" + pMl + "%;background:" + COLORS.mercado_livre + ";height:100%'></div>");
@@ -194,27 +200,13 @@
         "<div class='d-flex align-items-center justify-content-between mb-1'>" +
         "<span class='badge rounded-pill me-2' style='min-width:24px;background:rgba(0,0,0,.08);color:#333'>" + (i + 1) + "</span>" +
         "<strong class='flex-grow-1'>" + escapeHtml(r.nome) + "</strong>" +
-        "<span class='fw-bold'>" + r.volume + "</span>" +
+        "<div class='text-end'>" +
+        "<div class='fw-bold text-primary'>" + r.volume + "</div>" +
+        "<small class='text-muted'>" + formatMoeda(r.custo) + "</small>" +
         "</div>" +
-        "<div class='mb-1'><small class='text-success'>" + formatMoeda(r.custo) + "</small></div>" +
+        "</div>" +
+        "<div class='d-flex flex-wrap gap-1 mb-1'>" + (labels.join("") || "-") + "</div>" +
         "<div class='d-flex rounded' style='height:6px;overflow:hidden;background:rgba(0,0,0,.06)'>" + barParts.join("") + "</div>" +
-        "</div>";
-    }).join("");
-  }
-
-  function renderRankingBases(data) {
-    const items = data.ranking_bases || [];
-    const container = document.getElementById("ranking-bases-saidas");
-    if (!container) return;
-    if (items.length === 0) {
-      container.innerHTML = "<p class='text-muted mb-0'>Sem dados</p>";
-      return;
-    }
-    container.innerHTML = items.slice(0, 10).map(function (r, i) {
-      return "<div class='py-2 border-bottom border-light d-flex align-items-center justify-content-between'>" +
-        "<span class='badge rounded-pill me-2' style='min-width:24px;background:rgba(0,0,0,.08);color:#333'>" + (i + 1) + "</span>" +
-        "<strong class='flex-grow-1'>" + escapeHtml(r.base) + "</strong>" +
-        "<span>" + r.volume + " saídas (" + r.pct + "%)</span>" +
         "</div>";
     }).join("");
   }
@@ -280,7 +272,6 @@
         renderCancelamentos(data);
         renderChartEvolucao(data);
         renderRankingEntregadores(data);
-        renderRankingBases(data);
         window._saidasDashData = data;
         const footer = document.getElementById("saidas-dash-footer");
         if (footer) footer.textContent = "Atualizado há poucos segundos";
