@@ -192,6 +192,7 @@ function renderTable() {
 
             <td>R$ ${Number(o.valor).toFixed(2)}</td>
             <td>${o.ignorar_coleta ? "Sim" : "Não"}</td>
+            <td>${o.teste ? "Sim" : "Não"}</td>
             <td>${o.ativo ? "Sim" : "Não"}</td>
         </tr>
     `).join("");
@@ -285,6 +286,7 @@ function openEdit(o) {
     document.getElementById("ownerValor").value = Number(o.valor).toFixed(2);
 
     document.getElementById("ownerIgnorarToggle").checked = o.ignorar_coleta;
+    document.getElementById("ownerTesteToggle").checked = !!o.teste;
     document.getElementById("ownerAtivoToggle").checked = o.ativo;
 
     new bootstrap.Offcanvas("#oc-owner").show();
@@ -306,6 +308,7 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
         contato: document.getElementById("ownerContato").value.trim(),
         valor: Number(document.getElementById("ownerValor").value),
         ignorar_coleta: document.getElementById("ownerIgnorarToggle").checked,
+        teste: document.getElementById("ownerTesteToggle").checked,
         ativo: document.getElementById("ownerAtivoToggle").checked
     };
 
