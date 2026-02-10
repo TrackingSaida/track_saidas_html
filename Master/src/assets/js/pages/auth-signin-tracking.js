@@ -179,7 +179,8 @@ if (!resp.ok) {
       if (role === 0) destino = "dashboard-admin.html";
       else if ((role === 0 || role === 1) && ignorarColeta) destino = "dashboard-saidas.html";
       else if (role === 1) destino = "dashboard-tracking-overview.html";
-      else destino = "dashboard-tracking-saidas.html";
+      else if (role === 3) destino = "tracking-coleta-leitura.html";  // Coletador
+      else destino = "tracking-leitura.html";  // Operador (role 2)
 
       window.location.href = destino;
 
