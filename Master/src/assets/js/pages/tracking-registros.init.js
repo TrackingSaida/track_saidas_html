@@ -238,14 +238,9 @@ function augmentEntregadoresFromRows(rows){
   const codigo      = f.codigo?.value || "";
   const sort        = f.sort?.value || "-ts";
 
-  let fromDate = from ? new Date(from) : null;
-  let toDate   = to   ? new Date(to)   : null;
-
-  if (fromDate && !toDate) toDate = new Date(fromDate);
-
-  const fmt = (d) => (d ? d.toISOString().split("T")[0] : "");
-  const de  = fmt(fromDate);
-  const ate = fmt(toDate);
+  // Envio direto YYYY-MM-DD do input (evita timezone com Date/toISOString)
+  const de  = (from && from.trim()) ? from.trim() : "";
+  const ate = (to && to.trim()) ? to.trim() : (de ? de : "");
 
   // NORMALIZA STATUS PARA API
   let st = status;
