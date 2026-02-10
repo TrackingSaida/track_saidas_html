@@ -193,6 +193,13 @@
       const r = getPresetRange(preset);
       selectedStart = r.start;
       selectedEnd = r.end;
+      // Presets que definem intervalo (quinzena, semana, mês) devem usar modo "periodo" para Aplicar retornar start e end corretos
+      if (preset === "quinzena" || preset === "quinzena-ant" || preset === "semana" || preset === "mes") {
+        filterMode = "periodo";
+        isSelectingStart = false;
+        var modeSelect = document.getElementById(prefix + "-filter-mode");
+        if (modeSelect) modeSelect.value = "periodo";
+      }
       const d = parseYMD(r.start);
       if (d) {
         viewYear1 = d.getFullYear();
