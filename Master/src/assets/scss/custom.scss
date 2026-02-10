@@ -377,6 +377,44 @@
   color: #fff;
 }
 
+/* Modo Monitor — fontes grandes para ocupar a área destinada */
+#modo-monitor .modo-monitor-inner {
+  min-height: calc(100vh - 220px);
+  justify-content: space-evenly;
+}
+#modo-monitor .modo-monitor-cliente-valor {
+  font-size: clamp(2rem, 5vw, 4rem) !important;
+  font-weight: 800;
+  line-height: 1.1;
+}
+#modo-monitor .modo-monitor-total-num {
+  font-size: clamp(5rem, 22vmin, 14rem) !important;
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+}
+#modo-monitor .modo-monitor-card .modo-monitor-card-num {
+  font-size: clamp(2.5rem, 7vmin, 5rem) !important;
+  font-weight: 800;
+  line-height: 1.1;
+}
+#modo-monitor .modo-monitor-card .modo-monitor-card-label {
+  font-size: clamp(0.85rem, 1.5vw, 1.1rem);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+#modo-monitor .modo-monitor-ultima-codigo {
+  font-size: clamp(1.25rem, 2.5vw, 2rem) !important;
+  font-weight: 600;
+}
+#modo-monitor .modo-monitor-ultima-servico {
+  font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+  padding: 0.4em 0.8em;
+}
+#modo-monitor .modo-monitor-section-label {
+  font-size: clamp(0.7rem, 1.2vw, 0.85rem);
+  letter-spacing: 0.12em;
+}
 
 /* KPIs Diário — variantes claras nas cores dos cards já usados */
 .kpi-soft{

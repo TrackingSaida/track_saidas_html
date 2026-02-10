@@ -22,6 +22,11 @@ const sumMercadoEl  = document.getElementById('ult-sum-ml');
 const sumAvulsoEl   = document.getElementById('ult-sum-avulso');
 const sumTotalEl    = document.getElementById('ult-sum-total');
 
+let modoMonitor = false;
+try {
+  if (localStorage.getItem("leiturasModoMonitor") === "1") modoMonitor = true;
+} catch (_) {}
+
 function updateSummary() {
   if (!sumShopeeEl || !sumMercadoEl || !sumAvulsoEl || !sumTotalEl) return;
 
@@ -47,8 +52,72 @@ function updateSummary() {
   sumMercadoEl.textContent = mercado;
   sumAvulsoEl.textContent  = avulso;
   sumTotalEl.textContent   = total;
+  atualizarVistaMonitorLeituras();
 }
 
+function atualizarVistaMonitorLeituras() {
+  let shopee = 0, mercado = 0, avulso = 0, total = 0;
+  for (const tr of rowsByKey.values()) {
+    const srvCell = tr.querySelector('.srv');
+    const statusCell = tr.querySelector('.st');
+    const servico = (srvCell?.textContent || '').trim().toLowerCase();
+    const status  = (statusCell?.textContent || '').trim().toLowerCase();
+    if (!servico || status === 'duplicado') continue;
+    total++;
+    if (servico === 'shopee') shopee++;
+    else if (servico === 'mercado livre' || servico === 'mercado_livre' || servico === 'mercadolivre') mercado++;
+    else if (servico === 'avulso') avulso++;
+  }
+  const el = (id) => document.getElementById(id);
+  if (el("monitor-total")) el("monitor-total").textContent = total;
+  if (el("monitor-shopee")) el("monitor-shopee").textContent = shopee;
+  if (el("monitor-ml")) el("monitor-ml").textContent = mercado;
+  if (el("monitor-avulso")) el("monitor-avulso").textContent = avulso;
+  const entVal = selEnt?.value?.trim();
+  const entNome = entVal ? (selEnt?.options[selEnt?.selectedIndex]?.text?.trim() || entregadoresMap.get(entVal) || "") : "";
+  if (el("monitor-entregador")) el("monitor-entregador").textContent = entNome || "—";
+  const firstRow = tbLast?.children[0];
+  const wrap = el("monitor-ultima-wrapper");
+  if (wrap) {
+    if (firstRow) {
+      const codCell = firstRow.querySelector('.cod');
+      const stCell = firstRow.querySelector('.st');
+      const cod = codCell?.textContent?.trim() || "—";
+      const statusTexto = stCell?.textContent?.trim() || "—";
+      if (el("monitor-ultima-codigo")) el("monitor-ultima-codigo").textContent = cod;
+      const statusEl = el("monitor-ultima-servico");
+      if (statusEl) {
+        statusEl.textContent = statusTexto;
+        const s = (statusTexto || "").toLowerCase();
+        statusEl.className = "badge " + (s === "enviado" || s === "saiu" || s === "entregue" ? "bg-success" : s === "duplicado" ? "bg-warning text-dark" : s.includes("erro") ? "bg-danger" : s === "processando" || s === "enviando" ? "bg-info text-dark" : "bg-secondary");
+      }
+    } else {
+      if (el("monitor-ultima-codigo")) el("monitor-ultima-codigo").textContent = "—";
+      if (el("monitor-ultima-servico")) { el("monitor-ultima-servico").textContent = "—"; el("monitor-ultima-servico").className = "badge bg-secondary"; }
+    }
+  }
+}
+
+function alternarModoLeituras() {
+  modoMonitor = !modoMonitor;
+  try { localStorage.setItem("leiturasModoMonitor", modoMonitor ? "1" : "0"); } catch (_) {}
+  const padrao = document.getElementById("modo-padrao");
+  const monitor = document.getElementById("modo-monitor");
+  const btn = document.getElementById("btnModoMonitor");
+  const btnText = document.getElementById("btnModoMonitorText");
+  if (padrao) padrao.classList.toggle("d-none", modoMonitor);
+  if (monitor) monitor.classList.toggle("d-none", !modoMonitor);
+  if (btn) {
+    btn.classList.toggle("btn-outline-primary", !modoMonitor);
+    btn.classList.toggle("btn-primary", modoMonitor);
+    btn.title = modoMonitor ? "Voltar para tela padrão (ideal para mobile/câmera)" : "Alternar para tela com contadores em destaque (ideal para scanner no PC)";
+  }
+  if (btnText) btnText.textContent = modoMonitor ? "Modo Padrão" : "Modo Monitor";
+  const icon = btn?.querySelector("i");
+  if (icon) icon.className = modoMonitor ? "ri-smartphone-line me-1" : "ri-tv-line me-1";
+  atualizarVistaMonitorLeituras();
+  if (modoMonitor && inpCod) inpCod.focus();
+}
 
   // ---------- mapa de linhas visíveis (evitar duplicar visualmente) ----------
   const rowsByKey = new Map(); // key(ent,cod) -> <tr>
@@ -621,6 +690,7 @@ function createRow(row){
   function onEntregadorChange(){
     clearUltimos();
     const entNow = selEnt?.value || "";
+    atualizarVistaMonitorLeituras(); // atualiza "Entregador selecionado" no Modo Monitor
     if (!entNow) return;
     // renderiza pendentes deste entregador (ficam como "Enviando…")
     const pend = loadPending().filter(p =>
@@ -1122,6 +1192,27 @@ async function registrar() {
 // ---------- init ----------
 loadEntregadores().then(() => {
   inpCod?.focus();
+
+  // Modo Monitor: estado inicial e botão
+  const padraoEl = document.getElementById("modo-padrao");
+  const monitorEl = document.getElementById("modo-monitor");
+  const btnModo = document.getElementById("btnModoMonitor");
+  if (padraoEl) padraoEl.classList.toggle("d-none", modoMonitor);
+  if (monitorEl) monitorEl.classList.toggle("d-none", !modoMonitor);
+  if (btnModo) {
+    btnModo.classList.toggle("btn-outline-primary", !modoMonitor);
+    btnModo.classList.toggle("btn-primary", modoMonitor);
+    btnModo.title = modoMonitor ? "Voltar para tela padrão (ideal para mobile/câmera)" : "Alternar para tela com contadores em destaque (ideal para scanner no PC)";
+    const btnModoText = document.getElementById("btnModoMonitorText");
+    if (btnModoText) btnModoText.textContent = modoMonitor ? "Modo Padrão" : "Modo Monitor";
+    const iconModo = btnModo.querySelector("i");
+    if (iconModo) iconModo.className = modoMonitor ? "ri-smartphone-line me-1" : "ri-tv-line me-1";
+    btnModo.addEventListener("click", alternarModoLeituras);
+  }
+  atualizarVistaMonitorLeituras();
+
+  // Atualiza o nome do entregador no Modo Monitor sempre que o select mudar
+  selEnt?.addEventListener("change", atualizarVistaMonitorLeituras);
 });
 
 // tenta reenviar pendentes (somente técnicos)

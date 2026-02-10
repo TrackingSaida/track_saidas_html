@@ -13,9 +13,25 @@
       <div class="main-content">
         <div class="page-content">
           <div class="container-fluid">
-            @@include("partials/page-title.html", {"pagetitle": "Operação", "title": "Leituras"})
+            <!-- Cabeçalho com título + botão Modo Monitor + breadcrumb -->
+            <div class="row">
+              <div class="col-12">
+                <div class="page-title-box d-sm-flex align-items-center justify-content-between bg-galaxy-transparent">
+                  <h4 class="mb-sm-0">Leituras</h4>
+                  <div class="d-flex align-items-center gap-2">
+                    <button type="button" id="btnModoMonitor" class="btn btn-outline-primary btn-sm" title="Alternar para tela com contadores em destaque (ideal para scanner no PC)">
+                      <i class="ri-tv-line me-1"></i><span id="btnModoMonitorText">Modo Monitor</span>
+                    </button>
+                    <ol class="breadcrumb m-0">
+                      <li class="breadcrumb-item"><a href="javascript: void(0);">Operação</a></li>
+                      <li class="breadcrumb-item active">Leituras</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-            <!-- Formulário principal alinhado igual ao de Coletas -->
+            <!-- Formulário (visível em ambos os modos) -->
             <div class="card mb-3">
               <div class="card-body">
                 <div class="row g-3 align-items-end">
@@ -47,6 +63,8 @@
               </div>
             </div>
 
+            <!-- Modo Padrão: resumo + tabela -->
+            <div id="modo-padrao">
             <!-- Resumo das Leituras -->
             <div class="card mb-3">
               <div class="card-header d-flex justify-content-between align-items-center">
@@ -105,6 +123,47 @@
                       <!-- preenchido via JS -->
                     </tbody>
                   </table>
+                </div>
+              </div>
+            </div>
+            </div>
+            <!-- fim modo-padrao -->
+
+            <!-- Modo Monitor: contadores em destaque + última leitura (fontes grandes) -->
+            <div id="modo-monitor" class="d-none">
+              <div class="d-flex flex-column align-items-center modo-monitor-inner py-4 px-2">
+                <div class="text-center">
+                  <p class="text-muted text-uppercase modo-monitor-section-label mb-1">Entregador selecionado</p>
+                  <p id="monitor-entregador" class="modo-monitor-cliente-valor text-primary mb-0">—</p>
+                </div>
+                <div class="text-center">
+                  <p class="text-muted text-uppercase modo-monitor-section-label mb-2">Total de leituras</p>
+                  <p id="monitor-total" class="modo-monitor-total-num text-primary mb-0">0</p>
+                </div>
+                <div class="row g-3 g-md-4 w-100 justify-content-center" style="max-width: 1000px;">
+                  <div class="col-4">
+                    <div class="card card-shopee border-0 shadow-sm text-center py-4 modo-monitor-card">
+                      <span class="modo-monitor-card-label text-uppercase d-block">Shopee</span>
+                      <div id="monitor-shopee" class="modo-monitor-card-num mt-1">0</div>
+                    </div>
+                  </div>
+                  <div class="col-4">
+                    <div class="card card-ml border-0 shadow-sm text-center py-4 modo-monitor-card">
+                      <span class="modo-monitor-card-label text-uppercase d-block">Mercado Livre</span>
+                      <div id="monitor-ml" class="modo-monitor-card-num mt-1">0</div>
+                    </div>
+                  </div>
+                  <div class="col-4">
+                    <div class="card card-avulso border-0 shadow-sm text-center py-4 modo-monitor-card">
+                      <span class="modo-monitor-card-label text-uppercase d-block">Avulso</span>
+                      <div id="monitor-avulso" class="modo-monitor-card-num mt-1">0</div>
+                    </div>
+                  </div>
+                </div>
+                <div id="monitor-ultima-wrapper" class="text-center">
+                  <p class="text-muted text-uppercase modo-monitor-section-label mb-1">Última leitura</p>
+                  <p id="monitor-ultima-codigo" class="font-monospace modo-monitor-ultima-codigo mb-1">—</p>
+                  <span id="monitor-ultima-servico" class="badge bg-secondary modo-monitor-ultima-servico">—</span>
                 </div>
               </div>
             </div>

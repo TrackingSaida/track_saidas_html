@@ -148,6 +148,10 @@ function markRespostaMetric(m, ok, tipo) {
 /* =============== Estado ============= */
 let COLETAS = [];
 let BASE_ATUAL = null;
+let modoMonitor = false;
+try {
+  if (localStorage.getItem("coletasModoMonitor") === "1") modoMonitor = true;
+} catch (_) {}
 
 /* =============== API ================= */
 async function carregarBases() {
@@ -385,6 +389,60 @@ function atualizarResumo() {
   qs("#sum-ml").textContent = ml;
   qs("#sum-avulso").textContent = avulso;
   qs("#sum-total").textContent = total;
+  atualizarVistaMonitor();
+}
+
+/* =============== Vista Modo Monitor ============= */
+function atualizarVistaMonitor() {
+  const shopee = COLETAS.filter(c => c.servico === "Shopee" && !(c.status || "").toLowerCase().includes("duplicado")).length;
+  const ml = COLETAS.filter(c => (c.servico === "Mercado Livre" || c.servico === "ML") && !(c.status || "").toLowerCase().includes("duplicado")).length;
+  const avulso = COLETAS.filter(c => c.servico === "Avulso" && !(c.status || "").toLowerCase().includes("duplicado")).length;
+  const total = COLETAS.filter(c => !(c.status || "").toLowerCase().includes("duplicado")).length;
+
+  const el = (id) => qs("#" + id);
+  if (el("monitor-total")) el("monitor-total").textContent = total;
+  if (el("monitor-shopee")) el("monitor-shopee").textContent = shopee;
+  if (el("monitor-ml")) el("monitor-ml").textContent = ml;
+  if (el("monitor-avulso")) el("monitor-avulso").textContent = avulso;
+  if (el("monitor-cliente")) el("monitor-cliente").textContent = BASE_ATUAL || "—";
+
+  const ultima = COLETAS.length ? COLETAS[COLETAS.length - 1] : null;
+  const wrap = el("monitor-ultima-wrapper");
+  if (wrap) {
+    if (ultima) {
+      if (el("monitor-ultima-codigo")) el("monitor-ultima-codigo").textContent = ultima.codigo;
+      const statusEl = el("monitor-ultima-servico");
+      if (statusEl) {
+        const st = (ultima.status || "pendente").toLowerCase();
+        statusEl.textContent = (ultima.status || "Pendente").trim() || "Pendente";
+        statusEl.className = "badge " + (st === "enviado" ? "bg-success" : st === "duplicado" ? "bg-warning text-dark" : st === "erro" ? "bg-danger" : st === "reenviando" ? "bg-info text-dark" : "bg-secondary");
+      }
+    } else {
+      if (el("monitor-ultima-codigo")) el("monitor-ultima-codigo").textContent = "—";
+      if (el("monitor-ultima-servico")) { el("monitor-ultima-servico").textContent = "—"; el("monitor-ultima-servico").className = "badge bg-secondary"; }
+    }
+  }
+}
+
+function alternarModoColetas() {
+  modoMonitor = !modoMonitor;
+  try { localStorage.setItem("coletasModoMonitor", modoMonitor ? "1" : "0"); } catch (_) {}
+  const padrao = qs("#modo-padrao");
+  const monitor = qs("#modo-monitor");
+  const btn = qs("#btnModoMonitor");
+  const btnText = qs("#btnModoMonitorText");
+  if (padrao) padrao.classList.toggle("d-none", modoMonitor);
+  if (monitor) monitor.classList.toggle("d-none", !modoMonitor);
+  if (btn) {
+    btn.classList.toggle("btn-outline-primary", !modoMonitor);
+    btn.classList.toggle("btn-primary", modoMonitor);
+    btn.title = modoMonitor ? "Voltar para tela padrão (ideal para mobile/câmera)" : "Alternar para tela com contadores em destaque (ideal para scanner no PC)";
+  }
+  if (btnText) btnText.textContent = modoMonitor ? "Modo Padrão" : "Modo Monitor";
+  const icon = btn?.querySelector("i");
+  if (icon) icon.className = modoMonitor ? "ri-smartphone-line me-1" : "ri-tv-line me-1";
+  atualizarVistaMonitor();
+  if (modoMonitor && qs("#codigo")) qs("#codigo").focus();
 }
 
 /* =============== Renderização da Tabela ============= */
@@ -659,6 +717,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     COLETAS = COLETAS.filter(c => c.codigo !== cod);
     renderTabela();
   });
+
+  // Modo Monitor: estado inicial e botão
+  const padraoEl = qs("#modo-padrao");
+  const monitorEl = qs("#modo-monitor");
+  const btnModo = qs("#btnModoMonitor");
+  if (padraoEl) padraoEl.classList.toggle("d-none", modoMonitor);
+  if (monitorEl) monitorEl.classList.toggle("d-none", !modoMonitor);
+  if (btnModo) {
+    btnModo.classList.toggle("btn-outline-primary", !modoMonitor);
+    btnModo.classList.toggle("btn-primary", modoMonitor);
+    btnModo.title = modoMonitor ? "Voltar para tela padrão (ideal para mobile/câmera)" : "Alternar para tela com contadores em destaque (ideal para scanner no PC)";
+    const btnModoText = qs("#btnModoMonitorText");
+    if (btnModoText) btnModoText.textContent = modoMonitor ? "Modo Padrão" : "Modo Monitor";
+    const iconModo = btnModo.querySelector("i");
+    if (iconModo) iconModo.className = modoMonitor ? "ri-smartphone-line me-1" : "ri-tv-line me-1";
+    btnModo.addEventListener("click", alternarModoColetas);
+  }
+  atualizarVistaMonitor();
 
   renderTabela();
   atualizarResumo();
