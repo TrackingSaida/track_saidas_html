@@ -2,8 +2,8 @@
 <div class="app-menu navbar-menu">
   <!-- LOGO -->
   <div class="navbar-brand-box">
-    <!-- Dark Logo-->
-    <a href="index.html" class="logo logo-dark">
+  <!-- Dark Logo-->
+  <a href="javascript:void(0)" class="logo logo-dark">
       <span class="logo-sm">
         <img src="assets/images/logo-track-sm.png" alt="" height="22">
       </span>
@@ -12,7 +12,7 @@
       </span>
     </a>
     <!-- Light Logo-->
-    <a href="index.html" class="logo logo-light">
+    <a href="javascript:void(0)" class="logo logo-light">
       <span class="logo-sm">
         <img src="assets/images/logo-track-sm.png" alt="" height="22">
       </span>
@@ -242,6 +242,50 @@ if (operacao) {
     console.error("Erro ao montar sidebar:", e);
   }
 }
+      </script>
+
+      <script>
+        // Redireciona o clique no logo "Tracking Saídas" para a home correta por perfil
+        (function () {
+          "use strict";
+
+          function resolveHomeFromUser(user) {
+            try {
+              const role = Number((user && user.role) || 0);
+              const ignorarColeta = !!(user && user.ignorar_coleta);
+
+              if (role === 0) return "dashboard-admin.html";
+              if ((role === 0 || role === 1) && ignorarColeta) return "dashboard-saidas.html";
+              if (role === 1) return "dashboard-tracking-overview.html";
+              if (role === 3) return "tracking-coleta-leitura.html"; // Coletador
+              return "tracking-leitura.html"; // Operador (role 2) ou fallback
+            } catch (_) {
+              return "tracking-leitura.html";
+            }
+          }
+
+          function handleLogoClick(ev) {
+            if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+
+            const user = window.__USER__;
+            // Se não houver usuário carregado, força checagem de auth (pode mandar para login)
+            if (!user && typeof window.ensureAuth === "function") {
+              window.ensureAuth();
+              return;
+            }
+
+            const destino = resolveHomeFromUser(user);
+            window.location.href = destino;
+          }
+
+          document.addEventListener("DOMContentLoaded", function () {
+            document
+              .querySelectorAll(".navbar-brand-box a.logo")
+              .forEach(function (el) {
+                el.addEventListener("click", handleLogoClick);
+              });
+          });
+        })();
       </script>
 
     </div>
