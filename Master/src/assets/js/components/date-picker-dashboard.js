@@ -407,14 +407,14 @@
             '<option value="periodo">Período</option>' +
           '</select>' +
         '</div>' +
-        '<div class="d-flex gap-3 flex-nowrap" style="flex-direction:row; min-width:420px">' +
-          '<div class="flex-grow-1 flex-shrink-0" style="min-width:200px">' +
+        '<div class="d-flex gap-3 flex-wrap">' +
+          '<div class="flex-grow-1" style="min-width:200px">' +
             '<div id="' + prefix + '-cal1-header"></div>' +
             '<div id="' + prefix + '-month-picker1-wrap" class="d-none mb-2"></div>' +
             '<div id="' + prefix + '-year-picker1-wrap" class="d-none mb-2"></div>' +
             '<div id="' + prefix + '-cal1-grid"></div>' +
           '</div>' +
-          '<div class="flex-grow-1 flex-shrink-0 d-none" id="' + prefix + '-cal2-wrap" style="min-width:200px">' +
+          '<div class="flex-grow-1 d-none" id="' + prefix + '-cal2-wrap" style="min-width:200px">' +
             '<div id="' + prefix + '-cal2-header"></div>' +
             '<div id="' + prefix + '-month-picker2-wrap" class="d-none mb-2"></div>' +
             '<div id="' + prefix + '-year-picker2-wrap" class="d-none mb-2"></div>' +
