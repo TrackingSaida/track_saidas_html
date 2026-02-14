@@ -26,12 +26,18 @@
                     <!-- Filtros -->
                     <div class="row g-3 align-items-end mb-3">
                       <div class="col-md-2">
-                        <label class="form-label">Data início</label>
-                        <input type="date" id="flt-data-inicio" class="form-control">
-                      </div>
-                      <div class="col-md-2">
-                        <label class="form-label">Data fim</label>
-                        <input type="date" id="flt-data-fim" class="form-control">
+                        <label class="form-label">Período</label>
+                        <div class="dropdown">
+                          <button class="btn btn-soft-primary btn-sm dropdown-toggle d-flex align-items-center gap-2 w-100" type="button" id="entregadores-resumo-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                            <i class="bx bx-calendar"></i>
+                            <span id="entregadores-resumo-period-label" class="text-truncate">Quinzena anterior</span>
+                          </button>
+                          <div class="dropdown-menu dropdown-menu-end p-0" id="entregadores-resumo-period-panel" style="min-width: 640px;">
+                            <input type="hidden" id="flt-data-inicio" />
+                            <input type="hidden" id="flt-data-fim" />
+                            <div id="entregadores-resumo-date-picker-container"></div>
+                          </div>
+                        </div>
                       </div>
                       <div class="col-md-2">
                         <label class="form-label">Entregador</label>
@@ -256,6 +262,7 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.min.js"></script>
+    <script src="assets/js/components/date-picker-dashboard.js"></script>
     <script src="assets/js/pages/tracking-entregadores-fechamento-pdf.js"></script>
     <script src="assets/js/pages/tracking-entregadores-resumo.init.js?v=2"></script>
     <script src="assets/js/app.js"></script>

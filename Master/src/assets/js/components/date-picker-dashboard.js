@@ -139,7 +139,8 @@
 
   /**
    * Inicializa o date picker no container
-   * @param {Object} opts - { containerId, prefix, onApply, onCancel }
+   * @param {Object} opts - { containerId, prefix, onApply, onCancel, defaultPreset }
+   * @param {string} opts.defaultPreset - preset inicial: hoje | ontem | quinzena-ant | quinzena | semana | mes
    */
   window.initDatePickerDashboard = function (opts) {
     const container = document.getElementById(opts.containerId);
@@ -406,7 +407,7 @@
             '<option value="periodo">Período</option>' +
           '</select>' +
         '</div>' +
-        '<div class="d-flex gap-3 flex-wrap">' +
+        '<div class="d-flex gap-3 flex-nowrap">' +
           '<div class="flex-grow-1" style="min-width:200px">' +
             '<div id="' + prefix + '-cal1-header"></div>' +
             '<div id="' + prefix + '-month-picker1-wrap" class="d-none mb-2"></div>' +
@@ -445,7 +446,7 @@
       onApply(r.start, r.end);
     });
 
-    applyPreset("hoje");
+    applyPreset(opts.defaultPreset || "hoje");
     renderCalendars();
 
     return { getResolvedRange, applyPreset };

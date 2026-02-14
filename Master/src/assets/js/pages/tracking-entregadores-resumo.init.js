@@ -17,6 +17,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   const formatarMoeda = (v) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v) || 0);
 
+  function fmtDMY(ymd) {
+    if (!ymd) return "";
+    const [y, m, d] = String(ymd).split("-");
+    return d && m && y ? `${d}/${m}/${y}` : ymd;
+  }
+
+  function updatePeriodLabel(from, to) {
+    const label = document.getElementById("entregadores-resumo-period-label");
+    if (!label) return;
+    if (from && to) label.textContent = fmtDMY(from) + " — " + fmtDMY(to);
+    else label.textContent = "Período";
+  }
+
   const state = {
     page: 1,
     pageSize: 50,
@@ -587,6 +600,39 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  // ====== Date Picker ======
+  let datePickerInstance = null;
+  const periodBtn = document.getElementById("entregadores-resumo-period-btn");
+  if (typeof window.initDatePickerDashboard === "function") {
+    datePickerInstance = window.initDatePickerDashboard({
+      containerId: "entregadores-resumo-date-picker-container",
+      prefix: "entregadores-resumo-dp",
+      defaultPreset: "quinzena-ant",
+      onApply: function (start, end) {
+        if (fltDataInicio) fltDataInicio.value = start;
+        if (fltDataFim) fltDataFim.value = end;
+        updatePeriodLabel(start, end);
+        if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
+          const d = bootstrap.Dropdown.getInstance(periodBtn);
+          if (d) d.hide();
+        }
+        state.page = 1;
+        atualizarBtnGerarFechamento();
+        carregarResumo();
+      },
+      onCancel: function () {
+        if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
+          const d = bootstrap.Dropdown.getInstance(periodBtn);
+          if (d) d.hide();
+        }
+      }
+    });
+    const r = datePickerInstance.getResolvedRange();
+    if (fltDataInicio) fltDataInicio.value = r.start;
+    if (fltDataFim) fltDataFim.value = r.end;
+    updatePeriodLabel(r.start, r.end);
+  }
+
   qs("#btnBuscar")?.addEventListener("click", () => { state.page = 1; carregarResumo(); });
 
   qs("#dropdownFechamentoMenu")?.addEventListener("click", async (e) => {
@@ -638,8 +684,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   qs("#btnLimpar")?.addEventListener("click", () => {
-    if (fltDataInicio) fltDataInicio.value = "";
-    if (fltDataFim) fltDataFim.value = "";
+    if (datePickerInstance && datePickerInstance.applyPreset) {
+      datePickerInstance.applyPreset("quinzena-ant");
+      const r = datePickerInstance.getResolvedRange();
+      if (fltDataInicio) fltDataInicio.value = r.start;
+      if (fltDataFim) fltDataFim.value = r.end;
+      updatePeriodLabel(r.start, r.end);
+    } else {
+      if (fltDataInicio) fltDataInicio.value = "";
+      if (fltDataFim) fltDataFim.value = "";
+    }
     if (fltEntregador) fltEntregador.value = "";
     if (fltStatus) fltStatus.value = "";
     state.page = 1;

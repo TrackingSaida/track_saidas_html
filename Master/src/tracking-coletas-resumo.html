@@ -46,12 +46,18 @@
                     <!-- 🔹 Filtros -->
                     <div class="row g-3 align-items-end mb-4">
                       <div class="col-md-3">
-                        <label class="form-label">De</label>
-                        <input type="date" id="flt-from" class="form-control">
-                      </div>
-                      <div class="col-md-3">
-                        <label class="form-label">Até</label>
-                        <input type="date" id="flt-to" class="form-control">
+                        <label class="form-label">Período</label>
+                        <div class="dropdown">
+                          <button class="btn btn-soft-primary btn-sm dropdown-toggle d-flex align-items-center gap-2 w-100" type="button" id="coletas-resumo-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                            <i class="bx bx-calendar"></i>
+                            <span id="coletas-resumo-period-label" class="text-truncate">Quinzena anterior</span>
+                          </button>
+                          <div class="dropdown-menu dropdown-menu-end p-0" id="coletas-resumo-period-panel" style="min-width: 640px;">
+                            <input type="hidden" id="flt-from" />
+                            <input type="hidden" id="flt-to" />
+                            <div id="coletas-resumo-date-picker-container"></div>
+                          </div>
+                        </div>
                       </div>
                       <div class="col-md-3">
                         <label class="form-label">Base</label>
@@ -219,6 +225,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.min.js"></script>
+    <script src="assets/js/components/date-picker-dashboard.js"></script>
 
 <!-- Script da página -->
  <script src="assets/js/pages/tracking-coletas-relatorio.js" defer></script>
