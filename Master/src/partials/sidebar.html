@@ -267,7 +267,7 @@ if (operacao) {
 
               if (role === 0) return "dashboard-admin.html";
               if ((role === 0 || role === 1) && ignorarColeta) return "dashboard-saidas.html";
-              if (role === 1) return "dashboard-tracking-overview.html";
+              if (role === 1) return "dashboard-visao-360.html"; // ignorar_coleta=false → Visão 360
               if (role === 3) return "tracking-coleta-leitura.html"; // Coletador
               return "tracking-leitura.html"; // Operador (role 2) ou fallback
             } catch (_) {
