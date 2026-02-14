@@ -98,7 +98,7 @@
   // - 1 único request leve (1 SELECT + 1 INSERT/UPDATE no backend)
   // - Sem GET /saidas/listar?codigo= antes de decidir POST/PATCH
   // - 200/201 tratam idempotência; 409 é reservado para troca de entregador.
-  window.TrackAPI.lerSaida = async function ({ entregador_id, entregador, codigo, servico, registrar_nao_coletado }) {
+  window.TrackAPI.lerSaida = async function ({ entregador_id, entregador, codigo, servico, registrar_nao_coletado, qr_payload_raw }) {
     try {
       const body = {
         codigo,
@@ -107,6 +107,7 @@
       if (entregador_id != null) body.entregador_id = entregador_id;
       if (entregador != null) body.entregador = entregador;
       if (registrar_nao_coletado === true) body.registrar_nao_coletado = true;
+      if (qr_payload_raw != null && qr_payload_raw !== "") body.qr_payload_raw = qr_payload_raw;
 
       const res = await req("/saidas/ler", {
         method: "POST",
@@ -141,11 +142,12 @@
   // ============================================================
   // REGISTRAR SAÍDA (legado — mantido para compatibilidade)
   // ============================================================
-  window.TrackAPI.registerSaida = async function ({ entregador_id, entregador, codigo, servico, status }) {
+  window.TrackAPI.registerSaida = async function ({ entregador_id, entregador, codigo, servico, status, qr_payload_raw }) {
     try {
       const body = { codigo, servico, status };
       if (entregador_id != null) body.entregador_id = entregador_id;
       if (entregador != null) body.entregador = entregador;
+      if (qr_payload_raw != null && qr_payload_raw !== "") body.qr_payload_raw = qr_payload_raw;
       const res = await req("/saidas/registrar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

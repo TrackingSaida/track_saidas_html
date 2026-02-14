@@ -316,8 +316,22 @@ function showMsgIcon(tipo, texto) {
   }
 
 function classifyCodigo(rawInput){
-  const raw = toAsciiDigits(String(rawInput || "")).toUpperCase().trim();
+  const rawInputStr = String(rawInput || "").trim();
+  const raw = toAsciiDigits(rawInputStr).toUpperCase().trim();
   const allDigits = raw.replace(/\D+/g, "");
+
+  // ===========================================================
+  // PRIORIDADE 0 — Mercado Livre JSON (id, sender_id, hash_code)
+  // ===========================================================
+  try {
+    if (rawInputStr.startsWith("{") && rawInputStr.trim().endsWith("}")) {
+      const obj = JSON.parse(rawInputStr);
+      if (typeof obj.id === "string" && (obj.sender_id != null || obj.hash_code != null)) {
+        const codigo = String(obj.id).trim();
+        return { ok:true, servico:"Mercado Livre", codigo, qr_payload_raw: rawInputStr };
+      }
+    }
+  } catch(_) {}
 
   // ===========================================================
   // PRIORIDADE 1 — QRCode JSON com external_order_id
@@ -374,11 +388,11 @@ function classifyCodigo(rawInput){
   }
 
   // ===========================================================
-  // Mercado Livre (45–49 → 11 dígitos)
+  // Mercado Livre (45–49 → 11 dígitos) — guarda raw para etiqueta
   // ===========================================================
   const mlRun = allDigits.match(/4[5-9]\d{9,}/);
   if (mlRun) {
-    return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11) };
+    return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11), qr_payload_raw: rawInputStr };
   }
 
   // ===========================================================
@@ -536,9 +550,9 @@ function createRow(row){
       : Promise.reject(new Error("TrackAPI.getEntregadores não disponível"));
   }
   // Leitura otimizada de saída: usa POST /saidas/ler (1 SELECT + INSERT/UPDATE no backend).
-  function apiLerSaida({ entregador_id, entregador, codigo, servico }){
+  function apiLerSaida({ entregador_id, entregador, codigo, servico, registrar_nao_coletado, qr_payload_raw }){
     return window.TrackAPI?.lerSaida
-      ? TrackAPI.lerSaida({ entregador_id, entregador, codigo, servico })
+      ? TrackAPI.lerSaida({ entregador_id, entregador, codigo, servico, registrar_nao_coletado, qr_payload_raw })
       : Promise.reject(new Error("TrackAPI.lerSaida não disponível"));
   }
   function apiRegistrarSaida({ entregador_id, entregador, codigo, servico }){
@@ -838,7 +852,8 @@ async function registrar() {
       entregador_id: entregadorId,
       entregador,
       codigo: codigoFinal,
-      servico
+      servico,
+      qr_payload_raw: cls.qr_payload_raw || undefined
     });
     const backend_processing_ms = res?.backend_processing_ms ?? null;
 
@@ -960,7 +975,7 @@ async function registrar() {
         return { ok:false, tipo:"nao_coletado_cancelado", backend_processing_ms };
       }
       const postResp = window.TrackAPI?.lerSaida
-        ? await TrackAPI.lerSaida({ codigo: codigoFinal, entregador_id: entregadorId, entregador, servico, registrar_nao_coletado: true })
+        ? await TrackAPI.lerSaida({ codigo: codigoFinal, entregador_id: entregadorId, entregador, servico, registrar_nao_coletado: true, qr_payload_raw: cls.qr_payload_raw || undefined })
         : { ok: false, data: null, error: "TrackAPI.lerSaida não disponível" };
       if (!postResp.ok) {
         showMsgIcon("erro", postResp.error || "Erro ao registrar.");

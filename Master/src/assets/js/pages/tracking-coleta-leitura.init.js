@@ -208,7 +208,11 @@ function enviarLogLeitura(payload) {
 async function enviarColetasLote(base, itens, entregadorId = null) {
   const body = {
     base,
-    itens: itens.map(i => ({ codigo: i.codigo, servico: i.servico }))
+    itens: itens.map(i => {
+      const o = { codigo: i.codigo, servico: i.servico };
+      if (i.qr_payload_raw) o.qr_payload_raw = i.qr_payload_raw;
+      return o;
+    })
   };
   if (entregadorId != null && entregadorId !== "") {
     body.entregador_id = parseInt(entregadorId, 10);
@@ -228,10 +232,9 @@ async function enviarColetasLote(base, itens, entregadorId = null) {
 async function enviarColetaUnica(item, entregadorId = null) {
   try {
     // 🔹 Monta corpo apenas com os campos esperados pela API
-    const body = {
-      base: item.base,
-      itens: [{ codigo: item.codigo, servico: item.servico }]
-    };
+    const it = { codigo: item.codigo, servico: item.servico };
+    if (item.qr_payload_raw) it.qr_payload_raw = item.qr_payload_raw;
+    const body = { base: item.base, itens: [it] };
     if (entregadorId != null && entregadorId !== "") {
       body.entregador_id = parseInt(entregadorId, 10);
     }
@@ -277,8 +280,22 @@ function isCodigoShopee(codigo) {
 }
 
 function classifyCodigo(rawInput){
-  const raw = toAsciiDigits(String(rawInput || "")).toUpperCase().trim();
+  const rawInputStr = String(rawInput || "").trim();
+  const raw = toAsciiDigits(rawInputStr).toUpperCase().trim();
   const allDigits = raw.replace(/\D+/g, "");
+
+  // ===========================================================
+  // PRIORIDADE 0 — Mercado Livre JSON (id, sender_id, hash_code)
+  // ===========================================================
+  try {
+    if (rawInputStr.startsWith("{") && rawInputStr.trim().endsWith("}")) {
+      const obj = JSON.parse(rawInputStr);
+      if (typeof obj.id === "string" && (obj.sender_id != null || obj.hash_code != null)) {
+        const codigo = String(obj.id).trim();
+        return { ok:true, servico:"Mercado Livre", codigo, qr_payload_raw: rawInputStr };
+      }
+    }
+  } catch(_) {}
 
   // ===========================================================
   // PRIORIDADE 1 — QRCode JSON com external_order_id
@@ -335,11 +352,11 @@ function classifyCodigo(rawInput){
   }
 
   // ===========================================================
-  // Mercado Livre (45–49 → 11 dígitos)
+  // Mercado Livre (45–49 → 11 dígitos) — guarda raw para etiqueta
   // ===========================================================
   const mlRun = allDigits.match(/4[5-9]\d{9,}/);
   if (mlRun) {
-    return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11) };
+    return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11), qr_payload_raw: rawInputStr };
   }
 
   // ===========================================================
@@ -556,7 +573,8 @@ COLETAS.push({
   servico,
   status: "pendente",
   tentativas: 0,
-  data: hojeStr
+  data: hojeStr,
+  qr_payload_raw: parsed.qr_payload_raw || undefined
 });
 toast("Código registrado.");
 Sound.play("ok");
@@ -931,7 +949,8 @@ if (duplicado) {
         servico: parsed.servico,
         status: "pendente",
         tentativas: 0,
-        data: hojeBR()
+        data: hojeBR(),
+        qr_payload_raw: parsed.qr_payload_raw || undefined
       };
 
       COLETAS.push(novoItem);

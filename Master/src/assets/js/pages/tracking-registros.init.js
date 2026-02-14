@@ -348,7 +348,7 @@ function augmentEntregadoresFromRows(rows){
             <td>${r.base || "-"}</td>
             <td>${r.username || "-"}</td>
             <td>${r.entregador || "-"}</td>
-            <td><span class="d-inline-flex align-items-center gap-1">${r.codigo || "-"} <button type="button" class="btn btn-link btn-sm p-0 text-primary" title="Gerar etiqueta" data-etiqueta="${(r.codigo || "").replace(/"/g, "&quot;")}"><i class="ri-printer-line"></i></button></span></td>
+            <td><span class="d-inline-flex align-items-center gap-1">${r.codigo || "-"} <button type="button" class="btn btn-link btn-sm p-0 text-primary" title="Gerar etiqueta" data-etiqueta="${(r.codigo || "").replace(/"/g, "&quot;")}" data-id-saida="${rid || ""}" data-servico="${(r.servico || "").replace(/"/g, "&quot;")}"><i class="ri-printer-line"></i></button></span></td>
             <td>${r.servico || "-"}</td>
             <td>${r.status || "-"}</td>
           </tr>`;
@@ -477,17 +477,24 @@ function setupPagerEvents() {
       if (!codigo) return;
       e.preventDefault();
       e.stopPropagation();
-      gerarEtiquetaPdf(codigo);
+      var idSaida = btn.dataset.idSaida ? parseInt(btn.dataset.idSaida, 10) : null;
+      var servico = btn.dataset.servico || null;
+      gerarEtiquetaPdf({ codigo: codigo, id_saida: idSaida, servico: servico });
     });
   }
 
-  function gerarEtiquetaPdf(codigo) {
+  function gerarEtiquetaPdf(opts) {
+    var codigo = typeof opts === "string" ? opts : (opts?.codigo || "");
+    if (!codigo) return;
     var apiUrl = (window.TRACK_API_URL || "/api").replace(/\/$/, "") + "/etiquetas/gerar";
+    var body = { codigo: codigo };
+    if (opts?.id_saida != null && !isNaN(opts.id_saida)) body.id_saida = opts.id_saida;
+    if (opts?.servico) body.servico = opts.servico;
     fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ codigo: codigo, modo: "generic" })
+      body: JSON.stringify(body)
     })
       .then(function(res) {
         if (!res.ok) {
