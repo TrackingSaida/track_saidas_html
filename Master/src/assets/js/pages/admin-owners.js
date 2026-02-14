@@ -192,7 +192,7 @@ function renderTable() {
 </td>
 
             <td>R$ ${Number(o.valor).toFixed(2)}</td>
-            <td>${o.modo_operacao === "coleta_manual" ? "Manual" : "Código"}</td>
+            <td>${o.modo_operacao === "coleta_manual" ? "Saídas e Coleta Manual" : o.modo_operacao === "saida" ? "Saídas" : "Coletas e Saída via código"}</td>
             <td>${o.ignorar_coleta ? "Sim" : "Não"}</td>
             <td>${o.teste ? "Sim" : "Não"}</td>
             <td>${o.ativo ? "Sim" : "Não"}</td>
@@ -263,18 +263,26 @@ function goToPage(n) {
 
 
 // -------------------------------------------------------------------------
-// Modo Operação: coleta_manual só se ignorar_coleta for true
+// Modo Operação: quando ignorar_coleta=false → só "Coletas e Saída via código"
+// quando ignorar_coleta=true → "Saídas" ou "Saídas e Coleta Manual"
 // -------------------------------------------------------------------------
 function syncModoOperacaoSelect() {
     const ignorar = document.getElementById("ownerIgnorarToggle").checked;
     const sel = document.getElementById("ownerModoOperacao");
+    const optCodigo = sel.querySelector('option[value="codigo"]');
+    const optSaida = sel.querySelector('option[value="saida"]');
     const optManual = sel.querySelector('option[value="coleta_manual"]');
 
-    if (optManual) {
-        optManual.disabled = !ignorar;
-        if (!ignorar && sel.value === "coleta_manual") {
-            sel.value = "codigo";
-        }
+    if (ignorar) {
+        if (optCodigo) optCodigo.disabled = true;
+        if (optSaida) optSaida.disabled = false;
+        if (optManual) optManual.disabled = false;
+        if (sel.value === "codigo") sel.value = "saida";
+    } else {
+        if (optCodigo) optCodigo.disabled = false;
+        if (optSaida) optSaida.disabled = true;
+        if (optManual) optManual.disabled = true;
+        if (sel.value === "coleta_manual" || sel.value === "saida") sel.value = "codigo";
     }
 }
 

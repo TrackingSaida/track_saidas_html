@@ -454,8 +454,10 @@
     }
 
     const ignorarColeta = user.ignorar_coleta === true;
+    const modoOperacao = user.modo_operacao || "codigo";
     const role = parseInt(user.role, 10);
-    if (ignorarColeta || (role !== 0 && role !== 1)) {
+    const coletaAtiva = !ignorarColeta || (ignorarColeta && modoOperacao === "coleta_manual");
+    if (!coletaAtiva || (role !== 0 && role !== 1)) {
       showAcessoNegado();
       return;
     }

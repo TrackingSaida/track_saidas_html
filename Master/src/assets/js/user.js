@@ -10,6 +10,7 @@
   // ==========================================================
   window.__USER__ = null;
   window.IGNORAR_COLETA = false;
+  window.MODO_OPERACAO = "codigo";
 
   // ==========================================================
   // Helpers
@@ -131,9 +132,10 @@
       window.__USER__ = user;
 
       // ----------------------------
-      // IGNORAR_COLETA (vem do JWT)
+      // IGNORAR_COLETA e MODO_OPERACAO (vem do JWT)
       // ----------------------------
       window.IGNORAR_COLETA = !!user?.ignorar_coleta;
+      window.MODO_OPERACAO = user?.modo_operacao || "codigo";
       try {
         localStorage.setItem(
           "ignorar_coleta",

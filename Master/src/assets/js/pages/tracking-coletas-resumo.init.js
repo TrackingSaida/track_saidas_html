@@ -3,20 +3,26 @@
    Compatível com /coletas/resumo (items + total)
    ====================================================== */
 
-(function checkIgnorarColeta() {
-  if (window.IGNORAR_COLETA === true || localStorage.getItem("ignorar_coleta") === "1") {
+(function checkAcessoColetasResumo() {
+  var ignorar = window.IGNORAR_COLETA === true || localStorage.getItem("ignorar_coleta") === "1";
+  var modo = window.MODO_OPERACAO || "codigo";
+  if (ignorar && modo !== "coleta_manual") {
     window.location.replace("dashboard-tracking-overview.html");
     return;
   }
 })();
 
 document.addEventListener("DOMContentLoaded", async () => {
-  if (window.IGNORAR_COLETA === true) {
+  var ignorar = window.IGNORAR_COLETA === true;
+  var modo = window.MODO_OPERACAO || "codigo";
+  if (ignorar && modo !== "coleta_manual") {
     window.location.replace("dashboard-tracking-overview.html");
     return;
   }
-  setTimeout(() => {
-    if (window.IGNORAR_COLETA === true) {
+  setTimeout(function () {
+    ignorar = window.IGNORAR_COLETA === true;
+    modo = window.MODO_OPERACAO || "codigo";
+    if (ignorar && modo !== "coleta_manual") {
       window.location.replace("dashboard-tracking-overview.html");
       return;
     }

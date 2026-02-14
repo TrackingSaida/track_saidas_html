@@ -97,6 +97,7 @@
   }
 
   var ignorarColeta = false;
+  var temColetaParaGanhos = false;
 
   function renderCards(data) {
     const ind = data.indicadores || {};
@@ -106,7 +107,7 @@
     const margem = parseDecimal(data.margem_liquida);
     const comp = data.comparacao_periodo_anterior || {};
 
-    if (ignorarColeta) {
+    if (!temColetaParaGanhos) {
       var ganhosFlex = document.querySelector("#card-ganhos-wrapper .flex-grow-1");
       if (ganhosFlex) {
         ganhosFlex.innerHTML = "<p class='text-muted mb-1'>Ganhos (Coletas)</p><p class='text-muted small mb-0'>Informação não disponível</p><small class='text-muted'>Operação sem coleta</small>";
@@ -334,6 +335,7 @@
     }
 
     ignorarColeta = user.ignorar_coleta === true;
+    temColetaParaGanhos = !ignorarColeta || (ignorarColeta && (user.modo_operacao || "codigo") === "coleta_manual");
     hideAcessoNegado();
 
     var greeting = document.getElementById("fin-dash-greeting");
