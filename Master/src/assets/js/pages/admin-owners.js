@@ -93,6 +93,7 @@ function initOwners() {
     ev.target.value = maskCellphone(ev.target.value);
 });
 
+    document.getElementById("ownerIgnorarToggle").addEventListener("change", syncModoOperacaoSelect);
 
     loadOwners();
 }
@@ -104,7 +105,7 @@ function initOwners() {
 async function loadOwners() {
     const tbody = document.getElementById("tbody-owners");
     tbody.innerHTML = `
-        <tr><td colspan="8" class="text-center py-4 text-muted">Carregando...</td></tr>
+        <tr><td colspan="9" class="text-center py-4 text-muted">Carregando...</td></tr>
     `;
 
     try {
@@ -116,7 +117,7 @@ async function loadOwners() {
 
     } catch (err) {
         tbody.innerHTML = `
-            <tr><td colspan="8" class="text-center text-danger py-4">Erro ao carregar owners.</td></tr>
+            <tr><td colspan="9" class="text-center text-danger py-4">Erro ao carregar owners.</td></tr>
         `;
     }
 }
@@ -191,6 +192,7 @@ function renderTable() {
 </td>
 
             <td>R$ ${Number(o.valor).toFixed(2)}</td>
+            <td>${o.modo_operacao === "coleta_manual" ? "Manual" : "Código"}</td>
             <td>${o.ignorar_coleta ? "Sim" : "Não"}</td>
             <td>${o.teste ? "Sim" : "Não"}</td>
             <td>${o.ativo ? "Sim" : "Não"}</td>
@@ -261,6 +263,22 @@ function goToPage(n) {
 
 
 // -------------------------------------------------------------------------
+// Modo Operação: coleta_manual só se ignorar_coleta for true
+// -------------------------------------------------------------------------
+function syncModoOperacaoSelect() {
+    const ignorar = document.getElementById("ownerIgnorarToggle").checked;
+    const sel = document.getElementById("ownerModoOperacao");
+    const optManual = sel.querySelector('option[value="coleta_manual"]');
+
+    if (optManual) {
+        optManual.disabled = !ignorar;
+        if (!ignorar && sel.value === "coleta_manual") {
+            sel.value = "codigo";
+        }
+    }
+}
+
+// -------------------------------------------------------------------------
 // ABRIR MODAL (edição a partir da seleção)
 // -------------------------------------------------------------------------
 function openEditFromSelection() {
@@ -286,8 +304,11 @@ function openEdit(o) {
     document.getElementById("ownerValor").value = Number(o.valor).toFixed(2);
 
     document.getElementById("ownerIgnorarToggle").checked = o.ignorar_coleta;
+    document.getElementById("ownerModoOperacao").value = o.modo_operacao || "codigo";
     document.getElementById("ownerTesteToggle").checked = !!o.teste;
     document.getElementById("ownerAtivoToggle").checked = o.ativo;
+
+    syncModoOperacaoSelect();
 
     new bootstrap.Offcanvas("#oc-owner").show();
 }
@@ -307,6 +328,7 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
         email: document.getElementById("ownerEmail").value.trim(),
         contato: document.getElementById("ownerContato").value.trim(),
         valor: Number(document.getElementById("ownerValor").value),
+        modo_operacao: document.getElementById("ownerModoOperacao").value || "codigo",
         ignorar_coleta: document.getElementById("ownerIgnorarToggle").checked,
         teste: document.getElementById("ownerTesteToggle").checked,
         ativo: document.getElementById("ownerAtivoToggle").checked

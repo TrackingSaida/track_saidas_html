@@ -28,9 +28,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
   // ====== APIs ======
-  const API_URL     = `${window.TRACK_API_URL}/coletas/resumo`;
-  const API_BASES   = `${window.TRACK_API_URL}/base/`;
-  const API_SAIDAS  = `${window.TRACK_API_URL}/saidas/listar`;
+  const API_URL      = `${window.TRACK_API_URL}/coletas/resumo`;
+  const API_BASES    = `${window.TRACK_API_URL}/base/`;
+  const API_SAIDAS   = `${window.TRACK_API_URL}/saidas/listar`;
+  const API_MANUAL   = `${window.TRACK_API_URL}/coletas/manual`;
+  const API_AUTH_ME  = `${window.TRACK_API_URL}/auth/me`;
 
   // ====== Helpers ======
   const qs  = (s) => document.querySelector(s);
@@ -66,6 +68,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const tbody = qs("#coletas-resumo-table tbody");
   const btnGerar = document.getElementById("btnGerarCobranca");
+  const btnColetaManual = document.getElementById("btnColetaManual");
+  const thAcoes = document.getElementById("th-acoes");
+
+  let modoOperacao = "codigo";
 
   // ====== PAGINAÇÃO ======
   const state = {
@@ -110,6 +116,21 @@ function updatePager() {
     carregarResumo();
   };
 
+  // ====== Obter modo_operacao ======
+  async function obterModoOperacao() {
+    if (window.__USER__?.modo_operacao) {
+      modoOperacao = window.__USER__.modo_operacao;
+      return;
+    }
+    try {
+      const res = await fetch(API_AUTH_ME, { credentials: "include", headers: { Accept: "application/json" } });
+      if (res.ok) {
+        const user = await res.json();
+        modoOperacao = user?.modo_operacao || "codigo";
+      }
+    } catch (_) {}
+  }
+
   // ====== Carregar Bases ======
   async function carregarBases() {
     try {
@@ -121,6 +142,21 @@ function updatePager() {
       });
     } catch (err) {
       console.error("Erro ao carregar bases:", err);
+    }
+  }
+
+  // ====== Carregar Bases para modal (ativas) ======
+  async function carregarBasesModal() {
+    try {
+      const res = await fetch(`${API_BASES}?status=ativo`, { credentials: "include" });
+      const data = await res.json();
+      const sel = document.getElementById("modalColetaManualBase");
+      sel.innerHTML = `<option value="">Selecione...</option>`;
+      (data || []).forEach((b) => {
+        if (b.base) sel.innerHTML += `<option value="${b.base}">${b.base}</option>`;
+      });
+    } catch (err) {
+      console.error("Erro ao carregar bases para modal:", err);
     }
   }
 
@@ -168,8 +204,14 @@ async function buscarCancelados() {
 
   // ====== RENDER ======
   function renderTable(items) {
+    const temManual = items.some((r) => r.origem === "manual");
+    if (thAcoes) thAcoes.classList.toggle("d-none", !temManual);
+
     tbody.innerHTML = "";
     items.forEach((r) => {
+      const acoesCell = r.origem === "manual" && r.id_coleta
+        ? `<td class="text-center no-export"><button type="button" class="btn btn-sm btn-outline-primary btn-editar-coleta" data-id="${r.id_coleta}" data-data="${r.data_raw || r.data}" data-base="${r.base}" data-shopee="${r.shopee}" data-ml="${r.mercado_livre}" data-avulso="${r.avulso}" title="Editar"><i class="ri-pencil-line"></i></button></td>`
+        : (temManual ? `<td class="text-center no-export"></td>` : "");
       tbody.innerHTML += `
         <tr>
           <td>${r.data}</td>
@@ -180,7 +222,12 @@ async function buscarCancelados() {
           <td class="text-center">${r.avulso}</td>
           <td class="text-center text-danger fw-bold">${r.cancelados}</td>
           <td class="text-center">${formatarMoeda(r.valor_total)}</td>
+          ${acoesCell}
         </tr>`;
+    });
+
+    tbody.querySelectorAll(".btn-editar-coleta").forEach((btn) => {
+      btn.onclick = () => abrirModalEditar(btn);
     });
   }
 
@@ -245,13 +292,16 @@ async function carregarResumo() {
 
         const item = {
             data: dtBR,
+            data_raw: dtISO,
             base: baseKey,
             entregadores: (r.entregadores || "").toUpperCase(),
             shopee: r.shopee,
             mercado_livre: r.mercado_livre,
             avulso: r.avulso,
             valor_total: Number(r.valor_total),
-            cancelados: mapaCanc[key] || 0
+            cancelados: mapaCanc[key] || 0,
+            id_coleta: r.id_coleta || null,
+            origem: r.origem || null
         };
 
         totalShopee += item.shopee;
@@ -450,7 +500,8 @@ btnGerar.addEventListener("click", async () => {
       ["Data","Base","Entregador","Shopee","Mercado Livre","Avulso","Cancelados","Valor Total"]
     ];
     qsa("#coletas-resumo-table tbody tr").forEach(tr => {
-      rows.push([...tr.querySelectorAll("td")].map(td => td.textContent.trim()));
+      const cells = [...tr.querySelectorAll("td:not(.no-export)")].map(td => td.textContent.trim());
+      rows.push(cells);
     });
     const blob = new Blob([rows.map(r => r.join(";")).join("\n")], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a");
@@ -476,8 +527,132 @@ btnGerar.addEventListener("click", async () => {
     btnGerar.disabled = (selBase.value.trim() === "");
   });
 
+  // ====== Modal Coleta Manual ======
+  const modalEl = document.getElementById("modalColetaManual");
+  const modalData = document.getElementById("modalColetaManualData");
+  const modalBase = document.getElementById("modalColetaManualBase");
+  const modalShopee = document.getElementById("modalColetaManualShopee");
+  const modalMl = document.getElementById("modalColetaManualMl");
+  const modalAvulso = document.getElementById("modalColetaManualAvulso");
+  const modalId = document.getElementById("modalColetaManualId");
+  const modalSalvar = document.getElementById("modalColetaManualSalvar");
+
+  function abrirModalNova() {
+    modalId.value = "";
+    modalData.value = new Date().toISOString().slice(0, 10);
+    modalBase.value = "";
+    modalShopee.value = "0";
+    modalMl.value = "0";
+    modalAvulso.value = "0";
+    modalData.disabled = false;
+    modalBase.disabled = false;
+    document.getElementById("modalColetaManualLabel").textContent = "Coleta Manual";
+    if (modalEl && window.bootstrap?.Modal) {
+      const m = new bootstrap.Modal(modalEl);
+      m.show();
+    }
+  }
+
+  async function abrirModalEditar(btn) {
+    await carregarBasesModal();
+    const id = btn.getAttribute("data-id");
+    const dataYmd = btn.getAttribute("data-data");
+    const base = btn.getAttribute("data-base") || "";
+    const shopee = btn.getAttribute("data-shopee") || "0";
+    const ml = btn.getAttribute("data-ml") || "0";
+    const avulso = btn.getAttribute("data-avulso") || "0";
+    // data-data pode vir como DD/MM/YYYY ou YYYY-MM-DD
+    let dataVal = dataYmd;
+    if (dataYmd && dataYmd.includes("/")) {
+      const [d, m, y] = dataYmd.split("/");
+      dataVal = y && m && d ? `${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}` : dataVal;
+    }
+    modalId.value = id;
+    modalData.value = dataVal || new Date().toISOString().slice(0, 10);
+    modalBase.value = base;
+    modalShopee.value = shopee;
+    modalMl.value = ml;
+    modalAvulso.value = avulso;
+    modalData.disabled = true;
+    modalBase.disabled = true;
+    document.getElementById("modalColetaManualLabel").textContent = "Editar Coleta Manual";
+    if (modalEl && window.bootstrap?.Modal) {
+      const m = new bootstrap.Modal(modalEl);
+      m.show();
+    }
+  }
+
+  async function salvarModalColetaManual() {
+    const id = modalId.value.trim();
+    const data = modalData.value;
+    const base = modalBase.value?.trim();
+    const shopee = parseInt(modalShopee.value, 10) || 0;
+    const ml = parseInt(modalMl.value, 10) || 0;
+    const avulso = parseInt(modalAvulso.value, 10) || 0;
+
+    if (!base) {
+      Swal.fire({ icon: "warning", title: "Campo obrigatório", text: "Selecione uma base." });
+      return;
+    }
+
+    modalSalvar.disabled = true;
+    try {
+      if (id) {
+        const res = await fetch(`${API_MANUAL}/${id}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shopee, mercado_livre: ml, avulso })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.detail || res.statusText || "Erro ao atualizar");
+        }
+        const coleta = await res.json();
+        Swal.fire({ icon: "success", title: "Salvo", text: `Valor total: ${formatarMoeda(coleta.valor_total)}` });
+      } else {
+        const res = await fetch(API_MANUAL, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data, base, shopee, mercado_livre: ml, avulso })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.detail || res.statusText || "Erro ao criar");
+        }
+        const coleta = await res.json();
+        Swal.fire({ icon: "success", title: "Coleta criada", text: `Valor total: ${formatarMoeda(coleta.valor_total)}` });
+      }
+      if (modalEl && window.bootstrap?.Modal) {
+        const m = bootstrap.Modal.getInstance(modalEl);
+        if (m) m.hide();
+      }
+      carregarResumo();
+    } catch (e) {
+      Swal.fire({ icon: "error", title: "Erro", text: e?.message || "Falha ao salvar." });
+    } finally {
+      modalSalvar.disabled = false;
+    }
+  }
+
+  if (btnColetaManual) {
+    btnColetaManual.onclick = async () => {
+      await carregarBasesModal();
+      abrirModalNova();
+    };
+  }
+  if (modalSalvar) modalSalvar.onclick = salvarModalColetaManual;
+
   // =====================================================================
 
-  carregarBases().then(carregarResumo);
+  (async function init() {
+    await obterModoOperacao();
+    if (btnColetaManual && modoOperacao === "coleta_manual") {
+      btnColetaManual.classList.remove("d-none");
+    }
+    await carregarBases();
+    await carregarResumo();
+  })();
 
 });

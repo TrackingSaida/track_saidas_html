@@ -30,6 +30,9 @@
                   <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="card-title mb-0">Resumo de Coletas</h4>
                     <div class="d-flex gap-2">
+                      <button id="btnColetaManual" class="btn btn-sm btn-success d-none">
+                        <i class="ri-add-line me-1"></i> Coleta Manual
+                      </button>
                       <button id="btnRefreshResumo" class="btn btn-sm btn-primary">
                         <i class="ri-refresh-line me-1"></i> Atualizar
                       </button>
@@ -139,6 +142,7 @@
         <th class="text-center">Avulso</th>
         <th class="text-center text-danger">Cancelados</th>
         <th class="text-center">Valor Total</th>
+        <th id="th-acoes" class="text-center d-none">Ações</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -210,6 +214,45 @@
     </div> <!-- layout-wrapper -->
 
     <div class="vertical-overlay"></div>
+
+    <!-- Modal Coleta Manual -->
+    <div class="modal fade" id="modalColetaManual" tabindex="-1" aria-labelledby="modalColetaManualLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalColetaManualLabel">Coleta Manual</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="modalColetaManualId" value="" />
+            <div class="mb-3">
+              <label class="form-label">Data</label>
+              <input type="date" id="modalColetaManualData" class="form-control" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Base</label>
+              <select id="modalColetaManualBase" class="form-select"></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Shopee</label>
+              <input type="number" id="modalColetaManualShopee" class="form-control" min="0" value="0" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Mercado Livre</label>
+              <input type="number" id="modalColetaManualMl" class="form-control" min="0" value="0" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Avulso</label>
+              <input type="number" id="modalColetaManualAvulso" class="form-control" min="0" value="0" />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="modalColetaManualSalvar">Salvar</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     @@include("partials/vendor-scripts.html")
 

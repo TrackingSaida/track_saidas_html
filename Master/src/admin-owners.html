@@ -57,6 +57,7 @@
                                     <th>E-mail</th>
                                     <th>Contato</th>
                                     <th>Valor (R$)</th>
+                                    <th>Modo</th>
                                     <th>Ignorar Coleta</th>
                                     <th>Teste</th>
                                     <th>Ativo</th>
@@ -160,6 +161,16 @@
                                 <input class="form-check-input" type="checkbox" id="ownerIgnorarToggle">
                                 <label class="form-check-label">Ignorar Coleta</label>
                             </div>
+                            <small class="text-muted d-block mt-1">Requerido para usar Modo Coleta Manual.</small>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Modo de Operação</label>
+                            <select id="ownerModoOperacao" class="form-select">
+                                <option value="codigo">Código (leitura de etiquetas)</option>
+                                <option value="coleta_manual">Coleta Manual</option>
+                            </select>
+                            <small class="text-muted">Coleta Manual: permite registrar coletas sem leitura de códigos. Exige &quot;Ignorar Coleta&quot; ativo.</small>
                         </div>
 
                         <div class="col-12">
