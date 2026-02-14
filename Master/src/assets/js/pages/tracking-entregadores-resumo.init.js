@@ -98,7 +98,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function updateCards(data) {
     if (!data) return;
-    qs("#card-entregador").textContent = state.entregadorLabel;
     qs("#card-flex").textContent = String(data.sumFlex ?? 0);
     qs("#card-shopee").textContent = String(data.sumShopee ?? 0);
     qs("#card-avulso").textContent = String(data.sumAvulso ?? 0);
@@ -627,7 +626,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       }
     });
-    const r = datePickerInstance.getResolvedRange();
+    if (datePickerInstance && datePickerInstance.applyPreset) {
+      datePickerInstance.applyPreset("quinzena-ant");
+    }
+    const r = datePickerInstance ? datePickerInstance.getResolvedRange() : { start: "", end: "" };
     if (fltDataInicio) fltDataInicio.value = r.start;
     if (fltDataFim) fltDataFim.value = r.end;
     updatePeriodLabel(r.start, r.end);

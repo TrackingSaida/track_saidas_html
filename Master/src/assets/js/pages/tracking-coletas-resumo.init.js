@@ -416,7 +416,10 @@ btnGerar.addEventListener("click", async () => {
         }
       }
     });
-    const r = datePickerInstance.getResolvedRange();
+    if (datePickerInstance && datePickerInstance.applyPreset) {
+      datePickerInstance.applyPreset("quinzena-ant");
+    }
+    const r = datePickerInstance ? datePickerInstance.getResolvedRange() : { start: "", end: "" };
     if (fltFrom) fltFrom.value = r.start;
     if (fltTo) fltTo.value = r.end;
     updatePeriodLabel(r.start, r.end);
