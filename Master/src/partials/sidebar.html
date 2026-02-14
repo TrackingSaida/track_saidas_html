@@ -150,6 +150,13 @@ const dashboards = serverMenu.find(s => {
   return name === "dashboards" || name.includes("indicador");
 });
 
+const cadastros = serverMenu.find(s =>
+  (s.section || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .includes("cadastr")
+);
+
 const config = serverMenu.find(s =>
   (s.section || "")
     .toLowerCase()
@@ -207,9 +214,12 @@ if (operacao) {
     }
 
 
-    // 🔹 Monta dashboards e config somente se vierem do backend
+    // 🔹 Monta dashboards, cadastros e config somente se vierem do backend
     const dashHTML = dashboards
       ? dashboards.items.map(i => makeItem(i.href, i.label)).join("")
+      : "";
+    const cadHTML = cadastros
+      ? (cadastros.items || []).map(i => makeItem(i.href, i.label)).join("")
       : "";
     const cfgHTML = config
       ? (config.items || []).map(i => makeItem(i.href, i.label)).join("")
@@ -220,6 +230,7 @@ if (operacao) {
     if (operacao) finalHTML += makeGroup(toId(operacao.section), operacao.icon, operacao.section, opHTML);
     if (financeiro && finHTML) finalHTML += makeGroup(toId(financeiro.section), financeiro.icon, financeiro.section, finHTML);
     if (dashboards) finalHTML += makeGroup(toId(dashboards.section), dashboards.icon, dashboards.section, dashHTML);
+    if (cadastros && cadHTML) finalHTML += makeGroup(toId(cadastros.section), cadastros.icon, cadastros.section, cadHTML);
     if (config) finalHTML += makeGroup(toId(config.section), config.icon, config.section, cfgHTML);
 
     // Injeta no DOM
