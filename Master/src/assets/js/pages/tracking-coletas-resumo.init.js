@@ -3,30 +3,39 @@
    Compatível com /coletas/resumo (items + total)
    ====================================================== */
 
-(function checkAcessoColetasResumo() {
-  var ignorar = window.IGNORAR_COLETA === true || localStorage.getItem("ignorar_coleta") === "1";
-  var modo = window.MODO_OPERACAO || "codigo";
-  if (ignorar && modo !== "coleta_manual") {
-    window.location.replace("dashboard-tracking-overview.html");
-    return;
+function deveRedirecionarColetasResumo(ignorar, modo) {
+  return ignorar === true && modo !== "coleta_manual";
+}
+
+async function obterUserParaRedirect() {
+  if (window.__USER__ && (window.__USER__.modo_operacao !== undefined || window.__USER__.ignorar_coleta !== undefined)) {
+    return window.__USER__;
   }
-})();
+  var api = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+  if (!api) return null;
+  try {
+    var url = api + "/auth/me";
+    var res = await fetch(url, { credentials: "include", headers: { Accept: "application/json" } });
+    if (res.ok) {
+      var user = await res.json();
+      window.__USER__ = user;
+      window.IGNORAR_COLETA = !!user?.ignorar_coleta;
+      window.MODO_OPERACAO = user?.modo_operacao || "codigo";
+      return user;
+    }
+  } catch (_) {}
+  return null;
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
-  var ignorar = window.IGNORAR_COLETA === true;
-  var modo = window.MODO_OPERACAO || "codigo";
-  if (ignorar && modo !== "coleta_manual") {
+  var user = await obterUserParaRedirect();
+  var ignorar = user ? !!user.ignorar_coleta : (window.IGNORAR_COLETA === true || localStorage.getItem("ignorar_coleta") === "1");
+  var modo = user ? (user.modo_operacao || "codigo") : (window.MODO_OPERACAO || "codigo");
+
+  if (deveRedirecionarColetasResumo(ignorar, modo)) {
     window.location.replace("dashboard-tracking-overview.html");
     return;
   }
-  setTimeout(function () {
-    ignorar = window.IGNORAR_COLETA === true;
-    modo = window.MODO_OPERACAO || "codigo";
-    if (ignorar && modo !== "coleta_manual") {
-      window.location.replace("dashboard-tracking-overview.html");
-      return;
-    }
-  }, 600);
 
   // ====== CACHE GLOBAL (cancelados) ======
   let cacheCancelados = null;
@@ -34,11 +43,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
   // ====== APIs ======
-  const API_URL      = `${window.TRACK_API_URL}/coletas/resumo`;
-  const API_BASES    = `${window.TRACK_API_URL}/base/`;
-  const API_SAIDAS   = `${window.TRACK_API_URL}/saidas/listar`;
-  const API_MANUAL   = `${window.TRACK_API_URL}/coletas/manual`;
-  const API_AUTH_ME  = `${window.TRACK_API_URL}/auth/me`;
+  const API_URL         = `${window.TRACK_API_URL}/coletas/resumo`;
+  const API_BASES       = `${window.TRACK_API_URL}/base/`;
+  const API_SAIDAS      = `${window.TRACK_API_URL}/saidas/listar`;
+  const API_MANUAL      = `${window.TRACK_API_URL}/coletas/manual`;
+  const API_AUTH_ME     = `${window.TRACK_API_URL}/auth/me`;
+  const API_FECHAMENTOS = `${window.TRACK_API_URL}/coletas/fechamentos`;
 
   // ====== Helpers ======
   const qs  = (s) => document.querySelector(s);
@@ -68,13 +78,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ====== Elementos ======
-  const fltFrom = qs("#flt-from");
-  const fltTo   = qs("#flt-to");
-  const fltBase = qs("#flt-base");
+  const fltFrom   = qs("#flt-from");
+  const fltTo     = qs("#flt-to");
+  const fltBase   = qs("#flt-base");
+  const fltStatus = qs("#flt-status");
 
   const tbody = qs("#coletas-resumo-table tbody");
-  const btnGerar = document.getElementById("btnGerarCobranca");
+  const btnGerarFechamento = document.getElementById("btnGerarFechamento");
+  const wrapBtnGerarFechamento = document.getElementById("wrapBtnGerarFechamento");
   const btnColetaManual = document.getElementById("btnColetaManual");
+  const wrapBtnColetaManual = document.getElementById("wrapBtnColetaManual");
   const thAcoes = document.getElementById("th-acoes");
 
   let modoOperacao = "codigo";
@@ -84,8 +97,66 @@ document.addEventListener("DOMContentLoaded", async () => {
     page: 1,
     pageSize: 200,
     total: 0,
-    items: []
+    items: [],
+    contextoFechamento: null,
+    fechamentoItens: [],
+    fechamentoPrecos: {}
   };
+
+  const STATUS_TOOLTIPS = {
+    PENDENTE: "Sem fechamento para o período",
+    GERADO: "Fechamento gerado",
+    REAJUSTADO: "Fechamento reajustado"
+  };
+
+  function celulaFechamento(r) {
+    const st = (r.fechamento_status || "PENDENTE").toUpperCase();
+    const idFech = r.id_fechamento || "";
+    let html = "";
+    if (st === "PENDENTE") {
+      html = '<span class="badge bg-warning-subtle text-warning" title="' + (STATUS_TOOLTIPS.PENDENTE || "Pendente") + '">PENDENTE</span>';
+    } else if (st === "GERADO") {
+      html = '<span class="badge bg-success-subtle text-success" title="' + (STATUS_TOOLTIPS.GERADO || "Gerado") + '">GERADO</span>';
+      if (idFech) {
+        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
+      }
+    } else {
+      html = '<span class="badge bg-info-subtle text-info" title="' + (STATUS_TOOLTIPS.REAJUSTADO || "Reajustado") + '">REAJUSTADO</span>';
+      if (idFech) {
+        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
+      }
+    }
+    return html;
+  }
+
+  function formatarPeriodo(ini, fim) {
+    if (!ini || !fim) return "—";
+    const [yi, mi, di] = String(ini).split("-");
+    const [yf, mf, df] = String(fim).split("-");
+    return `${di}/${mi}/${yi} a ${df}/${mf}/${yf}`;
+  }
+
+  function atualizarBtnGerarFechamento() {
+    if (!btnGerarFechamento || !wrapBtnGerarFechamento) return;
+    const dataInicio = fltFrom?.value || "";
+    const dataFim = fltTo?.value || "";
+    const base = (fltBase?.value || "").trim();
+    const habilitado = !!(dataInicio && dataFim && base);
+    const ctx = state.contextoFechamento;
+    const status = ctx ? (ctx.status || "GERADO").toUpperCase() : "PENDENTE";
+    const itemGerar = wrapBtnGerarFechamento?.querySelector('[data-acao="gerar"]')?.closest("li");
+    const itemReajustar = wrapBtnGerarFechamento?.querySelector('[data-acao="reajustar"]')?.closest("li");
+    btnGerarFechamento.disabled = !habilitado;
+    if (itemGerar) itemGerar.style.display = (habilitado && !ctx) ? "" : "none";
+    if (itemReajustar) itemReajustar.style.display = (habilitado && ctx && status === "GERADO") ? "" : "none";
+    if (habilitado && !ctx) {
+      btnGerarFechamento.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
+    } else if (habilitado && ctx && status === "GERADO") {
+      btnGerarFechamento.innerHTML = '<i class="ri-edit-line me-1"></i> Reajustar';
+    } else if (habilitado && ctx && status === "REAJUSTADO") {
+      btnGerarFechamento.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
+    }
+  }
 
   const pagerFirst   = qs("#pager-first");
   const pagerPrev    = qs("#pager-prev");
@@ -218,6 +289,7 @@ async function buscarCancelados() {
       const acoesCell = r.origem === "manual" && r.id_coleta
         ? `<td class="text-center no-export"><button type="button" class="btn btn-sm btn-outline-primary btn-editar-coleta" data-id="${r.id_coleta}" data-data="${r.data_raw || r.data}" data-base="${r.base}" data-shopee="${r.shopee}" data-ml="${r.mercado_livre}" data-avulso="${r.avulso}" title="Editar"><i class="ri-pencil-line"></i></button></td>`
         : (temManual ? `<td class="text-center no-export"></td>` : "");
+      const celFech = celulaFechamento(r);
       tbody.innerHTML += `
         <tr>
           <td>${r.data}</td>
@@ -228,12 +300,25 @@ async function buscarCancelados() {
           <td class="text-center">${r.avulso}</td>
           <td class="text-center text-danger fw-bold">${r.cancelados}</td>
           <td class="text-center">${formatarMoeda(r.valor_total)}</td>
+          <td class="text-center">${celFech}</td>
           ${acoesCell}
         </tr>`;
     });
 
     tbody.querySelectorAll(".btn-editar-coleta").forEach((btn) => {
       btn.onclick = () => abrirModalEditar(btn);
+    });
+    tbody.querySelectorAll(".btn-pdf-fechamento").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idFech = parseInt(btn.dataset.idFech, 10);
+        if (window.gerarPdfFechamentoBases && typeof window.gerarPdfFechamentoBases === "function") {
+          window.gerarPdfFechamentoBases(idFech);
+        } else if (window.gerarPdfResumoColetas) {
+          carregarResumoCompleto().then((resumo) => {
+            if (resumo.length) gerarPdfResumoColetas(resumo, fltBase.value, fltFrom.value, fltTo.value);
+          });
+        }
+      });
     });
   }
 
@@ -264,6 +349,7 @@ async function carregarResumo() {
     if (fltBase.value) params.append("base", fltBase.value);
     if (fltFrom.value) params.append("data_inicio", fltFrom.value);
     if (fltTo.value)   params.append("data_fim", fltTo.value);
+    if (fltStatus && fltStatus.value) params.append("fechamento_status", fltStatus.value);
 
     // Consulta ao backend
     const res = await fetch(`${API_URL}?${params.toString()}`, { credentials: "include" });
@@ -305,9 +391,11 @@ async function carregarResumo() {
             mercado_livre: r.mercado_livre,
             avulso: r.avulso,
             valor_total: Number(r.valor_total),
-            cancelados: mapaCanc[key] || 0,
+            cancelados: r.cancelados ?? mapaCanc[key] ?? 0,
             id_coleta: r.id_coleta || null,
-            origem: r.origem || null
+            origem: r.origem || null,
+            fechamento_status: r.fechamento_status || null,
+            id_fechamento: r.id_fechamento || null
         };
 
         totalShopee += item.shopee;
@@ -319,8 +407,11 @@ async function carregarResumo() {
         return item;
     });
 
+    state.contextoFechamento = data.contextoFechamento || null;
+
     // Atualiza tabela e totais
     renderTable(linhas);
+    atualizarBtnGerarFechamento();
     atualizarCards(
     data.sumShopee,
     data.sumMercado,
@@ -352,6 +443,7 @@ async function carregarResumoCompleto() {
         if (fltBase.value) params.append("base", fltBase.value);
         if (fltFrom.value) params.append("data_inicio", fltFrom.value);
         if (fltTo.value)   params.append("data_fim", fltTo.value);
+        if (fltStatus && fltStatus.value) params.append("fechamento_status", fltStatus.value);
 
         params.append("page", page);
         params.append("pageSize", pageSize);
@@ -408,42 +500,189 @@ async function carregarResumoCompleto() {
 
 
 
-btnGerar.addEventListener("click", async () => {
-    
+  // ====== Gerar Fechamento (dropdown) ======
+  wrapBtnGerarFechamento?.querySelector('[data-acao="gerar"]')?.addEventListener("click", (e) => {
+    e.preventDefault();
+    abrirModalFechamento(false);
+  });
+  wrapBtnGerarFechamento?.querySelector('[data-acao="reajustar"]')?.addEventListener("click", (e) => {
+    e.preventDefault();
+    abrirModalFechamento(true);
+  });
+
+  async function abrirModalFechamento(modoEdicao) {
     const base = (fltBase.value || "").trim();
-    if (!base) {
-        Swal.fire({
-            icon: "warning",
-            title: "Selecione uma Base",
-            text: "É necessário escolher uma base para gerar a cobrança."
-        });
-        return;
+    const periodoInicio = fltFrom.value;
+    const periodoFim = fltTo.value;
+    const idFech = state.contextoFechamento?.id_fechamento;
+
+    const titleEl = document.getElementById("modalFechamentoBasesLabel");
+    const btnModal = document.getElementById("btnGerarFechamentoModal");
+    if (modoEdicao && idFech) {
+      if (titleEl) titleEl.innerHTML = '<i class="ri-building-line me-2"></i>Reajustar Fechamento de Base';
+      if (btnModal) btnModal.innerHTML = '<i class="ri-save-line me-1"></i> Salvar Reajuste';
+    } else {
+      if (titleEl) titleEl.innerHTML = '<i class="ri-building-line me-2"></i>Gerar Fechamento de Base';
+      if (btnModal) btnModal.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
     }
 
-    Swal.showLoading();
+    qs("#fech-id").value = idFech || "";
+    qs("#fech-base").value = base;
+    qs("#fech-periodo-inicio").value = periodoInicio || "";
+    qs("#fech-periodo-fim").value = periodoFim || "";
+    qs("#fech-base-display").textContent = base || "—";
+    qs("#fech-periodo-display").textContent = formatarPeriodo(periodoInicio, periodoFim);
 
-    // 🔥 Buscar todas as linhas com os mesmos filtros aplicados
-    const resumoCompleto = await carregarResumoCompleto();
-
-    Swal.close();
-
-    if (!resumoCompleto.length) {
-        Swal.fire({
-            icon: "info",
-            title: "Nenhum dado encontrado",
-            text: "Não há dados suficientes para gerar o relatório."
-        });
+    if (modoEdicao && idFech) {
+      try {
+        const res = await fetch(`${API_FECHAMENTOS}/${idFech}`, { credentials: "include" });
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        state.fechamentoItens = (data.itens || []).map(i => ({
+          data: i.data,
+          shopee: i.shopee ?? 0,
+          mercado_livre: i.mercado_livre ?? 0,
+          avulso: i.avulso ?? 0,
+          cancelados_shopee: i.cancelados_shopee ?? 0,
+          cancelados_ml: i.cancelados_ml ?? 0,
+          cancelados_avulso: i.cancelados_avulso ?? 0
+        }));
+        const basesRes = await fetch(API_BASES, { credentials: "include" });
+        const bases = await basesRes.json();
+        const baseObj = Array.isArray(bases) ? bases.find(b => String(b.base || "").toUpperCase() === String(base || "").toUpperCase()) : null;
+        state.fechamentoPrecos = baseObj ? { shopee: baseObj.shopee ?? 0, ml: baseObj.ml ?? 0, avulso: baseObj.avulso ?? 0 } : {};
+      } catch (err) {
+        console.error(err);
+        if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao carregar fechamento." });
         return;
+      }
+    } else {
+      try {
+        const params = new URLSearchParams({ base, periodo_inicio: periodoInicio, periodo_fim: periodoFim });
+        const res = await fetch(`${API_FECHAMENTOS}/calcular?${params}`, { credentials: "include" });
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        state.fechamentoItens = (data.itens || []).map(i => ({ ...i }));
+        state.fechamentoPrecos = data.precos || {};
+      } catch (err) {
+        console.error(err);
+        if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao calcular fechamento." });
+        return;
+      }
     }
 
-    // 🔥 Gerar o PDF com TODOS os dados filtrados
-    gerarPdfResumoColetas(
-        resumoCompleto,
-        base,
-        fltFrom.value,
-        fltTo.value
-    );
-});
+    renderTabelaFechamentoItens();
+    atualizarResumoModal();
+    const modal = new bootstrap.Modal(qs("#modalFechamentoBases"));
+    modal.show();
+  }
+
+  function renderTabelaFechamentoItens() {
+    const tbody = qs("#tbody-fechamento-itens");
+    if (!tbody) return;
+    const precos = state.fechamentoPrecos;
+    const p_s = Number(precos.shopee || 0);
+    const p_m = Number(precos.ml || 0);
+    const p_a = Number(precos.avulso || 0);
+
+    tbody.innerHTML = state.fechamentoItens.map((it, idx) => {
+      const dataBr = it.data ? it.data.split("-").reverse().join("/") : "";
+      return `
+        <tr data-idx="${idx}">
+          <td>${dataBr}</td>
+          <td><input type="number" class="form-control form-control-sm fech-input-qtde" data-idx="${idx}" data-field="shopee" min="0" value="${it.shopee ?? 0}" /></td>
+          <td><input type="number" class="form-control form-control-sm fech-input-qtde" data-idx="${idx}" data-field="mercado_livre" min="0" value="${it.mercado_livre ?? 0}" /></td>
+          <td><input type="number" class="form-control form-control-sm fech-input-qtde" data-idx="${idx}" data-field="avulso" min="0" value="${it.avulso ?? 0}" /></td>
+          <td><input type="number" class="form-control form-control-sm fech-input-canc" data-idx="${idx}" data-field="cancelados_shopee" min="0" value="${it.cancelados_shopee ?? 0}" /></td>
+          <td><input type="number" class="form-control form-control-sm fech-input-canc" data-idx="${idx}" data-field="cancelados_ml" min="0" value="${it.cancelados_ml ?? 0}" /></td>
+          <td><input type="number" class="form-control form-control-sm fech-input-canc" data-idx="${idx}" data-field="cancelados_avulso" min="0" value="${it.cancelados_avulso ?? 0}" /></td>
+        </tr>`;
+    }).join("");
+
+    tbody.querySelectorAll(".fech-input-qtde, .fech-input-canc").forEach((inp) => {
+      inp.addEventListener("input", () => {
+        const idx = parseInt(inp.dataset.idx, 10);
+        const field = inp.dataset.field;
+        const val = parseInt(inp.value, 10) || 0;
+        if (state.fechamentoItens[idx]) state.fechamentoItens[idx][field] = val;
+        atualizarResumoModal();
+      });
+    });
+  }
+
+  function atualizarResumoModal() {
+    const precos = state.fechamentoPrecos;
+    const p_s = Number(precos.shopee || 0);
+    const p_m = Number(precos.ml || 0);
+    const p_a = Number(precos.avulso || 0);
+    let valorBruto = 0;
+    let valorCancelados = 0;
+    state.fechamentoItens.forEach((it) => {
+      const s = (it.shopee ?? 0), m = (it.mercado_livre ?? 0), a = (it.avulso ?? 0);
+      const cs = (it.cancelados_shopee ?? 0), cm = (it.cancelados_ml ?? 0), ca = (it.cancelados_avulso ?? 0);
+      valorBruto += s * p_s + m * p_m + a * p_a;
+      valorCancelados += cs * p_s + cm * p_m + ca * p_a;
+    });
+    const totalReceber = valorBruto - valorCancelados;
+    qs("#fech-valor-bruto").textContent = formatarMoeda(valorBruto);
+    qs("#fech-valor-cancelados").textContent = formatarMoeda(valorCancelados);
+    qs("#fech-total-receber").textContent = formatarMoeda(totalReceber);
+  }
+
+  async function salvarFechamento() {
+    const idFech = qs("#fech-id")?.value?.trim();
+    const base = qs("#fech-base")?.value?.trim();
+    const periodoInicio = qs("#fech-periodo-inicio")?.value?.trim();
+    const periodoFim = qs("#fech-periodo-fim")?.value?.trim();
+    const modoEdicao = !!idFech;
+    const itens = state.fechamentoItens.map((it) => ({
+      data: it.data,
+      shopee: it.shopee ?? 0,
+      mercado_livre: it.mercado_livre ?? 0,
+      avulso: it.avulso ?? 0,
+      cancelados_shopee: it.cancelados_shopee ?? 0,
+      cancelados_ml: it.cancelados_ml ?? 0,
+      cancelados_avulso: it.cancelados_avulso ?? 0
+    }));
+
+    const btn = document.getElementById("btnGerarFechamentoModal");
+    if (btn) btn.disabled = true;
+    try {
+      if (modoEdicao) {
+        const res = await fetch(`${API_FECHAMENTOS}/${idFech}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ itens })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.detail || res.statusText || "Erro ao reajustar");
+        }
+        if (window.Swal) Swal.fire({ icon: "success", title: "Reajuste salvo" });
+      } else {
+        const res = await fetch(API_FECHAMENTOS, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ base, periodo_inicio: periodoInicio, periodo_fim: periodoFim, itens })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.detail || res.statusText || "Erro ao gerar fechamento");
+        }
+        if (window.Swal) Swal.fire({ icon: "success", title: "Fechamento gerado" });
+      }
+      bootstrap.Modal.getInstance(qs("#modalFechamentoBases"))?.hide();
+      carregarResumo();
+    } catch (e) {
+      if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: e?.message || "Falha ao salvar." });
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  document.getElementById("btnGerarFechamentoModal")?.addEventListener("click", salvarFechamento);
 
 
     // ====== Date Picker ======
@@ -453,7 +692,7 @@ btnGerar.addEventListener("click", async () => {
     datePickerInstance = window.initDatePickerDashboard({
       containerId: "coletas-resumo-date-picker-container",
       prefix: "coletas-resumo-dp",
-      defaultPreset: "quinzena-ant",
+      defaultPreset: "quinzena",
       onApply: function (start, end) {
         if (fltFrom) fltFrom.value = start;
         if (fltTo) fltTo.value = end;
@@ -473,7 +712,7 @@ btnGerar.addEventListener("click", async () => {
       }
     });
     if (datePickerInstance && datePickerInstance.applyPreset) {
-      datePickerInstance.applyPreset("quinzena-ant");
+      datePickerInstance.applyPreset("quinzena");
     }
     const r = datePickerInstance ? datePickerInstance.getResolvedRange() : { start: "", end: "" };
     if (fltFrom) fltFrom.value = r.start;
@@ -483,12 +722,12 @@ btnGerar.addEventListener("click", async () => {
 
   // ====== Eventos ======
   qs("#btnFilter").onclick = () => { state.page = 1; carregarResumo(); };
-  qs("#btnRefreshResumo").onclick = () => carregarResumo();
 
   qs("#btnClear").onclick = () => {
     fltBase.value = "";
+    if (fltStatus) fltStatus.value = "";
     if (datePickerInstance && datePickerInstance.applyPreset) {
-      datePickerInstance.applyPreset("quinzena-ant");
+      datePickerInstance.applyPreset("quinzena");
       const r = datePickerInstance.getResolvedRange();
       if (fltFrom) fltFrom.value = r.start;
       if (fltTo) fltTo.value = r.end;
@@ -499,21 +738,7 @@ btnGerar.addEventListener("click", async () => {
     }
     state.page = 1;
     carregarResumo();
-  };
-
-  qs("#btnExportCsv").onclick = () => {
-    const rows = [
-      ["Data","Base","Entregador","Shopee","Mercado Livre","Avulso","Cancelados","Valor Total"]
-    ];
-    qsa("#coletas-resumo-table tbody tr").forEach(tr => {
-      const cells = [...tr.querySelectorAll("td:not(.no-export)")].map(td => td.textContent.trim());
-      rows.push(cells);
-    });
-    const blob = new Blob([rows.map(r => r.join(";")).join("\n")], { type: "text/csv;charset=utf-8;" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "resumo-coletas.csv";
-    a.click();
+    atualizarBtnGerarFechamento();
   };
 
   document.addEventListener("keypress", (e) => {
@@ -523,15 +748,12 @@ btnGerar.addEventListener("click", async () => {
     }
   });
 
-  const selBase  = document.getElementById("flt-base");
+  const selBase = document.getElementById("flt-base");
 
-  // Estado inicial — sempre desabilitado até escolher uma base
-  btnGerar.disabled = true;
-
-  // Ativa somente quando Base ≠ (Todas)
-  selBase.addEventListener("change", () => {
-    btnGerar.disabled = (selBase.value.trim() === "");
+  selBase?.addEventListener("change", () => {
+    atualizarBtnGerarFechamento();
   });
+  if (fltStatus) fltStatus.addEventListener("change", () => { state.page = 1; carregarResumo(); });
 
   // ====== Modal Coleta Manual ======
   const modalEl = document.getElementById("modalColetaManual");
@@ -654,8 +876,8 @@ btnGerar.addEventListener("click", async () => {
 
   (async function init() {
     await obterModoOperacao();
-    if (btnColetaManual && modoOperacao === "coleta_manual") {
-      btnColetaManual.classList.remove("d-none");
+    if (wrapBtnColetaManual && modoOperacao === "coleta_manual") {
+      wrapBtnColetaManual.classList.remove("d-none");
     }
     await carregarBases();
     await carregarResumo();

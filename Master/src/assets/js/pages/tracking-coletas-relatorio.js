@@ -287,17 +287,99 @@ async function gerarPdfResumoColetas(resumo, base, de, ate) {
 }
 
 /* ======================================================
-   HABILITAR/DESABILITAR BOTÃO GERAR COBRANÇA
+   PDF a partir de Fechamento de Base (itens já ajustados)
 ====================================================== */
-document.addEventListener("DOMContentLoaded", () => {
-  const btnGerar = document.getElementById("btnGerarCobranca");
-  const selBase = document.getElementById("flt-base");
+async function gerarPdfFechamentoBases(idFechamento) {
+  const api = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+  if (!api || !idFechamento) return;
 
-  if (btnGerar && selBase) {
-    btnGerar.disabled = true;
-
-    selBase.addEventListener("change", () => {
-      btnGerar.disabled = (selBase.value.trim() === "");
-    });
+  const res = await fetch(`${api}/coletas/fechamentos/${idFechamento}`, { credentials: "include" });
+  if (!res.ok) {
+    if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Fechamento não encontrado." });
+    return;
   }
-});
+  const fech = await res.json();
+  const base = fech.base || "";
+  const de = fech.periodo_inicio || "";
+  const ate = fech.periodo_fim || "";
+  const itens = fech.itens || [];
+  const precoShopee = Number(fech.precos?.shopee ?? 0);
+  const precoFlex = Number(fech.precos?.ml ?? 0);
+  const precoAvulso = Number(fech.precos?.avulso ?? 0);
+
+  const basesRes = await fetch(`${api}/base/`, { credentials: "include" });
+  const bases = await basesRes.json();
+  const baseObj = Array.isArray(bases) ? bases.find(b => String(b.base || "").toUpperCase() === String(base || "").toUpperCase()) : null;
+  const pShopee = precoShopee || Number(baseObj?.shopee ?? 0);
+  const pFlex = precoFlex || Number(baseObj?.ml ?? 0);
+  const pAvulso = precoAvulso || Number(baseObj?.avulso ?? 0);
+
+  function isoParaBr(dataISO) {
+    if (!dataISO) return "-";
+    const [ano, mes, dia] = String(dataISO).split("-");
+    return ano && mes && dia ? `${dia}/${mes}/${ano}` : dataISO;
+  }
+
+  const tabelaBruta = itens.map(r => {
+    const s = r.shopee ?? 0, m = r.mercado_livre ?? 0, a = r.avulso ?? 0;
+    const valor = s * pShopee + m * pFlex + a * pAvulso;
+    return { data: r.data, shopee: s, flex: m, avulso: a, total: s + m + a, valor };
+  });
+  const tabelaCanc = itens.map(r => {
+    const s = r.cancelados_shopee ?? 0, m = r.cancelados_ml ?? 0, a = r.cancelados_avulso ?? 0;
+    const valor = s * pShopee + m * pFlex + a * pAvulso;
+    return { data: r.data, shopee: s, flex: m, avulso: a, total: s + m + a, valor };
+  });
+
+  const totalBruto = tabelaBruta.reduce((a, b) => a + b.valor, 0);
+  const totalCanceladosValor = tabelaCanc.reduce((a, b) => a + b.valor, 0);
+  const valorLiquido = totalBruto - totalCanceladosValor;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+  doc.setFontSize(15);
+  doc.text(`RELATÓRIO DE COLETAS — ${base} (Fechamento)`, 105, 20, { align: "center" });
+  doc.setFontSize(10);
+  doc.text(`Período: ${isoParaBr(de)} até ${isoParaBr(ate)}`, 105, 26, { align: "center" });
+
+  const colunasFixas = { 0: { minCellWidth: 22 }, 1: { minCellWidth: 18 }, 2: { minCellWidth: 18 }, 3: { minCellWidth: 18 }, 4: { minCellWidth: 18 }, 5: { minCellWidth: 28 } };
+
+  doc.autoTable({
+    startY: 40,
+    head: [["Data", "Shopee", "Mercado Livre", "Avulso", "Total", "Valor"]],
+    body: tabelaBruta.map(l => [isoParaBr(l.data), l.shopee, l.flex, l.avulso, l.total, `R$ ${l.valor.toFixed(2).replace(".", ",")}`]),
+    theme: "grid",
+    styles: { fontSize: 9, halign: "center" },
+    columnStyles: colunasFixas
+  });
+
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY + 10,
+    head: [["Data", "Cancel. Shopee", "Cancel. ML", "Cancel. Avulso", "Total", "Valor"]],
+    body: tabelaCanc.map(l => [isoParaBr(l.data), l.shopee, l.flex, l.avulso, l.total, `R$ ${l.valor.toFixed(2).replace(".", ",")}`]),
+    theme: "grid",
+    styles: { fontSize: 9, halign: "center" },
+    columnStyles: colunasFixas
+  });
+
+  const Y = doc.lastAutoTable.finalY + 15;
+  doc.setFontSize(14);
+  doc.text("RESUMO FINAL", 14, Y);
+  doc.setFontSize(11);
+  doc.text(`Valor Bruto: R$ ${totalBruto.toFixed(2).replace(".", ",")}`, 14, Y + 10);
+  doc.text(`Valor Cancelado: R$ ${totalCanceladosValor.toFixed(2).replace(".", ",")}`, 14, Y + 16);
+  doc.setFontSize(12);
+  doc.setTextColor(0, 100, 0);
+  doc.text(`Valor Líquido a Receber: R$ ${valorLiquido.toFixed(2).replace(".", ",")}`, 14, Y + 25);
+  doc.setTextColor(0, 0, 0);
+
+  const ano = new Date().getFullYear();
+  doc.setFontSize(10);
+  doc.setTextColor(80);
+  doc.text(`${ano} © TrackingSaídas.`, 105, doc.internal.pageSize.height - 10, { align: "center" });
+
+  window.open(doc.output("bloburl"), "_blank");
+}
+
+window.gerarPdfFechamentoBases = gerarPdfFechamentoBases;

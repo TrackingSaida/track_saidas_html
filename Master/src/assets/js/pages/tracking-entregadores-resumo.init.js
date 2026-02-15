@@ -606,7 +606,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     datePickerInstance = window.initDatePickerDashboard({
       containerId: "entregadores-resumo-date-picker-container",
       prefix: "entregadores-resumo-dp",
-      defaultPreset: "quinzena-ant",
+      defaultPreset: "quinzena",
       onApply: function (start, end) {
         if (fltDataInicio) fltDataInicio.value = start;
         if (fltDataFim) fltDataFim.value = end;
@@ -627,7 +627,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     });
     if (datePickerInstance && datePickerInstance.applyPreset) {
-      datePickerInstance.applyPreset("quinzena-ant");
+      datePickerInstance.applyPreset("quinzena");
     }
     const r = datePickerInstance ? datePickerInstance.getResolvedRange() : { start: "", end: "" };
     if (fltDataInicio) fltDataInicio.value = r.start;
@@ -687,7 +687,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   qs("#btnLimpar")?.addEventListener("click", () => {
     if (datePickerInstance && datePickerInstance.applyPreset) {
-      datePickerInstance.applyPreset("quinzena-ant");
+      datePickerInstance.applyPreset("quinzena");
       const r = datePickerInstance.getResolvedRange();
       if (fltDataInicio) fltDataInicio.value = r.start;
       if (fltDataFim) fltDataFim.value = r.end;
