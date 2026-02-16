@@ -20,119 +20,174 @@
 
           <!-- Card principal -->
           <div class="card">
-            <div class="card-body">
-              <!-- Campo Localizar (topo, acima de data e filtro) -->
-              <div class="row g-2 align-items-end mb-4">
-                <div class="col-md-6 col-lg-4">
-                  <label class="form-label">Localizar</label>
-                  <div class="input-group">
-                    <input id="flt-localizar" class="form-control" placeholder="Tecle Enter para localizar" />
+            <div class="card-body registros-layout">
+              <!-- Barra superior: busca + Editar | Período + Filtros -->
+              <div class="registros-toolbar d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                <div class="registros-toolbar-left d-flex flex-wrap align-items-center gap-2 flex-grow-1" style="min-width: 0;">
+                  <div class="input-group registros-search-wrap" style="flex: 1; max-width: 420px;">
+                    <input id="flt-localizar" class="form-control" placeholder="Buscar por código, entregador ou base..." />
                     <button id="btnScan" class="btn btn-outline-secondary" type="button" title="Escanear código">
                       <i class="ri-camera-line"></i>
                     </button>
                   </div>
+                  <div class="registros-edit-wrap">
+                    <button id="btn-edit-selected" class="btn btn-primary d-none" disabled type="button">
+                      <i class="ri-edit-line me-1"></i><span id="btn-edit-selected-text">Editar selecionados (0)</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              <!-- Ações à esquerda, Período e Filtros à direita -->
-              <div class="row g-3 align-items-center mb-4">
-                <div class="col-md-auto d-flex gap-2 flex-wrap">
-                  <button id="btn-edit-selected" class="btn btn-primary" disabled>Editar</button>
-                </div>
-                <div class="col-md-auto ms-auto d-flex gap-2 flex-wrap align-items-end">
-                  <div>
-                    <label class="form-label">Período</label>
-                    <div class="dropdown">
-                      <button class="btn btn-soft-primary dropdown-toggle d-flex align-items-center gap-2" type="button" id="registros-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                        <i class="bx bx-calendar"></i>
-                        <span id="registros-period-label" class="text-truncate">Hoje - 30 dias</span>
-                      </button>
-                      <div class="dropdown-menu dropdown-menu-end p-0" id="registros-period-panel" style="min-width: 640px;">
-                        <input type="hidden" id="flt-from" />
-                        <input type="hidden" id="flt-to" />
-                        <div id="registros-date-picker-container"></div>
-                      </div>
+                <div class="registros-toolbar-right d-flex flex-wrap align-items-center gap-2">
+                  <div class="dropdown">
+                    <button class="btn btn-soft-primary dropdown-toggle d-flex align-items-center gap-2" type="button" id="registros-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                      <i class="bx bx-calendar"></i>
+                      <span id="registros-period-label" class="text-truncate">Hoje - 30 dias</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end p-0" id="registros-period-panel" style="min-width: 640px;">
+                      <input type="hidden" id="flt-from" />
+                      <input type="hidden" id="flt-to" />
+                      <div id="registros-date-picker-container"></div>
                     </div>
                   </div>
-                  <div>
-                    <label class="form-label d-block">&nbsp;</label>
-                    <div class="dropdown">
-                      <button class="btn btn-outline-secondary position-relative" id="btnFiltrosIcon" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                        <i class="ri-filter-3-line me-1"></i> Filtros
-                        <span id="filtrosContador" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary d-none">0</span>
-                      </button>
-                      <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 280px;">
-                        <div class="mb-2">
-                          <label class="form-label small">Base</label>
-                          <select id="flt-base" class="form-select form-select-sm">
-                            <option value="">(Todas)</option>
-                          </select>
-                        </div>
-                        <div class="mb-2">
-                          <label class="form-label small">Entregador</label>
-                          <select id="flt-entregador" class="form-select form-select-sm">
-                            <option value="">(Todos)</option>
-                          </select>
-                        </div>
-                        <div class="mb-2">
-                          <label class="form-label small">Serviço</label>
-                          <select id="flt-servico" class="form-select form-select-sm">
-                            <option value="">(Todos)</option>
-                            <option value="Shopee">Shopee</option>
-                            <option value="Mercado Livre">Mercado Livre</option>
-                            <option value="Avulso">Avulso</option>
-                          </select>
-                        </div>
-                        <div class="mb-3">
-                          <label class="form-label small">Status</label>
-                          <select id="flt-status" class="form-select form-select-sm">
-                            <option value="">(Todos)</option>
-                            <option value="saiu">Saiu para entrega</option>
-                            <option value="Coletado">Coletado</option>
-                            <option value="Não Coletado">Não Coletado</option>
-                            <option value="Cancelado">Cancelado</option>
-                          </select>
-                        </div>
-                        <div class="d-flex gap-2">
-                          <button type="button" id="btnFiltroAplicar" class="btn btn-primary flex-grow-1">Aplicar</button>
-                          <button type="button" id="btnFiltroLimpar" class="btn btn-outline-secondary flex-grow-1">Limpar</button>
-                          <button type="button" id="btnFiltroCancelar" class="btn btn-outline-secondary">Cancelar</button>
-                        </div>
+                  <div class="dropdown">
+                    <button class="btn btn-outline-secondary position-relative" id="btnFiltrosIcon" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                      <i class="ri-filter-3-line me-1"></i> Filtros
+                      <span id="filtrosContador" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary d-none">0</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 280px;">
+                      <div class="mb-2">
+                        <label class="form-label small">Base</label>
+                        <select id="flt-base" class="form-select form-select-sm">
+                          <option value="">(Todas)</option>
+                        </select>
+                      </div>
+                      <div class="mb-2">
+                        <label class="form-label small">Entregador</label>
+                        <select id="flt-entregador" class="form-select form-select-sm">
+                          <option value="">(Todos)</option>
+                        </select>
+                      </div>
+                      <div class="mb-2">
+                        <label class="form-label small">Serviço</label>
+                        <select id="flt-servico" class="form-select form-select-sm">
+                          <option value="">(Todos)</option>
+                          <option value="Shopee">Shopee</option>
+                          <option value="Mercado Livre">Mercado Livre</option>
+                          <option value="Avulso">Avulso</option>
+                        </select>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label small">Status</label>
+                        <select id="flt-status" class="form-select form-select-sm">
+                          <option value="">(Todos)</option>
+                          <option value="saiu">Saiu para entrega</option>
+                          <option value="Coletado">Coletado</option>
+                          <option value="Não Coletado">Não Coletado</option>
+                          <option value="Cancelado">Cancelado</option>
+                        </select>
+                      </div>
+                      <div class="d-flex gap-2">
+                        <button type="button" id="btnFiltroAplicar" class="btn btn-primary flex-grow-1">Aplicar</button>
+                        <button type="button" id="btnFiltroLimpar" class="btn btn-outline-secondary flex-grow-1">Limpar</button>
+                        <button type="button" id="btnFiltroCancelar" class="btn btn-outline-secondary">Cancelar</button>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Cards de totais (sem cabeçalho) -->
-              <div class="row g-3 mb-4">
-                <div class="col-md-3">
-                  <div class="p-3 rounded card-shopee text-center">
-                    <span class="fw-semibold">Shopee</span>
-                    <div class="fs-5 fw-semibold" id="sum-shopee">0</div>
+              <!-- Cards de totais -->
+              <div class="row g-3 mb-4 registros-summary-row">
+                <div class="col-12 col-sm-6 col-md-3">
+                  <div class="registros-summary-card card-shopee p-3 text-center rounded-3 shadow-sm">
+                    <span class="registros-summary-label">Shopee</span>
+                    <div class="registros-summary-num" id="sum-shopee">0</div>
                   </div>
                 </div>
-                <div class="col-md-3">
-                  <div class="p-3 rounded card-ml text-center">
-                    <span class="fw-semibold">Mercado Livre</span>
-                    <div class="fs-5 fw-semibold" id="sum-ml">0</div>
+                <div class="col-12 col-sm-6 col-md-3">
+                  <div class="registros-summary-card card-ml p-3 text-center rounded-3 shadow-sm">
+                    <span class="registros-summary-label">Mercado Livre</span>
+                    <div class="registros-summary-num" id="sum-ml">0</div>
                   </div>
                 </div>
-                <div class="col-md-3">
-                  <div class="p-3 rounded card-avulso text-center">
-                    <span class="fw-semibold">Avulso</span>
-                    <div class="fs-5 fw-semibold" id="sum-avulso">0</div>
+                <div class="col-12 col-sm-6 col-md-3">
+                  <div class="registros-summary-card card-avulso p-3 text-center rounded-3 shadow-sm">
+                    <span class="registros-summary-label">Avulso</span>
+                    <div class="registros-summary-num" id="sum-avulso">0</div>
                   </div>
                 </div>
-                <div class="col-md-3">
-                  <div class="p-3 rounded card-total text-center">
-                    <span class="fw-semibold">Total</span>
-                    <div class="fs-5 fw-semibold" id="sum-total">0</div>
+                <div class="col-12 col-sm-6 col-md-3">
+                  <div class="registros-summary-card registros-summary-card-total card-total p-3 text-center rounded-3 shadow-sm">
+                    <span class="registros-summary-label">Total</span>
+                    <div class="registros-summary-num registros-summary-num-total" id="sum-total">0</div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
+
+          <style>
+            /* Barra superior: flex e responsividade */
+            .registros-layout .registros-toolbar {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            @media (max-width: 767px) {
+              .registros-layout .registros-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+              }
+              .registros-layout .registros-toolbar-left {
+                order: 1;
+              }
+              .registros-layout .registros-toolbar-right {
+                order: 2;
+              }
+              .registros-layout .registros-search-wrap {
+                max-width: 100% !important;
+              }
+            }
+
+            /* Cards de resumo: cores suaves, número em destaque */
+            .registros-layout .registros-summary-card {
+              border-radius: 12px;
+              box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075);
+            }
+            .registros-layout .registros-summary-label {
+              display: block;
+              font-size: 0.8125rem;
+              font-weight: 500;
+              opacity: .95;
+            }
+            .registros-layout .registros-summary-num {
+              font-size: 1.5rem;
+              font-weight: 700;
+              line-height: 1.2;
+            }
+            .registros-layout .registros-summary-card.card-shopee {
+              background-color: rgba(238, 77, 45, 0.14);
+              color: #c23d1f;
+            }
+            .registros-layout .registros-summary-card.card-ml {
+              background-color: rgba(255, 230, 0, 0.22);
+              color: #1e2047;
+            }
+            .registros-layout .registros-summary-card.card-avulso {
+              background-color: rgba(108, 117, 125, 0.18);
+              color: #495057;
+            }
+            .registros-layout .registros-summary-card.card-total {
+              background-color: rgba(45, 50, 119, 0.12);
+              color: #2d3277;
+            }
+            .registros-layout .registros-summary-card-total {
+              border: 1px solid rgba(45, 50, 119, 0.25);
+            }
+            .registros-layout .registros-summary-num-total {
+              font-size: 1.75rem;
+              font-weight: 800;
+            }
+          </style>
 
           <!-- Tabela -->
           <div class="card">

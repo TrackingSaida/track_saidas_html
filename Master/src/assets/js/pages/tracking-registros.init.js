@@ -463,7 +463,9 @@ function setupPagerEvents() {
     if (!btnEdit) return;
     var n = getSelectedIds().length;
     btnEdit.disabled = n === 0;
-    btnEdit.textContent = n <= 1 ? "Editar" : `Editar em lote (${n})`;
+    var textEl = document.getElementById("btn-edit-selected-text");
+    if (textEl) textEl.textContent = "Editar selecionados (" + n + ")";
+    btnEdit.classList.toggle("d-none", n === 0);
   }
 
   if (tblBody){
