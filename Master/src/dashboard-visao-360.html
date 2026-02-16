@@ -1,7 +1,7 @@
 @@include("partials/main.html")
 
 <head>
-  @@include("partials/title-meta.html", {"title": "Dashboard – Visão 360"})
+  @@include("partials/title-meta.html", {"title": "Indicadores – Visão 360"})
   @@include("partials/head-css.html")
 </head>
 
@@ -13,12 +13,12 @@
       <div class="page-content">
         <div class="container-fluid">
 
-          @@include("partials/page-title.html", {"pagetitle": "Dashboards", "title": "Visão 360"})
+          @@include("partials/page-title.html", {"pagetitle": "Indicadores", "title": "Visão 360", "withSubtitle": false})
 
           <!-- Acesso negado (visível quando ignorar_coleta=true) -->
           <div id="visao360-acesso-negado" class="alert alert-warning d-none">
             <h5 class="alert-heading">Acesso restrito</h5>
-            <p class="mb-0">O dashboard Visão 360 está disponível apenas para operações com coleta ativa e usuários com permissão de administrador.</p>
+            <p class="mb-0">O Indicador Visão 360 está disponível apenas para operações com coleta ativa e usuários com permissão de administrador.</p>
           </div>
 
           <!-- Conteúdo principal (oculto quando acesso negado) -->

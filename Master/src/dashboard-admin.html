@@ -1,7 +1,7 @@
 @@include("partials/main.html")
 
 <head>
-  @@include("partials/title-meta.html", {"title": "Dashboard – Admin"})
+  @@include("partials/title-meta.html", {"title": "Indicadores – Admin"})
   @@include("partials/head-css.html")
 </head>
 
@@ -13,12 +13,12 @@
       <div class="page-content">
         <div class="container-fluid">
 
-          @@include("partials/page-title.html", {"pagetitle": "Dashboards", "title": "Dashboard Administrativo"})
+          @@include("partials/page-title.html", {"pagetitle": "Indicadores", "title": "Indicador Administrativo", "withSubtitle": false})
 
           <!-- Acesso negado -->
           <div id="admin-dash-acesso-negado" class="alert alert-warning d-none">
             <h5 class="alert-heading">Acesso restrito</h5>
-            <p class="mb-0">O Dashboard Administrativo está disponível apenas para o perfil administrador (role 0).</p>
+            <p class="mb-0">O Indicador Administrativo está disponível apenas para o perfil administrador (role 0).</p>
           </div>
 
           <div id="admin-dash-content" class="position-relative">

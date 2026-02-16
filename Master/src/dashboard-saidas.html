@@ -1,7 +1,7 @@
 @@include("partials/main.html")
 
 <head>
-  @@include("partials/title-meta.html", {"title": "Dashboard – Saídas"})
+  @@include("partials/title-meta.html", {"title": "Indicadores – Saídas"})
   @@include("partials/head-css.html")
 </head>
 
@@ -13,12 +13,12 @@
       <div class="page-content">
         <div class="container-fluid">
 
-          @@include("partials/page-title.html", {"pagetitle": "Dashboards", "title": "Dashboard de Saídas"})
+          @@include("partials/page-title.html", {"pagetitle": "Indicadores", "title": "Indicador de Saídas", "withSubtitle": false})
 
           <!-- Acesso negado -->
           <div id="saidas-dash-acesso-negado" class="alert alert-warning d-none">
             <h5 class="alert-heading">Acesso restrito</h5>
-            <p class="mb-0">O Dashboard de Saídas está disponível apenas para usuários com permissão de administrador (role 0 ou 1).</p>
+            <p class="mb-0">O Indicador de Saídas está disponível apenas para usuários com permissão de administrador (role 0 ou 1).</p>
           </div>
 
           <div id="saidas-dash-content" class="position-relative">

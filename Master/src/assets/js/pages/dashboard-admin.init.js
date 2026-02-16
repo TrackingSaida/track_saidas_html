@@ -216,8 +216,8 @@
     hideAcessoNegado();
 
     var greeting = document.getElementById("admin-dash-greeting");
-    var displayName = (user.nome && user.nome.trim()) ? user.nome.trim() : (user.username || user.email || "Administrador");
-    if (greeting) greeting.textContent = "Olá, " + displayName + "!";
+    var displayName = [user.nome, user.sobrenome].filter(Boolean).map(s => (s || "").trim()).join(" ").trim();
+    if (greeting) greeting.textContent = displayName ? "Olá, " + displayName + "!" : "Olá!";
 
     var hoje = getHoje();
     var dataInicioEl = document.getElementById("admin-data-inicio");

@@ -220,8 +220,8 @@ async function init() {
 
   // Saudação
   const user = await getCurrentUser();
-  const username = user && (user.username || user.email || user.id);
-  greetingEl.textContent = username ? `Olá, ${username}!!` : "Olá!!";
+  const displayName = user && [user.nome, user.sobrenome].filter(Boolean).map(s => (s || "").trim()).join(" ").trim();
+  greetingEl.textContent = displayName ? `Olá, ${displayName}!` : "Olá!";
   greetingSubEl.textContent =
     "Aqui está o desempenho da sua operação na quinzena atual";
 

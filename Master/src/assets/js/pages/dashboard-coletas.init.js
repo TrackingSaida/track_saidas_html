@@ -407,7 +407,7 @@
   function exportCsv(data) {
     const c = data.cards || {};
     const rows = [
-      ["Dashboard de Coletas"],
+      ["Indicador de Coletas"],
       ["Período", document.getElementById("coletas-period-label").textContent],
       [],
       ["Total Coletas", c.total_coletas],
@@ -465,8 +465,8 @@
     hideAcessoNegado();
 
     const greeting = document.getElementById("coletas-dash-greeting");
-    const displayName = (user.nome && user.nome.trim()) ? user.nome.trim() : (user.username || user.email || "Usuário");
-    if (greeting) greeting.textContent = "Olá, " + displayName + "!";
+    const displayName = [user.nome, user.sobrenome].filter(Boolean).map(s => (s || "").trim()).join(" ").trim();
+    if (greeting) greeting.textContent = displayName ? "Olá, " + displayName + "!" : "Olá!";
 
     const today = fmtYMD(new Date());
     const dataInicioEl = document.getElementById("coletas-data-inicio");

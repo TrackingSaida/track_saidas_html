@@ -1,5 +1,5 @@
 /* ======================================================
-   Resumo por Entregador — com Fechamento e PDF
+   Fechamento de Motoboys — com Fechamento e PDF
    GET /api/entregadores/resumo
    POST/PATCH /api/entregadores/fechamentos
    ====================================================== */
@@ -57,7 +57,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const fltEntregador = qs("#flt-entregador");
   const fltStatus = qs("#flt-status");
   const tbody = qs("#tbody-resumo");
-  const emptyEl = qs("#emptyResumo");
   const pagerFirst = qs("#pager-first");
   const pagerPrev = qs("#pager-prev");
   const pagerNext = qs("#pager-next");
@@ -243,12 +242,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   function renderTable(items) {
     if (!tbody) return;
     if (!items || !items.length) {
-      tbody.innerHTML = "";
-      if (emptyEl) emptyEl.classList.remove("d-none");
+      const colCount = document.querySelector("#tbl-resumo thead tr")?.querySelectorAll("th")?.length || 8;
+      tbody.innerHTML = `<tr><td colspan="${colCount}" class="text-center text-muted py-4"><i class="ri-inbox-line fs-1 d-block mb-2"></i>Nenhum registro encontrado para período ou filtro selecionado.</td></tr>`;
       return;
     }
-    if (emptyEl) emptyEl.classList.add("d-none");
-
     const formatarData = (ymd) => {
       if (!ymd) return "—";
       const [y, m, d] = String(ymd).split("-");
@@ -584,6 +581,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderTable(state.items);
       updatePager();
       atualizarBtnGerarFechamento();
+      atualizarContadorFiltros();
       if (msgEl) msgEl.innerHTML = "";
     } catch (err) {
       console.error(err);
@@ -596,6 +594,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderTable([]);
       updatePager();
       atualizarBtnGerarFechamento();
+      atualizarContadorFiltros();
     }
   }
 
@@ -635,7 +634,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     updatePeriodLabel(r.start, r.end);
   }
 
-  qs("#btnBuscar")?.addEventListener("click", () => { state.page = 1; carregarResumo(); });
+  const btnFiltrosIcon = document.getElementById("btnFiltrosIcon");
+  const filtrosContador = document.getElementById("filtrosContador");
+
+  function atualizarContadorFiltros() {
+    if (!filtrosContador) return;
+    let n = 0;
+    if ((fltEntregador?.value || "").trim() && parseInt(fltEntregador?.value || "0", 10) > 0) n++;
+    if ((fltStatus?.value || "").trim()) n++;
+    if (n > 0) {
+      filtrosContador.textContent = String(n);
+      filtrosContador.classList.remove("d-none");
+    } else {
+      filtrosContador.classList.add("d-none");
+    }
+  }
+
+  function fecharDropdownFiltros() {
+    if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && btnFiltrosIcon) {
+      const d = bootstrap.Dropdown.getInstance(btnFiltrosIcon);
+      if (d) d.hide();
+    }
+  }
+
+  qs("#btnFiltroAplicar")?.addEventListener("click", () => {
+    state.page = 1;
+    carregarResumo();
+    atualizarContadorFiltros();
+    fecharDropdownFiltros();
+  });
 
   qs("#dropdownFechamentoMenu")?.addEventListener("click", async (e) => {
     const item = e.target.closest("[data-acao]");
@@ -685,7 +712,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     el?.addEventListener("input", atualizarBtnGerarFechamento);
   });
 
-  qs("#btnLimpar")?.addEventListener("click", () => {
+  qs("#btnFiltroLimpar")?.addEventListener("click", () => {
     if (datePickerInstance && datePickerInstance.applyPreset) {
       datePickerInstance.applyPreset("quinzena");
       const r = datePickerInstance.getResolvedRange();
@@ -703,6 +730,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     state.contextoFechamento = null;
     atualizarBtnGerarFechamento();
     carregarResumo();
+    atualizarContadorFiltros();
+    fecharDropdownFiltros();
+  });
+
+  qs("#btnFiltroCancelar")?.addEventListener("click", () => {
+    fecharDropdownFiltros();
   });
 
   pagerFirst?.addEventListener("click", () => { state.page = 1; carregarResumo(); });

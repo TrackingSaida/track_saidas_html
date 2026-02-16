@@ -245,8 +245,8 @@
     hideAcessoNegado();
 
     const greeting = document.getElementById("saidas-dash-greeting");
-    const displayName = (user.nome && user.nome.trim()) ? user.nome.trim() : (user.username || user.email || "Usuário");
-    if (greeting) greeting.textContent = "Olá, " + displayName + "!";
+    const displayName = [user.nome, user.sobrenome].filter(Boolean).map(s => (s || "").trim()).join(" ").trim();
+    if (greeting) greeting.textContent = displayName ? "Olá, " + displayName + "!" : "Olá!";
 
     const today = fmtYMD(new Date());
     const dataInicioEl = document.getElementById("saidas-data-inicio");

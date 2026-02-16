@@ -203,7 +203,7 @@ if (operacao) {
   }
 }
 
-    // 🔹 Monta grupo Financeiro (itens diretos: Resumo de Coletas, Resumo por Entregador, Contabilidade)
+    // 🔹 Monta grupo Financeiro (itens diretos: Resumo de Coletas, Fechamento de Motoboys, Contabilidade)
     const financeiro = serverMenu.find(s =>
       (s.section || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes("financeiro")
     );

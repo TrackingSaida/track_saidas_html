@@ -1,7 +1,7 @@
 @@include("partials/main.html")
 
 <head>
-  @@include("partials/title-meta.html", {"title": "Dashboard – Coletas"})
+  @@include("partials/title-meta.html", {"title": "Indicadores – Coletas"})
   @@include("partials/head-css.html")
 </head>
 
@@ -13,12 +13,12 @@
       <div class="page-content">
         <div class="container-fluid">
 
-          @@include("partials/page-title.html", {"pagetitle": "Dashboards", "title": "Dashboard de Coletas"})
+          @@include("partials/page-title.html", {"pagetitle": "Indicadores", "title": "Indicador de Coletas", "withSubtitle": false})
 
           <!-- Acesso negado -->
           <div id="coletas-dash-acesso-negado" class="alert alert-warning d-none">
             <h5 class="alert-heading">Acesso restrito</h5>
-            <p class="mb-0">O Dashboard de Coletas está disponível apenas para operações com coleta ativa e usuários com permissão de administrador.</p>
+            <p class="mb-0">O Indicador de Coletas está disponível apenas para operações com coleta ativa e usuários com permissão de administrador.</p>
           </div>
 
           <div id="coletas-dash-content" class="position-relative">

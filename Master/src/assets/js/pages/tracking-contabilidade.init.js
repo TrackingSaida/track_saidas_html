@@ -1,7 +1,7 @@
 /* ======================================================
    TrackSaídas — Contabilidade / Financeiro
    GET /api/contabilidade/resumo?data_inicio=&data_fim=
-   Despesas confirmadas + pendentes (alinhado ao Resumo por Entregador).
+   Despesas confirmadas + pendentes (alinhado ao Fechamento de Motoboys).
    ====================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -341,7 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
       if (data.aviso_pendentes && avisoFechamentos && avisoFechamentosTexto) {
         avisoFechamentos.classList.remove("d-none");
-        avisoFechamentosTexto.textContent = "Há saídas no período sem fechamento GERADO/REAJUSTADO. Essas saídas já entram como \"Despesas pendentes\" e são consideradas no total, no lucro e na margem. Para convertê-las em despesas confirmadas, gere o fechamento na página Resumo por Entregador.";
+        avisoFechamentosTexto.textContent = "Há saídas no período sem fechamento GERADO/REAJUSTADO. Essas saídas já entram como \"Despesas pendentes\" e são consideradas no total, no lucro e na margem. Para convertê-las em despesas confirmadas, gere o fechamento na página Fechamento de Motoboys.";
       } else if (avisoFechamentos) {
         avisoFechamentos.classList.add("d-none");
       }

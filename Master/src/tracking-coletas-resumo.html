@@ -3,6 +3,9 @@
   <head>
     @@include("partials/title-meta.html", {"title":"TrackSaídas — Fechamento de Bases"})
     @@include("partials/head-css.html")
+    <style>
+      .fech-campo-inalterado { background-color: #e9ecef !important; color: #6c757d; }
+    </style>
   </head>
 
   <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
@@ -20,75 +23,78 @@
           <div class="container-fluid">
 
             <!-- Título da página -->
-            @@include("partials/page-title.html", {"pagetitle": "Operação", "title": "Fechamento de Bases"})
+            @@include("partials/page-title.html", {"pagetitle": "Financeiro", "title": "Fechamento de Bases", "withSubtitle": true})
 
             <!-- ======================== CONTEÚDO PRINCIPAL ======================== -->
             <div class="row">
               <div class="col-12">
                 <div class="card">
 
-                  <div class="card-header">
-                    <h4 class="card-title mb-0">Fechamento de Bases</h4>
-                  </div>
 
                   <div class="card-body">
                     <!-- Mensagens -->
                     <div id="resumoMsg" class="mb-3"></div>
 
-                    <!-- Filtros e ações (layout similar ao Resumo Entregador) -->
-                    <div class="row g-3 align-items-end mb-4">
-                      <div class="col-md-2">
-                        <label class="form-label">Período</label>
-                        <div class="dropdown">
-                          <button class="btn btn-soft-primary btn-sm dropdown-toggle d-flex align-items-center gap-2 w-100" type="button" id="coletas-resumo-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                            <i class="bx bx-calendar"></i>
-                            <span id="coletas-resumo-period-label" class="text-truncate">Quinzena anterior</span>
+                    <!-- Ações à esquerda, Período e Filtros à direita -->
+                    <div class="row g-3 align-items-center mb-4">
+                      <div class="col-md-auto d-flex gap-2 flex-wrap">
+                        <div class="d-none" id="wrapBtnColetaManual">
+                          <button type="button" id="btnColetaManual" class="btn btn-success">
+                            <i class="ri-add-line me-1"></i> Coleta Manual
                           </button>
-                          <div class="dropdown-menu dropdown-menu-end p-0" id="coletas-resumo-period-panel" style="min-width: 640px;">
-                            <input type="hidden" id="flt-from" />
-                            <input type="hidden" id="flt-to" />
-                            <div id="coletas-resumo-date-picker-container"></div>
-                          </div>
+                        </div>
+                        <div id="wrapBtnGerarFechamento" title="Preencha o período" data-bs-toggle="tooltip" data-bs-placement="top">
+                          <button type="button" id="btnGerarFechamento" class="btn btn-success" disabled>
+                            <i class="ri-file-add-line me-1"></i> Gerar Fechamento
+                          </button>
                         </div>
                       </div>
-                      <div class="col-md-2">
-                        <label class="form-label">Base</label>
-                        <select id="flt-base" class="form-select">
-                          <option value="">(Todas)</option>
-                        </select>
-                      </div>
-                      <div class="col-md-2">
-                        <label class="form-label">Status</label>
-                        <select id="flt-status" class="form-select">
-                          <option value="">(Todos)</option>
-                          <option value="PENDENTE">PENDENTE</option>
-                          <option value="GERADO">GERADO</option>
-                          <option value="REAJUSTADO">REAJUSTADO</option>
-                        </select>
-                      </div>
-                      <div class="col-md-2">
-                        <button type="button" id="btnFilter" class="btn btn-primary w-100">
-                          <i class="ri-search-line me-1"></i> Buscar
-                        </button>
-                      </div>
-                      <div class="col-md-2">
-                        <button type="button" id="btnClear" class="btn btn-outline-secondary w-100">
-                          <i class="ri-eraser-line me-1"></i> Limpar
-                        </button>
-                      </div>
-                      <div class="col-md-2 d-none" id="wrapBtnColetaManual">
-                        <button type="button" id="btnColetaManual" class="btn btn-success w-100">
-                          <i class="ri-add-line me-1"></i> Coleta Manual
-                        </button>
-                      </div>
-                      <div class="col-md-2 dropdown" id="wrapBtnGerarFechamento" title="Preencha Período e Base" data-bs-toggle="tooltip" data-bs-placement="top">
-                        <button type="button" id="btnGerarFechamento" class="btn btn-success dropdown-toggle w-100" data-bs-toggle="dropdown" aria-expanded="false" disabled>
-                          <i class="ri-file-add-line me-1"></i> Gerar Fechamento
-                        </button>
-                        <ul class="dropdown-menu w-100" id="dropdownFechamentoMenu">
-                          <li><a class="dropdown-item" href="#" data-acao="gerar"><i class="ri-file-add-line me-1"></i>Gerar Fechamento</a></li>
-                          <li><a class="dropdown-item" href="#" data-acao="reajustar"><i class="ri-edit-line me-1"></i>Reajustar</a></li>
-                        </ul>
+                      <div class="col-md-auto ms-auto d-flex gap-2 flex-wrap align-items-end">
+                        <div>
+                          <label class="form-label">Período</label>
+                          <div class="dropdown">
+                            <button class="btn btn-soft-primary dropdown-toggle d-flex align-items-center gap-2" type="button" id="coletas-resumo-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                              <i class="bx bx-calendar"></i>
+                              <span id="coletas-resumo-period-label" class="text-truncate">Quinzena anterior</span>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end p-0" id="coletas-resumo-period-panel" style="min-width: 640px;">
+                              <input type="hidden" id="flt-from" />
+                              <input type="hidden" id="flt-to" />
+                              <div id="coletas-resumo-date-picker-container"></div>
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <label class="form-label d-block">&nbsp;</label>
+                          <div class="dropdown">
+                            <button class="btn btn-outline-secondary position-relative" id="btnFiltrosIcon" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                              <i class="ri-filter-3-line me-1"></i> Filtros
+                              <span id="filtrosContador" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary d-none">0</span>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 280px;">
+                              <div class="mb-2">
+                                <label class="form-label small">Base</label>
+                                <select id="flt-base" class="form-select form-select-sm">
+                                  <option value="">(Todas)</option>
+                                </select>
+                              </div>
+                              <div class="mb-3">
+                                <label class="form-label small">Situação</label>
+                                <select id="flt-status" class="form-select form-select-sm">
+                                  <option value="">(Todos)</option>
+                                  <option value="PENDENTE">PENDENTE</option>
+                                  <option value="GERADO">GERADO</option>
+                                  <option value="REAJUSTADO">REAJUSTADO</option>
+                                </select>
+                              </div>
+                              <div class="d-flex gap-2">
+                                <button type="button" id="btnFiltroAplicar" class="btn btn-primary flex-grow-1">Aplicar</button>
+                                <button type="button" id="btnFiltroLimpar" class="btn btn-outline-secondary flex-grow-1">Limpar</button>
+                                <button type="button" id="btnFiltroCancelar" class="btn btn-outline-secondary">Cancelar</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -152,7 +158,7 @@
         <th class="text-center">Avulso</th>
         <th class="text-center text-danger">Cancelados</th>
         <th class="text-center">Valor Total</th>
-        <th class="text-center">Fechamento</th>
+        <th class="text-center">Situação</th>
         <th id="th-acoes" class="text-center d-none">Ações</th>
       </tr>
     </thead>
@@ -226,6 +232,35 @@
 
     <div class="vertical-overlay"></div>
 
+    <!-- Modal Step 1: Selecionar Base (quando base não está filtrada) -->
+    <div class="modal fade" id="modalSelecionarBaseFechamento" tabindex="-1" aria-labelledby="modalSelecionarBaseFechamentoLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalSelecionarBaseFechamentoLabel">
+              <i class="ri-building-line me-2"></i>Passo 1 — Selecionar Base
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <div class="modal-body">
+            <p class="text-muted small mb-3">Selecione a base para gerar o fechamento.</p>
+            <div class="mb-0">
+              <label class="form-label">Base</label>
+              <select id="modalSelecionarBaseFechamentoSelect" class="form-select">
+                <option value="">Selecione...</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" id="btnContinuarSelecionarBase" class="btn btn-primary">
+              <i class="ri-arrow-right-line me-1"></i> Continuar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal Fechamento de Bases -->
     <div class="modal fade" id="modalFechamentoBases" tabindex="-1" aria-labelledby="modalFechamentoBasesLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered modal-xl">
@@ -245,11 +280,11 @@
 
             <div class="mb-3">
               <label class="form-label form-label-modal">Base</label>
-              <div class="form-control form-control-readonly" id="fech-base-display">—</div>
+              <div class="form-control form-control-readonly fech-campo-inalterado" id="fech-base-display">—</div>
             </div>
             <div class="mb-3">
               <label class="form-label form-label-modal">Período</label>
-              <div class="form-control form-control-readonly" id="fech-periodo-display">—</div>
+              <div class="form-control form-control-readonly fech-campo-inalterado" id="fech-periodo-display">—</div>
             </div>
 
             <div class="table-responsive mb-3">

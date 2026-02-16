@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
   <head>
-    @@include("partials/title-meta.html", {"title": "TrackSaídas — Resumo por Entregador"})
+    @@include("partials/title-meta.html", {"title": "TrackSaídas — Fechamento de Motoboys"})
     @@include("partials/head-css.html")
   </head>
   <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
@@ -12,66 +12,73 @@
         <div class="page-content">
           <div class="container-fluid">
 
-            @@include("partials/page-title.html", {"pagetitle": "Entregadores", "title": "Resumo"})
+            @@include("partials/page-title.html", {"pagetitle": "Financeiro", "title": "Fechamento de Motoboys", "withSubtitle": true})
 
             <div class="row">
               <div class="col-12">
                 <div class="card">
-                  <div class="card-header">
-                    <h4 class="card-title mb-0">Resumo por Entregador</h4>
-                  </div>
                   <div class="card-body">
                     <div id="resumoMsg" class="mb-3"></div>
 
-                    <!-- Filtros -->
-                    <div class="row g-3 align-items-end mb-3">
-                      <div class="col-md-2">
-                        <label class="form-label">Período</label>
-                        <div class="dropdown">
-                          <button class="btn btn-soft-primary btn-sm dropdown-toggle d-flex align-items-center gap-2 w-100" type="button" id="entregadores-resumo-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                            <i class="bx bx-calendar"></i>
-                            <span id="entregadores-resumo-period-label" class="text-truncate">Quinzena anterior</span>
+                    <!-- Ações à esquerda, Período e Filtros à direita -->
+                    <div class="row g-3 align-items-center mb-3">
+                      <div class="col-md-auto d-flex gap-2 flex-wrap">
+                        <div class="dropdown" id="wrapBtnGerarFechamento" title="Preencha Data início, Data fim e Entregador" data-bs-toggle="tooltip" data-bs-placement="top">
+                          <button type="button" id="btnGerarFechamento" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" disabled>
+                            <i class="ri-file-add-line me-1"></i> Gerar Fechamento
                           </button>
-                          <div class="dropdown-menu dropdown-menu-end p-0" id="entregadores-resumo-period-panel" style="min-width: 640px;">
-                            <input type="hidden" id="flt-data-inicio" />
-                            <input type="hidden" id="flt-data-fim" />
-                            <div id="entregadores-resumo-date-picker-container"></div>
-                          </div>
+                          <ul class="dropdown-menu" id="dropdownFechamentoMenu">
+                            <li><a class="dropdown-item" href="#" data-acao="gerar"><i class="ri-file-add-line me-1"></i>Gerar Fechamento</a></li>
+                            <li><a class="dropdown-item" href="#" data-acao="reajustar"><i class="ri-edit-line me-1"></i>Reajustar</a></li>
+                          </ul>
                         </div>
                       </div>
-                      <div class="col-md-2">
-                        <label class="form-label">Entregador</label>
-                        <select id="flt-entregador" class="form-select">
-                          <option value="">(Todos)</option>
-                        </select>
-                      </div>
-                      <div class="col-md-2">
-                        <label class="form-label">Status</label>
-                        <select id="flt-status" class="form-select">
-                          <option value="">(Todos)</option>
-                          <option value="PENDENTE">PENDENTE</option>
-                          <option value="GERADO">GERADO</option>
-                          <option value="REAJUSTADO">REAJUSTADO</option>
-                        </select>
-                      </div>
-                      <div class="col-md-2">
-                        <button type="button" id="btnBuscar" class="btn btn-primary w-100">
-                          <i class="ri-search-line me-1"></i> Buscar
-                        </button>
-                      </div>
-                      <div class="col-md-2">
-                        <button type="button" id="btnLimpar" class="btn btn-outline-secondary w-100">
-                          <i class="ri-eraser-line me-1"></i> Limpar
-                        </button>
-                      </div>
-                      <div class="col-md-2 dropdown" id="wrapBtnGerarFechamento" title="Preencha Data início, Data fim e Entregador" data-bs-toggle="tooltip" data-bs-placement="top">
-                        <button type="button" id="btnGerarFechamento" class="btn btn-success dropdown-toggle w-100" data-bs-toggle="dropdown" aria-expanded="false" disabled>
-                          <i class="ri-file-add-line me-1"></i> Gerar Fechamento
-                        </button>
-                        <ul class="dropdown-menu w-100" id="dropdownFechamentoMenu">
-                          <li><a class="dropdown-item" href="#" data-acao="gerar"><i class="ri-file-add-line me-1"></i>Gerar Fechamento</a></li>
-                          <li><a class="dropdown-item" href="#" data-acao="reajustar"><i class="ri-edit-line me-1"></i>Reajustar</a></li>
-                        </ul>
+                      <div class="col-md-auto ms-auto d-flex gap-2 flex-wrap align-items-end">
+                        <div>
+                          <label class="form-label">Período</label>
+                          <div class="dropdown">
+                            <button class="btn btn-soft-primary dropdown-toggle d-flex align-items-center gap-2" type="button" id="entregadores-resumo-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                              <i class="bx bx-calendar"></i>
+                              <span id="entregadores-resumo-period-label" class="text-truncate">Quinzena anterior</span>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end p-0" id="entregadores-resumo-period-panel" style="min-width: 640px;">
+                              <input type="hidden" id="flt-data-inicio" />
+                              <input type="hidden" id="flt-data-fim" />
+                              <div id="entregadores-resumo-date-picker-container"></div>
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <label class="form-label d-block">&nbsp;</label>
+                          <div class="dropdown">
+                            <button class="btn btn-outline-secondary position-relative" id="btnFiltrosIcon" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                              <i class="ri-filter-3-line me-1"></i> Filtros
+                              <span id="filtrosContador" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary d-none">0</span>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 280px;">
+                              <div class="mb-2">
+                                <label class="form-label small">Entregador</label>
+                                <select id="flt-entregador" class="form-select form-select-sm">
+                                  <option value="">(Todos)</option>
+                                </select>
+                              </div>
+                              <div class="mb-3">
+                                <label class="form-label small">Situação</label>
+                                <select id="flt-status" class="form-select form-select-sm">
+                                  <option value="">(Todos)</option>
+                                  <option value="PENDENTE">PENDENTE</option>
+                                  <option value="GERADO">GERADO</option>
+                                  <option value="REAJUSTADO">REAJUSTADO</option>
+                                </select>
+                              </div>
+                              <div class="d-flex gap-2">
+                                <button type="button" id="btnFiltroAplicar" class="btn btn-primary flex-grow-1">Aplicar</button>
+                                <button type="button" id="btnFiltroLimpar" class="btn btn-outline-secondary flex-grow-1">Limpar</button>
+                                <button type="button" id="btnFiltroCancelar" class="btn btn-outline-secondary">Cancelar</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -121,17 +128,11 @@
                             <th class="text-center">Avulso</th>
                             <th class="text-center">Total Entregas</th>
                             <th class="text-end">Valor Total (R$)</th>
-                            <th class="text-center">Fechamento</th>
+                            <th class="text-center">Situação</th>
                           </tr>
                         </thead>
                         <tbody id="tbody-resumo"></tbody>
                       </table>
-                      <div id="emptyResumo" class="text-center text-muted py-4 d-none">
-                        <lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop"
-                          colors="primary:#121331,secondary:#08a88a" style="width:60px;height:60px"></lord-icon>
-                        <div class="mt-2">Nenhum registro encontrado.</div>
-                        <div class="small mt-1">Saídas exibidas têm status Saído/Saiu pra entrega/Entregue e entregador definido.</div>
-                      </div>
                     </div>
 
                     <!-- Paginação -->

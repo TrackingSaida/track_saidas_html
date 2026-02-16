@@ -339,8 +339,8 @@
     hideAcessoNegado();
 
     var greeting = document.getElementById("fin-dash-greeting");
-    var displayName = (user.nome && user.nome.trim()) ? user.nome.trim() : (user.username || user.email || "Usuário");
-    if (greeting) greeting.textContent = "Olá, " + displayName + "!";
+    var displayName = [user.nome, user.sobrenome].filter(Boolean).map(s => (s || "").trim()).join(" ").trim();
+    if (greeting) greeting.textContent = displayName ? "Olá, " + displayName + "!" : "Olá!";
 
     var q = getQuinzenaAtual();
     var dataInicioEl = document.getElementById("fin-data-inicio");

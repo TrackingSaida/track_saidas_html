@@ -110,6 +110,7 @@ gulp.task('watch', function () {
   gulp.watch([paths.src.scss.icons, paths.src.scss.iconsPlugin], gulp.series('icons', 'browsersyncReload'));
   gulp.watch([paths.src.js.dir], gulp.series('js', 'browsersyncReload'));
   gulp.watch([paths.src.js.pages], gulp.series('jsPages', 'browsersyncReload'));
+  gulp.watch('./src/assets/js/components/**/*.js', gulp.series('jsComponents', 'browsersyncReload'));
   gulp.watch([paths.src.html.files, paths.src.partials.files], gulp.series('fileinclude', 'browsersyncReload'));
 });
 
@@ -127,6 +128,13 @@ gulp.task('jsPages', function () {
     .pipe(replace('##imagesPath##', assetsPath))
     .pipe(uglify())
     .pipe(gulp.dest(paths.dist.js.files));
+});
+
+gulp.task('jsComponents', function () {
+  return gulp
+    .src('./src/assets/js/components/**/*.js')
+    .pipe(replace('##imagesPath##', assetsPath))
+    .pipe(gulp.dest('./dist/assets/js/components'));
 });
 
 gulp.task('icons', function () {
@@ -276,10 +284,11 @@ gulp.task('build', gulp.series(
   'bootstrap',
   'scss',
   'icons',
-  'js',       // garante app.js/layout.js etc.
-  'jsPages',  // garante pages/*.js
+  'js',          // garante app.js/layout.js etc.
+  'jsPages',     // garante pages/*.js
+  'jsComponents', // garante components/date-picker-dashboard.js etc.
   'html'
 ));
 
 
-gulp.task('default', gulp.series(gulp.parallel('clean:packageLock', 'clean:dist', 'copy:all', 'copy:libs', 'fileinclude', 'bootstrap', 'scss', 'icons', 'js', 'jsPages', 'html'), gulp.parallel('browsersync', 'watch')));
+gulp.task('default', gulp.series(gulp.parallel('clean:packageLock', 'clean:dist', 'copy:all', 'copy:libs', 'fileinclude', 'bootstrap', 'scss', 'icons', 'js', 'jsPages', 'jsComponents', 'html'), gulp.parallel('browsersync', 'watch')));
