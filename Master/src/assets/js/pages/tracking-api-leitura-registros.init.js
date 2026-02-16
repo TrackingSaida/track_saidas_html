@@ -30,6 +30,8 @@
     if (params?.base)       q.set("base", params.base);
     if (params?.entregador) q.set("entregador", params.entregador);
     if (params?.status)     q.set("status", params.status);
+    if (params?.servico)    q.set("servico", params.servico);
+    if (params?.localizar)  q.set("localizar", params.localizar);
     if (params?.codigo)     q.set("codigo", params.codigo);
     if (params?.sort)       q.set("sort", params.sort);
 

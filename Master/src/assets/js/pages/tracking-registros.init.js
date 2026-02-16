@@ -117,17 +117,16 @@ function normalizeCodigoForFilter(rawInput){
     from: qs("#flt-from"),
     to: qs("#flt-to"),
     entregador: qs("#flt-entregador"),
+    servico: qs("#flt-servico"),
     status: qs("#flt-status"),
-    codigo: qs("#flt-codigo"),
+    localizar: qs("#flt-localizar"),
     sort: qs("#flt-sort"),
     pageSize: qs("#flt-pageSize")
   };
 
   var tblBody     = qs("#reg-rows");
   var chkAll      = qs("#chk-all");
-  var btnSearch   = qs("#btn-search");
   var btnEdit     = qs("#btn-edit-selected");
-  var btnDelete   = qs("#btn-delete-selected");
 
   var sumShopeeEl  = qs('#sum-shopee');
   var sumMercadoEl = qs('#sum-ml');
@@ -234,8 +233,9 @@ function augmentEntregadoresFromRows(rows){
   const to          = f.to?.value || "";
   const base        = document.getElementById("flt-base")?.value || "";
   const entregador  = f.entregador?.value || "";
+  const servico     = f.servico?.value || "";
   const status      = f.status?.value || "";
-  const codigo      = f.codigo?.value || "";
+  const localizar   = (f.localizar?.value || "").trim();
   const sort        = f.sort?.value || "-ts";
 
   // Envio direto YYYY-MM-DD do input (evita timezone com Date/toISOString)
@@ -254,8 +254,9 @@ function augmentEntregadoresFromRows(rows){
     ate,
     base,
     entregador,
+    servico,
     status: st,
-    codigo,
+    localizar: localizar || undefined,
     sort,
     limit: parseInt(f.pageSize?.value || "200", 10)
   };
@@ -522,32 +523,16 @@ function setupPagerEvents() {
     });
   }
 
-  if (btnSearch){
-    btnSearch.addEventListener("click", () => {
-      state.page = 1;
-      refresh(true);
+  // Localizar: busca ao pressionar Enter
+  if (f.localizar) {
+    f.localizar.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        state.page = 1;
+        refresh(true);
+      }
     });
   }
-
-  // Limpar filtros — reseta os campos e recarrega a página
-  function clearFilters(){
-    if (f.from) f.from.value = "";
-    if (f.to) f.to.value = "";
-    const selBase = document.getElementById("flt-base");
-    if (selBase) selBase.value = "";
-    if (f.entregador) f.entregador.value = "";
-    if (f.status) f.status.value = "";
-    if (f.codigo) f.codigo.value = "";
-    if (f.sort) f.sort.value = "-ts";
-    if (f.pageSize) {
-      state.pageSize = parseInt(f.pageSize.value || String(state.pageSize), 10) || state.pageSize;
-    }
-    state.page = 1;
-    refresh(true);
-  }
-
-  var btnClear = qs("#btn-clear");
-  if (btnClear) btnClear.addEventListener("click", clearFilters);
 
   // ===== Scanner rápido para o filtro de Código (QR) =====
   // ===== Scanner rápido para o filtro de Código (QR) =====
@@ -618,8 +603,8 @@ function setupPagerEvents() {
             const raw = result.getText();
             if (!raw) return;
 
-            if (f.codigo) {
-              f.codigo.value = normalizeCodigoForFilter(raw);
+            if (f.localizar) {
+              f.localizar.value = normalizeCodigoForFilter(raw);
             }
 
             state.page = 1;
@@ -650,8 +635,8 @@ function setupPagerEvents() {
         const raw = codes[0].rawValue || '';
         if (!raw) return;
 
-        if (f.codigo) {
-          f.codigo.value = normalizeCodigoForFilter(raw);
+        if (f.localizar) {
+          f.localizar.value = normalizeCodigoForFilter(raw);
         }
 
         state.page = 1;
@@ -943,6 +928,131 @@ function setupPagerEvents() {
   }
 
   // =====================================================================
+  // Date Picker + Filtros Dropdown
+  // =====================================================================
+  function fmtDMY(d) {
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return dd + "/" + mm + "/" + d.getFullYear();
+  }
+  function updatePeriodLabel(from, to) {
+    const label = document.getElementById("registros-period-label");
+    if (!label) return;
+    const fromD = from ? new Date(from + "T12:00:00") : null;
+    const toD = to ? new Date(to + "T12:00:00") : null;
+    if (from === to && fromD) {
+      label.textContent = fmtDMY(fromD);
+    } else if (from && to && fromD && toD) {
+      label.textContent = fmtDMY(fromD) + " — " + fmtDMY(toD);
+    } else {
+      label.textContent = "Período";
+    }
+  }
+
+  let datePickerInstance = null;
+  const periodBtnReg = document.getElementById("registros-period-btn");
+  const btnFiltrosIcon = document.getElementById("btnFiltrosIcon");
+  const filtrosContadorEl = document.getElementById("filtrosContador");
+
+  if (typeof window.initDatePickerDashboard === "function") {
+    datePickerInstance = window.initDatePickerDashboard({
+      containerId: "registros-date-picker-container",
+      prefix: "registros-dp",
+      defaultPreset: "ultimos30",
+      onApply: function (start, end) {
+        if (f.from) f.from.value = start;
+        if (f.to) f.to.value = end;
+        updatePeriodLabel(start, end);
+        if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtnReg) {
+          const d = bootstrap.Dropdown.getInstance(periodBtnReg);
+          if (d) d.hide();
+        }
+        state.page = 1;
+        refresh();
+      },
+      onCancel: function () {
+        if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtnReg) {
+          const d = bootstrap.Dropdown.getInstance(periodBtnReg);
+          if (d) d.hide();
+        }
+      }
+    });
+    if (datePickerInstance && datePickerInstance.applyPreset) {
+      datePickerInstance.applyPreset("ultimos30");
+    }
+    const r = datePickerInstance ? datePickerInstance.getResolvedRange() : { start: "", end: "" };
+    if (f.from) f.from.value = r.start;
+    if (f.to) f.to.value = r.end;
+    updatePeriodLabel(r.start, r.end);
+  } else {
+    // fallback: definir período manualmente se date picker não disponível
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+    const start = new Date(y, m, d - 30);
+    const fmt = (x) => x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0");
+    if (f.from) f.from.value = fmt(start);
+    if (f.to) f.to.value = fmt(now);
+  }
+
+  function atualizarContadorFiltros() {
+    if (!filtrosContadorEl) return;
+    let n = 0;
+    if ((document.getElementById("flt-base")?.value || "").trim()) n++;
+    if ((f.entregador?.value || "").trim()) n++;
+    if ((f.servico?.value || "").trim()) n++;
+    if ((f.status?.value || "").trim()) n++;
+    if (n > 0) {
+      filtrosContadorEl.textContent = String(n);
+      filtrosContadorEl.classList.remove("d-none");
+    } else {
+      filtrosContadorEl.classList.add("d-none");
+    }
+  }
+
+  function fecharDropdownFiltros() {
+    if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && btnFiltrosIcon) {
+      const d = bootstrap.Dropdown.getInstance(btnFiltrosIcon);
+      if (d) d.hide();
+    }
+  }
+
+  const btnFiltroAplicar = document.getElementById("btnFiltroAplicar");
+  const btnFiltroLimpar = document.getElementById("btnFiltroLimpar");
+  const btnFiltroCancelar = document.getElementById("btnFiltroCancelar");
+
+  if (btnFiltroAplicar) {
+    btnFiltroAplicar.onclick = () => {
+      state.page = 1;
+      refresh();
+      atualizarContadorFiltros();
+      fecharDropdownFiltros();
+    };
+  }
+  if (btnFiltroLimpar) {
+    btnFiltroLimpar.onclick = () => {
+      const fltBase = document.getElementById("flt-base");
+      if (fltBase) fltBase.value = "";
+      if (f.entregador) f.entregador.value = "";
+      if (f.servico) f.servico.value = "";
+      if (f.status) f.status.value = "";
+      if (datePickerInstance && datePickerInstance.applyPreset) {
+        datePickerInstance.applyPreset("ultimos30");
+        const r = datePickerInstance.getResolvedRange();
+        if (f.from) f.from.value = r.start;
+        if (f.to) f.to.value = r.end;
+        updatePeriodLabel(r.start, r.end);
+      }
+      state.page = 1;
+      refresh();
+      atualizarContadorFiltros();
+      fecharDropdownFiltros();
+    };
+  }
+  if (btnFiltroCancelar) {
+    btnFiltroCancelar.onclick = fecharDropdownFiltros;
+  }
+
+  // =====================================================================
   // INIT
   // =====================================================================
   loadCombosBase()
@@ -954,6 +1064,7 @@ function setupPagerEvents() {
       if (f.pageSize) f.pageSize.value = String(state.pageSize);
       refresh(false);
       updateEditButtonState();
+      if (typeof atualizarContadorFiltros === "function") atualizarContadorFiltros();
     });
 
 })();  // fim do IIFE

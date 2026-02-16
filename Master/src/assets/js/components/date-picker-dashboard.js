@@ -66,6 +66,10 @@
         start = new Date(y, m, 1);
         end = new Date(y, m + 1, 0);
         break;
+      case "ultimos30":
+        start = new Date(y, m, d - 30);
+        end = new Date(y, m, d);
+        break;
       default:
         start = new Date(y, m, d);
         end = new Date(y, m, d);
@@ -194,8 +198,8 @@
       const r = getPresetRange(preset);
       selectedStart = r.start;
       selectedEnd = r.end;
-      // Presets que definem intervalo (quinzena, semana, mês) devem usar modo "periodo" para Aplicar retornar start e end corretos
-      if (preset === "quinzena" || preset === "quinzena-ant" || preset === "semana" || preset === "mes") {
+      // Presets que definem intervalo (quinzena, semana, mês, ultimos30) devem usar modo "periodo" para Aplicar retornar start e end corretos
+      if (preset === "quinzena" || preset === "quinzena-ant" || preset === "semana" || preset === "mes" || preset === "ultimos30") {
         filterMode = "periodo";
         isSelectingStart = false;
         var modeSelect = document.getElementById(prefix + "-filter-mode");
@@ -394,6 +398,7 @@
           '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="quinzena">Quinzena atual</button>' +
           '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="quinzena-ant">Quinzena anterior</button>' +
           '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="mes">Mês</button>' +
+          '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="ultimos30">Hoje - 30 dias</button>' +
         '</div>' +
       '</div>' +
       '<div class="col-8 p-3">' +
