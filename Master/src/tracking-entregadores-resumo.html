@@ -18,9 +18,7 @@
               <div class="col-12">
                 <div class="card">
                   <div class="card-body">
-                    <div id="resumoMsg" class="mb-3"></div>
-
-                    <!-- Ações à esquerda, Período e Filtros à direita -->
+                    <!-- Ações à esquerda, Data e Filtros à direita (topo) -->
                     <div class="row g-3 align-items-center mb-3">
                       <div class="col-md-auto d-flex gap-2 flex-wrap">
                         <div class="dropdown" id="wrapBtnGerarFechamento" title="Preencha Data início, Data fim e Entregador" data-bs-toggle="tooltip" data-bs-placement="top">
@@ -33,10 +31,8 @@
                           </ul>
                         </div>
                       </div>
-                      <div class="col-md-auto ms-auto d-flex gap-2 flex-wrap align-items-end">
-                        <div>
-                          <label class="form-label">Período</label>
-                          <div class="dropdown">
+                      <div class="col-md-auto ms-auto d-flex gap-2 flex-wrap align-items-center">
+                        <div class="dropdown">
                             <button class="btn btn-soft-primary dropdown-toggle d-flex align-items-center gap-2" type="button" id="entregadores-resumo-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
                               <i class="bx bx-calendar"></i>
                               <span id="entregadores-resumo-period-label" class="text-truncate">Quinzena anterior</span>
@@ -46,11 +42,8 @@
                               <input type="hidden" id="flt-data-fim" />
                               <div id="entregadores-resumo-date-picker-container"></div>
                             </div>
-                          </div>
                         </div>
-                        <div>
-                          <label class="form-label d-block">&nbsp;</label>
-                          <div class="dropdown">
+                        <div class="dropdown">
                             <button class="btn btn-outline-secondary position-relative" id="btnFiltrosIcon" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
                               <i class="ri-filter-3-line me-1"></i> Filtros
                               <span id="filtrosContador" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary d-none">0</span>
@@ -81,34 +74,34 @@
                         </div>
                       </div>
                     </div>
-
-                    <!-- Cards totalizadores (gradiente leve, cor nos valores, borda destacada) -->
-                    <div class="row g-2 mb-3">
-                      <div class="col-6 col-md-4 col-lg-2">
+                    <div id="resumoMsg" class="mb-3"></div>
+                    <!-- Cards totalizadores (mesma linha, como Registros) -->
+                    <div class="row g-2 mb-3 flex-nowrap">
+                      <div class="col flex-fill" style="min-width: 0;">
                         <div class="p-3 rounded text-center card-er-flex">
                           <span class="text-uppercase small text-secondary fw-semibold d-block">Flex</span>
                           <span class="fs-5 fw-bold" id="card-flex">0</span>
                         </div>
                       </div>
-                      <div class="col-6 col-md-4 col-lg-2">
+                      <div class="col flex-fill" style="min-width: 0;">
                         <div class="p-3 rounded text-center card-er-shopee">
                           <span class="text-uppercase small text-secondary fw-semibold d-block">Shopee</span>
                           <span class="fs-5 fw-bold" id="card-shopee">0</span>
                         </div>
                       </div>
-                      <div class="col-6 col-md-4 col-lg-2">
+                      <div class="col flex-fill" style="min-width: 0;">
                         <div class="p-3 rounded text-center card-er-avulso">
                           <span class="text-uppercase small text-secondary fw-semibold d-block">Avulso</span>
                           <span class="fs-5 fw-bold" id="card-avulso">0</span>
                         </div>
                       </div>
-                      <div class="col-6 col-md-4 col-lg-2">
+                      <div class="col flex-fill" style="min-width: 0;">
                         <div class="p-3 rounded text-center card-er-total">
                           <span class="text-uppercase small text-secondary fw-semibold d-block">Total Entregas</span>
                           <span class="fs-5 fw-bold" id="card-total-entregas">0</span>
                         </div>
                       </div>
-                      <div class="col-6 col-md-4 col-lg-2">
+                      <div class="col flex-fill" style="min-width: 0;">
                         <div class="p-3 rounded text-center card-er-valor">
                           <span class="text-uppercase small text-secondary fw-semibold d-block">Valor Total (R$)</span>
                           <span class="fs-5 fw-bold" id="card-valor">R$ 0,00</span>

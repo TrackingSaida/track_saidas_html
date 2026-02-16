@@ -148,16 +148,16 @@
               }
             }
 
-            /* Cards de resumo: cores suaves, número em destaque */
+            /* Cards de resumo: estilo fechamento motoboy — fundos pálidos, borda fina, título cinza */
             .registros-layout .registros-summary-card {
               border-radius: 12px;
-              box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075);
+              border: 1px solid;
             }
             .registros-layout .registros-summary-label {
               display: block;
               font-size: 0.8125rem;
               font-weight: 500;
-              opacity: .95;
+              color: #495057 !important;
             }
             .registros-layout .registros-summary-num {
               font-size: 1.5rem;
@@ -165,23 +165,35 @@
               line-height: 1.2;
             }
             .registros-layout .registros-summary-card.card-shopee {
-              background-color: rgba(238, 77, 45, 0.14);
-              color: #c23d1f;
+              background-color: rgba(255, 180, 130, 0.25);
+              border-color: rgba(238, 130, 70, 0.6);
+            }
+            .registros-layout .registros-summary-card.card-shopee .registros-summary-num {
+              color: #d46a2e;
             }
             .registros-layout .registros-summary-card.card-ml {
-              background-color: rgba(255, 230, 0, 0.22);
-              color: #1e2047;
+              background-color: rgba(255, 230, 170, 0.5);
+              border-color: rgba(220, 180, 50, 0.6);
+            }
+            .registros-layout .registros-summary-card.card-ml .registros-summary-num {
+              color: #b8922e;
             }
             .registros-layout .registros-summary-card.card-avulso {
-              background-color: rgba(108, 117, 125, 0.18);
-              color: #495057;
+              background-color: rgba(180, 200, 230, 0.4);
+              border-color: rgba(100, 140, 200, 0.55);
+            }
+            .registros-layout .registros-summary-card.card-avulso .registros-summary-num {
+              color: #4a7ab8;
             }
             .registros-layout .registros-summary-card.card-total {
-              background-color: rgba(45, 50, 119, 0.12);
+              background-color: rgba(200, 205, 230, 0.35);
+              border-color: rgba(80, 85, 140, 0.5);
+            }
+            .registros-layout .registros-summary-card.card-total .registros-summary-num {
               color: #2d3277;
             }
             .registros-layout .registros-summary-card-total {
-              border: 1px solid rgba(45, 50, 119, 0.25);
+              border-width: 1px;
             }
             .registros-layout .registros-summary-num-total {
               font-size: 1.75rem;

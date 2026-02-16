@@ -46,85 +46,79 @@ document.addEventListener("DOMContentLoaded", () => {
     return "Não foi possível obter os dados. Tente novamente.";
   }
 
-  const fltPreset = qs("#flt-preset");
   const fltDataInicio = qs("#flt-data-inicio");
   const fltDataFim = qs("#flt-data-fim");
-  const btnAplicar = qs("#btnAplicar");
-  const btnLimpar = qs("#btnLimpar");
   const resumoMsg = qs("#resumoMsg");
   const avisoFechamentos = qs("#avisoFechamentos");
   const avisoFechamentosTexto = qs("#avisoFechamentosTexto");
 
-  function getUltimoDiaMes(ano, mes) {
-    return new Date(ano, mes + 1, 0).getDate();
+  function fmtDMY(d) {
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return dd + "/" + mm + "/" + d.getFullYear();
   }
 
-  function toYMD(d) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  }
-
-  function getQuinzenaAtual() {
-    const hoje = new Date();
-    const ano = hoje.getFullYear();
-    const mes = hoje.getMonth();
-    const dia = hoje.getDate();
-    const ultimo = getUltimoDiaMes(ano, mes);
-    if (dia <= 15) {
-      return { inicio: toYMD(new Date(ano, mes, 1)), fim: toYMD(new Date(ano, mes, 15)) };
+  function updatePeriodLabel(from, to) {
+    const label = qs("#contabilidade-period-label");
+    if (!label) return;
+    const fromD = from ? new Date(from + "T12:00:00") : null;
+    const toD = to ? new Date(to + "T12:00:00") : null;
+    if (from === to && fromD) {
+      label.textContent = fmtDMY(fromD);
+    } else if (from && to && fromD && toD) {
+      label.textContent = fmtDMY(fromD) + " — " + fmtDMY(toD);
+    } else {
+      label.textContent = "Quinzena atual";
     }
-    return { inicio: toYMD(new Date(ano, mes, 16)), fim: toYMD(new Date(ano, mes, ultimo)) };
   }
 
-  function getQuinzenaAnterior() {
-    const hoje = new Date();
-    const ano = hoje.getFullYear();
-    const mes = hoje.getMonth();
-    const dia = hoje.getDate();
-    const ultimo = getUltimoDiaMes(ano, mes);
-    if (dia <= 15) {
-      const mesAnt = mes - 1;
-      const anoAnt = mesAnt < 0 ? ano - 1 : ano;
-      const m = mesAnt < 0 ? 11 : mesAnt;
-      const ultimoAnt = getUltimoDiaMes(anoAnt, m);
-      return { inicio: toYMD(new Date(anoAnt, m, 16)), fim: toYMD(new Date(anoAnt, m, ultimoAnt)) };
-    }
-    return { inicio: toYMD(new Date(ano, mes, 1)), fim: toYMD(new Date(ano, mes, 15)) };
-  }
+  let datePickerInstance = null;
+  const periodBtn = qs("#contabilidade-period-btn");
 
-  function getMesAtual() {
-    const hoje = new Date();
-    const ano = hoje.getFullYear();
-    const mes = hoje.getMonth();
-    const ultimo = getUltimoDiaMes(ano, mes);
-    return { inicio: toYMD(new Date(ano, mes, 1)), fim: toYMD(new Date(ano, mes, ultimo)) };
-  }
-
-  function applyPresetToDates() {
-    const preset = fltPreset?.value || "quinzena_atual";
-    let range;
-    if (preset === "quinzena_anterior") range = getQuinzenaAnterior();
-    else if (preset === "mes_atual") range = getMesAtual();
-    else if (preset === "personalizado") {
-      if (fltDataInicio) fltDataInicio.readOnly = false;
-      if (fltDataFim) fltDataFim.readOnly = false;
-      if (fltDataInicio && !fltDataInicio.value) {
-        range = getQuinzenaAtual();
-        if (fltDataInicio) fltDataInicio.value = range.inicio;
-        if (fltDataFim) fltDataFim.value = range.fim;
+  if (typeof window.initDatePickerDashboard === "function") {
+    datePickerInstance = window.initDatePickerDashboard({
+      containerId: "contabilidade-date-picker-container",
+      prefix: "contabilidade-dp",
+      defaultPreset: "quinzena",
+      onApply: function (start, end) {
+        if (fltDataInicio) fltDataInicio.value = start;
+        if (fltDataFim) fltDataFim.value = end;
+        updatePeriodLabel(start, end);
+        if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
+          const d = bootstrap.Dropdown.getInstance(periodBtn);
+          if (d) d.hide();
+        }
+        carregarResumo();
+      },
+      onCancel: function () {
+        if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
+          const d = bootstrap.Dropdown.getInstance(periodBtn);
+          if (d) d.hide();
+        }
       }
-      return;
+    });
+    if (datePickerInstance && datePickerInstance.applyPreset) {
+      datePickerInstance.applyPreset("quinzena");
     }
-    else range = getQuinzenaAtual();
-    if (fltDataInicio) { fltDataInicio.value = range.inicio; fltDataInicio.readOnly = true; }
-    if (fltDataFim) { fltDataFim.value = range.fim; fltDataFim.readOnly = true; }
-  }
-
-  function setPeriodoPadrao() {
-    if (fltPreset) fltPreset.value = "quinzena_atual";
-    applyPresetToDates();
+    const r = datePickerInstance ? datePickerInstance.getResolvedRange() : { start: "", end: "" };
+    if (fltDataInicio) fltDataInicio.value = r.start;
+    if (fltDataFim) fltDataFim.value = r.end;
+    updatePeriodLabel(r.start, r.end);
+  } else {
+    var hoje = new Date();
+    var ano = hoje.getFullYear(), mes = hoje.getMonth(), dia = hoje.getDate();
+    var ultimo = new Date(ano, mes + 1, 0).getDate();
+    var inicio, fim;
+    if (dia <= 15) {
+      inicio = ano + "-" + String(mes + 1).padStart(2, "0") + "-01";
+      fim = ano + "-" + String(mes + 1).padStart(2, "0") + "-15";
+    } else {
+      inicio = ano + "-" + String(mes + 1).padStart(2, "0") + "-16";
+      fim = ano + "-" + String(mes + 1).padStart(2, "0") + "-" + String(ultimo).padStart(2, "0");
+    }
+    if (fltDataInicio) fltDataInicio.value = inicio;
+    if (fltDataFim) fltDataFim.value = fim;
+    updatePeriodLabel(inicio, fim);
   }
 
   function renderComparacao(comp) {
@@ -367,24 +361,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  fltPreset?.addEventListener("change", () => {
-    try {
-      applyPresetToDates();
-      if (resumoMsg) resumoMsg.innerHTML = "";
-    } catch (e) { console.error(e); }
-  });
-
-  btnAplicar?.addEventListener("click", () => { try { carregarResumo(); } catch (e) { console.error(e); } });
-  btnLimpar?.addEventListener("click", () => {
-    try {
-      setPeriodoPadrao();
-      if (resumoMsg) resumoMsg.innerHTML = "";
-      if (avisoFechamentos) avisoFechamentos.classList.add("d-none");
-      carregarResumo();
-    } catch (e) { console.error(e); }
-  });
-
-  setPeriodoPadrao();
   carregarResumo().catch(function () {
     try {
       if (resumoMsg) resumoMsg.innerHTML = "<div class=\"alert alert-warning mb-0\"><i class=\"ri-error-warning-line me-2\"></i>Erro ao carregar dados. Tente novamente.</div>";

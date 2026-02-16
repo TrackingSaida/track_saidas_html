@@ -462,6 +462,14 @@
 .card-er-valor .small {
   color: #6c757d !important;
 }
+.card-er-flex .fs-5,
+.card-er-shopee .fs-5,
+.card-er-avulso .fs-5,
+.card-er-total .fs-5,
+.card-er-valor .fs-5 {
+  font-size: 1.5rem !important;
+  font-weight: 700;
+}
 .card-er-entregador {
   background: linear-gradient(135deg, rgba(25, 135, 84, 0.08) 0%, rgba(32, 201, 151, 0.12) 100%);
   border: 1px solid rgba(25, 135, 84, 0.4);

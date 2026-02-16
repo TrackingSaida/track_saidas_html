@@ -20,24 +20,18 @@
                   <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                     <h4 class="card-title mb-0">Análise financeira detalhada</h4>
                     <div class="d-flex flex-wrap align-items-center gap-2">
-                      <div class="d-flex align-items-center gap-1 flex-wrap">
-                        <label class="form-label mb-0 text-nowrap">Período</label>
-                        <select id="flt-preset" class="form-select form-select-sm" style="width: auto; min-width: 180px;">
-                          <option value="quinzena_atual">Quinzena atual</option>
-                          <option value="quinzena_anterior">Quinzena anterior</option>
-                          <option value="mes_atual">Mês atual</option>
-                          <option value="personalizado">Personalizado</option>
-                        </select>
-                        <input type="date" id="flt-data-inicio" class="form-control form-control-sm" style="width: 130px;" title="Data início">
-                        <span class="text-muted">a</span>
-                        <input type="date" id="flt-data-fim" class="form-control form-control-sm" style="width: 130px;" title="Data fim">
+                      
+                      <div class="dropdown">
+                        <button class="btn btn-soft-primary dropdown-toggle d-flex align-items-center gap-2" type="button" id="contabilidade-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                          <i class="bx bx-calendar"></i>
+                          <span id="contabilidade-period-label" class="text-truncate">Quinzena atual</span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end p-0" id="contabilidade-period-panel" style="min-width: 640px;">
+                          <input type="hidden" id="flt-data-inicio" />
+                          <input type="hidden" id="flt-data-fim" />
+                          <div id="contabilidade-date-picker-container"></div>
+                        </div>
                       </div>
-                      <button type="button" id="btnAplicar" class="btn btn-primary btn-sm">
-                        <i class="ri-check-line me-1"></i> Aplicar
-                      </button>
-                      <button type="button" id="btnLimpar" class="btn btn-outline-secondary btn-sm">
-                        <i class="ri-eraser-line me-1"></i> Limpar
-                      </button>
                     </div>
                   </div>
                   <div class="card-body">
@@ -204,7 +198,7 @@
       </div>
     </div>
     @@include("partials/vendor-scripts.html")
-
+    <script src="assets/js/components/date-picker-dashboard.js"></script>
     <script>
       if (!window.TRACK_API_URL) {
         window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
