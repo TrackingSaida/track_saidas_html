@@ -32,10 +32,6 @@
                                 <i class="ri-edit-2-line align-bottom me-1"></i> Editar
                             </button>
 
-                            <button class="btn btn-soft-info" id="btnHeaderDetail" disabled title="Ver detalhes do Motoboy">
-                                <i class="ri-information-line align-bottom me-1"></i> Detalhes
-                            </button>
-
                             <button class="btn btn-soft-danger" id="btnHeaderDel" disabled>
                                 <i class="ri-delete-bin-line align-bottom me-1"></i> Excluir
                             </button>
@@ -44,7 +40,7 @@
                         <!-- Filtros direita -->
                         <div class="d-flex align-items-center gap-3">
 
-                            <div class="form-check form-switch">
+                            <div class="form-check form-switch text-nowrap">
                                 <input class="form-check-input" type="checkbox" id="toggleAtivos" checked>
                                 <label class="form-check-label" for="toggleAtivos">Somente ativos</label>
                             </div>
@@ -60,7 +56,7 @@
                     <!-- ======================= TABELA ======================= -->
                     <div class="card-body">
                         <div class="table-responsive table-card">
-                            <table class="table align-middle table-nowrap" id="tbl-users">
+                            <table class="table table-striped align-middle table-nowrap" id="tbl-users">
                                 <thead class="table-light">
                                     <tr>
                                         <th style="width:56px;">Sel.</th>
@@ -106,6 +102,61 @@
                     </div>
                 </div>
 
+                <!-- Detail: Dados do Motoboy selecionado (igual Entregadores) -->
+                <div id="motoboy-detail" class="card mt-3 d-none">
+                    <div class="card-header d-flex align-items-center justify-content-between bg-primary bg-opacity-10 border-start border-4 border-primary">
+                        <span class="fw-semibold">Dados do Motoboy</span>
+                        <small class="text-muted" id="motoboy-detail-nome"></small>
+                    </div>
+                    <div class="card-body">
+                        <div id="motoboy-empty" class="text-muted">
+                            Selecione um usuário do tipo Motoboy para ver os detalhes.
+                        </div>
+                        <div id="motoboy-content" class="row g-3 d-none align-items-start">
+                            <div class="col-md-6">
+                                <label class="form-label text-primary fw-medium mb-1">Documento</label>
+                                <div id="d-documento">—</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-primary fw-medium mb-1">Contato</label>
+                                <div id="d-contato">—</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-primary fw-medium mb-1">Endereço</label>
+                                <div id="d-rua">—</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-primary fw-medium mb-1">Número</label>
+                                <div id="d-numero">—</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-primary fw-medium mb-1">Complemento</label>
+                                <div id="d-complemento">—</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-primary fw-medium mb-1">Bairro</label>
+                                <div id="d-bairro">—</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-primary fw-medium mb-1">Cidade</label>
+                                <div id="d-cidade">—</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-primary fw-medium mb-1">CEP</label>
+                                <div id="d-cep">—</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-primary fw-medium mb-1">Pode ler Coletas</label>
+                                <div id="d-pode-coleta">—</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-primary fw-medium mb-1">Pode ler Saídas</label>
+                                <div id="d-pode-saida">—</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div> <!-- container -->
         </div> <!-- content -->
 
@@ -116,161 +167,147 @@
 @@include("partials/customizer.html")
 @@include("partials/vendor-scripts.html")
 
-<!-- ===================== OFFCANVAS (CREATE/EDIT) ===================== -->
-<div class="offcanvas offcanvas-end" tabindex="-1"
-     id="oc-user" aria-labelledby="ocLabel"
-     style="width:520px" data-bs-scroll="false" data-bs-backdrop="true">
+<style>
+/* Destaque visual para campos obrigatórios */
+#oc-user .field-required {
+  border-left: 3px solid var(--vz-danger, #dc3545) !important;
+}
+/* Linhas alternadas e linha selecionada na grid de usuários */
+#tbl-users tbody tr.row-selected {
+  background-color: rgba(var(--vz-primary-rgb, 13, 110, 253), 0.15) !important;
+}
+#tbl-users tbody tr.row-selected:hover {
+  background-color: rgba(var(--vz-primary-rgb, 13, 110, 253), 0.2) !important;
+}
+</style>
 
-    <div class="offcanvas-header border-bottom">
+<!-- ===================== OFFCANVAS (CREATE/EDIT) ===================== -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="oc-user" aria-labelledby="ocLabel"
+     style="width:900px; display: flex; flex-direction: column;" data-bs-backdrop="true">
+
+    <div class="offcanvas-header border-bottom flex-shrink-0">
         <h5 class="offcanvas-title" id="ocLabel">Novo Usuário</h5>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
     </div>
 
-    <form id="formUser" class="needs-validation d-flex flex-column h-100" novalidate>
+    <form id="formUser" class="needs-validation flex-grow-1 d-flex flex-column overflow-hidden" novalidate>
 
-        <div class="offcanvas-body flex-grow-1">
+        <div class="offcanvas-body overflow-auto flex-grow-1 p-4">
 
             <input type="hidden" id="userId" />
 
-            <div class="card mb-3">
-                <div class="card-header bg-light fw-semibold">Dados do Usuário</div>
-
-                <div class="card-body">
-                    <div class="row g-3">
-
-                        <div class="col-6">
-                            <label class="form-label">Nome</label>
-                            <input type="text" id="nome" class="form-control">
-                        </div>
-
-                        <div class="col-6">
-                            <label class="form-label">Sobrenome</label>
-                            <input type="text" id="sobrenome" class="form-control">
-                        </div>
-
-                        <div class="col-6">
-                            <label class="form-label">Username</label>
-                            <input type="text" id="username" class="form-control" required>
-                        </div>
-
-                        <div class="col-6">
-                            <label class="form-label">Contato</label>
-                            <input type="text" id="contato" class="form-control">
-                        </div>
-
-                        <div class="col-12">
-                            <label class="form-label">E-mail</label>
-                            <input type="email" id="email" class="form-control" required>
-                        </div>
-
-                        <!-- CREATE: campo senha -->
-                        <div class="col-12" id="groupPassword">
-                            <label class="form-label">Senha</label>
-                            <input type="password" id="password" class="form-control" placeholder="Min. 4 caracteres">
-                        </div>
-
-                        <div class="col-12">
-                            <label class="form-label">Perfil</label>
-                            <select id="role" class="form-select">
-                                <option value="1">Administrador</option>
-                                <option value="2">Operador</option>
-                                <option value="4">Motoboy</option>
-                            </select>
-                        </div>
-
-                        <div class="col-12">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="statusToggle" checked>
-                                <label class="form-check-label">Ativo</label>
+            <!-- Row: colUser (col-6 quando Motoboy, col-12 senão) | colMotoboy (col-6, d-none quando não Motoboy) -->
+            <div class="row g-3">
+                <div id="colUser" class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-light fw-semibold">Dados do Usuário</div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-6"><label class="form-label">Nome <span class="text-danger">*</span></label><input type="text" id="nome" class="form-control field-required" placeholder="Ex: João" required></div>
+                                <div class="col-6"><label class="form-label">Sobrenome <span class="text-danger">*</span></label><input type="text" id="sobrenome" class="form-control field-required" placeholder="Ex: Silva" required></div>
+                                <div class="col-6"><label class="form-label">Username <span class="text-danger">*</span></label><input type="text" id="username" class="form-control field-required" placeholder="Ex: joao.silva" required></div>
+                                <div class="col-6"><label class="form-label">Contato <span class="text-danger">*</span></label><input type="text" id="contato" class="form-control field-required" placeholder="(11) 99999-9999" required></div>
+                                <div class="col-12"><label class="form-label">E-mail <span class="text-danger">*</span></label><input type="email" id="email" class="form-control field-required" placeholder="email@exemplo.com" required></div>
+                                <div class="col-6" id="groupPassword"><label class="form-label">Senha <span class="text-danger">*</span></label><input type="password" id="password" class="form-control field-required" placeholder="Mín. 4 caracteres"></div>
+                                <div class="col-6" id="groupPasswordConfirm"><label class="form-label">Confirmar Senha <span class="text-danger">*</span></label><input type="password" id="passwordConfirm" class="form-control field-required" placeholder="Repita a senha"></div>
+                                <div class="col-12"><label class="form-label">Perfil</label><select id="role" class="form-select"><option value="1">Administrador</option><option value="2">Operador</option><option value="4">Motoboy</option></select></div>
+                                <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="statusToggle" checked><label class="form-check-label">Ativo</label></div></div>
                             </div>
                         </div>
-
                     </div>
                 </div>
-            </div>
-
-            <!-- Seção Motoboy (visível quando role=4) -->
-            <div id="sectionMotoboy" class="card mb-3 d-none">
+                <div id="colMotoboy" class="col-6 d-none">
+                    <div id="sectionMotoboy" class="card h-100">
                 <div class="card-header bg-light fw-semibold">Dados do Motoboy</div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label">Documento <span class="text-danger">*</span></label>
-                            <input type="text" id="documento" class="form-control" placeholder="CPF ou RG">
-                            <div class="invalid-feedback">Documento obrigatório.</div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Documento <span class="text-danger">*</span></label>
+                                <input type="text" id="documento" class="form-control field-required" placeholder="000.000.000-00 ou RG">
+                                <div class="invalid-feedback">Documento obrigatório.</div>
+                            </div>
                         </div>
-                        <div class="col-12">
-                            <label class="form-label">CEP <span class="text-danger">*</span></label>
-                            <input type="text" id="cep" class="form-control" placeholder="00000-000" maxlength="9">
-                            <div class="form-text">Digite o CEP e saia do campo para preencher automaticamente.</div>
-                            <div class="invalid-feedback">CEP obrigatório.</div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">CEP <span class="text-danger">*</span></label>
+                                <input type="text" id="cep" class="form-control field-required" placeholder="00000-000" maxlength="9" inputmode="numeric">
+                                <div class="form-text small">Digite o CEP e saia do campo para preencher automaticamente.</div>
+                                <div class="invalid-feedback">CEP obrigatório.</div>
+                            </div>
                         </div>
                         <div class="col-8">
-                            <label class="form-label">Rua <span class="text-danger">*</span></label>
-                            <input type="text" id="rua" class="form-control">
-                            <div class="invalid-feedback">Rua obrigatória.</div>
+                            <div class="mb-3">
+                                <label class="form-label">Rua <span class="text-danger">*</span></label>
+                                <input type="text" id="rua" class="form-control field-required" placeholder="Nome da rua">
+                                <div class="invalid-feedback">Rua obrigatória.</div>
+                            </div>
                         </div>
                         <div class="col-4">
-                            <label class="form-label">Número <span class="text-danger">*</span></label>
-                            <input type="text" id="numero" class="form-control">
-                            <div class="invalid-feedback">Número obrigatório.</div>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Complemento</label>
-                            <input type="text" id="complemento" class="form-control">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Bairro <span class="text-danger">*</span></label>
-                            <input type="text" id="bairro" class="form-control">
-                            <div class="invalid-feedback">Bairro obrigatório.</div>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Cidade <span class="text-danger">*</span></label>
-                            <input type="text" id="cidade" class="form-control">
-                            <div class="invalid-feedback">Cidade obrigatória.</div>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Estado</label>
-                            <input type="text" id="estado" class="form-control" maxlength="2" placeholder="UF">
-                        </div>
-                        <div class="col-12">
-                            <div class="fw-semibold mb-2">Permissões</div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="podeLerColeta">
-                                <label class="form-check-label" for="podeLerColeta">Pode ler Coletas</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="podeLerSaida" checked>
-                                <label class="form-check-label" for="podeLerSaida">Pode ler Saídas</label>
+                            <div class="mb-3">
+                                <label class="form-label">Número <span class="text-danger">*</span></label>
+                                <input type="text" id="numero" class="form-control field-required" placeholder="123">
+                                <div class="invalid-feedback">Número obrigatório.</div>
                             </div>
                         </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Complemento</label>
+                                <input type="text" id="complemento" class="form-control" placeholder="Apto, sala, bloco...">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Bairro <span class="text-danger">*</span></label>
+                                <input type="text" id="bairro" class="form-control field-required" placeholder="Ex: Centro">
+                                <div class="invalid-feedback">Bairro obrigatório.</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Cidade <span class="text-danger">*</span></label>
+                                <input type="text" id="cidade" class="form-control field-required" placeholder="Ex: São Paulo">
+                                <div class="invalid-feedback">Cidade obrigatória.</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Estado</label>
+                                <input type="text" id="estado" class="form-control" maxlength="2" placeholder="UF">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="podeLerColeta">
+                                    <label class="form-check-label" for="podeLerColeta">Pode ler Coletas</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="podeLerSaida" checked>
+                                    <label class="form-check-label" for="podeLerSaida">Pode ler Saídas</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     </div>
                 </div>
             </div>
 
         </div>
 
-        <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body">
-            <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
-            <button type="submit" class="btn btn-primary" id="saveBtn">Salvar</button>
-        </div>
-
     </form>
-</div>
 
-<!-- ===================== OFFCANVAS DETALHES MOTOBOY ===================== -->
-<div class="offcanvas offcanvas-end" tabindex="-1" id="oc-motoboy-detail" aria-labelledby="ocDetailLabel"
-     style="width:400px" data-bs-scroll="true" data-bs-backdrop="true">
-    <div class="offcanvas-header border-bottom">
-        <h5 class="offcanvas-title" id="ocDetailLabel">Dados do Motoboy</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-    </div>
-    <div class="offcanvas-body" id="motoboyDetailBody">
-        <p class="text-muted">Selecione um usuário do tipo Motoboy para ver os detalhes.</p>
+    <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body flex-shrink-0">
+        <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
+        <button type="submit" form="formUser" class="btn btn-primary" id="saveBtn">Salvar</button>
     </div>
 </div>
 
-<script src="assets/js/pages/tracking-usuarios.js?v=1.0"></script>
+<script src="assets/js/pages/tracking-usuarios.js?v=1.2"></script>
 
 </body>
 </html>

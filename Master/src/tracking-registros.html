@@ -296,6 +296,13 @@
           </select>
         </div>
         <div class="col-md-6">
+          <label class="form-label">Motoboy</label>
+          <select id="edit-motoboy" class="form-control">
+            <option value="">— selecione —</option>
+          </select>
+          <div class="form-text small">Atribuir ao motoboy (app): status será "Saiu para entrega".</div>
+        </div>
+        <div class="col-md-6">
           <label class="form-label">Código</label>
           <input id="edit-codigo" class="form-control" />
         </div>
@@ -359,6 +366,15 @@
             </div>
           </div>
           <div class="form-text">Troca permitida apenas se todos os registros forem do mesmo entregador e status “Saiu para entrega”.</div>
+        </div>
+
+        <!-- Motoboy (atribuir ao motoboy = Saiu para entrega) -->
+        <div class="mb-4">
+          <label class="form-label fw-semibold">Motoboy</label>
+          <select id="bulk-motoboy" class="form-select">
+            <option value="">(Manter)</option>
+          </select>
+          <div class="form-text">Atribuir ao motoboy (app): status será "Saiu para entrega".</div>
         </div>
 
         <!-- Status -->

@@ -160,6 +160,29 @@ function loadCombosBase(){
     })
     .catch(() => []);
 }
+
+  // ================== Carregar lista de motoboys (users role=4) ==================
+var motoboysCache = [];
+function loadMotoboys(){
+  var url = (window.TRACK_API_URL || "").replace(/\/+$/, "") + "/users/motoboys";
+  return fetch(url, { credentials: "include" })
+    .then(function(res) { return res.ok ? res.json() : []; })
+    .then(function(data) {
+      motoboysCache = Array.isArray(data) ? data : [];
+      var selEdit = document.getElementById("edit-motoboy");
+      var selBulk = document.getElementById("bulk-motoboy");
+      var opts = '<option value="">— selecione —</option>' +
+        motoboysCache.map(function(m) {
+          return '<option value="' + (m.id_motoboy || m.id) + '">' + (m.nome || "Motoboy " + (m.id_motoboy || m.id)) + '</option>';
+        }).join("");
+      if (selEdit) selEdit.innerHTML = opts;
+      if (selBulk) selBulk.innerHTML = '<option value="">(Manter)</option>' + motoboysCache.map(function(m) {
+        return '<option value="' + (m.id_motoboy || m.id) + '">' + (m.nome || "Motoboy " + (m.id_motoboy || m.id)) + '</option>';
+      }).join("");
+      return motoboysCache;
+    })
+    .catch(function() { motoboysCache = []; return []; });
+}
 function fillEntregadores(nomes){
   var list = Array.from(new Set(nomes || [])).sort((a,b)=>a.localeCompare(b,"pt-BR"));
 
@@ -673,6 +696,7 @@ function setupPagerEvents() {
 
   var eId  = document.getElementById("edit-id");
   var eEnt = document.getElementById("edit-entregador");
+  var eMotoboy = document.getElementById("edit-motoboy");
   var eCod = document.getElementById("edit-codigo");
   var eSrv = document.getElementById("edit-servico");
   var eSta = document.getElementById("edit-status");
@@ -704,6 +728,7 @@ function setupPagerEvents() {
 
     if (eId)  eId.value = id;
     if (eEnt) eEnt.value = row.entregador || "";
+    if (eMotoboy) eMotoboy.value = (row.motoboy_id != null && row.motoboy_id !== "") ? String(row.motoboy_id) : "";
     if (eCod) eCod.value = row.codigo || "";
     if (eSrv) eSrv.value = classifyCodigo(row.codigo || "").servico;
 
@@ -741,8 +766,8 @@ function setupPagerEvents() {
       var id = eId?.value;
       if (!id) return notify("ID ausente.", "error");
 
-      if (!eEnt?.value)
-        return notify("Selecione um entregador.", "warning");
+      if (!eEnt?.value && !eMotoboy?.value)
+        return notify("Selecione um entregador ou um motoboy.", "warning");
 
       if (eSta?.value === "Não Coletado" && eBase && !eBase.value)
         return notify("Base obrigatória para 'Não Coletado'.", "warning");
@@ -758,11 +783,12 @@ function setupPagerEvents() {
       }
 
       var payload = {
-        entregador: eEnt.value,
         codigo:     eCod.value,
         servico:    classifyCodigo(eCod.value).servico,
         status:     mapStatusToApi(eSta.value)
       };
+      if (eEnt?.value) payload.entregador = eEnt.value;
+      if (eMotoboy?.value) payload.motoboy_id = Number(eMotoboy.value);
 
       if ((eSta.value === "Não Coletado" || eSta.value === "Coletado") && eBase?.value)
         payload.base = eBase.value;
@@ -814,6 +840,7 @@ function setupPagerEvents() {
   var bulkCount    = document.getElementById("bulk-count");
   var bulkEnt      = document.getElementById("bulk-entregador");
   var bulkFromEl   = document.getElementById("bulk-entregador-from");
+  var bulkMotoboy  = document.getElementById("bulk-motoboy");
   var bulkStatus   = document.getElementById("bulk-status");
   var bulkBaseGrp  = document.getElementById("bulk-base-group");
   var bulkBase     = document.getElementById("bulk-base");
@@ -868,6 +895,7 @@ function setupPagerEvents() {
       bulkStatus.value = "";
       bulkBaseGrp?.classList.add("d-none");
       if (bulkBase) bulkBase.value = "";
+      if (bulkMotoboy) bulkMotoboy.value = "";
       bulkModal?.show();
     }
 
@@ -902,6 +930,7 @@ function setupPagerEvents() {
 
       var body = {};
       if (bulkEnt?.value) body.entregador = bulkEnt.value;
+      if (bulkMotoboy?.value) body.motoboy_id = Number(bulkMotoboy.value);
       if (bulkStatus?.value) body.status = mapStatusToApi(bulkStatus.value);
       if ((bulkStatus?.value === "Não Coletado" || bulkStatus?.value === "Coletado") && bulkBase?.value)
         body.base = bulkBase.value;
@@ -1062,6 +1091,7 @@ function setupPagerEvents() {
       augmentEntregadoresFromRows._base = nomes || [];
       fillEntregadores(nomes || []);
     })
+    .then(() => loadMotoboys())
     .finally(() => {
       if (f.pageSize) f.pageSize.value = String(state.pageSize);
       refresh(false);

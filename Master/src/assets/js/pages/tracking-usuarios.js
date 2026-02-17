@@ -121,7 +121,6 @@ let PER_PAGE = 10;
 function initUsers() {
     document.getElementById("btnAdd").addEventListener("click", openCreate);
     document.getElementById("btnHeaderEdit").addEventListener("click", openEditFromSelection);
-    document.getElementById("btnHeaderDetail").addEventListener("click", openDetailFromSelection);
     document.getElementById("btnHeaderDel").addEventListener("click", deleteFromSelection);
 
     document.getElementById("toggleAtivos").addEventListener("change", applyFilters);
@@ -148,8 +147,9 @@ function initUsers() {
     document.getElementById("cep").addEventListener("input", (ev) => {
         ev.target.value = maskCep(ev.target.value);
     });
-    document.getElementById("cep").addEventListener("blur", async function() {
-        const cep = this.value.replace(/\D/g, "");
+    async function buscarCep() {
+        const cepInput = document.getElementById("cep");
+        const cep = (cepInput.value || "").replace(/\D/g, "");
         if (cep.length === 8) {
             try {
                 const data = await lookupCep(cep);
@@ -158,9 +158,14 @@ function initUsers() {
                     document.getElementById("bairro").value = data.bairro || "";
                     document.getElementById("cidade").value = data.localidade || "";
                     document.getElementById("estado").value = data.uf || "";
+                    document.getElementById("numero").focus();
                 }
             } catch (e) {}
         }
+    }
+    document.getElementById("cep").addEventListener("blur", buscarCep);
+    document.getElementById("cep").addEventListener("keyup", function() {
+        if ((this.value || "").replace(/\D/g, "").length === 8) buscarCep();
     });
 
     loadUsers();
@@ -168,14 +173,19 @@ function initUsers() {
 
 function toggleMotoboySection() {
     const role = Number(document.getElementById("role").value);
-    const section = document.getElementById("sectionMotoboy");
+    const colUser = document.getElementById("colUser");
+    const colMotoboy = document.getElementById("colMotoboy");
     const ignorarColeta = (CURRENT_USER && CURRENT_USER.ignorar_coleta) || false;
     if (role === 4) {
-        section.classList.remove("d-none");
+        colUser.classList.remove("col-12");
+        colUser.classList.add("col-6");
+        colMotoboy.classList.remove("d-none");
         document.getElementById("podeLerColeta").disabled = ignorarColeta;
         if (ignorarColeta) document.getElementById("podeLerColeta").checked = false;
     } else {
-        section.classList.add("d-none");
+        colUser.classList.remove("col-6");
+        colUser.classList.add("col-12");
+        colMotoboy.classList.add("d-none");
     }
 }
 
@@ -291,6 +301,7 @@ function renderTable() {
 
     setupRowSelection();
     renderPagination();
+    showMotoboyDetailEmpty();
 }
 
 
@@ -299,14 +310,25 @@ function renderTable() {
 // =====================================================================
 
 function setupRowSelection() {
+    const updateRowStyles = () => {
+        document.querySelectorAll("#tbody-users tr").forEach(tr => {
+            const chk = tr.querySelector(".row-select");
+            tr.classList.toggle("row-selected", chk && chk.checked);
+        });
+    };
     document.querySelectorAll(".row-select").forEach(chk => {
         chk.addEventListener("change", () => {
+            updateRowStyles();
             const ids = getSelectedIds();
             const tr = ids.length === 1 ? document.querySelector(`tr[data-id="${ids[0]}"]`) : null;
             const isMotoboy = tr && Number(tr.dataset.role) === 4;
             document.getElementById("btnHeaderEdit").disabled = ids.length !== 1;
-            document.getElementById("btnHeaderDetail").disabled = !(ids.length === 1 && isMotoboy);
             document.getElementById("btnHeaderDel").disabled = ids.length < 1;
+            if (ids.length === 1 && isMotoboy) {
+                loadMotoboyDetailById(ids[0]);
+            } else {
+                showMotoboyDetailEmpty();
+            }
         });
     });
 }
@@ -368,6 +390,7 @@ function openCreate() {
     document.getElementById("contato").value = "";
     document.getElementById("email").value = "";
     document.getElementById("password").value = "";
+    document.getElementById("passwordConfirm").value = "";
     document.getElementById("statusToggle").checked = true;
     document.getElementById("role").value = 2;
 
@@ -383,6 +406,9 @@ function openCreate() {
     document.getElementById("podeLerSaida").checked = true;
 
     document.getElementById("groupPassword").classList.remove("d-none");
+    document.getElementById("groupPasswordConfirm").classList.remove("d-none");
+    document.getElementById("password").classList.remove("is-invalid");
+    document.getElementById("passwordConfirm").classList.remove("is-invalid");
     toggleMotoboySection();
     clearMotoboyValidation();
 
@@ -434,47 +460,65 @@ async function openEdit(id) {
     document.getElementById("podeLerSaida").checked = m.pode_ler_saida !== false;
 
     document.getElementById("groupPassword").classList.add("d-none");
+    document.getElementById("groupPasswordConfirm").classList.add("d-none");
     toggleMotoboySection();
     clearMotoboyValidation();
 
     new bootstrap.Offcanvas("#oc-user").show();
 }
 
-function openDetailFromSelection() {
-    const ids = getSelectedIds();
-    if (ids.length !== 1) return;
-    const tr = document.querySelector(`tr[data-id="${ids[0]}"]`);
-    if (!tr || Number(tr.dataset.role) !== 4) return;
-    openMotoboyDetail(ids[0]);
+// =====================================================================
+// DETAIL MOTOBOY (exibido ao selecionar, igual Entregadores)
+// =====================================================================
+function showMotoboyDetailEmpty() {
+    const wrap = document.getElementById("motoboy-detail");
+    if (!wrap) return;
+    wrap.classList.remove("d-none");
+    document.getElementById("motoboy-empty")?.classList.remove("d-none");
+    document.getElementById("motoboy-content")?.classList.add("d-none");
+    const nm = document.getElementById("motoboy-detail-nome");
+    if (nm) nm.textContent = "";
 }
 
-async function openMotoboyDetail(userId) {
-    const data = await fetch(`${API}/${userId}`, { credentials: "include" })
-        .then(r => r.json());
+function renderMotoboyDetail(data) {
+    const wrap = document.getElementById("motoboy-detail");
+    if (!wrap) return;
     const m = data.motoboy || {};
-    const formatted = data.contato ? maskCellphone(data.contato) : "-";
-    const html = `
-        <dl class="row mb-0">
-            <dt class="col-sm-4">Usuário</dt>
-            <dd class="col-sm-8">${data.nome || ""} ${data.sobrenome || ""}</dd>
-            <dt class="col-sm-4">Contato</dt>
-            <dd class="col-sm-8">${formatted}</dd>
-            <dt class="col-sm-4">Documento</dt>
-            <dd class="col-sm-8">${m.documento || "-"}</dd>
-            <dt class="col-sm-4">Endereço</dt>
-            <dd class="col-sm-8">
-                ${[m.rua, m.numero, m.complemento].filter(Boolean).join(", ") || "-"}<br>
-                ${[m.bairro, m.cidade, m.estado ? m.estado + " -" : ""].filter(Boolean).join(", ")} ${m.cep || ""}
-            </dd>
-            <dt class="col-sm-4">Pode ler Coletas</dt>
-            <dd class="col-sm-8">${m.pode_ler_coleta ? "Sim" : "Não"}</dd>
-            <dt class="col-sm-4">Pode ler Saídas</dt>
-            <dd class="col-sm-8">${m.pode_ler_saida !== false ? "Sim" : "Não"}</dd>
-        </dl>
-    `;
-    document.getElementById("motoboyDetailBody").innerHTML = html;
-    document.getElementById("ocDetailLabel").textContent = "Dados do Motoboy";
-    new bootstrap.Offcanvas("#oc-motoboy-detail").show();
+    const nome = [data.nome, data.sobrenome].filter(Boolean).join(" ").trim();
+    const nmEl = document.getElementById("motoboy-detail-nome");
+    if (nmEl) nmEl.textContent = nome ? `(${nome})` : "";
+
+    const assign = (id, v) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = v || "—";
+    };
+    assign("d-documento", m.documento);
+    assign("d-contato", data.contato ? maskCellphone(data.contato) : null);
+    assign("d-rua", m.rua);
+    assign("d-numero", m.numero);
+    assign("d-complemento", m.complemento);
+    assign("d-bairro", m.bairro);
+    assign("d-cidade", m.cidade);
+    assign("d-cep", m.cep);
+    assign("d-pode-coleta", m.pode_ler_coleta ? "Sim" : "Não");
+    assign("d-pode-saida", m.pode_ler_saida !== false ? "Sim" : "Não");
+
+    wrap.classList.remove("d-none");
+    document.getElementById("motoboy-empty")?.classList.add("d-none");
+    document.getElementById("motoboy-content")?.classList.remove("d-none");
+}
+
+async function loadMotoboyDetailById(userId) {
+    try {
+        const data = await fetch(`${API}/${userId}`, { credentials: "include" }).then(r => r.json());
+        if (data.role === 4 && data.motoboy) {
+            renderMotoboyDetail(data);
+        } else {
+            showMotoboyDetailEmpty();
+        }
+    } catch {
+        showMotoboyDetailEmpty();
+    }
 }
 
 
@@ -513,8 +557,15 @@ async function saveUser(ev) {
     }
 
     const isNew = !id;
-    if (isNew && senha.length < 4) {
-        erros.push("Senha deve ter no mínimo 4 caracteres.");
+    const senhaConfirm = document.getElementById("passwordConfirm").value.trim();
+    if (isNew) {
+        if (senha.length < 4) {
+            erros.push("Senha deve ter no mínimo 4 caracteres.");
+        } else if (senha !== senhaConfirm) {
+            erros.push("As senhas não coincidem.");
+            document.getElementById("password").classList.add("is-invalid");
+            document.getElementById("passwordConfirm").classList.add("is-invalid");
+        }
     }
 
     if (role === 4) {
