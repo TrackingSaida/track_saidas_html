@@ -1,5 +1,40 @@
 const API = "https://track-saidas-api.onrender.com/api/users";
 
+// =====================================================================
+// MÁSCARA DOCUMENTO — CPF 11 dígitos ou RG
+// =====================================================================
+function maskDocumento(value) {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length <= 11) {
+        return digits
+            .replace(/(\d{3})(\d)/, "$1.$2")
+            .replace(/(\d{3})(\d)/, "$1.$2")
+            .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+    }
+    return digits.slice(0, 14);
+}
+
+// =====================================================================
+// MÁSCARA CEP — 00000-000
+// =====================================================================
+function maskCep(value) {
+    const digits = value.replace(/\D/g, "").slice(0, 8);
+    if (digits.length > 5) {
+        return digits.replace(/(\d{5})(\d{0,3})/, "$1-$2");
+    }
+    return digits;
+}
+
+// =====================================================================
+// VIA CEP
+// =====================================================================
+async function lookupCep(cepRaw) {
+    const cep = (cepRaw || "").replace(/\D/g, "");
+    if (cep.length !== 8) throw new Error("CEP inválido");
+    const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    if (!r.ok) throw new Error("Falha ao consultar CEP");
+    return r.json();
+}
 
 // =====================================================================
 // MÁSCARA DE CELULAR — (99) 99999-9999
@@ -86,6 +121,7 @@ let PER_PAGE = 10;
 function initUsers() {
     document.getElementById("btnAdd").addEventListener("click", openCreate);
     document.getElementById("btnHeaderEdit").addEventListener("click", openEditFromSelection);
+    document.getElementById("btnHeaderDetail").addEventListener("click", openDetailFromSelection);
     document.getElementById("btnHeaderDel").addEventListener("click", deleteFromSelection);
 
     document.getElementById("toggleAtivos").addEventListener("change", applyFilters);
@@ -101,13 +137,46 @@ function initUsers() {
     document.getElementById("pg-next").addEventListener("click", () => changePage(1));
 
     document.getElementById("formUser").addEventListener("submit", saveUser);
+    document.getElementById("role").addEventListener("change", toggleMotoboySection);
 
     document.getElementById("contato").addEventListener("input", (ev) => {
-    ev.target.value = maskCellphone(ev.target.value);
-});
-
+        ev.target.value = maskCellphone(ev.target.value);
+    });
+    document.getElementById("documento").addEventListener("input", (ev) => {
+        ev.target.value = maskDocumento(ev.target.value);
+    });
+    document.getElementById("cep").addEventListener("input", (ev) => {
+        ev.target.value = maskCep(ev.target.value);
+    });
+    document.getElementById("cep").addEventListener("blur", async function() {
+        const cep = this.value.replace(/\D/g, "");
+        if (cep.length === 8) {
+            try {
+                const data = await lookupCep(cep);
+                if (data && !data.erro) {
+                    document.getElementById("rua").value = data.logradouro || "";
+                    document.getElementById("bairro").value = data.bairro || "";
+                    document.getElementById("cidade").value = data.localidade || "";
+                    document.getElementById("estado").value = data.uf || "";
+                }
+            } catch (e) {}
+        }
+    });
 
     loadUsers();
+}
+
+function toggleMotoboySection() {
+    const role = Number(document.getElementById("role").value);
+    const section = document.getElementById("sectionMotoboy");
+    const ignorarColeta = (CURRENT_USER && CURRENT_USER.ignorar_coleta) || false;
+    if (role === 4) {
+        section.classList.remove("d-none");
+        document.getElementById("podeLerColeta").disabled = ignorarColeta;
+        if (ignorarColeta) document.getElementById("podeLerColeta").checked = false;
+    } else {
+        section.classList.add("d-none");
+    }
 }
 
 
@@ -191,11 +260,11 @@ function renderTable() {
         const roleName = ({
             1: "Administrador",
             2: "Operador",
-            3: "Coletador"
+            4: "Motoboy"
         })[u.role] || "Desconhecido";
 
         return `
-        <tr data-id="${u.id}">
+        <tr data-id="${u.id}" data-role="${u.role || 0}">
             <td><input class="form-check-input row-select" type="checkbox"></td>
             <td>${u.nome || "-"}</td>
             <td>${u.sobrenome || "-"}</td>
@@ -233,7 +302,10 @@ function setupRowSelection() {
     document.querySelectorAll(".row-select").forEach(chk => {
         chk.addEventListener("change", () => {
             const ids = getSelectedIds();
+            const tr = ids.length === 1 ? document.querySelector(`tr[data-id="${ids[0]}"]`) : null;
+            const isMotoboy = tr && Number(tr.dataset.role) === 4;
             document.getElementById("btnHeaderEdit").disabled = ids.length !== 1;
+            document.getElementById("btnHeaderDetail").disabled = !(ids.length === 1 && isMotoboy);
             document.getElementById("btnHeaderDel").disabled = ids.length < 1;
         });
     });
@@ -299,9 +371,29 @@ function openCreate() {
     document.getElementById("statusToggle").checked = true;
     document.getElementById("role").value = 2;
 
+    document.getElementById("documento").value = "";
+    document.getElementById("cep").value = "";
+    document.getElementById("rua").value = "";
+    document.getElementById("numero").value = "";
+    document.getElementById("complemento").value = "";
+    document.getElementById("bairro").value = "";
+    document.getElementById("cidade").value = "";
+    document.getElementById("estado").value = "";
+    document.getElementById("podeLerColeta").checked = false;
+    document.getElementById("podeLerSaida").checked = true;
+
     document.getElementById("groupPassword").classList.remove("d-none");
+    toggleMotoboySection();
+    clearMotoboyValidation();
 
     new bootstrap.Offcanvas("#oc-user").show();
+}
+
+function clearMotoboyValidation() {
+    ["documento", "cep", "rua", "numero", "bairro", "cidade"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.classList.remove("is-invalid"); }
+    });
 }
 
 
@@ -327,12 +419,62 @@ async function openEdit(id) {
     document.getElementById("contato").value = data.contato || "";
     document.getElementById("email").value = data.email;
     document.getElementById("statusToggle").checked = data.status;
-
     document.getElementById("role").value = data.role || 2;
 
+    const m = data.motoboy || {};
+    document.getElementById("documento").value = m.documento || "";
+    document.getElementById("cep").value = m.cep || "";
+    document.getElementById("rua").value = m.rua || "";
+    document.getElementById("numero").value = m.numero || "";
+    document.getElementById("complemento").value = m.complemento || "";
+    document.getElementById("bairro").value = m.bairro || "";
+    document.getElementById("cidade").value = m.cidade || "";
+    document.getElementById("estado").value = m.estado || "";
+    document.getElementById("podeLerColeta").checked = !!m.pode_ler_coleta;
+    document.getElementById("podeLerSaida").checked = m.pode_ler_saida !== false;
+
     document.getElementById("groupPassword").classList.add("d-none");
+    toggleMotoboySection();
+    clearMotoboyValidation();
 
     new bootstrap.Offcanvas("#oc-user").show();
+}
+
+function openDetailFromSelection() {
+    const ids = getSelectedIds();
+    if (ids.length !== 1) return;
+    const tr = document.querySelector(`tr[data-id="${ids[0]}"]`);
+    if (!tr || Number(tr.dataset.role) !== 4) return;
+    openMotoboyDetail(ids[0]);
+}
+
+async function openMotoboyDetail(userId) {
+    const data = await fetch(`${API}/${userId}`, { credentials: "include" })
+        .then(r => r.json());
+    const m = data.motoboy || {};
+    const formatted = data.contato ? maskCellphone(data.contato) : "-";
+    const html = `
+        <dl class="row mb-0">
+            <dt class="col-sm-4">Usuário</dt>
+            <dd class="col-sm-8">${data.nome || ""} ${data.sobrenome || ""}</dd>
+            <dt class="col-sm-4">Contato</dt>
+            <dd class="col-sm-8">${formatted}</dd>
+            <dt class="col-sm-4">Documento</dt>
+            <dd class="col-sm-8">${m.documento || "-"}</dd>
+            <dt class="col-sm-4">Endereço</dt>
+            <dd class="col-sm-8">
+                ${[m.rua, m.numero, m.complemento].filter(Boolean).join(", ") || "-"}<br>
+                ${[m.bairro, m.cidade, m.estado ? m.estado + " -" : ""].filter(Boolean).join(", ")} ${m.cep || ""}
+            </dd>
+            <dt class="col-sm-4">Pode ler Coletas</dt>
+            <dd class="col-sm-8">${m.pode_ler_coleta ? "Sim" : "Não"}</dd>
+            <dt class="col-sm-4">Pode ler Saídas</dt>
+            <dd class="col-sm-8">${m.pode_ler_saida !== false ? "Sim" : "Não"}</dd>
+        </dl>
+    `;
+    document.getElementById("motoboyDetailBody").innerHTML = html;
+    document.getElementById("ocDetailLabel").textContent = "Dados do Motoboy";
+    new bootstrap.Offcanvas("#oc-motoboy-detail").show();
 }
 
 
@@ -358,6 +500,7 @@ async function saveUser(ev) {
     // VALIDAÇÃO
     // -------------------------------------------------------
     const erros = [];
+    clearMotoboyValidation();
 
     if (!nome) erros.push("Nome é obrigatório.");
     if (!sobrenome) erros.push("Sobrenome é obrigatório.");
@@ -372,6 +515,21 @@ async function saveUser(ev) {
     const isNew = !id;
     if (isNew && senha.length < 4) {
         erros.push("Senha deve ter no mínimo 4 caracteres.");
+    }
+
+    if (role === 4) {
+        const doc = (document.getElementById("documento").value || "").replace(/\D/g, "");
+        const rua = document.getElementById("rua").value.trim();
+        const num = document.getElementById("numero").value.trim();
+        const bairro = document.getElementById("bairro").value.trim();
+        const cidade = document.getElementById("cidade").value.trim();
+        const cep = (document.getElementById("cep").value || "").replace(/\D/g, "");
+        if (!doc) { erros.push("Documento é obrigatório para Motoboy."); document.getElementById("documento").classList.add("is-invalid"); }
+        if (!rua) { erros.push("Rua é obrigatória."); document.getElementById("rua").classList.add("is-invalid"); }
+        if (!num) { erros.push("Número é obrigatório."); document.getElementById("numero").classList.add("is-invalid"); }
+        if (!bairro) { erros.push("Bairro é obrigatório."); document.getElementById("bairro").classList.add("is-invalid"); }
+        if (!cidade) { erros.push("Cidade é obrigatória."); document.getElementById("cidade").classList.add("is-invalid"); }
+        if (cep.length !== 8) { erros.push("CEP inválido (8 dígitos)."); document.getElementById("cep").classList.add("is-invalid"); }
     }
 
     if (erros.length > 0) {
@@ -390,13 +548,26 @@ async function saveUser(ev) {
         nome,
         sobrenome,
         username,
-        contato: contato.replace(/\D/g, ""), // só números
+        contato: contato.replace(/\D/g, ""),
         email,
         status,
         role
     };
 
     if (isNew) payload.password = senha;
+
+    if (role === 4) {
+        payload.documento = (document.getElementById("documento").value || "").replace(/\D/g, "");
+        payload.rua = document.getElementById("rua").value.trim();
+        payload.numero = document.getElementById("numero").value.trim();
+        payload.complemento = document.getElementById("complemento").value.trim() || null;
+        payload.bairro = document.getElementById("bairro").value.trim();
+        payload.cidade = document.getElementById("cidade").value.trim();
+        payload.estado = document.getElementById("estado").value.trim() || null;
+        payload.cep = (document.getElementById("cep").value || "").replace(/\D/g, "");
+        payload.pode_ler_coleta = document.getElementById("podeLerColeta").checked;
+        payload.pode_ler_saida = document.getElementById("podeLerSaida").checked;
+    }
 
     try {
         const resp = await fetch(isNew ? `${API}/` : `${API}/${id}`, {
