@@ -549,10 +549,15 @@ function createRow(row){
       ? TrackAPI.getEntregadores()
       : Promise.reject(new Error("TrackAPI.getEntregadores não disponível"));
   }
+  function apiGetMotoboys(){
+    return window.TrackAPI?.getMotoboys
+      ? TrackAPI.getMotoboys()
+      : Promise.reject(new Error("TrackAPI.getMotoboys não disponível"));
+  }
   // Leitura otimizada de saída: usa POST /saidas/ler (1 SELECT + INSERT/UPDATE no backend).
-  function apiLerSaida({ entregador_id, entregador, codigo, servico, registrar_nao_coletado, qr_payload_raw }){
+  function apiLerSaida({ entregador_id, entregador, motoboy_id, codigo, servico, registrar_nao_coletado, qr_payload_raw }){
     return window.TrackAPI?.lerSaida
-      ? TrackAPI.lerSaida({ entregador_id, entregador, codigo, servico, registrar_nao_coletado, qr_payload_raw })
+      ? TrackAPI.lerSaida({ entregador_id, entregador, motoboy_id, codigo, servico, registrar_nao_coletado, qr_payload_raw })
       : Promise.reject(new Error("TrackAPI.lerSaida não disponível"));
   }
   function apiRegistrarSaida({ entregador_id, entregador, codigo, servico }){
@@ -677,28 +682,28 @@ function createRow(row){
     }
   }
 
-  // ---------- carregar entregadores (sempre inicia vazio) ----------
-  // Cache id -> nome para lookups (usado quando value é id_entregador)
-  let entregadoresMap = new Map(); // id_entregador -> nome
-  function loadEntregadores(){
-    return apiGetEntregadores().then(res => {
+  // ---------- carregar motoboys (users role=4) ----------
+  // Cache id_motoboy -> nome para lookups
+  let entregadoresMap = new Map(); // id_motoboy -> nome (mantido para compat.)
+  function loadMotoboys(){
+    return apiGetMotoboys().then(res => {
       const raw = Array.isArray(res) ? res : (res?.data ?? []);
       entregadoresMap = new Map();
       const opts = raw
-        .filter(e => e && (e.id_entregador != null || e.id != null))
+        .filter(e => e && (e.id_motoboy != null || e.id != null))
         .map(e => {
-          const id = e.id_entregador ?? e.id;
+          const id = e.id_motoboy ?? e.id;
           const nome = (e?.nome || e?.name || String(id)).trim() || String(id);
           entregadoresMap.set(String(id), nome);
           return { id, nome };
         });
       if (!selEnt) return;
       selEnt.innerHTML =
-        '<option value="" selected disabled>Selecione entregador</option>' +
+        '<option value="" selected disabled>Motoboy obrigatório</option>' +
         opts.map(o => `<option value="${o.id}">${o.nome}</option>`).join("");
       selEnt.selectedIndex = 0; // não lembrar último
       onEntregadorChange();
-    }).catch(() => { showMsgIcon("erro","Falha ao carregar entregadores."); Sound.play("err"); });
+    }).catch(() => { showMsgIcon("erro","Falha ao carregar motoboys."); Sound.play("err"); });
   }
 
   function onEntregadorChange(){
@@ -708,7 +713,7 @@ function createRow(row){
     if (!entNow) return;
     // renderiza pendentes deste entregador (ficam como "Enviando…")
     const pend = loadPending().filter(p =>
-      String(p.entregador_id) === String(entNow) || (p.entregador_id == null && p.entregador === entregadoresMap.get(entNow))
+      String(p.motoboy_id || p.entregador_id) === String(entNow) || (p.entregador_id == null && p.motoboy_id == null && p.entregador === entregadoresMap.get(entNow))
     );
     for (const p of pend) {
       const entNome = p.entregador || entregadoresMap.get(String(p.entregador_id)) || "";
@@ -784,14 +789,14 @@ async function registrar() {
   let lockAtivo = false;  // 🔹 garante liberação correta do lock
 
   try {
-    const entregadorIdRaw = selEnt?.value?.trim() || "";
-    if (!entregadorIdRaw) {
-      showMsgIcon("erro", "Selecione o entregador.");
+    const motoboyIdRaw = selEnt?.value?.trim() || "";
+    if (!motoboyIdRaw) {
+      showMsgIcon("erro", "Selecione o motoboy.");
       Sound.play("err");
       return { ok:false, tipo:"sem_entregador" };
     }
-    const entregadorId = parseInt(entregadorIdRaw, 10);
-    const entregador = selEnt?.options[selEnt.selectedIndex]?.text?.trim() || entregadoresMap.get(entregadorIdRaw) || "";
+    const motoboyId = parseInt(motoboyIdRaw, 10);
+    const entregador = selEnt?.options[selEnt.selectedIndex]?.text?.trim() || entregadoresMap.get(motoboyIdRaw) || "";
 
     const rawInput = inpCod?.value || "";
     if (!rawInput.trim()) {
@@ -849,7 +854,7 @@ async function registrar() {
 
     // POST /saidas/ler — 1 request leve (sem GET listar). Backend: 1 SELECT + 1 INSERT/UPDATE.
     const res = await apiLerSaida({
-      entregador_id: entregadorId,
+      motoboy_id: motoboyId,
       entregador,
       codigo: codigoFinal,
       servico,
@@ -923,7 +928,7 @@ async function registrar() {
         return { ok:false, tipo:"ja_saiu", backend_processing_ms };
       }
       const patchResp = window.TrackAPI?.updateSaida
-        ? await TrackAPI.updateSaida(idSaida, { status: "Saiu para entrega", entregador_id: entregadorId, entregador })
+        ? await TrackAPI.updateSaida(idSaida, { status: "Saiu para entrega", motoboy_id: motoboyId, entregador })
         : { ok: false, error: "TrackAPI.updateSaida não disponível" };
       if (!patchResp.ok) {
         const msg = patchResp.error || "";
@@ -975,7 +980,7 @@ async function registrar() {
         return { ok:false, tipo:"nao_coletado_cancelado", backend_processing_ms };
       }
       const postResp = window.TrackAPI?.lerSaida
-        ? await TrackAPI.lerSaida({ codigo: codigoFinal, entregador_id: entregadorId, entregador, servico, registrar_nao_coletado: true, qr_payload_raw: cls.qr_payload_raw || undefined })
+        ? await TrackAPI.lerSaida({ codigo: codigoFinal, motoboy_id: motoboyId, entregador, servico, registrar_nao_coletado: true, qr_payload_raw: cls.qr_payload_raw || undefined })
         : { ok: false, data: null, error: "TrackAPI.lerSaida não disponível" };
       if (!postResp.ok) {
         showMsgIcon("erro", postResp.error || "Erro ao registrar.");
@@ -1205,7 +1210,7 @@ async function registrar() {
 
 
 // ---------- init ----------
-loadEntregadores().then(() => {
+loadMotoboys().then(() => {
   inpCod?.focus();
 
   // Modo Monitor: estado inicial e botão

@@ -202,7 +202,15 @@ async function loadUsers() {
 
     try {
         const resp = await fetch(`${API}/all`, { credentials: "include" });
-        if (!resp.ok) throw new Error("Falha ao carregar usuários");
+        let errMsg = "Falha ao carregar usuários.";
+        if (!resp.ok) {
+            try {
+                const body = await resp.json();
+                if (body && typeof body.detail === "string") errMsg = body.detail;
+                else if (body && Array.isArray(body.detail)) errMsg = body.detail.map(d => d.msg || d).join("; ");
+            } catch (_) {}
+            throw new Error(errMsg);
+        }
 
         let users = await resp.json();
 
@@ -214,8 +222,9 @@ async function loadUsers() {
 
     } catch (err) {
         console.error(err);
+        const msg = (err && err.message) || "Erro ao carregar usuários.";
         document.getElementById("tbody-users").innerHTML = `
-            <tr><td colspan="8" class="text-center text-danger py-4">Erro ao carregar usuários.</td></tr>
+            <tr><td colspan="8" class="text-center text-danger py-4">${msg}</td></tr>
         `;
     }
 }

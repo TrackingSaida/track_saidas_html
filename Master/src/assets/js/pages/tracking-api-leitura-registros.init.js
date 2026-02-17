@@ -100,12 +100,13 @@
   // - 1 único request leve (1 SELECT + 1 INSERT/UPDATE no backend)
   // - Sem GET /saidas/listar?codigo= antes de decidir POST/PATCH
   // - 200/201 tratam idempotência; 409 é reservado para troca de entregador.
-  window.TrackAPI.lerSaida = async function ({ entregador_id, entregador, codigo, servico, registrar_nao_coletado, qr_payload_raw }) {
+  window.TrackAPI.lerSaida = async function ({ entregador_id, entregador, motoboy_id, codigo, servico, registrar_nao_coletado, qr_payload_raw }) {
     try {
       const body = {
         codigo,
         servico
       };
+      if (motoboy_id != null) body.motoboy_id = motoboy_id;
       if (entregador_id != null) body.entregador_id = entregador_id;
       if (entregador != null) body.entregador = entregador;
       if (registrar_nao_coletado === true) body.registrar_nao_coletado = true;
@@ -205,12 +206,21 @@
   };
 
   // ============================================================
-  // LISTA ENTREGADORES
+  // LISTA ENTREGADORES (legado)
   // ============================================================
   window.TrackAPI.getEntregadores = async function () {
     const res = await req("/entregadores");
     let data = null; try { data = await res.json(); } catch {}
     return data;
+  };
+
+  // ============================================================
+  // LISTA MOTOBOYS (users role=4)
+  // ============================================================
+  window.TrackAPI.getMotoboys = async function () {
+    const res = await req("/users/motoboys");
+    let data = null; try { data = await res.json(); } catch {}
+    return Array.isArray(data) ? data : (data?.data || []);
   };
 
 })();
