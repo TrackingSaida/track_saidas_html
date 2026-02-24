@@ -338,6 +338,109 @@
   </div></div>
 </div>
 
+<!-- Painel Detalhe + Histórico (drawer, divisão vertical) -->
+<div id="reg-detail-panel-overlay" class="reg-detail-overlay" aria-hidden="true"></div>
+<div id="reg-detail-panel" class="reg-detail-panel" aria-hidden="true">
+  <div class="reg-detail-panel-inner">
+    <header class="reg-detail-header d-flex justify-content-between align-items-center px-3 py-2 border-bottom bg-light">
+      <h5 class="reg-detail-title mb-0 fw-semibold">Pedido <span id="reg-detail-codigo">—</span></h5>
+      <button type="button" class="btn btn-ghost-secondary btn-sm" id="reg-detail-close" title="Fechar">
+        <i class="ri-close-line"></i>
+      </button>
+    </header>
+    <div id="reg-detail-loading" class="reg-detail-loading text-center py-5 text-muted d-none">
+      <div class="spinner-border" role="status"></div>
+      <p class="mt-2 mb-0">Carregando...</p>
+    </div>
+    <div id="reg-detail-body" class="reg-detail-body d-none">
+      <div class="reg-detail-grid">
+        <div class="reg-detail-col reg-detail-col-left">
+          <h6 class="reg-detail-col-title text-uppercase small text-muted mb-2">Detalhe do pedido</h6>
+          <div id="reg-detail-content" class="reg-detail-content"></div>
+        </div>
+        <div class="reg-detail-col reg-detail-col-right">
+          <h6 class="reg-detail-col-title text-uppercase small text-muted mb-2">Histórico</h6>
+          <div id="reg-detail-historical" class="reg-detail-historical"></div>
+        </div>
+      </div>
+    </div>
+    <div id="reg-detail-error" class="reg-detail-error text-center py-4 text-danger d-none"></div>
+  </div>
+</div>
+<style>
+  .reg-detail-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 1040;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+  }
+  .reg-detail-overlay.show { opacity: 1; visibility: visible; }
+  .reg-detail-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 55vh;
+    z-index: 1050;
+    background: var(--bs-body-bg, #fff);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+    transform: translateY(100%);
+    transition: transform 0.25s ease-out;
+    display: flex;
+    flex-direction: column;
+  }
+  .reg-detail-panel.open {
+    transform: translateY(0);
+  }
+  .reg-detail-panel-inner {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+  }
+  .reg-detail-header { flex-shrink: 0; }
+  .reg-detail-body, .reg-detail-loading, .reg-detail-error { flex: 1; min-height: 0; }
+  .reg-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    height: 100%;
+    min-height: 200px;
+    padding: 1rem;
+  }
+  .reg-detail-col {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .reg-detail-col-title { flex-shrink: 0; }
+  .reg-detail-content,
+  .reg-detail-historical {
+    overflow-y: auto;
+    flex: 1;
+    font-size: 0.875rem;
+  }
+  .reg-detail-item { margin-bottom: 0.5rem; }
+  .reg-detail-item label { color: #6c757d; margin-bottom: 0.15rem; }
+  .reg-detail-item .value { word-break: break-word; }
+  .reg-detail-event {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    font-size: 0.8125rem;
+  }
+  .reg-detail-event:last-child { border-bottom: none; }
+  .reg-detail-event .event-time { color: #6c757d; }
+  .reg-detail-event .event-name { font-weight: 500; }
+  @media (max-width: 768px) {
+    .reg-detail-panel { max-height: 70vh; }
+    .reg-detail-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
 <div class="modal fade" id="bulkModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg">

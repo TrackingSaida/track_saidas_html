@@ -498,14 +498,22 @@ function setupPagerEvents() {
 
     tblBody.addEventListener("click", function(e) {
       var btn = e.target.closest("[data-etiqueta]");
-      if (!btn) return;
-      var codigo = btn.dataset.etiqueta;
-      if (!codigo) return;
-      e.preventDefault();
-      e.stopPropagation();
-      var idSaida = btn.dataset.idSaida ? parseInt(btn.dataset.idSaida, 10) : null;
-      var servico = btn.dataset.servico || null;
-      gerarEtiquetaPdf({ codigo: codigo, id_saida: idSaida, servico: servico });
+      if (btn) {
+        var codigo = btn.dataset.etiqueta;
+        if (!codigo) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var idSaida = btn.dataset.idSaida ? parseInt(btn.dataset.idSaida, 10) : null;
+        var servico = btn.dataset.servico || null;
+        gerarEtiquetaPdf({ codigo: codigo, id_saida: idSaida, servico: servico });
+        return;
+      }
+      if (e.target.closest(".rowchk")) return;
+      var tr = e.target.closest("tr[data-id]");
+      if (tr) {
+        var id = tr.getAttribute("data-id");
+        if (id) openDetailPanel(id);
+      }
     });
   }
 
@@ -540,6 +548,110 @@ function setupPagerEvents() {
         notify(err.message || "Falha ao gerar etiqueta.", "error");
       });
   }
+
+  // =====================================================================
+  // Painel Detalhe + Histórico (clique na linha)
+  // =====================================================================
+  var detailOverlay = document.getElementById("reg-detail-panel-overlay");
+  var detailPanel = document.getElementById("reg-detail-panel");
+  var detailTitleCodigo = document.getElementById("reg-detail-codigo");
+  var detailLoading = document.getElementById("reg-detail-loading");
+  var detailBody = document.getElementById("reg-detail-body");
+  var detailContent = document.getElementById("reg-detail-content");
+  var detailHistorical = document.getElementById("reg-detail-historical");
+  var detailError = document.getElementById("reg-detail-error");
+  var detailCloseBtn = document.getElementById("reg-detail-close");
+
+  function fmtDt(d) {
+    if (!d) return "—";
+    try {
+      var x = typeof d === "string" ? new Date(d) : d;
+      return isNaN(x.getTime()) ? "—" : x.toLocaleString("pt-BR");
+    } catch (_) { return "—"; }
+  }
+
+  function closeDetailPanel() {
+    if (detailOverlay) detailOverlay.classList.remove("show");
+    if (detailPanel) detailPanel.classList.remove("open");
+    if (detailPanel) detailPanel.setAttribute("aria-hidden", "true");
+    if (detailOverlay) detailOverlay.setAttribute("aria-hidden", "true");
+  }
+
+  function openDetailPanel(idSaida) {
+    var base = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+    var urlDetalhe = base + "/saidas/" + idSaida;
+    var urlHistorico = base + "/saidas/" + idSaida + "/historico";
+
+    if (detailTitleCodigo) detailTitleCodigo.textContent = "…";
+    if (detailLoading) detailLoading.classList.remove("d-none");
+    if (detailBody) detailBody.classList.add("d-none");
+    if (detailError) { detailError.classList.add("d-none"); detailError.textContent = ""; }
+
+    if (detailOverlay) { detailOverlay.classList.add("show"); detailOverlay.setAttribute("aria-hidden", "false"); }
+    if (detailPanel) { detailPanel.classList.add("open"); detailPanel.setAttribute("aria-hidden", "false"); }
+
+    Promise.all([
+      fetch(urlDetalhe, { credentials: "include" }).then(function(r) { return r.ok ? r.json() : Promise.reject(r); }),
+      fetch(urlHistorico, { credentials: "include" }).then(function(r) { return r.ok ? r.json() : Promise.reject(r); })
+    ]).then(function(results) {
+      var saida = results[0];
+      var historico = Array.isArray(results[1]) ? results[1] : [];
+
+      if (detailTitleCodigo) detailTitleCodigo.textContent = saida.codigo || idSaida;
+
+      var d = saida.detail || {};
+      var parts = [];
+      function row(label, value) {
+        if (value == null || value === "") return "";
+        return "<div class=\"reg-detail-item\"><label class=\"d-block small\">" + (label || "") + "</label><div class=\"value\">" + (value || "—") + "</div></div>";
+      }
+      parts.push(row("Código", saida.codigo));
+      parts.push(row("Serviço", saida.servico));
+      parts.push(row("Status", saida.status));
+      parts.push(row("Data/Hora", fmtDt(saida.timestamp)));
+      parts.push(row("Base", saida.base));
+      parts.push(row("Lido por", saida.username));
+      parts.push(row("Entregador", saida.entregador));
+      if (saida.data_hora_entrega) parts.push(row("Data/Hora entrega", fmtDt(saida.data_hora_entrega)));
+      parts.push(row("Destinatário", d.dest_nome));
+      var end = [d.dest_rua, d.dest_numero, d.dest_complemento, d.dest_bairro, d.dest_cidade, d.dest_estado, d.dest_cep].filter(Boolean).join(", ");
+      if (!end && d.endereco_formatado) end = d.endereco_formatado;
+      parts.push(row("Endereço", end || null));
+      parts.push(row("Recebedor", d.nome_recebedor));
+      parts.push(row("Tipo recebedor", d.tipo_recebedor));
+      parts.push(row("Tentativa", d.tentativa != null ? String(d.tentativa) : null));
+      parts.push(row("Motivo ocorrência", d.motivo_ocorrencia));
+      parts.push(row("Observação ocorrência", d.observacao_ocorrencia));
+      parts.push(row("Observação entrega", d.observacao_entrega));
+
+      if (detailContent) detailContent.innerHTML = parts.filter(Boolean).join("");
+
+      var eventLabels = { criado: "Criado", lido: "Lido", criado_coleta: "Coleta", em_rota: "Em rota", entregue: "Entregue", ausente: "Ausente", nova_tentativa: "Nova tentativa", scan: "Scan", assumir: "Assumir", reatribuicao: "Reatribuição" };
+      var histHtml = historico.length === 0
+        ? "<p class=\"text-muted small mb-0\">Nenhum evento registrado.</p>"
+        : historico.map(function(h) {
+            var nome = eventLabels[h.evento] || h.evento;
+            var statusPart = (h.status_anterior && h.status_novo) ? " " + h.status_anterior + " → " + h.status_novo : "";
+            var por = h.usuario_nome ? " por " + h.usuario_nome : (h.user_id ? " (user " + h.user_id + ")" : "");
+            return "<div class=\"reg-detail-event\"><span class=\"event-time\">" + fmtDt(h.timestamp) + "</span> — <span class=\"event-name\">" + nome + "</span>" + statusPart + por + "</div>";
+          }).join("");
+      if (detailHistorical) detailHistorical.innerHTML = histHtml;
+
+      if (detailLoading) detailLoading.classList.add("d-none");
+      if (detailBody) detailBody.classList.remove("d-none");
+    }).catch(function(err) {
+      if (detailLoading) detailLoading.classList.add("d-none");
+      if (detailBody) detailBody.classList.add("d-none");
+      if (detailError) {
+        detailError.classList.remove("d-none");
+        detailError.textContent = err.status === 404 ? "Registro não encontrado." : (err.status === 403 ? "Sem permissão." : "Erro ao carregar.");
+      }
+      notify(err.status === 404 ? "Registro não encontrado." : "Erro ao carregar detalhe.", "error");
+    });
+  }
+
+  if (detailCloseBtn) detailCloseBtn.addEventListener("click", closeDetailPanel);
+  if (detailOverlay) detailOverlay.addEventListener("click", closeDetailPanel);
 
   if (chkAll){
     chkAll.addEventListener("change", () => {
