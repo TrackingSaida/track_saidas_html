@@ -334,12 +334,7 @@ function augmentEntregadoresFromRows(rows){
       "-";
 
     var rawSt = String(r.status || "").toLowerCase();
-    var statusUI =
-      rawSt === "saiu" || rawSt === "saiu para entrega" ? "Saiu para entrega" :
-      rawSt === "coletado" ? "Coletado" :
-      rawSt === "nao coletado" || rawSt === "não coletado" ? "Não Coletado" :
-      rawSt === "cancelado" ? "Cancelado" :
-      r.status || "-";
+    var statusUI = formatStatusForDisplay(r.status);
 
     return {
       ...r,
@@ -353,6 +348,32 @@ function augmentEntregadoresFromRows(rows){
   // =====================================================================
   // Tabela
   // =====================================================================
+  function getStatusClass(status) {
+    if (!status) return "status-default";
+    var s = String(status).toLowerCase().replace(/_/g, " ");
+    if (s.indexOf("entregue") !== -1) return "status-success";
+    if (s.indexOf("ausente") !== -1) return "status-warning";
+    if (s.indexOf("cancelado") !== -1) return "status-danger";
+    if (s.indexOf("rota") !== -1 || s.indexOf("saiu") !== -1) return "status-info";
+    return "status-default";
+  }
+
+  function formatStatusForDisplay(status) {
+    if (status == null || status === "") return "—";
+    var s = String(status).replace(/_/g, " ").trim();
+    var lower = s.toLowerCase();
+    if (lower === "saiu" || lower === "saiu para entrega") return "SAIU PARA ENTREGA";
+    return s.toUpperCase();
+  }
+
+  function getServicoClass(servico) {
+    if (!servico) return "servico-default";
+    var s = String(servico).toLowerCase();
+    if (s.indexOf("shopee") !== -1) return "servico-shopee";
+    if (s.indexOf("mercado") !== -1 || s.indexOf("livre") !== -1) return "servico-ml";
+    return "servico-avulso";
+  }
+
   function renderTable(rows){
     if (!tblBody) return;
     if (!rows?.length){
@@ -365,16 +386,20 @@ function augmentEntregadoresFromRows(rows){
       .map(r => {
         var rid = getRowId(r);
         var isCancelado = String(r.status || "").toLowerCase() === "cancelado";
+        var rowClass = "registro-row clickable-row" + (isCancelado ? " table-danger-subtle bg-danger-subtle" : "");
+        var statusBadgeClass = "status-badge " + getStatusClass(r.status);
+        var servicoBadgeClass = "servico-badge " + getServicoClass(r.servico);
         return `
-          <tr data-id="${rid}" ${isCancelado ? 'class="table-danger-subtle bg-danger-subtle"' : ''}>
+          <tr data-id="${rid}" class="${rowClass}">
+            <td class="expand-icon"><i class="ri-arrow-right-s-line"></i></td>
             <td><input type="checkbox" class="rowchk form-check-input" /></td>
             <td>${r.tsFmt || ""}</td>
             <td>${r.base || "-"}</td>
             <td>${r.username || "-"}</td>
             <td>${r.entregador || "-"}</td>
             <td><span class="d-inline-flex align-items-center gap-1">${r.codigo || "-"} <button type="button" class="btn btn-link btn-sm p-0 text-primary" title="Gerar etiqueta" data-etiqueta="${(r.codigo || "").replace(/"/g, "&quot;")}" data-id-saida="${rid || ""}" data-servico="${(r.servico || "").replace(/"/g, "&quot;")}"><i class="ri-printer-line"></i></button></span></td>
-            <td>${r.servico || "-"}</td>
-            <td>${r.status || "-"}</td>
+            <td><span class="${servicoBadgeClass}">${r.servico || "-"}</span></td>
+            <td><span class="${statusBadgeClass}">${r.status || "-"}</span></td>
           </tr>`;
       })
       .join("");
@@ -570,17 +595,36 @@ function setupPagerEvents() {
     } catch (_) { return "—"; }
   }
 
+  function buildTimeline(historico) {
+    var eventLabels = { criado: "Criado", lido: "Lido", criado_coleta: "Coleta", em_rota: "Em rota", entregue: "Entregue", ausente: "Ausente", nova_tentativa: "Nova tentativa", scan: "Scan", assumir: "Assumir", reatribuicao: "Reatribuição" };
+    if (!historico || historico.length === 0)
+      return "<p class=\"text-muted small mb-0\">Nenhum evento registrado.</p>";
+    return historico.map(function(item) {
+      var title = eventLabels[item.evento] || item.evento;
+      if (item.status_anterior && item.status_novo) title += " (" + formatStatusForDisplay(item.status_anterior) + " → " + formatStatusForDisplay(item.status_novo) + ")";
+      var dateLine = fmtDt(item.timestamp);
+      if (item.usuario_nome) dateLine += " — por " + item.usuario_nome;
+      else if (item.user_id) dateLine += " — user " + item.user_id;
+      return "<div class=\"timeline-item\"><div class=\"timeline-dot\"></div><div class=\"timeline-content\"><div class=\"timeline-title\">" + title + "</div><div class=\"timeline-date\">" + dateLine + "</div></div></div>";
+    }).join("");
+  }
+
   function closeDetailPanel() {
     if (detailOverlay) detailOverlay.classList.remove("show");
     if (detailPanel) detailPanel.classList.remove("open");
     if (detailPanel) detailPanel.setAttribute("aria-hidden", "true");
     if (detailOverlay) detailOverlay.setAttribute("aria-hidden", "true");
+    qsa(".clickable-row").forEach(function(tr) { tr.classList.remove("open"); });
   }
 
   function openDetailPanel(idSaida) {
     var base = (window.TRACK_API_URL || "").replace(/\/+$/, "");
     var urlDetalhe = base + "/saidas/" + idSaida;
     var urlHistorico = base + "/saidas/" + idSaida + "/historico";
+
+    qsa(".clickable-row").forEach(function(tr) { tr.classList.remove("open"); });
+    var activeRow = tblBody ? tblBody.querySelector('tr[data-id="' + idSaida + '"]') : null;
+    if (activeRow) activeRow.classList.add("open");
 
     if (detailTitleCodigo) detailTitleCodigo.textContent = "…";
     if (detailLoading) detailLoading.classList.remove("d-none");
@@ -600,42 +644,43 @@ function setupPagerEvents() {
       if (detailTitleCodigo) detailTitleCodigo.textContent = saida.codigo || idSaida;
 
       var d = saida.detail || {};
-      var parts = [];
-      function row(label, value) {
-        if (value == null || value === "") return "";
-        return "<div class=\"reg-detail-item\"><label class=\"d-block small\">" + (label || "") + "</label><div class=\"value\">" + (value || "—") + "</div></div>";
-      }
-      parts.push(row("Código", saida.codigo));
-      parts.push(row("Serviço", saida.servico));
-      parts.push(row("Status", saida.status));
-      parts.push(row("Data/Hora", fmtDt(saida.timestamp)));
-      parts.push(row("Base", saida.base));
-      parts.push(row("Lido por", saida.username));
-      parts.push(row("Entregador", saida.entregador));
-      if (saida.data_hora_entrega) parts.push(row("Data/Hora entrega", fmtDt(saida.data_hora_entrega)));
-      parts.push(row("Destinatário", d.dest_nome));
-      var end = [d.dest_rua, d.dest_numero, d.dest_complemento, d.dest_bairro, d.dest_cidade, d.dest_estado, d.dest_cep].filter(Boolean).join(", ");
-      if (!end && d.endereco_formatado) end = d.endereco_formatado;
-      parts.push(row("Endereço", end || null));
-      parts.push(row("Recebedor", d.nome_recebedor));
-      parts.push(row("Tipo recebedor", d.tipo_recebedor));
-      parts.push(row("Tentativa", d.tentativa != null ? String(d.tentativa) : null));
-      parts.push(row("Motivo ocorrência", d.motivo_ocorrencia));
-      parts.push(row("Observação ocorrência", d.observacao_ocorrencia));
-      parts.push(row("Observação entrega", d.observacao_entrega));
+      var statusClass = getStatusClass(saida.status);
+      var statusText = formatStatusForDisplay(saida.status);
+      var entregador = saida.entregador || "—";
+      var dataEntrega = saida.data_hora_entrega ? fmtDt(saida.data_hora_entrega) : "—";
+      var recebedor = (d.nome_recebedor && d.nome_recebedor.trim()) ? d.nome_recebedor : "—";
+      var endParts = [d.dest_rua, d.dest_numero, d.dest_complemento, d.dest_bairro, d.dest_cidade, d.dest_estado, d.dest_cep].filter(Boolean);
+      var enderecoCompleto = endParts.length ? endParts.join(", ") : (d.endereco_formatado || "—");
+      var destContato = (d.dest_contato && d.dest_contato.trim()) ? d.dest_contato : "";
 
-      if (detailContent) detailContent.innerHTML = parts.filter(Boolean).join("");
+      var timelineHtml = buildTimeline(historico);
 
-      var eventLabels = { criado: "Criado", lido: "Lido", criado_coleta: "Coleta", em_rota: "Em rota", entregue: "Entregue", ausente: "Ausente", nova_tentativa: "Nova tentativa", scan: "Scan", assumir: "Assumir", reatribuicao: "Reatribuição" };
-      var histHtml = historico.length === 0
-        ? "<p class=\"text-muted small mb-0\">Nenhum evento registrado.</p>"
-        : historico.map(function(h) {
-            var nome = eventLabels[h.evento] || h.evento;
-            var statusPart = (h.status_anterior && h.status_novo) ? " " + h.status_anterior + " → " + h.status_novo : "";
-            var por = h.usuario_nome ? " por " + h.usuario_nome : (h.user_id ? " (user " + h.user_id + ")" : "");
-            return "<div class=\"reg-detail-event\"><span class=\"event-time\">" + fmtDt(h.timestamp) + "</span> — <span class=\"event-name\">" + nome + "</span>" + statusPart + por + "</div>";
-          }).join("");
-      if (detailHistorical) detailHistorical.innerHTML = histHtml;
+      var pedidoHtml =
+        '<div class="pedido-detail-container">' +
+          '<div class="pedido-header">' +
+            '<div class="pedido-codigo">' + (saida.codigo || idSaida) + '</div>' +
+            '<div class="pedido-status status-badge ' + statusClass + '">' + statusText + '</div>' +
+          '</div>' +
+          '<div class="pedido-grid">' +
+            '<div class="pedido-card">' +
+              '<h5>Informações da Entrega</h5>' +
+              '<p><strong>Entregador:</strong> ' + entregador + '</p>' +
+              '<p><strong>Data Entrega:</strong> ' + dataEntrega + '</p>' +
+              '<p><strong>Recebedor:</strong> ' + recebedor + '</p>' +
+            '</div>' +
+            '<div class="pedido-card">' +
+              '<h5>Destino</h5>' +
+              '<p>' + enderecoCompleto + '</p>' +
+              (destContato ? '<p>' + destContato + '</p>' : '') +
+            '</div>' +
+            '<div class="pedido-card historico-card">' +
+              '<h5>Histórico</h5>' +
+              '<div class="timeline">' + timelineHtml + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      if (detailContent) detailContent.innerHTML = pedidoHtml;
 
       if (detailLoading) detailLoading.classList.add("d-none");
       if (detailBody) detailBody.classList.remove("d-none");

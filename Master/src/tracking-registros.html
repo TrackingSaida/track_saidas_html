@@ -80,6 +80,9 @@
                         <select id="flt-status" class="form-select form-select-sm">
                           <option value="">(Todos)</option>
                           <option value="saiu">Saiu para entrega</option>
+                          <option value="em_rota">Em rota</option>
+                          <option value="entregue">Entregue</option>
+                          <option value="ausente">Ausente</option>
                           <option value="Coletado">Coletado</option>
                           <option value="Não Coletado">Não Coletado</option>
                           <option value="Cancelado">Cancelado</option>
@@ -199,15 +202,22 @@
               font-size: 1.75rem;
               font-weight: 800;
             }
+            .table-helper-text { font-size: 13px; color: #6c757d; margin-bottom: 10px; }
+            .clickable-row { cursor: pointer; transition: background 0.15s ease; }
+            .clickable-row:hover { background-color: #f5f7fb; }
+            .expand-icon i { transition: transform 0.2s ease; }
+            .clickable-row.open .expand-icon i { transform: rotate(90deg); }
           </style>
 
           <!-- Tabela -->
           <div class="card">
             <div class="card-body">
+              <div class="table-helper-text">Clique em um pedido para visualizar detalhes e histórico</div>
               <div class="table-responsive">
                 <table class="table align-middle table-nowrap">
                   <thead class="table-active">
                     <tr>
+                      <th style="width:40px;"></th>
                       <th style="width:36px"><input id="chk-all" type="checkbox" class="form-check-input" /></th>
                       <th>Data Hora</th>
                       <th>Base</th>
@@ -219,7 +229,7 @@
                     </tr>
                   </thead>
                   <tbody id="reg-rows">
-                    <tr><td colspan="8" class="text-center text-muted py-4">Carregando...</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted py-4">Carregando...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -354,13 +364,8 @@
     </div>
     <div id="reg-detail-body" class="reg-detail-body d-none">
       <div class="reg-detail-grid">
-        <div class="reg-detail-col reg-detail-col-left">
-          <h6 class="reg-detail-col-title text-uppercase small text-muted mb-2">Detalhe do pedido</h6>
+        <div class="reg-detail-col reg-detail-col-full">
           <div id="reg-detail-content" class="reg-detail-content"></div>
-        </div>
-        <div class="reg-detail-col reg-detail-col-right">
-          <h6 class="reg-detail-col-title text-uppercase small text-muted mb-2">Histórico</h6>
-          <div id="reg-detail-historical" class="reg-detail-historical"></div>
         </div>
       </div>
     </div>
@@ -405,39 +410,42 @@
   .reg-detail-body, .reg-detail-loading, .reg-detail-error { flex: 1; min-height: 0; }
   .reg-detail-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 1rem;
     height: 100%;
     min-height: 200px;
     padding: 1rem;
   }
-  .reg-detail-col {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  .reg-detail-col-title { flex-shrink: 0; }
-  .reg-detail-content,
-  .reg-detail-historical {
+  .reg-detail-col-full { min-width: 0; overflow: auto; }
+  .reg-detail-content {
     overflow-y: auto;
     flex: 1;
     font-size: 0.875rem;
   }
-  .reg-detail-item { margin-bottom: 0.5rem; }
-  .reg-detail-item label { color: #6c757d; margin-bottom: 0.15rem; }
-  .reg-detail-item .value { word-break: break-word; }
-  .reg-detail-event {
-    padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(0,0,0,0.06);
-    font-size: 0.8125rem;
-  }
-  .reg-detail-event:last-child { border-bottom: none; }
-  .reg-detail-event .event-time { color: #6c757d; }
-  .reg-detail-event .event-name { font-weight: 500; }
+  .pedido-detail-container { padding: 20px; background: #f8fafc; }
+  .pedido-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .pedido-codigo { font-size: 20px; font-weight: 600; }
+  .pedido-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
+  .pedido-card { background: #ffffff; border-radius: 8px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .pedido-card h5 { font-weight: 600; margin-bottom: 10px; }
+  .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .status-success { background: #e6f7ee; color: #28a745; }
+  .status-info { background: #e6f0ff; color: #007bff; }
+  .status-warning { background: #fff3cd; color: #ff9800; }
+  .status-danger { background: #fdecea; color: #dc3545; }
+  .status-default { background: #e9ecef; color: #6c757d; }
+  .servico-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .servico-shopee { background: rgba(255, 180, 130, 0.25); color: #d46a2e; }
+  .servico-ml { background: rgba(255, 230, 170, 0.5); color: #b8922e; }
+  .servico-avulso { background: rgba(180, 200, 230, 0.4); color: #4a7ab8; }
+  .servico-default { background: #e9ecef; color: #6c757d; }
+  .timeline { position: relative; margin-left: 10px; }
+  .timeline-item { display: flex; margin-bottom: 15px; }
+  .timeline-dot { width: 10px; height: 10px; background: #007bff; border-radius: 50%; margin-right: 10px; margin-top: 5px; flex-shrink: 0; }
+  .timeline-title { font-weight: 600; }
+  .timeline-date { color: #6c757d; font-size: 12px; }
   @media (max-width: 768px) {
     .reg-detail-panel { max-height: 70vh; }
-    .reg-detail-grid { grid-template-columns: 1fr; }
   }
 </style>
 
