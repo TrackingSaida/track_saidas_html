@@ -637,7 +637,7 @@ function setupPagerEvents() {
     Promise.all([
       fetch(urlDetalhe, { credentials: "include" }).then(function(r) { return r.ok ? r.json() : Promise.reject(r); }),
       fetch(urlHistorico, { credentials: "include" }).then(function(r) { return r.ok ? r.json() : Promise.reject(r); })
-    ]).then(function(results) {
+    ]).then(async function(results) {
       var saida = results[0];
       var historico = Array.isArray(results[1]) ? results[1] : [];
 
@@ -654,6 +654,39 @@ function setupPagerEvents() {
       var destContato = (d.dest_contato && d.dest_contato.trim()) ? d.dest_contato : "";
 
       var timelineHtml = buildTimeline(historico);
+
+      var downloadUrls = [];
+      var fotoUrls = d.foto_urls && Array.isArray(d.foto_urls) ? d.foto_urls : [];
+      if (fotoUrls.length > 0) {
+        try {
+          var presignRes = await fetch(base + "/upload/presign-get", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ foto_urls: fotoUrls })
+          });
+          if (presignRes.ok) {
+            var presignData = await presignRes.json();
+            downloadUrls = presignData.download_urls || (presignData.download_url ? [presignData.download_url] : []);
+          }
+        } catch (e) {
+          downloadUrls = [];
+        }
+      }
+
+      var photoCardTitle = (saida.status || "").toLowerCase() === "entregue" ? "Comprovante de Entrega" : "Registro (Ausente)";
+      var photoCardHtml = "";
+      if (downloadUrls.length > 0) {
+        photoCardHtml = '<div class="pedido-card">' +
+          '<h5>' + photoCardTitle + '</h5>' +
+          downloadUrls.map(function(url) {
+            return '<div class="mb-2">' +
+              '<img src="' + url + '" class="img-fluid rounded border" style="max-height:320px; object-fit:contain;" alt="Comprovante">' +
+              '<br><a href="' + url + '" target="_blank" rel="noopener">Abrir em nova aba</a>' +
+              '</div>';
+          }).join('') +
+          '</div>';
+      }
 
       var pedidoHtml =
         '<div class="pedido-detail-container">' +
@@ -673,6 +706,7 @@ function setupPagerEvents() {
               '<p>' + enderecoCompleto + '</p>' +
               (destContato ? '<p>' + destContato + '</p>' : '') +
             '</div>' +
+            photoCardHtml +
             '<div class="pedido-card historico-card">' +
               '<h5>Histórico</h5>' +
               '<div class="timeline">' + timelineHtml + '</div>' +
