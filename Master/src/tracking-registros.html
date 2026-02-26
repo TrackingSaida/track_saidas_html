@@ -383,6 +383,9 @@
     transition: opacity 0.2s, visibility 0.2s;
   }
   .reg-detail-overlay.show { opacity: 1; visibility: visible; }
+  /* Bloqueia scroll da página quando o painel de detalhes está aberto (mobile) */
+  body.reg-detail-panel-open { overflow: hidden; position: fixed; width: 100%; }
+  .reg-detail-overlay.show { touch-action: none; }
   .reg-detail-panel {
     position: fixed;
     left: 0;
@@ -405,21 +408,27 @@
     flex-direction: column;
     min-height: 0;
     height: 100%;
+    overflow: hidden;
   }
   .reg-detail-header { flex-shrink: 0; }
-  .reg-detail-body, .reg-detail-loading, .reg-detail-error { flex: 1; min-height: 0; }
+  .reg-detail-body, .reg-detail-loading, .reg-detail-error { flex: 1; min-height: 0; overflow: hidden; }
+  .reg-detail-body { display: flex; flex-direction: column; }
   .reg-detail-grid {
     display: grid;
     grid-template-columns: 1fr;
     gap: 1rem;
-    height: 100%;
-    min-height: 200px;
-    padding: 1rem;
-  }
-  .reg-detail-col-full { min-width: 0; overflow: auto; }
-  .reg-detail-content {
-    overflow-y: auto;
     flex: 1;
+    min-height: 0;
+    padding: 1rem;
+    overflow: hidden;
+  }
+  .reg-detail-col-full {
+    min-width: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+  .reg-detail-content {
     font-size: 0.875rem;
   }
   .pedido-detail-container { padding: 20px; background: #f8fafc; }
@@ -445,7 +454,7 @@
   .timeline-title { font-weight: 600; }
   .timeline-date { color: #6c757d; font-size: 12px; }
   @media (max-width: 768px) {
-    .reg-detail-panel { max-height: 70vh; }
+    .reg-detail-panel { max-height: 90vh; height: 90vh; }
   }
 </style>
 

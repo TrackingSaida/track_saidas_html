@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    @@include("partials/title-meta.html", {"title": "TrackSaídas — Acompanhamento do Dia"})
+    @@include("partials/head-css.html")
+  </head>
+  <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
+    <div id="layout-wrapper">
+      @@include("partials/menu.html")
+
+      <div class="main-content">
+        <div class="page-content">
+          <div class="container-fluid">
+
+            @@include("partials/page-title.html", {"pagetitle": "Operação", "title": "Acompanhamento do Dia", "withSubtitle": true})
+
+            <div class="row">
+              <div class="col-12">
+                <div class="card">
+                  <div class="card-body">
+                    <!-- Toolbar: Data única + Filtros -->
+                    <div class="row g-3 align-items-center mb-3">
+                      <div class="col-md-auto d-flex gap-2 flex-wrap align-items-center">
+                        <label class="form-label mb-0 small text-muted">Data</label>
+                        <input type="date" id="flt-data" class="form-control form-control-sm" style="width: auto;" title="Selecione o dia" />
+                      </div>
+                      <div class="col-md-auto ms-auto d-flex gap-2 flex-wrap align-items-center">
+                        <div class="dropdown">
+                          <button class="btn btn-outline-secondary position-relative" id="btnFiltrosIcon" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                            <i class="ri-filter-3-line me-1"></i> Filtros
+                            <span id="filtrosContador" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary d-none">0</span>
+                          </button>
+                          <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 280px;">
+                            <div class="mb-3">
+                              <label class="form-label small">Motoboy</label>
+                              <select id="flt-motoboy" class="form-select form-select-sm">
+                                <option value="">(Todos)</option>
+                              </select>
+                            </div>
+                            <div class="d-flex gap-2">
+                              <button type="button" id="btnFiltroAplicar" class="btn btn-primary flex-grow-1">Aplicar</button>
+                              <button type="button" id="btnFiltroLimpar" class="btn btn-outline-secondary flex-grow-1">Limpar</button>
+                              <button type="button" id="btnFiltroCancelar" class="btn btn-outline-secondary">Cancelar</button>
+                            </div>
+                          </div>
+                        </div>
+                        <button type="button" id="btnAtualizar" class="btn btn-soft-primary">
+                          <i class="ri-refresh-line me-1"></i> Atualizar
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- KPIs totalizadores -->
+                    <div class="row g-2 mb-3 flex-nowrap">
+                      <div class="col flex-fill" style="min-width: 0;">
+                        <div class="p-3 rounded text-center bg-light border">
+                          <span class="text-uppercase small text-secondary fw-semibold d-block">Total Pedidos</span>
+                          <span class="fs-5 fw-bold" id="kpi-pedidos">0</span>
+                        </div>
+                      </div>
+                      <div class="col flex-fill" style="min-width: 0;">
+                        <div class="p-3 rounded text-center bg-success bg-opacity-10 border border-success border-opacity-25">
+                          <span class="text-uppercase small text-secondary fw-semibold d-block">Entregues</span>
+                          <span class="fs-5 fw-bold text-success" id="kpi-entregues">0</span>
+                        </div>
+                      </div>
+                      <div class="col flex-fill" style="min-width: 0;">
+                        <div class="p-3 rounded text-center bg-primary bg-opacity-10 border border-primary border-opacity-25">
+                          <span class="text-uppercase small text-secondary fw-semibold d-block">Em Rota</span>
+                          <span class="fs-5 fw-bold text-primary" id="kpi-em-rota">0</span>
+                        </div>
+                      </div>
+                      <div class="col flex-fill" style="min-width: 0;">
+                        <div class="p-3 rounded text-center bg-warning bg-opacity-10 border border-warning border-opacity-25">
+                          <span class="text-uppercase small text-secondary fw-semibold d-block">Ausente / Ocorrências</span>
+                          <span class="fs-5 fw-bold text-warning" id="kpi-ausente">0</span>
+                        </div>
+                      </div>
+                      <div class="col flex-fill" style="min-width: 0;">
+                        <div class="p-3 rounded text-center bg-info bg-opacity-10 border border-info border-opacity-25">
+                          <span class="text-uppercase small text-secondary fw-semibold d-block">SLA (%)</span>
+                          <span class="fs-5 fw-bold text-info" id="kpi-sla">—</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Tabela -->
+                    <div class="table-responsive table-card">
+                      <table class="table align-middle table-nowrap mb-0" id="tbl-acompanhamento">
+                        <thead class="table-light">
+                          <tr>
+                            <th>Data</th>
+                            <th>Motoboy</th>
+                            <th class="text-center">Pedidos</th>
+                            <th class="text-center">Entregues</th>
+                            <th class="text-center">Em Rota</th>
+                            <th class="text-center">Ausente / Ocorrências</th>
+                            <th class="text-center">Rota</th>
+                            <th class="text-center">Distância / Tempo</th>
+                            <th class="text-center">Última Entrega</th>
+                            <th class="text-center">SLA</th>
+                          </tr>
+                        </thead>
+                        <tbody id="tbody-acompanhamento">
+                          <tr>
+                            <td colspan="10" class="text-center text-muted py-4">Selecione uma data e clique em Atualizar.</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <!-- Info de registros -->
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                      <div id="pager-info" class="text-muted small">Exibindo 0 a 0 de 0 registros</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        @@include("partials/footer.html")
+      </div>
+    </div>
+
+    <div class="vertical-overlay"></div>
+    @@include("partials/customizer.html")
+    @@include("partials/vendor-scripts.html")
+
+    <script>
+      if (!window.TRACK_API_URL) window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+    </script>
+    <script src="assets/js/pages/tracking-acompanhamento.init.js"></script>
+    <script src="assets/js/app.js"></script>
+  </body>
+</html>

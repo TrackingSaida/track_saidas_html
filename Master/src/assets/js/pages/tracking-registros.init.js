@@ -614,6 +614,10 @@ function setupPagerEvents() {
     if (detailPanel) detailPanel.classList.remove("open");
     if (detailPanel) detailPanel.setAttribute("aria-hidden", "true");
     if (detailOverlay) detailOverlay.setAttribute("aria-hidden", "true");
+    var scrollY = document.body.style.top;
+    document.body.classList.remove("reg-detail-panel-open");
+    document.body.style.top = "";
+    if (scrollY) window.scrollTo(0, parseInt(scrollY || "0", 10) * -1);
     qsa(".clickable-row").forEach(function(tr) { tr.classList.remove("open"); });
   }
 
@@ -633,6 +637,8 @@ function setupPagerEvents() {
 
     if (detailOverlay) { detailOverlay.classList.add("show"); detailOverlay.setAttribute("aria-hidden", "false"); }
     if (detailPanel) { detailPanel.classList.add("open"); detailPanel.setAttribute("aria-hidden", "false"); }
+    document.body.style.top = "-" + window.scrollY + "px";
+    document.body.classList.add("reg-detail-panel-open");
 
     Promise.all([
       fetch(urlDetalhe, { credentials: "include" }).then(function(r) { return r.ok ? r.json() : Promise.reject(r); }),
