@@ -364,9 +364,11 @@ function processData(coletas, saidas, basePrices) {
 
 
 // -----------------------------------------------------------------------
-// 2. Saídas: entregues e cancelados
+// 2. Saídas: entregues, em rota, ausente, cancelados (status coerentes com app mobile)
 // -----------------------------------------------------------------------
 let totalEntregues = 0;
+let totalEmRota = 0;
+let totalAusente = 0;
 let totalCancelados = 0;
 
 // mapa de entregues por base
@@ -374,6 +376,19 @@ const baseEntregues = {};
 
 // valor financeiro perdido por cancelamentos
 let totalCanceladosValor = 0;
+
+function isStatusEntregue(row) {
+  const st = (row?.status || "").toLowerCase().trim();
+  return st === "entregue";
+}
+function isStatusEmRota(row) {
+  const st = (row?.status || "").toLowerCase().trim();
+  return st === "em_rota" || (st.includes("saiu") && !st.includes("cancelado"));
+}
+function isStatusAusente(row) {
+  const st = (row?.status || "").toLowerCase().trim();
+  return st === "ausente";
+}
 
 saidas.forEach((s) => {
 
@@ -388,17 +403,20 @@ saidas.forEach((s) => {
     // identificar origem para pegar preço correto no caso de cancelamento
     const servKey = classifyServico(s.servico || s.origem || "");
 
-    // entregue?
-    const isEntregue = isSaiuParaEntrega(s);
-    if (isEntregue) {
-        totalEntregues++;
+    const statusTxt = (s.status || "").toLowerCase().trim();
 
+    // entregue (apenas status entregue — alinhado ao app mobile)
+    if (isStatusEntregue(s)) {
+        totalEntregues++;
         if (!baseEntregues[base]) baseEntregues[base] = 0;
         baseEntregues[base]++;
+    } else if (isStatusEmRota(s)) {
+        totalEmRota++;
+    } else if (isStatusAusente(s)) {
+        totalAusente++;
     }
 
     // cancelado?
-    const statusTxt = (s.status || "").toLowerCase();
     if (statusTxt.includes("cancelado")) {
         totalCancelados++;
 
@@ -512,12 +530,12 @@ window.revenueData = {
 
 
     // -----------------------------------------------------------------------
-// 4d. Série diária de pedidos entregues (agrupado por serviço)
+// 4d. Série diária de pedidos entregues (agrupado por serviço — apenas status entregue)
 // -----------------------------------------------------------------------
 const deliveredByDay = {};
 
 saidas.forEach((s) => {
-  if (!isSaiuParaEntrega(s)) return;
+  if (!isStatusEntregue(s)) return;
   const dt = s.timestamp ? fmtYMD(new Date(s.timestamp)) : null;
   if (!dt) return;
 
