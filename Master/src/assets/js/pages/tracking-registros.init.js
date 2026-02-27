@@ -654,6 +654,7 @@ function setupPagerEvents() {
       var statusText = formatStatusForDisplay(saida.status);
       var entregador = saida.entregador || "—";
       var dataEntrega = saida.data_hora_entrega ? fmtDt(saida.data_hora_entrega) : "—";
+      var tipoRecebedor = (d.tipo_recebedor && d.tipo_recebedor.trim()) ? d.tipo_recebedor : "—";
       var recebedor = (d.nome_recebedor && d.nome_recebedor.trim()) ? d.nome_recebedor : "—";
       var endParts = [d.dest_rua, d.dest_numero, d.dest_complemento, d.dest_bairro, d.dest_cidade, d.dest_estado, d.dest_cep].filter(Boolean);
       var enderecoCompleto = endParts.length ? endParts.join(", ") : (d.endereco_formatado || "—");
@@ -705,12 +706,10 @@ function setupPagerEvents() {
               '<h5>Informações da Entrega</h5>' +
               '<p><strong>Entregador:</strong> ' + entregador + '</p>' +
               '<p><strong>Data Entrega:</strong> ' + dataEntrega + '</p>' +
+              '<p><strong>Tipo do recebedor:</strong> ' + tipoRecebedor + '</p>' +
               '<p><strong>Recebedor:</strong> ' + recebedor + '</p>' +
-            '</div>' +
-            '<div class="pedido-card">' +
-              '<h5>Destino</h5>' +
-              '<p>' + enderecoCompleto + '</p>' +
-              (destContato ? '<p>' + destContato + '</p>' : '') +
+              '<p><strong>Destino:</strong> ' + enderecoCompleto + '</p>' +
+              (destContato ? '<p><strong>Contato destino:</strong> ' + destContato + '</p>' : '') +
             '</div>' +
             photoCardHtml +
             '<div class="pedido-card historico-card">' +
