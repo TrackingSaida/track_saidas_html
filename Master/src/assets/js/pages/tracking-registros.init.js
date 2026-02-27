@@ -688,7 +688,7 @@ function setupPagerEvents() {
           '<h5>' + photoCardTitle + '</h5>' +
           downloadUrls.map(function(url) {
             return '<div class="mb-2">' +
-              '<img src="' + url + '" class="img-fluid rounded border" style="max-height:320px; object-fit:contain;" alt="Comprovante">' +
+              '<img src="' + url + '" class="img-fluid rounded border" style="max-height:480px; object-fit:contain;" alt="Comprovante">' +
               '<br><a href="' + url + '" target="_blank" rel="noopener">Abrir em nova aba</a>' +
               '</div>';
           }).join('') +
