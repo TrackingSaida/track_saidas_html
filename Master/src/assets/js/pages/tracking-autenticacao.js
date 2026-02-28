@@ -126,7 +126,6 @@ async function loadSellers() {
         merged.forEach(row => {
             const id = row.user_id_ml != null ? row.user_id_ml : row.shop_id;
             const plataforma = platformLabel[row.platform] || row.platform || "—";
-            const subBase = row.sub_base != null && row.sub_base !== "" ? row.sub_base : "—";
             const status = statusLabel[row.status] || row.status || "—";
             const badgeClass = statusClass[row.status] || "secondary";
             let dataConexao = "—";
@@ -142,7 +141,6 @@ async function loadSellers() {
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>${escapeHtml(plataforma)}</td>
-                <td>${escapeHtml(subBase)}</td>
                 <td>${escapeHtml(String(id))}</td>
                 <td><span class="badge bg-${badgeClass}">${escapeHtml(status)}</span></td>
                 <td>${escapeHtml(dataConexao)}</td>
