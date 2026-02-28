@@ -217,6 +217,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const habilitadoPeriodoEntregador = !!(dataInicio && dataFim && executor.tipo && executor.id > 0);
     const ctx = state.contextoFechamento;
     const listaReajuste = state.entregadoresParaReajuste || [];
+    const statusFiltro = (fltStatus?.value || "").trim().toUpperCase();
     // Reajustar habilitado só por status GERADO: um contexto único ou vários entregadores para escolher
     const podeReajustarSóStatus = statusFiltro === "GERADO" && (ctx?.id_fechamento || listaReajuste.length > 0);
     const status = (habilitadoPeriodoEntregador && ctx ? (ctx.status || "PENDENTE").toUpperCase() : null) || (podeReajustarSóStatus ? "GERADO" : "PENDENTE");
