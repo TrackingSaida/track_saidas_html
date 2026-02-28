@@ -24,15 +24,9 @@
 
                         <!-- Ações esquerda -->
                         <div class="d-flex gap-2 ent-actions">
-                            <div class="dropdown">
-                                <button class="btn btn-primary dropdown-toggle" id="btnAdd" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="ri-add-line align-bottom me-1"></i> Adicionar
-                                </button>
-                                <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="javascript:void(0);" id="btnAddImportar"><i class="ri-file-upload-line me-2"></i>Importar planilha</a></li>
-                                    <li><a class="dropdown-item" href="javascript:void(0);" id="btnAddCadastrar"><i class="ri-user-add-line me-2"></i>Cadastrar manualmente</a></li>
-                                </ul>
-                            </div>
+                            <button class="btn btn-primary" id="btnAdd">
+                                <i class="ri-add-line align-bottom me-1"></i> Adicionar
+                            </button>
 
                             <button class="btn btn-soft-primary" id="btnHeaderEdit" disabled>
                                 <i class="ri-edit-2-line align-bottom me-1"></i> Editar
@@ -44,41 +38,18 @@
                         </div>
 
                         <!-- Filtros direita -->
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="dropdown">
-                                <button class="btn btn-outline-secondary position-relative" id="btnFiltrosIcon" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                                    <i class="ri-filter-3-line me-1"></i> Filtros
-                                    <span id="filtrosContador" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary d-none">0</span>
-                                </button>
-                                <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 280px;">
-                                    <div class="mb-2">
-                                        <label class="form-label small">Ativo</label>
-                                        <select id="fltAtivo" class="form-select form-select-sm">
-                                            <option value="ativos" selected>Somente ativos</option>
-                                            <option value="">Todos</option>
-                                            <option value="inativos">Somente inativos</option>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label small">Perfil</label>
-                                        <select id="fltPerfil" class="form-select form-select-sm">
-                                            <option value="">(Todos)</option>
-                                            <option value="1">Administrador</option>
-                                            <option value="2">Operador</option>
-                                            <option value="4">Motoboy</option>
-                                        </select>
-                                    </div>
-                                    <div class="d-flex gap-2">
-                                        <button type="button" id="btnFiltroAplicar" class="btn btn-primary flex-grow-1">Aplicar</button>
-                                        <button type="button" id="btnFiltroLimpar" class="btn btn-outline-secondary flex-grow-1">Limpar</button>
-                                        <button type="button" id="btnFiltroCancelar" class="btn btn-outline-secondary">Cancelar</button>
-                                    </div>
-                                </div>
+                        <div class="d-flex align-items-center gap-3">
+
+                            <div class="form-check form-switch text-nowrap">
+                                <input class="form-check-input" type="checkbox" id="toggleAtivos" checked>
+                                <label class="form-check-label" for="toggleAtivos">Somente ativos</label>
                             </div>
-                            <div class="search-box" style="min-width: 220px;">
+
+                            <div class="search-box w-100">
                                 <input type="text" id="search" class="form-control" placeholder="Buscar por nome, e-mail, username...">
                                 <i class="ri-search-line search-icon"></i>
                             </div>
+
                         </div>
                     </div>
 
@@ -195,47 +166,6 @@
 
 @@include("partials/customizer.html")
 @@include("partials/vendor-scripts.html")
-
-<!-- SheetJS para importação de planilha -->
-<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
-
-<!-- ===================== MODAL IMPORTAR USUÁRIOS ===================== -->
-<div class="modal fade" id="modalImportarUsuarios" tabindex="-1" aria-labelledby="modalImportarUsuariosLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalImportarUsuariosLabel">Importar usuários</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted small mb-3">Envie uma planilha (.xlsx ou .xls) com os dados dos usuários. Use o exemplo para conferir as colunas obrigatórias.</p>
-                <div class="mb-3">
-                    <button type="button" class="btn btn-soft-success btn-sm" id="btnDownloadExemplo">
-                        <i class="ri-download-line me-1"></i> Baixar planilha de exemplo
-                    </button>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Arquivo da planilha</label>
-                    <input type="file" id="inputFileImport" class="form-control" accept=".xlsx,.xls">
-                    <div class="form-text">Apenas arquivos .xlsx ou .xls</div>
-                </div>
-                <div id="importResultWrap" class="d-none mt-3">
-                    <hr>
-                    <h6 class="mb-2">Resultado</h6>
-                    <div id="importResultContent"></div>
-                </div>
-                <div id="importProgressWrap" class="d-none mt-2 text-center text-muted">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    <span id="importProgressText">Processando...</span>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Fechar</button>
-                <button type="button" class="btn btn-primary" id="btnEnviarImport" disabled>Enviar</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <style>
 /* Destaque visual para campos obrigatórios */
@@ -377,10 +307,7 @@
     </div>
 </div>
 
-<script>
-    window.TRACK_API_URL = window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api";
-</script>
-<script src="assets/js/pages/tracking-usuarios.js?v=1.3"></script>
+<script src="assets/js/pages/tracking-usuarios.js?v=1.2"></script>
 
 </body>
 </html>
