@@ -557,10 +557,8 @@ async function saveUser(ev) {
 
     if (!nome) erros.push("Nome é obrigatório.");
     if (!sobrenome) erros.push("Sobrenome é obrigatório.");
-    if (!username) erros.push("Username é obrigatório.");
     if (!contato) erros.push("Contato é obrigatório.");
-    if (!email) erros.push("E-mail é obrigatório.");
-
+    // Username e E-mail opcionais durante migração
     if (email && !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
         erros.push("Formato de e-mail inválido.");
     }
@@ -568,12 +566,15 @@ async function saveUser(ev) {
     const isNew = !id;
     const senhaConfirm = document.getElementById("passwordConfirm").value.trim();
     if (isNew) {
-        if (senha.length < 4) {
-            erros.push("Senha deve ter no mínimo 4 caracteres.");
-        } else if (senha !== senhaConfirm) {
-            erros.push("As senhas não coincidem.");
-            document.getElementById("password").classList.add("is-invalid");
-            document.getElementById("passwordConfirm").classList.add("is-invalid");
+        // Senha opcional durante migração; se informar uma, validar
+        if (senha || senhaConfirm) {
+            if (senha.length < 4) {
+                erros.push("Senha deve ter no mínimo 4 caracteres.");
+            } else if (senha !== senhaConfirm) {
+                erros.push("As senhas não coincidem.");
+                document.getElementById("password").classList.add("is-invalid");
+                document.getElementById("passwordConfirm").classList.add("is-invalid");
+            }
         }
     }
 

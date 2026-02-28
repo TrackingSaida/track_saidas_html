@@ -653,7 +653,8 @@ function setupPagerEvents() {
       var statusClass = getStatusClass(saida.status);
       var statusText = formatStatusForDisplay(saida.status);
       var entregador = saida.entregador || "—";
-      var dataEntrega = saida.data_hora_entrega ? fmtDt(saida.data_hora_entrega) : "—";
+      var entregueEv = historico.filter(function(h) { return (h.evento || "").toLowerCase() === "entregue" || (h.status_novo || "").toLowerCase() === "entregue"; }).pop();
+      var dataEntrega = entregueEv && entregueEv.timestamp ? fmtDt(entregueEv.timestamp) : (saida.data_hora_entrega ? fmtDt(saida.data_hora_entrega) : "—");
       var tipoRecebedor = (d.tipo_recebedor && d.tipo_recebedor.trim()) ? d.tipo_recebedor : "—";
       var recebedor = (d.nome_recebedor && d.nome_recebedor.trim()) ? d.nome_recebedor : "—";
       var endParts = [d.dest_rua, d.dest_numero, d.dest_complemento, d.dest_bairro, d.dest_cidade, d.dest_estado, d.dest_cep].filter(Boolean);
@@ -1071,7 +1072,8 @@ function setupPagerEvents() {
 
     loadCombosBase().then(nomes => {
       if (bulkEnt){
-        var list = Array.from(new Set(nomes || [])).sort((a,b)=>a.localeCompare(b,"pt-BR"));
+        var nomesMotoboys = (motoboysCache || []).map(function(m) { return m.nome || ("Motoboy " + (m.id_motoboy || m.id)); });
+        var list = Array.from(new Set((nomes || []).concat(nomesMotoboys))).filter(Boolean).sort((a,b)=>a.localeCompare(b,"pt-BR"));
         bulkEnt.innerHTML = '<option value="">(Manter)</option>' +
           list.filter(n => n !== entregadores[0])
               .map(n => `<option value="${n}">${n}</option>`)
@@ -1282,12 +1284,16 @@ function setupPagerEvents() {
   // =====================================================================
   // INIT
   // =====================================================================
-  loadCombosBase()
-    .then(nomes => {
-      augmentEntregadoresFromRows._base = nomes || [];
-      fillEntregadores(nomes || []);
+  Promise.all([loadCombosBase(), loadMotoboys()])
+    .then(function(results) {
+      var nomesEntregadores = results[0] || [];
+      var motoboys = results[1] || [];
+      var nomesMotoboys = motoboys.map(function(m) { return (m.nome || ("Motoboy " + (m.id_motoboy || m.id))); });
+      var todos = (nomesEntregadores).concat(nomesMotoboys);
+      var unicos = Array.from(new Set(todos)).filter(Boolean).sort(function(a, b) { return a.localeCompare(b, "pt-BR"); });
+      augmentEntregadoresFromRows._base = unicos;
+      fillEntregadores(unicos);
     })
-    .then(() => loadMotoboys())
     .finally(() => {
       if (f.pageSize) f.pageSize.value = String(state.pageSize);
       refresh(false);

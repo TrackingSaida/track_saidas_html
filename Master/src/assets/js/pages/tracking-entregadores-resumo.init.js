@@ -277,7 +277,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         return (
           "<tr>" +
-          "<td>" + formatarData(r.data) + "</td>" +
+          "<td class=\"text-nowrap\">" + formatarData(r.data) + "</td>" +
           "<td>" + (r.entregador_nome || "—") + "</td>" +
           '<td class="text-center">' + flexQtde + "</td>" +
           '<td class="text-center">' + shopeeQtde + "</td>" +
