@@ -1299,6 +1299,7 @@ function setupPagerEvents() {
       refresh(false);
       updateEditButtonState();
       if (typeof atualizarContadorFiltros === "function") atualizarContadorFiltros();
+      if (typeof window.applyOwnerLabels === "function") window.applyOwnerLabels();
     });
 
 })();  // fim do IIFE

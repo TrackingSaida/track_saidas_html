@@ -55,7 +55,7 @@
                     </button>
                     <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 280px;">
                       <div class="mb-2">
-                        <label class="form-label small">Base</label>
+                        <label class="form-label small" data-owner-term="base">Base</label>
                         <select id="flt-base" class="form-select form-select-sm">
                           <option value="">(Todas)</option>
                         </select>
@@ -220,7 +220,7 @@
                       <th style="width:40px;"></th>
                       <th style="width:36px"><input id="chk-all" type="checkbox" class="form-check-input" /></th>
                       <th>Data Hora</th>
-                      <th>Base</th>
+                      <th data-owner-term="base">Base</th>
                       <th>Lido por</th>
                       <th>Entregador</th>
                       <th>Código</th>
@@ -334,7 +334,7 @@
 
         <!-- Base quando "Não Coletado" ou "Coletado" -->
         <div class="col-md-4 d-none" id="edit-base-group">
-          <label class="form-label">Base</label>
+          <label class="form-label" data-owner-term="base">Base</label>
           <select id="edit-base" class="form-control">
             <option value="">— selecione —</option>
           </select>
@@ -511,7 +511,7 @@
 
         <!-- Base -->
         <div class="mb-3 d-none" id="bulk-base-group">
-          <label class="form-label fw-semibold">Base</label>
+          <label class="form-label fw-semibold" data-owner-term="base">Base</label>
           <select id="bulk-base" class="form-select">
             <option value="">(Manter)</option>
           </select>
