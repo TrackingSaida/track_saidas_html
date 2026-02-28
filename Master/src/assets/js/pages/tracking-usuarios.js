@@ -176,6 +176,29 @@ function toggleMotoboySection() {
     const colUser = document.getElementById("colUser");
     const colMotoboy = document.getElementById("colMotoboy");
     const ignorarColeta = (CURRENT_USER && CURRENT_USER.ignorar_coleta) || false;
+
+    // Para Admin (1) e Operador (2): Username, E-mail e Senha obrigatórios com sinalização (*)
+    // Para Motoboy (4): esses campos não são obrigatórios
+    const isAdminOrOperador = (role === 1 || role === 2);
+    ["reqUsername", "reqEmail", "reqSenha", "reqSenhaConfirm"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = isAdminOrOperador ? "" : "none";
+    });
+    const usernameEl = document.getElementById("username");
+    const emailEl = document.getElementById("email");
+    const passwordEl = document.getElementById("password");
+    const passwordConfirmEl = document.getElementById("passwordConfirm");
+    [usernameEl, emailEl, passwordEl, passwordConfirmEl].forEach(el => {
+        if (!el) return;
+        if (isAdminOrOperador) {
+            el.classList.add("field-required");
+            el.setAttribute("required", "required");
+        } else {
+            el.classList.remove("field-required");
+            el.removeAttribute("required");
+        }
+    });
+
     if (role === 4) {
         colUser.classList.remove("col-12");
         colUser.classList.add("col-6");
@@ -425,9 +448,9 @@ function openCreate() {
 }
 
 function clearMotoboyValidation() {
-    ["documento", "cep", "rua", "numero", "bairro", "cidade"].forEach(id => {
+    ["documento", "cep", "rua", "numero", "bairro", "cidade", "username", "email", "password", "passwordConfirm"].forEach(id => {
         const el = document.getElementById(id);
-        if (el) { el.classList.remove("is-invalid"); }
+        if (el) el.classList.remove("is-invalid");
     });
 }
 
@@ -558,16 +581,38 @@ async function saveUser(ev) {
     if (!nome) erros.push("Nome é obrigatório.");
     if (!sobrenome) erros.push("Sobrenome é obrigatório.");
     if (!contato) erros.push("Contato é obrigatório.");
-    // Username e E-mail opcionais durante migração
-    if (email && !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+
+    // Para Administrador e Operador: Username, E-mail e Senha obrigatórios
+    const isAdminOrOperador = (role === 1 || role === 2);
+    if (isAdminOrOperador) {
+        if (!username) {
+            erros.push("Username é obrigatório para este perfil.");
+            document.getElementById("username").classList.add("is-invalid");
+        }
+        if (!email) {
+            erros.push("E-mail é obrigatório para este perfil.");
+            document.getElementById("email").classList.add("is-invalid");
+        } else if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+            erros.push("Formato de e-mail inválido.");
+            document.getElementById("email").classList.add("is-invalid");
+        }
+    } else if (email && !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
         erros.push("Formato de e-mail inválido.");
     }
 
     const isNew = !id;
     const senhaConfirm = document.getElementById("passwordConfirm").value.trim();
     if (isNew) {
-        // Senha opcional durante migração; se informar uma, validar
-        if (senha || senhaConfirm) {
+        if (isAdminOrOperador) {
+            if (senha.length < 4) {
+                erros.push("Senha é obrigatória (mínimo 4 caracteres) para este perfil.");
+                document.getElementById("password").classList.add("is-invalid");
+            } else if (senha !== senhaConfirm) {
+                erros.push("As senhas não coincidem.");
+                document.getElementById("password").classList.add("is-invalid");
+                document.getElementById("passwordConfirm").classList.add("is-invalid");
+            }
+        } else if (senha || senhaConfirm) {
             if (senha.length < 4) {
                 erros.push("Senha deve ter no mínimo 4 caracteres.");
             } else if (senha !== senhaConfirm) {
