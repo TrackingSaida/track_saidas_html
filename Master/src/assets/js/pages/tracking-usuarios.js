@@ -1,4 +1,5 @@
-const API = "https://track-saidas-api.onrender.com/api/users";
+const API_BASE = (window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api").replace(/\/+$/, "");
+const API = API_BASE + "/users";
 
 // =====================================================================
 // MÁSCARA DOCUMENTO — CPF 11 dígitos ou RG
@@ -119,12 +120,54 @@ let PER_PAGE = 10;
 // =====================================================================
 
 function initUsers() {
-    document.getElementById("btnAdd").addEventListener("click", openCreate);
+    document.getElementById("btnAddCadastrar").addEventListener("click", () => { openCreate(); closeAddDropdown(); });
+    document.getElementById("btnAddImportar").addEventListener("click", () => { openImportModal(); closeAddDropdown(); });
     document.getElementById("btnHeaderEdit").addEventListener("click", openEditFromSelection);
     document.getElementById("btnHeaderDel").addEventListener("click", deleteFromSelection);
 
-    document.getElementById("toggleAtivos").addEventListener("change", applyFilters);
     document.getElementById("search").addEventListener("input", applyFilters);
+
+    // Filtros dropdown (Ativo + Perfil)
+    const btnFiltrosIcon = document.getElementById("btnFiltrosIcon");
+    const filtrosContadorEl = document.getElementById("filtrosContador");
+    function atualizarContadorFiltros() {
+        if (!filtrosContadorEl) return;
+        let n = 0;
+        const fltAtivo = document.getElementById("fltAtivo");
+        const fltPerfil = document.getElementById("fltPerfil");
+        if (fltAtivo && fltAtivo.value !== "" && fltAtivo.value !== "ativos") n++;
+        if (fltPerfil && (fltPerfil.value || "").trim()) n++;
+        filtrosContadorEl.textContent = n;
+        filtrosContadorEl.classList.toggle("d-none", n === 0);
+    }
+    function fecharDropdownFiltros() {
+        if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && btnFiltrosIcon) {
+            const d = bootstrap.Dropdown.getInstance(btnFiltrosIcon);
+            if (d) d.hide();
+        }
+    }
+    document.getElementById("btnFiltroAplicar").addEventListener("click", () => {
+        const fltAtivo = document.getElementById("fltAtivo");
+        const fltPerfil = document.getElementById("fltPerfil");
+        if (fltAtivo) window._filterAtivo = fltAtivo.value;
+        if (fltPerfil) window._filterPerfil = (fltPerfil.value || "").trim();
+        applyFilters();
+        atualizarContadorFiltros();
+        fecharDropdownFiltros();
+    });
+    document.getElementById("btnFiltroLimpar").addEventListener("click", () => {
+        const fltAtivo = document.getElementById("fltAtivo");
+        const fltPerfil = document.getElementById("fltPerfil");
+        if (fltAtivo) { fltAtivo.value = "ativos"; window._filterAtivo = "ativos"; }
+        if (fltPerfil) { fltPerfil.value = ""; window._filterPerfil = ""; }
+        applyFilters();
+        atualizarContadorFiltros();
+        fecharDropdownFiltros();
+    });
+    document.getElementById("btnFiltroCancelar").addEventListener("click", fecharDropdownFiltros);
+    window._filterAtivo = "ativos";
+    window._filterPerfil = "";
+    atualizarContadorFiltros();
 
     document.getElementById("perPage").addEventListener("change", () => {
         PER_PAGE = Number(document.getElementById("perPage").value);
@@ -166,6 +209,20 @@ function initUsers() {
     document.getElementById("cep").addEventListener("blur", buscarCep);
     document.getElementById("cep").addEventListener("keyup", function() {
         if ((this.value || "").replace(/\D/g, "").length === 8) buscarCep();
+    });
+
+    // Modal importação
+    document.getElementById("btnDownloadExemplo").addEventListener("click", downloadExampleXlsx);
+    document.getElementById("inputFileImport").addEventListener("change", function() {
+        document.getElementById("btnEnviarImport").disabled = !this.files || this.files.length === 0;
+        document.getElementById("importResultWrap").classList.add("d-none");
+    });
+    document.getElementById("btnEnviarImport").addEventListener("click", submitImport);
+    document.getElementById("modalImportarUsuarios").addEventListener("hidden.bs.modal", function() {
+        document.getElementById("inputFileImport").value = "";
+        document.getElementById("btnEnviarImport").disabled = true;
+        document.getElementById("importResultWrap").classList.add("d-none");
+        document.getElementById("importProgressWrap").classList.add("d-none");
     });
 
     loadUsers();
@@ -235,13 +292,15 @@ async function loadUsers() {
 // =====================================================================
 
 function applyFilters() {
-    const onlyActives = document.getElementById("toggleAtivos").checked;
+    const filterAtivo = window._filterAtivo !== undefined ? window._filterAtivo : "ativos";
+    const filterPerfil = (window._filterPerfil !== undefined ? window._filterPerfil : "") || "";
     const q = document.getElementById("search").value.trim().toLowerCase();
 
     FILTERED = ALL_USERS.filter(u => {
-
-        if (onlyActives && !u.status) return false;
-
+        if (filterAtivo === "ativos" && !u.status) return false;
+        if (filterAtivo === "inativos" && u.status) return false;
+        if (filterPerfil && String(u.role || "") !== filterPerfil) return false;
+        if (!q) return true;
         return (
             (u.nome || "").toLowerCase().includes(q) ||
             (u.sobrenome || "").toLowerCase().includes(q) ||
@@ -252,6 +311,14 @@ function applyFilters() {
 
     CURRENT_PAGE = 1;
     renderTable();
+}
+
+function closeAddDropdown() {
+    const btn = document.getElementById("btnAdd");
+    if (btn && typeof bootstrap !== "undefined" && bootstrap.Dropdown) {
+        const inst = bootstrap.Dropdown.getInstance(btn);
+        if (inst) inst.hide();
+    }
 }
 
 
@@ -743,4 +810,252 @@ async function deleteUsers(ids) {
             text: err.message
         });
     }
+}
+
+
+// =====================================================================
+// IMPORTAR USUÁRIOS VIA PLANILHA
+// =====================================================================
+
+const IMPORT_HEADERS = [
+    "Nome", "Sobrenome", "Username", "E-mail", "Contato", "Perfil",
+    "Documento", "CEP", "Rua", "Número", "Complemento", "Bairro", "Cidade", "Estado",
+    "Pode_ler_coleta", "Pode_ler_saida", "Senha"
+];
+
+function openImportModal() {
+    document.getElementById("importResultWrap").classList.add("d-none");
+    document.getElementById("importProgressWrap").classList.add("d-none");
+    document.getElementById("inputFileImport").value = "";
+    document.getElementById("btnEnviarImport").disabled = true;
+    new bootstrap.Modal(document.getElementById("modalImportarUsuarios")).show();
+}
+
+function downloadExampleXlsx() {
+    if (typeof XLSX === "undefined") {
+        Swal.fire({ icon: "error", title: "Erro", text: "Biblioteca de planilha não carregada." });
+        return;
+    }
+    const wb = XLSX.utils.book_new();
+    const wsData = [
+        ["Nome", "Sobrenome", "Username", "E-mail", "Contato", "Perfil", "Documento", "CEP", "Rua", "Número", "Complemento", "Bairro", "Cidade", "Estado", "Pode_ler_coleta", "Pode_ler_saida", "Senha"],
+        ["Maria", "Silva Admin", "maria.admin", "maria@exemplo.com", "11999991111", "Administrador", "", "", "", "", "", "", "", "", "Não", "Sim", "senha123"],
+        ["João", "Santos Motoboy", "", "", "11988887777", "Motoboy", "123.456.789-00", "01310100", "Av. Paulista", "1000", "Sala 1", "Bela Vista", "São Paulo", "SP", "Sim", "Sim", ""]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(wb, ws, "Usuários");
+    XLSX.writeFile(wb, "exemplo_usuarios.xlsx");
+}
+
+function normalizeHeader(h) {
+    return (h || "").toString().trim();
+}
+
+function parseXlsxFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: "array" });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const raw = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" });
+                if (!raw.length) { resolve([]); return; }
+                const headers = raw[0].map(normalizeHeader);
+                const rows = [];
+                for (let i = 1; i < raw.length; i++) {
+                    const row = {};
+                    for (let j = 0; j < headers.length; j++) {
+                        if (headers[j]) row[headers[j]] = raw[i][j] != null ? String(raw[i][j]).trim() : "";
+                    }
+                    rows.push({ rowIndex: i + 1, data: row });
+                }
+                resolve(rows);
+            } catch (err) {
+                reject(err);
+            }
+        };
+        reader.onerror = () => reject(new Error("Falha ao ler o arquivo."));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+function parsePerfil(val) {
+    const v = (val || "").trim().toLowerCase();
+    if (v === "motoboy") return 4;
+    if (v === "administrador") return 1;
+    if (v === "operador") return 2;
+    return null;
+}
+
+function validateImportRow(item) {
+    const r = item.data;
+    const rowNum = item.rowIndex;
+    const get = (key) => (r[key] || "").trim();
+    const perfil = parsePerfil(get("Perfil"));
+    if (perfil === null) return `Linha ${rowNum}: Perfil é obrigatório (Motoboy, Administrador ou Operador).`;
+    if (!get("Nome")) return `Linha ${rowNum}: Nome é obrigatório.`;
+    if (!get("Sobrenome")) return `Linha ${rowNum}: Sobrenome é obrigatório.`;
+    if (!get("Contato")) return `Linha ${rowNum}: Contato é obrigatório.`;
+    const contatoDigits = get("Contato").replace(/\D/g, "");
+    if (contatoDigits.length < 10) return `Linha ${rowNum}: Contato inválido.`;
+
+    if (perfil === 4) {
+        if (!get("Documento")) return `Linha ${rowNum}: Documento é obrigatório para Motoboy.`;
+        const cep = get("CEP").replace(/\D/g, "");
+        if (cep.length !== 8) return `Linha ${rowNum}: CEP inválido (8 dígitos).`;
+        if (!get("Rua")) return `Linha ${rowNum}: Rua é obrigatória.`;
+        if (!get("Número")) return `Linha ${rowNum}: Número é obrigatório.`;
+        if (!get("Bairro")) return `Linha ${rowNum}: Bairro é obrigatório.`;
+        if (!get("Cidade")) return `Linha ${rowNum}: Cidade é obrigatória.`;
+    } else {
+        if (!get("Username")) return `Linha ${rowNum}: Username é obrigatório (exceto Motoboy).`;
+        const email = get("E-mail");
+        if (!email) return `Linha ${rowNum}: E-mail é obrigatório (exceto Motoboy).`;
+        if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) return `Linha ${rowNum}: E-mail inválido.`;
+    }
+    return null;
+}
+
+function rowToPayload(item) {
+    const r = item.data;
+    const get = (key) => (r[key] || "").trim();
+    const perfil = parsePerfil(get("Perfil"));
+    const role = perfil !== null ? perfil : 2;
+    const contato = get("Contato").replace(/\D/g, "");
+    const nome = get("Nome");
+    const sobrenome = get("Sobrenome");
+    const payload = {
+        nome,
+        sobrenome,
+        username: get("Username") || (role === 4 ? undefined : get("Username")),
+        email: get("E-mail") || (role === 4 ? undefined : get("E-mail")),
+        contato,
+        status: true,
+        role
+    };
+    if (role !== 4) {
+        payload.username = get("Username");
+        payload.email = get("E-mail");
+        payload.password = (get("Senha") || "trocar_senha123").length >= 4 ? get("Senha") || "trocar_senha123" : "trocar_senha123";
+    }
+    if (role === 4) {
+        payload.documento = (get("Documento") || "").replace(/\D/g, "");
+        payload.rua = get("Rua");
+        payload.numero = get("Número");
+        payload.complemento = get("Complemento") || null;
+        payload.bairro = get("Bairro");
+        payload.cidade = get("Cidade");
+        payload.estado = get("Estado") || null;
+        payload.cep = (get("CEP") || "").replace(/\D/g, "");
+        const simNao = (v) => (v || "").toString().toLowerCase().trim() === "sim";
+        payload.pode_ler_coleta = simNao(get("Pode_ler_coleta"));
+        payload.pode_ler_saida = get("Pode_ler_saida") ? simNao(get("Pode_ler_saida")) : true;
+    }
+    return payload;
+}
+
+async function submitImport() {
+    const input = document.getElementById("inputFileImport");
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const ext = (file.name || "").toLowerCase();
+    if (!ext.endsWith(".xlsx") && !ext.endsWith(".xls")) {
+        Swal.fire({ icon: "error", title: "Arquivo inválido", text: "Envie apenas arquivos .xlsx ou .xls" });
+        return;
+    }
+
+    const resultWrap = document.getElementById("importResultWrap");
+    const resultContent = document.getElementById("importResultContent");
+    const progressWrap = document.getElementById("importProgressWrap");
+    const progressText = document.getElementById("importProgressText");
+    const btnEnviar = document.getElementById("btnEnviarImport");
+
+    resultWrap.classList.add("d-none");
+    progressWrap.classList.remove("d-none");
+    btnEnviar.disabled = true;
+
+    let rows = [];
+    try {
+        rows = await parseXlsxFile(file);
+    } catch (err) {
+        progressWrap.classList.add("d-none");
+        btnEnviar.disabled = false;
+        Swal.fire({ icon: "error", title: "Erro ao ler planilha", text: err.message });
+        return;
+    }
+
+    if (!rows.length) {
+        progressWrap.classList.add("d-none");
+        btnEnviar.disabled = false;
+        resultWrap.classList.remove("d-none");
+        resultContent.innerHTML = '<p class="text-warning mb-0">Nenhuma linha de dados na planilha.</p>';
+        return;
+    }
+
+    const validationErrors = [];
+    const toSend = [];
+    for (const item of rows) {
+        const err = validateImportRow(item);
+        if (err) validationErrors.push(err);
+        else toSend.push(item);
+    }
+
+    if (validationErrors.length > 0 && toSend.length === 0) {
+        progressWrap.classList.add("d-none");
+        btnEnviar.disabled = false;
+        resultWrap.classList.remove("d-none");
+        resultContent.innerHTML = '<p class="text-danger fw-semibold">Erros de validação:</p><ul class="mb-0">' +
+            validationErrors.map(e => "<li>" + e + "</li>").join("") + "</ul>";
+        return;
+    }
+
+    let created = 0;
+    const postErrors = [];
+
+    for (let i = 0; i < toSend.length; i++) {
+        progressText.textContent = `Processando ${i + 1} de ${toSend.length}...`;
+        const item = toSend[i];
+        const payload = rowToPayload(item);
+        try {
+            const resp = await fetch(`${API}/`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            if (resp.ok) {
+                created++;
+            } else {
+                let msg = "Erro ao criar";
+                try {
+                    const json = await resp.json();
+                    if (json.detail) {
+                        if (Array.isArray(json.detail)) msg = (json.detail.map(d => d.msg || d).join("; "));
+                        else msg = json.detail;
+                    }
+                } catch (_) {}
+                postErrors.push(`Linha ${item.rowIndex}: ${msg}`);
+            }
+        } catch (err) {
+            postErrors.push(`Linha ${item.rowIndex}: ${err.message || "Erro de rede"}`);
+        }
+    }
+
+    progressWrap.classList.add("d-none");
+    btnEnviar.disabled = false;
+    resultWrap.classList.remove("d-none");
+
+    const allErrors = [...validationErrors, ...postErrors];
+    let html = "";
+    if (created > 0) {
+        html += `<p class="text-success mb-2"><strong>${created} usuário(s) importado(s) com sucesso.</strong></p>`;
+        if (typeof loadUsers === "function") loadUsers();
+    }
+    if (allErrors.length > 0) {
+        html += `<p class="text-danger fw-semibold mb-1">${allErrors.length} erro(s):</p><ul class="mb-0 small">` +
+            allErrors.map(e => "<li>" + e + "</li>").join("") + "</ul>";
+    }
+    if (created === 0 && allErrors.length === 0) html = '<p class="text-muted mb-0">Nenhum registro processado.</p>';
+    resultContent.innerHTML = html || "<p class="mb-0">Concluído.</p>";
 }
