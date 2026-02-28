@@ -53,6 +53,7 @@
                                 <tr>
                                     <th style="width:56px;">Sel.</th>
                                     <th>Sub-base</th>
+                                    <th>Tipo</th>
                                     <th>Username</th>
                                     <th>E-mail</th>
                                     <th>Contato</th>
@@ -134,6 +135,15 @@
                         <div class="col-12">
                             <label class="form-label">Sub-base</label>
                             <input type="text" id="ownerSubBase" class="form-control" disabled>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Tipo</label>
+                            <select id="ownerTipo" class="form-select">
+                                <option value="subbase">Subbase</option>
+                                <option value="base">Base</option>
+                            </select>
+                            <small class="text-muted">Base = Seller (labels no menu/páginas como &quot;Seller&quot;). Subbase = Base.</small>
                         </div>
 
                         <div class="col-12">

@@ -81,7 +81,7 @@
           <div class="container-fluid">
 
             <!-- Título da página -->
-            @@include("partials/page-title.html", {"pagetitle": "Financeiro", "title": "Fechamento de Bases", "withSubtitle": true})
+            @@include("partials/page-title.html", {"pagetitle": "Financeiro", "title": "Fechamento de Bases", "withSubtitle": true, "ownerTerm": "fechamento_base"})
 
             <!-- ======================== CONTEÚDO PRINCIPAL ======================== -->
             <div class="row">
@@ -123,7 +123,7 @@
                             </button>
                             <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 280px;">
                               <div class="mb-2">
-                                <label class="form-label small">Base</label>
+                                <label class="form-label small" data-owner-term="base">Base</label>
                                 <select id="flt-base" class="form-select form-select-sm">
                                   <option value="">(Todas)</option>
                                 </select>
@@ -281,14 +281,14 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="modalSelecionarBaseFechamentoLabel">
-              <i class="ri-building-line me-2"></i>Passo 1 — Selecionar Base
+              <i class="ri-building-line me-2"></i><span data-owner-term="passo1_selecionar_base">Passo 1 — Selecionar Base</span>
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
           </div>
           <div class="modal-body">
             <p class="text-muted small mb-3">Selecione a base para gerar o fechamento.</p>
             <div class="mb-0">
-              <label class="form-label">Base</label>
+              <label class="form-label" data-owner-term="base">Base</label>
               <select id="modalSelecionarBaseFechamentoSelect" class="form-select">
                 <option value="">Selecione...</option>
               </select>
@@ -310,7 +310,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="modalFechamentoBasesLabel">
-              <i class="ri-building-line me-2"></i>Gerar Fechamento de Base
+              <i class="ri-building-line me-2"></i><span data-owner-term="gerar_fechamento_base">Gerar Fechamento de Base</span>
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
           </div>
@@ -322,7 +322,7 @@
             <input type="hidden" id="fech-periodo-fim">
 
             <div class="mb-3">
-              <label class="form-label form-label-modal">Base</label>
+              <label class="form-label form-label-modal" data-owner-term="base">Base</label>
               <div class="form-control form-control-readonly fech-campo-inalterado" id="fech-base-display">—</div>
             </div>
             <div class="mb-3">
@@ -384,7 +384,7 @@
               <input type="date" id="modalColetaManualData" class="form-control" />
             </div>
             <div class="mb-3">
-              <label class="form-label">Base</label>
+              <label class="form-label" data-owner-term="base">Base</label>
               <select id="modalColetaManualBase" class="form-select"></select>
             </div>
             <div class="mb-3">

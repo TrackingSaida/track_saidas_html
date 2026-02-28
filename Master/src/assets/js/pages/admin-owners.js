@@ -105,7 +105,7 @@ function initOwners() {
 async function loadOwners() {
     const tbody = document.getElementById("tbody-owners");
     tbody.innerHTML = `
-        <tr><td colspan="9" class="text-center py-4 text-muted">Carregando...</td></tr>
+        <tr><td colspan="10" class="text-center py-4 text-muted">Carregando...</td></tr>
     `;
 
     try {
@@ -117,7 +117,7 @@ async function loadOwners() {
 
     } catch (err) {
         tbody.innerHTML = `
-            <tr><td colspan="9" class="text-center text-danger py-4">Erro ao carregar owners.</td></tr>
+            <tr><td colspan="10" class="text-center text-danger py-4">Erro ao carregar owners.</td></tr>
         `;
     }
 }
@@ -172,6 +172,7 @@ function renderTable() {
                 <input type="checkbox" class="form-check-input row-select">
             </td>
             <td>${o.sub_base}</td>
+            <td>${(o.tipo_owner || "subbase") === "base" ? "Base" : "Subbase"}</td>
             <td>${o.username}</td>
             <td>${o.email}</td>
             <td>
@@ -306,6 +307,7 @@ function openEditFromSelection() {
 function openEdit(o) {
     document.getElementById("ownerId").value = o.id_owner;
     document.getElementById("ownerSubBase").value = o.sub_base;
+    document.getElementById("ownerTipo").value = (o.tipo_owner || "subbase").toLowerCase();
     document.getElementById("ownerUsername").value = o.username;
     document.getElementById("ownerEmail").value = o.email;
     document.getElementById("ownerContato").value = o.contato || "";
@@ -339,7 +341,8 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
         modo_operacao: document.getElementById("ownerModoOperacao").value || "codigo",
         ignorar_coleta: document.getElementById("ownerIgnorarToggle").checked,
         teste: document.getElementById("ownerTesteToggle").checked,
-        ativo: document.getElementById("ownerAtivoToggle").checked
+        ativo: document.getElementById("ownerAtivoToggle").checked,
+        tipo_owner: (document.getElementById("ownerTipo").value || "subbase").toLowerCase()
     };
 
     try {

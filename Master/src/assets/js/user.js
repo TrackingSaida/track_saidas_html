@@ -132,10 +132,11 @@
       window.__USER__ = user;
 
       // ----------------------------
-      // IGNORAR_COLETA e MODO_OPERACAO (vem do JWT)
+      // IGNORAR_COLETA, MODO_OPERACAO e TIPO_OWNER (vem do JWT)
       // ----------------------------
       window.IGNORAR_COLETA = !!user?.ignorar_coleta;
       window.MODO_OPERACAO = user?.modo_operacao || "codigo";
+      window.TIPO_OWNER = (user?.tipo_owner || "subbase").toLowerCase();
       try {
         localStorage.setItem(
           "ignorar_coleta",
@@ -160,6 +161,9 @@
       );
       if (ddHeader) ddHeader.textContent = `Bem-vindo(a) ${nome}!`;
 
+      if (typeof window.applyOwnerLabels === "function") {
+        window.applyOwnerLabels();
+      }
     } catch (e) {
       // Não logar falhas de rede/API indisponível para reduzir ruído no console
       const isNetworkError =

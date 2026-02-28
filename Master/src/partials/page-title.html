@@ -5,10 +5,10 @@
             <div>
                 @@if (withSubtitle) {
                 <h4 class="mb-0">@@pagetitle</h4>
-                <div class="text-muted fs-6 mt-0">@@title</div>
+                <div class="text-muted fs-6 mt-0">@@if (ownerTerm) {<span data-owner-term="@@ownerTerm">@@title</span>}@@if (!ownerTerm) {@@title}</div>
                 }
                 @@if (!withSubtitle) {
-                <h4 class="mb-sm-0">@@title</h4>
+                <h4 class="mb-sm-0">@@if (ownerTerm) {<span data-owner-term="@@ownerTerm">@@title</span>}@@if (!ownerTerm) {@@title}</h4>
                 }
             </div>
 

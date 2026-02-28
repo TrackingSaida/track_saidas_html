@@ -12,7 +12,7 @@
         <div class="page-content">
           <div class="container-fluid">
 
-            @@include("partials/page-title.html", {"pagetitle": "Configurações", "title": "Bases", "withSubtitle": false})
+            @@include("partials/page-title.html", {"pagetitle": "Configurações", "title": "Bases", "withSubtitle": false, "ownerTerm": "bases"})
 
             <div class="card">
               <div class="card-header d-flex align-items-center justify-content-between ent-toolbar">
@@ -49,7 +49,7 @@
                     <thead class="table-light">
                       <tr>
                         <th style="width:56px;">Sel.</th>
-                        <th>Base</th>
+                        <th data-owner-term="base">Base</th>
                         <th>Flex</th>
                         <th>Shopee</th>
                         <th>Avulso</th>
@@ -104,7 +104,7 @@
          data-bs-scroll="false"
          data-bs-backdrop="true">
       <div class="offcanvas-header border-bottom">
-        <h5 class="offcanvas-title" id="ocLabel">Nova Base</h5>
+        <h5 class="offcanvas-title" id="ocLabel" data-owner-term="nova_base">Nova Base</h5>
         <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
       </div>
 
@@ -113,11 +113,11 @@
           <input type="hidden" id="baseId" />
 
           <div class="card mb-3">
-            <div class="card-header bg-light fw-semibold">Dados da Base</div>
+            <div class="card-header bg-light fw-semibold" data-owner-term="dados_da_base">Dados da Base</div>
             <div class="card-body">
               <div class="row g-3">
                 <div class="col-12">
-                  <label for="base" class="form-label">Nome da Base</label>
+                  <label for="base" class="form-label" data-owner-term="nome_da_base">Nome da Base</label>
                   <input type="text" id="base" class="form-control" required />
                   <div class="invalid-feedback">Informe o nome da base.</div>
                 </div>
@@ -165,7 +165,7 @@
           <div class="modal-body text-center p-4">
             <lord-icon src="https://cdn.lordicon.com/gsqxdxog.json" trigger="loop"
               colors="primary:#f7b84b,secondary:#f06548" style="width:80px;height:80px"></lord-icon>
-            <h5 class="mt-3">Excluir base?</h5>
+            <h5 class="mt-3" data-owner-term="excluir_base">Excluir base?</h5>
             <p class="text-muted mb-4">Esta ação não pode ser desfeita.</p>
             <div class="hstack gap-2 justify-content-center">
               <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
