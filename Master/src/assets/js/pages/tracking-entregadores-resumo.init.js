@@ -7,12 +7,21 @@
 document.addEventListener("DOMContentLoaded", async () => {
   "use strict";
 
-  const API_URL = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+  const API_URL = (window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api").replace(/\/+$/, "");
   const API_RESUMO = `${API_URL}/entregadores/resumo`;
   const API_ENTREGADORES = `${API_URL}/entregadores`;
   const API_FECHAMENTOS = `${API_URL}/entregadores/fechamentos`;
 
   const qs = (s) => document.querySelector(s);
+
+  /** value do select de executores: "e_123" (entregador) ou "m_456" (motoboy) */
+  function parseExecutorVal(val) {
+    if (!val || typeof val !== "string") return { tipo: null, id: 0 };
+    const v = val.trim();
+    if (v.startsWith("e_")) return { tipo: "e", id: parseInt(v.slice(2), 10) || 0 };
+    if (v.startsWith("m_")) return { tipo: "m", id: parseInt(v.slice(2), 10) || 0 };
+    return { tipo: null, id: 0 };
+  }
 
   const formatarMoeda = (v) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v) || 0);
@@ -97,11 +106,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function updateCards(data) {
     if (!data) return;
-    qs("#card-flex").textContent = String(data.sumFlex ?? 0);
-    qs("#card-shopee").textContent = String(data.sumShopee ?? 0);
-    qs("#card-avulso").textContent = String(data.sumAvulso ?? 0);
-    qs("#card-total-entregas").textContent = String(data.sumTotalEntregas ?? 0);
-    qs("#card-valor").textContent = formatarMoeda(data.sumValor);
+    const cardFlex = qs("#card-flex");
+    const cardShopee = qs("#card-shopee");
+    const cardAvulso = qs("#card-avulso");
+    const cardTotalEntregas = qs("#card-total-entregas");
+    const cardValor = qs("#card-valor");
+    if (cardFlex) cardFlex.textContent = String(data.sumFlex ?? 0);
+    if (cardShopee) cardShopee.textContent = String(data.sumShopee ?? 0);
+    if (cardAvulso) cardAvulso.textContent = String(data.sumAvulso ?? 0);
+    if (cardTotalEntregas) cardTotalEntregas.textContent = String(data.sumTotalEntregas ?? 0);
+    if (cardValor) cardValor.textContent = formatarMoeda(data.sumValor);
   }
 
   function updatePager() {
@@ -110,12 +124,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const page = state.page;
     const start = total === 0 ? 0 : (page - 1) * state.pageSize + 1;
     const end = Math.min(total, page * state.pageSize);
-    pagerInfo.textContent = `Exibindo ${start} a ${end} de ${total} registros`;
-    pagerSummary.textContent = `Página ${page} de ${totalPages}`;
-    pagerFirst.disabled = page <= 1;
-    pagerPrev.disabled = page <= 1;
-    pagerNext.disabled = page >= totalPages;
-    pagerLast.disabled = page >= totalPages;
+    if (pagerInfo) pagerInfo.textContent = `Exibindo ${start} a ${end} de ${total} registros`;
+    if (pagerSummary) pagerSummary.textContent = `Página ${page} de ${totalPages}`;
+    if (pagerFirst) pagerFirst.disabled = page <= 1;
+    if (pagerPrev) pagerPrev.disabled = page <= 1;
+    if (pagerNext) pagerNext.disabled = page >= totalPages;
+    if (pagerLast) pagerLast.disabled = page >= totalPages;
   }
 
   function formatarPeriodo(ini, fim) {
@@ -199,9 +213,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!btn || !wrap) return;
     const dataInicio = fltDataInicio?.value || "";
     const dataFim = fltDataFim?.value || "";
-    const entregador = fltEntregador?.value || "";
-    const statusFiltro = (fltStatus?.value || "").trim().toUpperCase();
-    const habilitadoPeriodoEntregador = !!(dataInicio && dataFim && entregador);
+    const executor = parseExecutorVal(fltEntregador?.value || "");
+    const habilitadoPeriodoEntregador = !!(dataInicio && dataFim && executor.tipo && executor.id > 0);
     const ctx = state.contextoFechamento;
     const listaReajuste = state.entregadoresParaReajuste || [];
     // Reajustar habilitado só por status GERADO: um contexto único ou vários entregadores para escolher
@@ -284,7 +297,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  async function abrirModalFechamento(modoEdicao, idFech, entId, periodoInicio, periodoFim, entNome) {
+  async function abrirModalFechamento(modoEdicao, idFech, executorTipo, executorId, periodoInicio, periodoFim, entNome) {
     state.modoEdicao = !!modoEdicao;
     state.divergenciaValorBase = false;
     state.valorBaseRecalculado = null;
@@ -301,7 +314,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     qs("#fech-id").value = idFech || "";
-    qs("#fech-entregador-id").value = entId || "";
+    if (executorTipo === "e") {
+      qs("#fech-entregador-id").value = executorId || "";
+      if (qs("#fech-motoboy-id")) qs("#fech-motoboy-id").value = "";
+    } else {
+      qs("#fech-entregador-id").value = "";
+      if (qs("#fech-motoboy-id")) qs("#fech-motoboy-id").value = executorId || "";
+    }
     qs("#fech-periodo-inicio").value = periodoInicio || "";
     qs("#fech-periodo-fim").value = periodoFim || "";
     qs("#fech-entregador-nome").textContent = entNome || fltEntregador?.options[fltEntregador.selectedIndex]?.text || "—";
@@ -349,15 +368,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     } else {
       state.fechModal.valorBase = 0;
+      const calcParams = new URLSearchParams({ periodo_inicio: periodoInicio, periodo_fim: periodoFim });
+      if (executorTipo === "e" && executorId) calcParams.append("entregador_id", executorId);
+      if (executorTipo === "m" && executorId) calcParams.append("motoboy_id", executorId);
       try {
-        const params = new URLSearchParams({ entregador_id: entId, periodo_inicio: periodoInicio, periodo_fim: periodoFim });
-        const res = await fetch(`${API_FECHAMENTOS}/calcular?${params}`, { credentials: "include" });
+        const res = await fetch(`${API_FECHAMENTOS}/calcular?${calcParams}`, { credentials: "include" });
         if (res.ok) {
           const data = await res.json();
           state.fechModal.valorBase = Number(data.valor_base || 0);
           qs("#fech-valor-base").value = formatarMoeda(data.valor_base);
         } else {
-          const resumoParams = new URLSearchParams({ data_inicio: periodoInicio, data_fim: periodoFim, entregador_id: entId, pageSize: 500 });
+          const resumoParams = new URLSearchParams({ data_inicio: periodoInicio, data_fim: periodoFim, pageSize: 500 });
+          if (executorTipo === "e" && executorId) resumoParams.append("entregador_id", executorId);
+          if (executorTipo === "m" && executorId) resumoParams.append("motoboy_id", executorId);
           const resumoRes = await fetch(`${API_RESUMO}?${resumoParams}`, { credentials: "include" });
           if (resumoRes.ok) {
             const resumoData = await resumoRes.json();
@@ -370,7 +393,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
         }
       } catch (err) {
-        const resumoParams = new URLSearchParams({ data_inicio: periodoInicio, data_fim: periodoFim, entregador_id: entId, pageSize: 500 });
+        const resumoParams = new URLSearchParams({ data_inicio: periodoInicio, data_fim: periodoFim, pageSize: 500 });
+        if (executorTipo === "e" && executorId) resumoParams.append("entregador_id", executorId);
+        if (executorTipo === "m" && executorId) resumoParams.append("motoboy_id", executorId);
         try {
           const resumoRes = await fetch(`${API_RESUMO}?${resumoParams}`, { credentials: "include" });
           if (resumoRes.ok) {
@@ -418,7 +443,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   async function salvarEGerarFechamento() {
     const idFech = qs("#fech-id")?.value?.trim();
-    const entId = parseInt(qs("#fech-entregador-id")?.value, 10);
+    const entIdE = parseInt(qs("#fech-entregador-id")?.value, 10);
+    const entIdM = parseInt(qs("#fech-motoboy-id")?.value, 10);
     const periodoInicio = qs("#fech-periodo-inicio")?.value?.trim();
     const periodoFim = qs("#fech-periodo-fim")?.value?.trim();
     const entNome = qs("#fech-entregador-nome")?.textContent || "";
@@ -449,12 +475,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
         fechSalvo = await res.json();
       } else {
-        if (!periodoInicio || !periodoFim || !entId || entId <= 0) {
-          if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: "Informe período e entregador." });
-          else alert("Informe período e entregador.");
+        const temEntregador = entIdE > 0;
+        const temMotoboy = entIdM > 0;
+        if (!periodoInicio || !periodoFim || (!temEntregador && !temMotoboy)) {
+          if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: "Informe período e entregador/motoboy." });
+          else alert("Informe período e entregador/motoboy.");
           return;
         }
-        const body = { id_entregador: entId, periodo_inicio: periodoInicio, periodo_fim: periodoFim, valor_adicao: valorAdicao, motivo_adicao: motivoAdicao || null, valor_subtracao: valorSubtracao, motivo_subtracao: motivoSubtracao || null };
+        const body = {
+          periodo_inicio: periodoInicio,
+          periodo_fim: periodoFim,
+          valor_adicao: valorAdicao,
+          motivo_adicao: motivoAdicao || null,
+          valor_subtracao: valorSubtracao,
+          motivo_subtracao: motivoSubtracao || null,
+        };
+        if (temEntregador) body.id_entregador = entIdE;
+        else body.id_motoboy = entIdM;
         const res = await fetch(API_FECHAMENTOS, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), credentials: "include" });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -499,15 +536,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   qs("#btnGerarFechamentoModal")?.addEventListener("click", salvarEGerarFechamento);
 
-  async function carregarEntregadores() {
+  async function carregarExecutores() {
+    if (!fltEntregador) return;
     try {
-      const res = await fetch(`${API_ENTREGADORES}/?status=ativo`, { credentials: "include" });
+      const res = await fetch(`${API_ENTREGADORES}/executores?status=ativo`, { credentials: "include" });
       if (!res.ok) return;
       const list = await res.json();
       const arr = Array.isArray(list) ? list : [];
-      fltEntregador.innerHTML = '<option value="">(Todos)</option>' + arr.map((e) => `<option value="${e.id_entregador}">${e.nome || e.id_entregador}</option>`).join("");
+      const opts = arr.map((e) => {
+        const val = e.id_entregador != null ? "e_" + e.id_entregador : "m_" + e.id_motoboy;
+        const nome = (e.nome || val).replace(/</g, "&lt;").replace(/"/g, "&quot;");
+        return `<option value="${val}">${nome}</option>`;
+      });
+      fltEntregador.innerHTML = '<option value="">(Todos)</option>' + opts.join("");
     } catch (err) {
-      console.error("Erro ao carregar entregadores:", err);
+      console.error("Erro ao carregar executores:", err);
     }
   }
 
@@ -518,46 +561,72 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const dataInicio = fltDataInicio?.value || "";
     const dataFim = fltDataFim?.value || "";
-    const entregadorId = fltEntregador?.value || "";
+    const executorVal = fltEntregador?.value || "";
+    const executor = parseExecutorVal(executorVal);
 
     const params = new URLSearchParams({ page: state.page, pageSize: state.pageSize });
     if (dataInicio) params.append("data_inicio", dataInicio);
     if (dataFim) params.append("data_fim", dataFim);
-    if (entregadorId) params.append("entregador_id", entregadorId);
+    if (executor.tipo === "e" && executor.id > 0) params.append("entregador_id", executor.id);
+    if (executor.tipo === "m" && executor.id > 0) params.append("motoboy_id", executor.id);
     const statusFiltro = fltStatus?.value?.trim() || "";
     if (statusFiltro) params.append("fechamento_status", statusFiltro);
 
     try {
+      if (!API_URL) {
+        throw new Error("URL da API não configurada. Verifique TRACK_API_URL.");
+      }
       const res = await fetch(`${API_RESUMO}?${params.toString()}`, { credentials: "include" });
-      if (!res.ok) throw new Error(res.statusText);
+      if (!res.ok) {
+        const contentType = res.headers.get("content-type") || "";
+        let detail = res.statusText;
+        if (contentType.includes("application/json")) {
+          try {
+            const errBody = await res.json();
+            detail = (errBody && (errBody.detail || errBody.message)) || detail;
+          } catch (_) { /* ignore */ }
+        }
+        throw new Error(detail || `Erro ${res.status}`);
+      }
       const data = await res.json();
 
       state.total = Number(data.totalItems ?? 0);
       state.totalPages = Number(data.totalPages ?? 1);
       state.items = Array.isArray(data.items) ? data.items : [];
 
-      const label = entregadorId ? (fltEntregador.options[fltEntregador.selectedIndex]?.text || "Entregador") : "Todos";
+      const label = executorVal ? (fltEntregador.options[fltEntregador.selectedIndex]?.text || "Executor") : "Todos";
       state.entregadorLabel = label;
 
       state.entregadoresParaReajuste = [];
-      if (entregadorId && state.items.length > 0) {
-        const primeiro = state.items.find((i) => String(i.entregador_id) === String(entregadorId)) || state.items[0];
+      const temExecutor = executor.tipo && executor.id > 0;
+      if (temExecutor && state.items.length > 0) {
+        const primeiro = state.items.find((i) =>
+          (executor.tipo === "e" && String(i.entregador_id) === String(executor.id)) ||
+          (executor.tipo === "m" && String(i.motoboy_id) === String(executor.id))
+        ) || state.items[0];
         state.contextoFechamento = {
           status: (primeiro.fechamento_status || "PENDENTE").toUpperCase(),
           id_fechamento: primeiro.id_fechamento || null,
           periodo_inicio: primeiro.periodo_inicio || dataInicio,
           periodo_fim: primeiro.periodo_fim || dataFim,
           entregador_nome: primeiro.entregador_nome || label,
+          executorTipo: executor.tipo,
+          executorId: executor.tipo === "e" ? primeiro.entregador_id : primeiro.motoboy_id,
         };
-      } else if (!entregadorId && statusFiltro === "GERADO" && state.items.length > 0) {
+      } else if (!temExecutor && statusFiltro === "GERADO" && state.items.length > 0) {
         const seen = new Set();
         const lista = [];
         state.items.forEach((i) => {
-          const id = i.entregador_id;
-          if (id != null && !seen.has(id)) {
-            seen.add(id);
+          const tipo = i.motoboy_id != null ? "m" : "e";
+          const id = i.motoboy_id != null ? i.motoboy_id : i.entregador_id;
+          const key = tipo + "_" + id;
+          if (id != null && !seen.has(key)) {
+            seen.add(key);
             lista.push({
-              entregador_id: id,
+              executorTipo: tipo,
+              executorId: id,
+              entregador_id: i.entregador_id,
+              motoboy_id: i.motoboy_id,
               entregador_nome: i.entregador_nome || "—",
               id_fechamento: i.id_fechamento || null,
               periodo_inicio: i.periodo_inicio || dataInicio,
@@ -568,13 +637,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.entregadoresParaReajuste = lista.filter((e) => e.id_fechamento != null);
         if (lista.length === 1 && state.entregadoresParaReajuste.length === 1) {
           const u = state.entregadoresParaReajuste[0];
-          state.contextoFechamento = { status: "GERADO", id_fechamento: u.id_fechamento, periodo_inicio: u.periodo_inicio, periodo_fim: u.periodo_fim, entregador_nome: u.entregador_nome, entregador_id: u.entregador_id };
+          state.contextoFechamento = { status: "GERADO", id_fechamento: u.id_fechamento, periodo_inicio: u.periodo_inicio, periodo_fim: u.periodo_fim, entregador_nome: u.entregador_nome, executorTipo: u.executorTipo, executorId: u.executorId };
           state.entregadoresParaReajuste = [];
         } else {
           state.contextoFechamento = state.entregadoresParaReajuste.length > 0 ? { status: "GERADO", id_fechamento: null, periodo_inicio: dataInicio, periodo_fim: dataFim, entregador_nome: "" } : null;
         }
       } else {
-        state.contextoFechamento = entregadorId && dataInicio && dataFim ? { status: "PENDENTE", id_fechamento: null, periodo_inicio: dataInicio, periodo_fim: dataFim, entregador_nome: label } : null;
+        state.contextoFechamento = temExecutor && dataInicio && dataFim ? { status: "PENDENTE", id_fechamento: null, periodo_inicio: dataInicio, periodo_fim: dataFim, entregador_nome: label } : null;
       }
 
       updateCards(data);
@@ -584,14 +653,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       atualizarContadorFiltros();
       if (msgEl) msgEl.innerHTML = "";
     } catch (err) {
-      console.error(err);
-      if (msgEl) msgEl.innerHTML = "<div class=\"text-danger\">Erro ao carregar resumo. Verifique o login e a conexão.</div>";
+      console.error("Fechamento de Motoboys — carregarResumo:", err);
+      const msgTexto = err && err.message ? err.message : "Erro ao carregar resumo. Verifique o login e a conexão.";
+      if (msgEl) msgEl.innerHTML = "<div class=\"text-danger\">" + (msgTexto.replace(/</g, "&lt;").replace(/>/g, "&gt;")) + "</div>";
       updateCards({ sumFlex: 0, sumShopee: 0, sumAvulso: 0, sumTotalEntregas: 0, sumValor: 0 });
       state.total = 0;
       state.totalPages = 0;
       state.items = [];
       state.contextoFechamento = null;
-      renderTable([]);
+      if (tbody) renderTable([]);
       updatePager();
       atualizarBtnGerarFechamento();
       atualizarContadorFiltros();
@@ -640,7 +710,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function atualizarContadorFiltros() {
     if (!filtrosContador) return;
     let n = 0;
-    if ((fltEntregador?.value || "").trim() && parseInt(fltEntregador?.value || "0", 10) > 0) n++;
+    if (parseExecutorVal(fltEntregador?.value || "").id > 0) n++;
     if ((fltStatus?.value || "").trim()) n++;
     if (n > 0) {
       filtrosContador.textContent = String(n);
@@ -673,12 +743,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     const listaReajuste = state.entregadoresParaReajuste || [];
     const periodoInicio = fltDataInicio?.value || "";
     const periodoFim = fltDataFim?.value || "";
-    const entId = parseInt(fltEntregador?.value || "0", 10);
+    const executor = parseExecutorVal(fltEntregador?.value || "");
     const entNome = fltEntregador?.options[fltEntregador.selectedIndex]?.text || "";
 
     if (acao === "reajustar") {
       if (listaReajuste.length > 1) {
-        const opcoes = listaReajuste.map((e) => ({ id: e.entregador_id, nome: e.entregador_nome, ...e }));
+        const opcoes = listaReajuste.map((u) => ({ key: (u.executorTipo || "e") + "_" + (u.executorId || u.entregador_id), nome: u.entregador_nome, ...u }));
+        const inputOptions = {};
+        opcoes.forEach((o) => { inputOptions[o.key] = o.nome; });
         const { value: selecionado } = await window.Swal.fire({
           title: "Selecione o entregador",
           html: "Há mais de um entregador com fechamento GERADO. Escolha qual deseja reajustar.",
@@ -686,24 +758,25 @@ document.addEventListener("DOMContentLoaded", async () => {
           cancelButtonText: "Cancelar",
           confirmButtonText: "Reajustar",
           input: "select",
-          inputOptions: opcoes.reduce((acc, o) => { acc[o.id] = o.nome; return acc; }, {}),
+          inputOptions,
           inputPlaceholder: "Selecione o entregador",
           inputValidator: (v) => (!v ? "Selecione um entregador" : null),
         });
         if (selecionado) {
-          const u = opcoes.find((o) => String(o.id) === String(selecionado));
-          if (u?.id_fechamento) abrirModalFechamento(true, u.id_fechamento, u.entregador_id, u.periodo_inicio, u.periodo_fim, u.entregador_nome);
+          const u = opcoes.find((o) => o.key === selecionado);
+          if (u?.id_fechamento) abrirModalFechamento(true, u.id_fechamento, u.executorTipo || "e", u.executorId != null ? u.executorId : u.entregador_id, u.periodo_inicio, u.periodo_fim, u.entregador_nome);
         }
       } else if (ctx?.id_fechamento) {
-        const id = entId > 0 ? entId : (ctx.entregador_id != null ? ctx.entregador_id : 0);
+        const tipo = ctx.executorTipo || executor.tipo || "e";
+        const id = ctx.executorId != null ? ctx.executorId : (executor.id > 0 ? executor.id : 0);
         const nome = ctx.entregador_nome || entNome;
-        abrirModalFechamento(true, ctx.id_fechamento, id, ctx.periodo_inicio, ctx.periodo_fim, nome);
+        abrirModalFechamento(true, ctx.id_fechamento, tipo, id, ctx.periodo_inicio, ctx.periodo_fim, nome);
       }
       return;
     }
     if (acao === "gerar") {
-      if (!periodoInicio || !periodoFim || entId <= 0) return;
-      abrirModalFechamento(false, null, entId, periodoInicio, periodoFim, entNome);
+      if (!periodoInicio || !periodoFim || !executor.tipo || executor.id <= 0) return;
+      abrirModalFechamento(false, null, executor.tipo, executor.id, periodoInicio, periodoFim, entNome);
     }
   });
 
@@ -743,7 +816,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   pagerNext?.addEventListener("click", () => { if (state.page < state.totalPages) { state.page++; carregarResumo(); } });
   pagerLast?.addEventListener("click", () => { state.page = state.totalPages; carregarResumo(); });
 
-  await carregarEntregadores();
+  await carregarExecutores();
   state.entregadorLabel = "Todos";
   atualizarBtnGerarFechamento();
   await carregarResumo();

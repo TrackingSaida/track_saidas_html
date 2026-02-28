@@ -172,12 +172,11 @@
       const fech = await fechRes.json();
       const periodoInicio = periodoInicioParam || fech.periodo_inicio || "";
       const periodoFim = periodoFimParam || fech.periodo_fim || "";
-      const entId = fech.id_entregador || "";
+      let resumoUrl = `${API_RESUMO}?data_inicio=${periodoInicio}&data_fim=${periodoFim}&pageSize=500`;
+      if (fech.id_entregador != null) resumoUrl += "&entregador_id=" + fech.id_entregador;
+      else if (fech.id_motoboy != null) resumoUrl += "&motoboy_id=" + fech.id_motoboy;
 
-      const resumoRes = await fetch(
-        `${API_RESUMO}?data_inicio=${periodoInicio}&data_fim=${periodoFim}&entregador_id=${entId}&pageSize=500`,
-        { credentials: "include" }
-      );
+      const resumoRes = await fetch(resumoUrl, { credentials: "include" });
       if (!resumoRes.ok) throw new Error("Erro ao carregar resumo");
       const resumoData = await resumoRes.json();
       const itensDiarios = Array.isArray(resumoData.items) ? resumoData.items : [];
