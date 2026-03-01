@@ -1,11 +1,15 @@
 /**
- * Página Autenticação — Gerar link de autorização (ML/Shopee) e listar sellers conectados.
+ * Página Autenticação — Gerar link de autorização (ML Int / Shopee) e listar sellers conectados.
+ * ML: usa /api/ml-int/connect?state=sub_base e /api/ml-int/sellers.
+ * Ao voltar da autenticação (query ml=ok), atualiza a lista e mostra feedback.
  * Acesso: role 0 (root) sempre; role 1 (admin) só quando tipo_owner === "base".
  */
 const API_BASE = "https://track-saidas-api.onrender.com/api";
 
+let me = null;
+
 document.addEventListener("DOMContentLoaded", async () => {
-    const me = await fetch(`${API_BASE}/auth/me`, { credentials: "include" })
+    me = await fetch(`${API_BASE}/auth/me`, { credentials: "include" })
         .then(r => r.ok ? r.json() : null);
 
     if (!me) {
@@ -36,6 +40,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     initPage();
+    checkReturnFromAuth();
 });
 
 function initPage() {
@@ -46,23 +51,63 @@ function initPage() {
     document.getElementById("btnAtualizarLista").addEventListener("click", () => loadSellers());
 }
 
+/** Verifica se o usuário voltou da página de sucesso do ML e atualiza a lista. */
+function checkReturnFromAuth() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("ml") === "ok") {
+        loadSellers();
+        if (typeof Swal !== "undefined") {
+            Swal.fire({ icon: "success", title: "Conta conectada", text: "O seller foi autorizado e já aparece na lista abaixo.", timer: 3000, showConfirmButton: false });
+        }
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("ml");
+            window.history.replaceState({}, "", url.toString());
+        } catch (_) {}
+    }
+}
+
 async function gerarLink() {
     const platform = document.getElementById("platform").value;
     const btn = document.getElementById("btnGerarLink");
     btn.disabled = true;
     try {
-        const path = platform === "shopee" ? "/shopee/auth-url" : "/ml/connect";
-        const res = await fetch(`${API_BASE}${path}`, { credentials: "include" });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ detail: res.statusText }));
-            throw new Error(err.detail || "Erro ao gerar link");
-        }
-        const data = await res.json();
-        const authUrl = data.auth_url || "";
-        document.getElementById("authUrl").value = authUrl;
-        document.getElementById("linkResult").classList.remove("d-none");
-        if (typeof Swal !== "undefined") {
-            Swal.fire({ icon: "success", title: "Link gerado", text: "Copie e envie ao seller.", timer: 2000, showConfirmButton: false });
+        if (platform === "ml") {
+            const subBase = (me && me.sub_base) ? String(me.sub_base).trim() : "";
+            if (!subBase) {
+                if (typeof Swal !== "undefined") {
+                    Swal.fire({ icon: "warning", title: "Sub-base não definida", text: "Seu usuário não tem sub_base. Defina no cadastro ou use um state manual na URL." });
+                } else {
+                    alert("Sub-base não definida para seu usuário.");
+                }
+                btn.disabled = false;
+                return;
+            }
+            const res = await fetch(`${API_BASE}/ml-int/connect?state=${encodeURIComponent(subBase)}`, { credentials: "include" });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: res.statusText }));
+                throw new Error(err.detail || "Erro ao gerar link");
+            }
+            const data = await res.json();
+            const authUrl = data.auth_url || "";
+            document.getElementById("authUrl").value = authUrl;
+            document.getElementById("linkResult").classList.remove("d-none");
+            if (typeof Swal !== "undefined") {
+                Swal.fire({ icon: "success", title: "Link gerado", text: "Copie e envie ao seller. Após autorizar no Mercado Livre, ele aparecerá na lista abaixo.", timer: 2500, showConfirmButton: false });
+            }
+        } else {
+            const res = await fetch(`${API_BASE}/shopee/auth-url`, { credentials: "include" });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: res.statusText }));
+                throw new Error(err.detail || "Erro ao gerar link");
+            }
+            const data = await res.json();
+            const authUrl = data.auth_url || data.url || "";
+            document.getElementById("authUrl").value = authUrl;
+            document.getElementById("linkResult").classList.remove("d-none");
+            if (typeof Swal !== "undefined") {
+                Swal.fire({ icon: "success", title: "Link gerado", text: "Copie e envie ao seller.", timer: 2000, showConfirmButton: false });
+            }
         }
     } catch (e) {
         if (typeof Swal !== "undefined") {
@@ -100,18 +145,18 @@ async function loadSellers() {
     tbody.innerHTML = "";
 
     try {
-        const [mlRes, shopeeRes] = await Promise.all([
-            fetch(`${API_BASE}/ml/sellers`, { credentials: "include" }),
+        const [mlIntRes, shopeeRes] = await Promise.all([
+            fetch(`${API_BASE}/ml-int/sellers`, { credentials: "include" }),
             fetch(`${API_BASE}/shopee/sellers`, { credentials: "include" })
         ]);
 
-        const mlList = mlRes.ok ? await mlRes.json() : [];
+        const mlIntList = mlIntRes.ok ? await mlIntRes.json() : [];
         const shopeeList = shopeeRes.ok ? await shopeeRes.json() : [];
 
-        const merged = [
-            ...mlList.map(x => ({ ...x, _sort: x.criado_em || "" })),
-            ...shopeeList.map(x => ({ ...x, _sort: x.criado_em || "" }))
-        ].sort((a, b) => (b._sort || "").localeCompare(a._sort || ""));
+        const mlWithPlatform = mlIntList.map(x => ({ ...x, platform: "mercado_livre", _sort: x.criado_em || "" }));
+        const shopeeWithPlatform = shopeeList.map(x => ({ ...x, platform: "shopee", _sort: x.criado_em || "" }));
+        const merged = [...mlWithPlatform, ...shopeeWithPlatform]
+            .sort((a, b) => (b._sort || "").localeCompare(a._sort || ""));
 
         if (merged.length === 0) {
             emptyEl.classList.remove("d-none");
@@ -149,7 +194,8 @@ async function loadSellers() {
         });
     } catch (_) {
         emptyEl.classList.remove("d-none");
-        emptyEl.querySelector("div.mt-2").textContent = "Erro ao carregar a lista. Tente novamente.";
+        const msg = emptyEl.querySelector("div.mt-2");
+        if (msg) msg.textContent = "Erro ao carregar a lista. Tente novamente.";
     }
 }
 
