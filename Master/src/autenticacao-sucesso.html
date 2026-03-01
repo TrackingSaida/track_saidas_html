@@ -60,6 +60,8 @@
             text-align: center;
         }
         .auth-success-msg strong { color: #1a1d21; }
+        .auth-seller-name { font-size: 0.9375rem; color: #495057; margin-bottom: 1rem; }
+        .auth-seller-name strong { color: #1a1d21; }
         .auth-benefits {
             list-style: none;
             padding: 0;
@@ -198,11 +200,12 @@
             <div class="auth-success-card card border-0 shadow">
               <div class="auth-success-logos">
                 <img src="assets/images/logo-track-sm.png" alt="" class="auth-success-logo-pin" height="96">
-                <img src="assets/images/logo-light.png" alt="Tracking Saídas" class="auth-success-logo-name" height="56">
+                <img src="assets/images/logo-track-dark.png" alt="Tracking Saídas" class="auth-success-logo-name" height="56">
               </div>
 
       <h1 id="authTitle">Autorização concluída com sucesso</h1>
       <p class="auth-success-msg" id="authMsg">Você autorizou a transportadora <strong id="authNome">a transportadora responsável</strong> a acessar seus pedidos para gestão das entregas.</p>
+      <p class="auth-seller-name text-center mb-0" id="authSellerNameWrap" style="display: none;"><span class="text-muted small">Conta autorizada:</span> <strong id="authSellerName"></strong></p>
 
       <ul class="auth-benefits">
         <li class="auth-benefit-item">
@@ -252,14 +255,19 @@
       var ml = params.get("ml");
       var shopee = params.get("shopee");
       var subBase = params.get("sub_base");
+      var sellerName = params.get("seller_name");
       var erro = params.get("erro");
 
       var transportadoraNome = null;
       if (subBase) try { transportadoraNome = decodeURIComponent(subBase); } catch (e) { transportadoraNome = subBase; }
+      var sellerNameDecoded = null;
+      if (sellerName) try { sellerNameDecoded = decodeURIComponent(sellerName); } catch (e) { sellerNameDecoded = sellerName; }
 
       var titleEl = document.getElementById("authTitle");
       var msgEl = document.getElementById("authMsg");
       var nomeEl = document.getElementById("authNome");
+      var sellerNameWrap = document.getElementById("authSellerNameWrap");
+      var sellerNameEl = document.getElementById("authSellerName");
       var badgesEl = document.getElementById("authBadges");
       var ctaPrimary = document.getElementById("authCtaPrimary");
 
@@ -280,6 +288,10 @@
           nomeEl.textContent = transportadoraNome;
         } else {
           nomeEl.textContent = "a transportadora responsável";
+        }
+        if (sellerNameDecoded && sellerNameWrap && sellerNameEl) {
+          sellerNameEl.textContent = sellerNameDecoded;
+          sellerNameWrap.style.display = "block";
         }
       }
 
