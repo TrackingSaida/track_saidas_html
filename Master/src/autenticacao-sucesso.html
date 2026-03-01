@@ -5,20 +5,13 @@
     @@include("partials/head-css.html")
     <style>
         :root {
-            --auth-success-bg: #F7F9FC;
             --auth-success-primary: #0d6efd;
             --auth-success-green: #198754;
             --auth-success-card-shadow: 0 4px 24px rgba(0,0,0,.06);
             --auth-success-card-border: 1px solid rgba(0,0,0,.06);
         }
-        .auth-success-wrapper {
-            min-height: 100vh;
-            background: var(--auth-success-bg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1.5rem;
-            box-sizing: border-box;
+        .auth-success-wrapper .auth-success-card {
+            margin: 0 auto;
         }
         .auth-success-card {
             max-width: 520px;
@@ -31,12 +24,24 @@
             box-sizing: border-box;
             animation: authCardEnter 0.4s ease-out forwards;
         }
-        .auth-success-icon {
+        .auth-success-logos {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .auth-success-logo-pin {
             display: block;
-            margin: 0 auto 1.5rem;
-            height: 80px;
+            margin: 0 auto 1.50rem;
+            height: 126px;
             width: auto;
             animation: authIconPop 0.3s ease-out 0.1s forwards;
+            opacity: 0;
+        }
+        .auth-success-logo-name {
+            display: block;
+            margin: 0 auto;
+            height: 56px;
+            width: auto;
+            animation: authIconPop 0.3s ease-out 0.15s forwards;
             opacity: 0;
         }
         .auth-success-card h1 {
@@ -173,7 +178,8 @@
         }
         @media (prefers-reduced-motion: reduce) {
             .auth-success-card,
-            .auth-success-icon,
+            .auth-success-logo-pin,
+            .auth-success-logo-name,
             .auth-benefit-item {
                 animation: none !important;
                 opacity: 1 !important;
@@ -183,9 +189,17 @@
     </style>
 </head>
 <body>
-  <div class="auth-success-wrapper">
-    <div class="auth-success-card">
-      <img src="assets/images/logo-pin.png" alt="Tracking Saídas" class="auth-success-icon" width="80" height="80">
+  <div class="auth-page-wrapper auth-bg-cover py-5 d-flex justify-content-center align-items-center min-vh-100">
+    <div class="bg-overlay"></div>
+    <div class="auth-page-content overflow-hidden pt-lg-5 auth-success-wrapper">
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col-lg-6 col-md-8">
+            <div class="auth-success-card card border-0 shadow">
+              <div class="auth-success-logos">
+                <img src="assets/images/logo-track-sm.png" alt="" class="auth-success-logo-pin" height="96">
+                <img src="assets/images/logo-light.png" alt="Tracking Saídas" class="auth-success-logo-name" height="56">
+              </div>
 
       <h1 id="authTitle">Autorização concluída com sucesso</h1>
       <p class="auth-success-msg" id="authMsg">Você autorizou a transportadora <strong id="authNome">a transportadora responsável</strong> a acessar seus pedidos para gestão das entregas.</p>
@@ -223,6 +237,10 @@
       <div class="auth-ctas">
         <a href="landing-tracking.html" class="auth-cta-primary" id="authCtaPrimary">Acessar painel de entregas</a>
         <button type="button" class="auth-cta-secondary" id="authCtaBack">Voltar para a plataforma</button>
+      </div>
+    </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
