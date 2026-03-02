@@ -655,7 +655,6 @@ async function saveUser(ev) {
         const cidade = document.getElementById("cidade").value.trim();
         const cep = (document.getElementById("cep").value || "").replace(/\D/g, "");
         if (!doc) { erros.push("Documento é obrigatório para Motoboy."); document.getElementById("documento").classList.add("is-invalid"); }
-        if (!cnpj) { erros.push("CNPJ é obrigatório para Motoboy."); document.getElementById("cnpj").classList.add("is-invalid"); }
         if (!rua) { erros.push("Rua é obrigatória."); document.getElementById("rua").classList.add("is-invalid"); }
         if (!num) { erros.push("Número é obrigatório."); document.getElementById("numero").classList.add("is-invalid"); }
         if (!bairro) { erros.push("Bairro é obrigatório."); document.getElementById("bairro").classList.add("is-invalid"); }
