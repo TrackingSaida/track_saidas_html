@@ -46,10 +46,59 @@ document.querySelectorAll('.switch-btn').forEach(function (btn) {
     });
 });
 
-// Collapse Menu
+// Collapse Menu + overlay (oculta conteúdo atrás do menu no mobile)
 const navLinks = document.querySelectorAll('.nav-item');
 const menuToggle = document.getElementById('navbarSupportedContent');
+const navbarToggler = document.querySelector('.navbar-landing .navbar-toggler');
+const verticalOverlay = document.querySelector('.layout-wrapper.landing .vertical-overlay');
+const layoutWrapper = document.querySelector('.layout-wrapper.landing');
 var bsCollapse = '';
+
+function isMobileMenu() {
+    return document.documentElement.clientWidth < 980;
+}
+
+function syncNavbarShowToCollapse() {
+    if (!layoutWrapper || !menuToggle) return;
+    var isShow = menuToggle.classList.contains('show');
+    if (isShow && isMobileMenu()) {
+        layoutWrapper.classList.add('navbar-show');
+    } else {
+        layoutWrapper.classList.remove('navbar-show');
+    }
+}
+
+if (menuToggle && layoutWrapper) {
+    menuToggle.addEventListener('show.bs.collapse', function () {
+        if (isMobileMenu()) layoutWrapper.classList.add('navbar-show');
+    });
+    menuToggle.addEventListener('hidden.bs.collapse', function () {
+        layoutWrapper.classList.remove('navbar-show');
+    });
+    // Fallback: quando a classe "show" muda no collapse (ex.: clique no hamburger)
+    var observer = new MutationObserver(function () {
+        syncNavbarShowToCollapse();
+    });
+    observer.observe(menuToggle, { attributes: true, attributeFilter: ['class'] });
+}
+
+if (navbarToggler && layoutWrapper) {
+    navbarToggler.addEventListener('click', function () {
+        if (!isMobileMenu()) return;
+        setTimeout(syncNavbarShowToCollapse, 80);
+    });
+}
+
+if (verticalOverlay && menuToggle) {
+    verticalOverlay.addEventListener('click', function () {
+        if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+            var c = bootstrap.Collapse.getInstance(menuToggle);
+            if (c) c.hide();
+        }
+        if (layoutWrapper) layoutWrapper.classList.remove('navbar-show');
+    });
+}
+
 if (navLinks && menuToggle) {
     window.addEventListener('load', function () {
         window.dispatchEvent(new Event('resize'));
@@ -66,6 +115,7 @@ if (navLinks && menuToggle) {
                 });
             });
         } else {
+            if (layoutWrapper) layoutWrapper.classList.remove('navbar-show');
             toggleMenu();
         }
     });
@@ -74,7 +124,7 @@ if (navLinks && menuToggle) {
 function toggleMenu() {
     var windowSize = document.documentElement.clientWidth;
     if (windowSize < 980) {
-        bsCollapse.toggle();
+        if (bsCollapse) bsCollapse.toggle();
     } else {
         bsCollapse = '';
     }
@@ -186,6 +236,7 @@ window.onscroll = function () {
 };
 
 function scrollFunction() {
+    if (!myButton) return;
     if (document.body.scrollTop > 100 || document.documentElement.scrollTop > 100) {
         myButton.style.display = "block";
     } else {

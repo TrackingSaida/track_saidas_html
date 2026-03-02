@@ -26,6 +26,7 @@ $landing-transition: 0.3s ease;
 @import "integracoes";
 @import "contato";
 @import "cta";
+@import "landing-mobile";
 
 // Base: layout-wrapper.landing, .section e divisores
 .layout-wrapper.landing {
@@ -51,6 +52,27 @@ $landing-transition: 0.3s ease;
   }
 }
 
-.navbar-show .vertical-overlay {
-  display: block;
+// Overlay cobre o conteúdo quando o menu mobile está aberto (botões do hero ficam ocultos)
+.layout-wrapper.landing .vertical-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1025;
+  display: none;
+  pointer-events: none;
+}
+
+.layout-wrapper.landing.navbar-show .vertical-overlay {
+  display: block !important;
+  pointer-events: auto;
+}
+
+// No mobile: quando o menu está aberto, oculta os botões do hero (não ficam fixos/visíveis)
+@media (max-width: 991.98px) {
+  .layout-wrapper.landing.navbar-show .hero-section .d-flex.gap-3.justify-content-center.mt-4.flex-wrap {
+    display: none !important;
+  }
 }
