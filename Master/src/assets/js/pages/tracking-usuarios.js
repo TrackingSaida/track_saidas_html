@@ -1,4 +1,5 @@
 const API = "https://track-saidas-api.onrender.com/api/users";
+const API_BASE = "https://track-saidas-api.onrender.com/api";
 
 // =====================================================================
 // MÁSCARA DOCUMENTO — CPF 11 dígitos ou RG
@@ -43,8 +44,11 @@ function maskCep(value) {
 async function lookupCep(cepRaw) {
     const cep = (cepRaw || "").replace(/\D/g, "");
     if (cep.length !== 8) throw new Error("CEP inválido");
-    const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-    if (!r.ok) throw new Error("Falha ao consultar CEP");
+    const r = await fetch(`${API_BASE}/cep/${cep}`, { credentials: "include" });
+    if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.detail || "Falha ao consultar CEP");
+    }
     return r.json();
 }
 

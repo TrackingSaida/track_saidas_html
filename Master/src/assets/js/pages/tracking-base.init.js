@@ -50,8 +50,11 @@
   async function lookupCep(cepRaw) {
     const cep = (cepRaw || "").replace(/\D/g, "");
     if (cep.length !== 8) throw new Error("CEP inválido");
-    const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-    if (!r.ok) throw new Error("Falha ao consultar CEP");
+    const r = await fetch(`${API_URL}/cep/${cep}`, { credentials: "include" });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || "Falha ao consultar CEP");
+    }
     return r.json();
   }
 
