@@ -81,11 +81,16 @@ async function lookupCep(cepRaw){
   const cep = onlyDigits(cepRaw);
   if (cep.length !== 8) throw new Error("CEP inválido");
   const r = await fetch(`${API_URL}/cep/${cep}`, { credentials: "include" });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error(err.detail || "Falha ao consultar CEP");
+  if (r.ok) return r.json();
+  if (r.status >= 500) {
+    const direct = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    if (direct.ok) {
+      const data = await direct.json();
+      if (data && !data.erro) return data;
+    }
   }
-  return r.json();
+  const err = await r.json().catch(() => ({}));
+  throw new Error(err.detail || "Falha ao consultar CEP");
 }
 function lockAddress(on){
   qsa("[data-autolock]").forEach(el=>{
