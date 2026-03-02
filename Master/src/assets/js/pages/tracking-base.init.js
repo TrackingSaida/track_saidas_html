@@ -235,13 +235,20 @@ async function apiDelete(id) {
     }
   }
 
-  function showSellerDetailEmpty() {
+  function showSellerDetailEmpty(message) {
     const wrap = qs("#seller-detail");
     if (!wrap) return;
     wrap.classList.remove("d-none");
     const empty = qs("#seller-detail-empty");
     const content = qs("#seller-detail-content");
-    if (empty) empty.classList.remove("d-none");
+    if (empty) {
+      empty.classList.remove("d-none");
+      if (typeof message === "string" && message.trim()) {
+        empty.textContent = message;
+      } else {
+        empty.textContent = "Selecione um Seller na lista acima para ver os detalhes de CNPJ e endereço.";
+      }
+    }
     if (content) content.classList.add("d-none");
     const nomeEl = qs("#seller-detail-nome");
     if (nomeEl) nomeEl.textContent = "";
@@ -267,7 +274,8 @@ async function apiDelete(id) {
     const endereco = [seller.rua, seller.numero, seller.complemento].filter(Boolean).join(", ");
     const cidadeUf = [seller.cidade, seller.estado].filter(Boolean).join(" / ");
 
-    setText("#s-cnpj", seller.cnpj);
+    const cnpjFormatado = maskCnpj(seller.cnpj || "");
+    setText("#s-cnpj", cnpjFormatado);
     setText("#s-cep", seller.cep);
     setText("#s-endereco", endereco);
     setText("#s-cidade-uf", cidadeUf);
@@ -290,13 +298,13 @@ async function apiDelete(id) {
         `${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados?base_id=${encodeURIComponent(SELECTED_ID)}`
       );
       if (!seller) {
-        showSellerDetailEmpty();
+        showSellerDetailEmpty("Não há dados de CNPJ e endereço cadastrados para o Seller selecionado.");
         return;
       }
       renderSellerDetail(seller);
     } catch (err) {
-      // 404 ou outro erro → mostra vazio
-      showSellerDetailEmpty();
+      // 404 ou outro erro → indica ausência de dados para o seller selecionado
+      showSellerDetailEmpty("Não há dados de CNPJ e endereço cadastrados para o Seller selecionado.");
     }
   }
 
