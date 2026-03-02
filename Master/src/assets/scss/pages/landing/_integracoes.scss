@@ -1,0 +1,48 @@
+// Integrações – cards com logos reais, visual SaaS B2B
+
+#integracoes {
+  padding: 100px 0;
+  background: $bg-light !important;
+
+  .badge {
+    background: rgba($primary-blue, 0.1) !important;
+    color: $primary-blue !important;
+  }
+
+  .integration-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 40px 30px;
+    transition: all 0.3s ease;
+    border: 1px solid #eef2f7;
+
+    &:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.06);
+      border-color: rgba($accent-green, 0.2);
+    }
+  }
+
+  .integration-logo {
+    height: 72px;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+    opacity: 0.9;
+    transition: opacity 0.3s;
+
+    &:hover {
+      opacity: 1;
+    }
+
+    &--mercado-envios {
+      height: 120px;
+    }
+  }
+
+  .integration-logo-placeholder {
+    height: 72px;
+    min-height: 72px;
+    font-size: 2.5rem;
+  }
+}

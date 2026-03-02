@@ -1,0 +1,104 @@
+// Hero – fundo escuro, ondas, CTA
+
+.layout-wrapper.landing .hero-section {
+  min-height: 90vh;
+  display: flex;
+  align-items: center;
+  position: relative;
+  background-color: $primary-dark;
+  background-image: linear-gradient(rgba($primary-dark, 0.88), rgba($primary-dark, 0.88)),
+    url("../images/landing/1713093285.png");
+  background-position: 0 0, bottom right;
+  background-size: 100% 100%, contain;
+  background-repeat: no-repeat, no-repeat;
+  padding-top: 5rem;
+  padding-bottom: 5rem;
+
+  .bg-overlay,
+  .bg-overlay-pattern {
+    background-image: none !important;
+    background-color: transparent !important;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+  }
+
+  .badge {
+    background: rgba($accent-green, 0.15) !important;
+    color: $accent-green !important;
+    font-size: 0.8125rem;
+    padding: 0.35rem 0.75rem;
+    font-weight: 500;
+  }
+
+  h1 {
+    color: #fff !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.5px;
+    line-height: 1.15 !important;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  }
+
+  .lead {
+    color: rgba(255, 255, 255, 0.85) !important;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+    font-weight: 400;
+  }
+
+  .btn-primary {
+    background: $accent-green !important;
+    border-color: $accent-green !important;
+    color: #fff !important;
+    box-shadow: 0 12px 30px rgba($accent-green, 0.35);
+    border-radius: $landing-radius;
+    transition: all $landing-transition;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 40px rgba($accent-green, 0.45);
+      background: $accent-green !important;
+      border-color: $accent-green !important;
+      color: #fff !important;
+    }
+  }
+
+  .btn-outline-primary {
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    color: #fff !important;
+    background: transparent !important;
+    border-radius: $landing-radius;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.08) !important;
+      border-color: rgba(255, 255, 255, 0.4) !important;
+      color: #fff !important;
+    }
+  }
+
+  .text-success {
+    color: $accent-green !important;
+  }
+
+  .fw-semibold {
+    color: #fff !important;
+  }
+
+  .row.mt-5 {
+    margin-top: 3rem !important;
+    gap: 1.25rem;
+
+    .col-auto span {
+      color: rgba(255, 255, 255, 0.85) !important;
+    }
+    .col-auto .fw-semibold {
+      color: #fff !important;
+    }
+  }
+}

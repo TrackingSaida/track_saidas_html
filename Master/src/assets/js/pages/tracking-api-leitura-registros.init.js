@@ -93,6 +93,9 @@
     }
   };
 
+  // Timeout para POST /saidas/ler: não adiciona delay em respostas normais; só aborta se travar (rede/servidor).
+  const LER_SAIDA_TIMEOUT_MS = 10000; // 10s
+
   // ============================================================
   // LER SAÍDA (POST /saidas/ler — fluxo unificado de leitura)
   // ============================================================
@@ -100,6 +103,7 @@
   // - 1 único request leve (1 SELECT + 1 INSERT/UPDATE no backend)
   // - Sem GET /saidas/listar?codigo= antes de decidir POST/PATCH
   // - 200/201 tratam idempotência; 409 é reservado para troca de entregador.
+  // - Timeout evita request pendurado; em caso de abort, front pode chamar revertOtimista e permitir rebipar.
   window.TrackAPI.lerSaida = async function ({ entregador_id, entregador, motoboy_id, codigo, servico, registrar_nao_coletado, qr_payload_raw }) {
     try {
       const body = {
@@ -112,11 +116,20 @@
       if (registrar_nao_coletado === true) body.registrar_nao_coletado = true;
       if (qr_payload_raw != null && qr_payload_raw !== "") body.qr_payload_raw = qr_payload_raw;
 
-      const res = await req("/saidas/ler", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
+      const ac = new AbortController();
+      const to = setTimeout(() => ac.abort(), LER_SAIDA_TIMEOUT_MS);
+
+      let res;
+      try {
+        res = await req("/saidas/ler", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: ac.signal
+        });
+      } finally {
+        clearTimeout(to);
+      }
 
       let data = null;
       try { data = await res.json(); } catch {}
@@ -138,7 +151,8 @@
       };
 
     } catch (err) {
-      return { ok: false, status: 0, error: String(err?.message || err) };
+      const msg = err?.name === "AbortError" ? "Tempo esgotado. Tente bipar novamente." : String(err?.message || err);
+      return { ok: false, status: 0, error: msg };
     }
   };
 

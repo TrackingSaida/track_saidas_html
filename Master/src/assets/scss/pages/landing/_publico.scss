@@ -1,0 +1,47 @@
+// Público – refinamento estrutural, título forte
+
+#publico {
+  background: $bg-light !important;
+
+  h2 {
+    font-weight: 800;
+    font-size: 34px;
+    letter-spacing: -0.4px;
+    margin-bottom: 3rem;
+    color: $text-dark;
+  }
+
+  .card h3 {
+    color: $text-dark !important;
+  }
+}
+
+// Controle financeiro – bloco de autoridade
+
+#controle-financeiro {
+  background: $bg-light;
+  padding-top: 120px;
+  padding-bottom: 120px;
+
+  h2 {
+    font-weight: 800;
+    font-size: 32px;
+    letter-spacing: -0.3px;
+  }
+
+  ul li {
+    margin-bottom: 14px;
+    font-size: 17px;
+    font-weight: 500;
+  }
+
+  ul li i {
+    font-size: 18px;
+  }
+
+  p:last-child {
+    font-weight: 600;
+    margin-top: 1.5rem;
+    color: $text-dark;
+  }
+}

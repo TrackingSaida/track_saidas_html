@@ -1,0 +1,22 @@
+// Features – título central, grid 2 colunas, ícones maiores, divisor
+
+#features {
+  background: $bg-light !important;
+
+  h2 {
+    color: $text-dark;
+  }
+
+  .text-muted {
+    color: #4B5563 !important;
+  }
+
+  .features-list-icon {
+    font-size: 1.25rem;
+    vertical-align: middle;
+  }
+
+  .features-list li {
+    line-height: 1.6;
+  }
+}

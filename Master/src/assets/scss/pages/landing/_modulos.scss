@@ -1,0 +1,75 @@
+// Módulos – cards padronizados (borda esquerda, ícone verde)
+
+#modulos {
+  background: $bg-light !important;
+
+  .card h3 {
+    color: $text-dark !important;
+  }
+}
+
+// Cards e ícones – bloco estruturado (publico + modulos)
+
+.layout-wrapper.landing {
+  .module-card {
+    background: #fff;
+    border-radius: 14px;
+    border-left: 4px solid $accent-green;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+    transition: all 0.3s ease;
+
+    .card-body {
+      padding: 2.5rem;
+    }
+
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06);
+    }
+
+    h3,
+    h4 {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      color: $text-dark !important;
+    }
+
+    p {
+      font-size: 15px;
+      color: #64748B;
+      line-height: 1.6;
+    }
+  }
+
+  .feature-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background: rgba($accent-green, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+
+    i {
+      font-size: 20px;
+      color: $accent-green;
+    }
+  }
+
+  .module-badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(255, 193, 7, 0.15);
+    color: #C27C00;
+    padding: 6px 10px;
+    border-radius: 30px;
+    margin-bottom: 12px;
+  }
+
+  .module-saidas {
+    box-shadow: 0 25px 60px rgba(15, 23, 42, 0.12);
+    border: 1px solid rgba(255, 193, 7, 0.25);
+  }
+}

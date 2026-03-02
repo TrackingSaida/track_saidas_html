@@ -1,0 +1,56 @@
+//
+// Landing Tracking Saídas — entry point
+// Variáveis e imports dos partials por seção.
+//
+
+$primary-dark: #0F172A;
+$primary-blue: #1E2A47;
+$secondary-blue: #405189;
+$accent-green: #0AB39C;
+$bg-light: #F8FAFC;
+$text-dark: #1F2937;
+$landing-radius: 12px;
+$landing-transition: 0.3s ease;
+
+@import "navbar";
+@import "hero";
+@import "problema";
+@import "prejuizos-invisiveis";
+@import "publico";
+@import "estrutura-operacional";
+@import "modulos";
+@import "preview";
+@import "features";
+@import "autoridade";
+@import "modelo";
+@import "integracoes";
+@import "contato";
+@import "cta";
+
+// Base: layout-wrapper.landing, .section e divisores
+.layout-wrapper.landing {
+  background-color: var(--#{$prefix}secondary-bg);
+  font-size: 15px;
+
+  .section {
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+
+    @media (min-width: 992px) {
+      padding-top: 90px;
+      padding-bottom: 90px;
+    }
+  }
+
+  .section-divider {
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .card {
+    border-radius: $landing-radius;
+  }
+}
+
+.navbar-show .vertical-overlay {
+  display: block;
+}

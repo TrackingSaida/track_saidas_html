@@ -1,0 +1,167 @@
+// Navbar – landing Tracking (centralizada, botão primário verde)
+// Dois estados: transparente sobre hero | branca após scroll
+
+.layout-wrapper.landing .navbar-landing {
+  padding: 10px 0;
+  transition: all 0.3s ease;
+  background: transparent;
+
+  .nav-link {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .nav-login {
+    color: #fff;
+  }
+
+  .nav-actions-wrap .btn-primary {
+    box-shadow: 0 8px 20px rgba(10, 179, 156, 0.35);
+  }
+
+  @media (max-width: 991.98px) {
+    background-color: var(--#{$prefix}secondary-bg);
+    box-shadow: 0 1px 16px -2px rgba(56, 65, 74, 0.15);
+    padding: 10px 8px;
+
+    .nav-link {
+      color: var(--#{$prefix}body-color);
+    }
+    .nav-login {
+      color: var(--#{$prefix}body-color);
+    }
+  }
+
+  .navbar-inner {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+
+  .navbar-brand {
+    margin: 0 0 0 calc(-1 * var(--bs-gutter-x, 0.75rem));
+    padding: 0;
+    flex: 0 0 160px;
+    min-width: 0;
+
+    img {
+      max-width: 100%;
+      height: 40px;
+      width: auto;
+      display: block;
+    }
+  }
+
+  #navbarSupportedContent {
+    flex: 1 1 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+  }
+
+  .nav-center-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .navbar-nav {
+    margin: 0 !important;
+
+    .nav-item .nav-link {
+      font-size: 16px;
+      font-weight: $font-weight-medium;
+      transition: all 0.4s;
+      font-family: var(--#{$prefix}font-family-secondary);
+      padding: 14px;
+      white-space: nowrap;
+
+      @media (max-width: 991.98px) {
+        padding: 8px 0;
+      }
+
+      &:hover,
+      &.active,
+      &:focus {
+        color: var(--#{$prefix}success) !important;
+      }
+    }
+  }
+
+  .nav-actions-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    margin-right: calc(-1 * var(--bs-gutter-x, 0.75rem));
+
+    .btn-link {
+      padding: 0.5rem 0;
+      line-height: 1.5;
+    }
+
+    .btn-primary {
+      padding: 0.4rem 1rem;
+      font-size: 0.875rem;
+      background: $accent-green !important;
+      border-color: $accent-green !important;
+      border-radius: $landing-radius;
+    }
+  }
+
+  .nav-spacer {
+    flex: 0 0 160px;
+    width: 160px;
+  }
+
+  &.is-sticky {
+    background-color: var(--#{$prefix}secondary-bg);
+    box-shadow: 0 1px 16px -2px rgba(56, 65, 74, 0.15);
+  }
+
+  // Estado ao scroll: navbar branca, texto escuro
+  &.navbar-scrolled {
+    background: #fff;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+
+    .nav-link {
+      color: $text-dark;
+    }
+
+    .nav-login {
+      color: $text-dark;
+    }
+
+    .nav-actions-wrap .btn-primary {
+      box-shadow: none;
+    }
+
+    @media (max-width: 991.98px) {
+      background-color: #fff;
+      .nav-link,
+      .nav-login {
+        color: $text-dark;
+      }
+    }
+  }
+
+  @media (max-width: 991.98px) {
+    .nav-spacer {
+      display: none;
+    }
+    .navbar-inner {
+      flex-wrap: wrap;
+    }
+    #navbarSupportedContent {
+      flex-basis: 100%;
+    }
+    .navbar-brand {
+      margin-left: 0;
+    }
+    .nav-center-wrap {
+      flex-direction: column;
+    }
+  }
+}

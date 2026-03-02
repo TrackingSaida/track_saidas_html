@@ -10,10 +10,16 @@ File: landing Js File
 function windowScroll() {
     var navbar = document.getElementById("navbar");
     if (navbar) {
-        if (document.body.scrollTop >= 50 || document.documentElement.scrollTop >= 50) {
+        var scrollTop = document.body.scrollTop || document.documentElement.scrollTop;
+        if (scrollTop >= 50) {
             navbar.classList.add("is-sticky");
         } else {
             navbar.classList.remove("is-sticky");
+        }
+        if (scrollTop > 80) {
+            navbar.classList.add("navbar-scrolled");
+        } else {
+            navbar.classList.remove("navbar-scrolled");
         }
     }
 }
@@ -21,6 +27,23 @@ function windowScroll() {
 window.addEventListener('scroll', function (ev) {
     ev.preventDefault();
     windowScroll();
+});
+
+// Estrutura operacional – alternar mockup Transportadora / Sub-base
+document.querySelectorAll('.switch-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        document.querySelectorAll('.switch-btn').forEach(function (b) {
+            b.classList.remove('active');
+        });
+        document.querySelectorAll('.mockup-content').forEach(function (m) {
+            m.classList.remove('active');
+        });
+        this.classList.add('active');
+        var target = document.getElementById(this.getAttribute('data-target'));
+        if (target) {
+            target.classList.add('active');
+        }
+    });
 });
 
 // Collapse Menu

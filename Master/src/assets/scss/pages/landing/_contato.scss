@@ -1,0 +1,52 @@
+// Contato – bloco de conversão, cards e CTAs estratégicos
+
+#contato {
+  padding: 120px 0;
+  background: #fff !important;
+
+  .badge {
+    background: rgba($primary-blue, 0.1) !important;
+    color: $primary-blue !important;
+  }
+
+  .contact-card {
+    background: #f9fafb;
+    border-radius: 18px;
+    padding: 40px;
+    border: 1px solid #eef2f7;
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.06);
+    }
+  }
+
+  .btn-whatsapp {
+    background: #10b981 !important;
+    border: none !important;
+    border-radius: $landing-radius;
+
+    &:hover {
+      background: #0f9f75 !important;
+    }
+  }
+
+  .btn-email {
+    background: #334155 !important;
+    border: none !important;
+    border-radius: $landing-radius;
+
+    &:hover {
+      background: #1e293b !important;
+    }
+  }
+
+  .btn-primary {
+    border-radius: $landing-radius;
+  }
+
+  .btn-success {
+    border-radius: $landing-radius;
+  }
+}

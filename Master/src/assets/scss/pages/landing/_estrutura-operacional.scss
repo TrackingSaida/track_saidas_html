@@ -1,0 +1,100 @@
+// Estrutura operacional – mockup alternável Transportadora / Sub-base
+
+#estrutura-operacional {
+  background: #fff;
+  padding-top: 120px;
+  padding-bottom: 120px;
+
+  h2 {
+    font-weight: 800;
+    font-size: 36px;
+    letter-spacing: -0.5px;
+    color: $text-dark;
+  }
+
+  .subtitle {
+    font-size: 18px;
+    color: #64748B;
+  }
+
+  .profile-switch {
+    display: inline-flex;
+    background: #F1F5F9;
+    padding: 6px;
+    border-radius: 50px;
+  }
+
+  .switch-btn {
+    border: none;
+    padding: 10px 22px;
+    border-radius: 50px;
+    background: transparent;
+    font-weight: 600;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    color: #334155;
+
+    &.active {
+      background: $accent-green;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba($accent-green, 0.3);
+    }
+  }
+
+  .mockup-wrapper {
+    position: relative;
+  }
+
+  .mockup-content {
+    display: none;
+    transition: opacity 0.3s ease;
+
+    &.active {
+      display: block;
+    }
+  }
+
+  .estrutura-box {
+    background: #fff;
+    border-radius: 20px;
+    padding: 3.5rem;
+    max-width: 720px;
+    margin: 0 auto;
+    box-shadow: 0 30px 80px rgba(15, 23, 42, 0.08);
+    text-align: left;
+    border: 1px solid rgba(15, 23, 42, 0.05);
+  }
+
+  .estrutura-box h4 {
+    font-weight: 800;
+    margin-bottom: 1.5rem;
+    font-size: 20px;
+  }
+
+  .estrutura-box ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .estrutura-box ul li {
+    margin-bottom: 14px;
+    padding-left: 24px;
+    position: relative;
+    font-weight: 500;
+    color: #334155;
+  }
+
+  .estrutura-box ul li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: $accent-green;
+    font-weight: bold;
+  }
+
+  .estrutura-frase {
+    margin-top: 1.8rem;
+    font-weight: 600;
+    color: #0F172A;
+  }
+}

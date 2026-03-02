@@ -787,6 +787,9 @@ async function registrarComLog(origem = "teclado") {
 async function registrar() {
   let codigoFinal;        // 🔹 necessário para o finally
   let lockAtivo = false;  // 🔹 garante liberação correta do lock
+  let k;                  // 🔹 necessário para revert no catch
+  let trOtimista;         // 🔹 necessário para revert no catch
+  let timeoutProcessando = null; // 🔹 limpa ao receber resposta; usado para botão "Tentar novamente"
 
   try {
     const motoboyIdRaw = selEnt?.value?.trim() || "";
@@ -815,7 +818,7 @@ async function registrar() {
 
     codigoFinal = cls.codigo;
     const servico = cls.servico;
-    const k = keyFor(entregador, codigoFinal);
+    k = keyFor(entregador, codigoFinal);
 
     // Bloqueio por Set de sessão (evita request quando código já foi lido — performance).
     if (codigosLidosSessao.has(codigoFinal)) {
@@ -825,12 +828,22 @@ async function registrar() {
       return { ok:false, tipo:"duplicado" };
     }
 
-    // DUPLICADO LOCAL (ent,cod) — redundância com rowsByKey
+    // DUPLICADO LOCAL (ent,cod) — redundância com rowsByKey. Se a linha ainda está "Processando…", permite retry (remove e reenvia).
     if (rowsByKey.has(k)) {
-      Sound.play("warn");
-      showMsgIcon("alerta", `Já registrado • ${codigoFinal}`);
-      if (inpCod) { inpCod.value = ""; inpCod.focus(); }
-      return { ok:false, tipo:"duplicado" };
+      const trExistente = rowsByKey.get(k);
+      const statusCell = trExistente?.querySelector(".st");
+      const statusTexto = (statusCell?.textContent || "").trim();
+      if (statusTexto === "Processando…") {
+        trExistente?.remove();
+        rowsByKey.delete(k);
+        updateSummary();
+        // segue para criar linha otimista e enviar request (backend idempotente)
+      } else {
+        Sound.play("warn");
+        showMsgIcon("alerta", `Já registrado • ${codigoFinal}`);
+        if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+        return { ok:false, tipo:"duplicado" };
+      }
     }
 
     // Lock anti-rajada (câmera/teclado)
@@ -843,7 +856,7 @@ async function registrar() {
     lockAtivo = true;
 
     // UX otimista: mostra linha antes da resposta (como na coleta) — feedback imediato, reverte em erro
-    const trOtimista = appendOrUpdateRow({
+    trOtimista = appendOrUpdateRow({
       tsFmt: new Date().toLocaleString("pt-BR"),
       entregador,
       codigo: codigoFinal,
@@ -851,6 +864,33 @@ async function registrar() {
       status: "Processando…",
       duplicado: false
     });
+
+    const revertOtimista = () => {
+      if (timeoutProcessando) { clearTimeout(timeoutProcessando); timeoutProcessando = null; }
+      trOtimista?.remove();
+      rowsByKey.delete(k);
+      updateSummary();
+    };
+
+    // Após 10s, se a linha ainda estiver "Processando…", mostra "Tentar novamente" para liberar rebipagem.
+    const PROCESSANDO_RETRY_MS = 10000;
+    timeoutProcessando = setTimeout(() => {
+      if (!trOtimista?.isConnected) return;
+      const stCell = trOtimista.querySelector(".st");
+      if ((stCell?.textContent?.trim() || "") !== "Processando…") return;
+      if (stCell.querySelector(".btn-retry-processando")) return;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-sm btn-outline-secondary ms-1 btn-retry-processando";
+      btn.textContent = "Tentar novamente";
+      btn.addEventListener("click", () => {
+        trOtimista.remove();
+        rowsByKey.delete(trOtimista.dataset.key);
+        updateSummary();
+        showMsgIcon("info", "Pode bipar o código novamente.");
+      });
+      stCell.appendChild(btn);
+    }, PROCESSANDO_RETRY_MS);
 
     // POST /saidas/ler — 1 request leve (sem GET listar). Backend: 1 SELECT + 1 INSERT/UPDATE.
     const res = await apiLerSaida({
@@ -862,12 +902,6 @@ async function registrar() {
     });
     const backend_processing_ms = res?.backend_processing_ms ?? null;
 
-    const revertOtimista = () => {
-      trOtimista?.remove();
-      rowsByKey.delete(k);
-      updateSummary();
-    };
-
     if (res.status === 401) {
       revertOtimista();
       showMsgIcon("erro", "Sessão expirada. Faça login novamente.");
@@ -876,6 +910,7 @@ async function registrar() {
     }
 
     if (res.ok) {
+      if (timeoutProcessando) { clearTimeout(timeoutProcessando); timeoutProcessando = null; }
       // 200 ou 201 — sucesso ou idempotente [ja_saiu mesmo entregador]
       const apiRow = res.data || {};
       const novoServico = apiRow.servico ?? servico ?? "";
@@ -987,6 +1022,7 @@ async function registrar() {
         Sound.play("err");
         return { ok:false, tipo:"erro_registrar_nao_coletado", detalhe:postResp.error, backend_processing_ms };
       }
+      if (timeoutProcessando) { clearTimeout(timeoutProcessando); timeoutProcessando = null; }
       const data = postResp.data || {};
       appendOrUpdateRow({
         tsFmt: new Date().toLocaleString("pt-BR"),
@@ -1012,6 +1048,13 @@ async function registrar() {
 
   } catch (err) {
     console.error("Erro registrar():", err);
+    if (timeoutProcessando) { clearTimeout(timeoutProcessando); timeoutProcessando = null; }
+    // Revert da linha otimista se existir (ex.: throw antes da resposta, rede, timeout)
+    if (trOtimista) {
+      trOtimista.remove();
+      if (k !== undefined) rowsByKey.delete(k);
+      updateSummary();
+    }
     return { ok:false, tipo:"erro_excecao", detalhe:String(err) };
 
   } finally {
