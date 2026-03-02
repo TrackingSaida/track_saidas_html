@@ -86,6 +86,37 @@
               </div>
             </div>
 
+            <!-- Detalhe do Seller selecionado -->
+            <div id="seller-detail" class="card mt-3 d-none">
+              <div class="card-header d-flex align-items-center justify-content-between bg-primary bg-opacity-10 border-start border-4 border-primary">
+                <span class="fw-semibold">Dados do Seller selecionado</span>
+                <small class="text-muted" id="seller-detail-nome"></small>
+              </div>
+              <div class="card-body">
+                <div id="seller-detail-empty" class="text-muted">
+                  Selecione um Seller na lista acima para ver os detalhes de CNPJ e endereço.
+                </div>
+                <div id="seller-detail-content" class="row g-3 d-none">
+                  <div class="col-md-6">
+                    <label class="form-label text-primary fw-medium mb-1">CNPJ</label>
+                    <div id="s-cnpj">—</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-primary fw-medium mb-1">CEP</label>
+                    <div id="s-cep">—</div>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label text-primary fw-medium mb-1">Endereço</label>
+                    <div id="s-endereco">—</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label text-primary fw-medium mb-1">Cidade / UF</label>
+                    <div id="s-cidade-uf">—</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
         @@include("partials/footer.html")
@@ -100,7 +131,7 @@
          tabindex="-1"
          id="oc-form"
          aria-labelledby="ocLabel"
-         style="width:480px"
+         style="width:480px; display:flex; flex-direction:column;"
          data-bs-scroll="false"
          data-bs-backdrop="true">
       <div class="offcanvas-header border-bottom">
@@ -109,7 +140,7 @@
       </div>
 
       <form id="formBase" class="needs-validation d-flex flex-column h-100" novalidate>
-        <div class="offcanvas-body flex-grow-1">
+        <div class="offcanvas-body flex-grow-1 overflow-auto">
           <input type="hidden" id="baseId" />
 
           <div class="card mb-3">
@@ -200,7 +231,7 @@
           </div>
         </div>
 
-        <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body">
+        <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body flex-shrink-0">
           <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
           <button type="submit" class="btn btn-primary" id="btnSalvar">Salvar</button>
         </div>

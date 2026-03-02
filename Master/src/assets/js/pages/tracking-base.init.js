@@ -235,6 +235,71 @@ async function apiDelete(id) {
     }
   }
 
+  function showSellerDetailEmpty() {
+    const wrap = qs("#seller-detail");
+    if (!wrap) return;
+    wrap.classList.remove("d-none");
+    const empty = qs("#seller-detail-empty");
+    const content = qs("#seller-detail-content");
+    if (empty) empty.classList.remove("d-none");
+    if (content) content.classList.add("d-none");
+    const nomeEl = qs("#seller-detail-nome");
+    if (nomeEl) nomeEl.textContent = "";
+  }
+
+  function renderSellerDetail(seller) {
+    const wrap = qs("#seller-detail");
+    if (!wrap) return;
+    const empty = qs("#seller-detail-empty");
+    const content = qs("#seller-detail-content");
+
+    const nomeBase = (() => {
+      const id = SELECTED_ID ? Number(SELECTED_ID) : null;
+      const row = DATA_CACHE.find(b => (b.id_base || b.id) === id);
+      return row?.base || "";
+    })();
+
+    const setText = (id, value) => {
+      const el = qs(id);
+      if (el) el.textContent = value || "—";
+    };
+
+    const endereco = [seller.rua, seller.numero, seller.complemento].filter(Boolean).join(", ");
+    const cidadeUf = [seller.cidade, seller.estado].filter(Boolean).join(" / ");
+
+    setText("#s-cnpj", seller.cnpj);
+    setText("#s-cep", seller.cep);
+    setText("#s-endereco", endereco);
+    setText("#s-cidade-uf", cidadeUf);
+
+    const nomeEl = qs("#seller-detail-nome");
+    if (nomeEl) nomeEl.textContent = nomeBase ? `(${nomeBase})` : "";
+
+    wrap.classList.remove("d-none");
+    if (empty) empty.classList.add("d-none");
+    if (content) content.classList.remove("d-none");
+  }
+
+  async function loadSellerDetail() {
+    if (!OWNER_INFO || !OWNER_INFO.id_owner || !SELECTED_ID) {
+      showSellerDetailEmpty();
+      return;
+    }
+    try {
+      const seller = await http(
+        `${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados?base_id=${encodeURIComponent(SELECTED_ID)}`
+      );
+      if (!seller) {
+        showSellerDetailEmpty();
+        return;
+      }
+      renderSellerDetail(seller);
+    } catch (err) {
+      // 404 ou outro erro → mostra vazio
+      showSellerDetailEmpty();
+    }
+  }
+
   // =======================================================
   // CRUD Actions
   // =======================================================
@@ -247,6 +312,7 @@ async function apiDelete(id) {
       );
       DATA_CACHE = filtrados;
       renderTable(filtrados);
+      showSellerDetailEmpty();
     } catch (err) {
       console.error(err);
       toast("Falha ao carregar bases.", false);
@@ -334,6 +400,7 @@ async function apiDelete(id) {
       SELECTED_ID = tr.dataset.id;
       qs("#btnHeaderEdit").disabled = false;
       qs("#btnHeaderDel").disabled = false;
+      await loadSellerDetail();
     });
 
     qs("#search")?.addEventListener("input", listarBases);
