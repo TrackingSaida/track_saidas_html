@@ -400,7 +400,7 @@ async function apiDelete(id) {
       SELECTED_ID = tr.dataset.id;
       qs("#btnHeaderEdit").disabled = false;
       qs("#btnHeaderDel").disabled = false;
-      await loadSellerDetail();
+      loadSellerDetail();
     });
 
     qs("#search")?.addEventListener("input", listarBases);
