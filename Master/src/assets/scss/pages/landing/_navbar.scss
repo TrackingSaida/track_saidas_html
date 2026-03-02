@@ -51,12 +51,15 @@
     }
   }
 
-  #navbarSupportedContent {
-    flex: 1 1 auto;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 0;
+  // Layout do collapse apenas no desktop; no mobile o Bootstrap controla (collapse fechado por padrão)
+  @media (min-width: 992px) {
+    #navbarSupportedContent {
+      flex: 1 1 auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0;
+    }
   }
 
   .nav-center-wrap {
@@ -162,6 +165,14 @@
     }
     .nav-center-wrap {
       flex-direction: column;
+    }
+
+    // Garantir comportamento do Bootstrap: menu fechado por padrão, abre só com .show
+    .navbar-collapse {
+      display: none;
+    }
+    .navbar-collapse.show {
+      display: block;
     }
   }
 }

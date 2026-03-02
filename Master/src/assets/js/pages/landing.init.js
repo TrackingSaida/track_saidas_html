@@ -55,7 +55,7 @@ const layoutWrapper = document.querySelector('.layout-wrapper.landing');
 var bsCollapse = '';
 
 function isMobileMenu() {
-    return document.documentElement.clientWidth < 980;
+    return document.documentElement.clientWidth < 992;
 }
 
 function syncNavbarShowToCollapse() {
@@ -68,6 +68,15 @@ function syncNavbarShowToCollapse() {
     }
 }
 
+// Forçar menu fechado ao carregar no mobile (evita iniciar aberto)
+document.addEventListener("DOMContentLoaded", function () {
+    var navbarCollapse = document.getElementById("navbarSupportedContent");
+    if (navbarCollapse && window.innerWidth < 992) {
+        navbarCollapse.classList.remove("show");
+        if (layoutWrapper) layoutWrapper.classList.remove("navbar-show");
+    }
+});
+
 if (menuToggle && layoutWrapper) {
     menuToggle.addEventListener('show.bs.collapse', function () {
         if (isMobileMenu()) layoutWrapper.classList.add('navbar-show');
@@ -75,7 +84,6 @@ if (menuToggle && layoutWrapper) {
     menuToggle.addEventListener('hidden.bs.collapse', function () {
         layoutWrapper.classList.remove('navbar-show');
     });
-    // Fallback: quando a classe "show" muda no collapse (ex.: clique no hamburger)
     var observer = new MutationObserver(function () {
         syncNavbarShowToCollapse();
     });
@@ -99,32 +107,38 @@ if (verticalOverlay && menuToggle) {
     });
 }
 
+// Fechar menu ao clicar em um link (apenas mobile, uma vez)
+var collapseNavLinks = document.querySelectorAll("#navbarSupportedContent .nav-link");
+if (collapseNavLinks.length && menuToggle) {
+    collapseNavLinks.forEach(function (link) {
+        link.addEventListener("click", function () {
+            if (window.innerWidth >= 992) return;
+            if (menuToggle.classList.contains("show") && typeof bootstrap !== 'undefined') {
+                var c = bootstrap.Collapse.getInstance(menuToggle);
+                if (c) c.hide(); else new bootstrap.Collapse(menuToggle).hide();
+                if (layoutWrapper) layoutWrapper.classList.remove("navbar-show");
+            }
+        });
+    });
+}
+
 if (navLinks && menuToggle) {
     window.addEventListener('load', function () {
         window.dispatchEvent(new Event('resize'));
     });
     window.addEventListener('resize', function () {
         var windowSize = document.documentElement.clientWidth;
-        bsCollapse = new bootstrap.Collapse(menuToggle, {
-            toggle: false
-        });
-        if (windowSize < 980) {
-            Array.from(navLinks).forEach((link) => {
-                link.addEventListener('click', () => {
-                    toggleMenu();
-                });
-            });
-        } else {
+        bsCollapse = new bootstrap.Collapse(menuToggle, { toggle: false });
+        if (windowSize >= 992) {
             if (layoutWrapper) layoutWrapper.classList.remove('navbar-show');
-            toggleMenu();
+            menuToggle.classList.remove('show');
         }
     });
 }
 
 function toggleMenu() {
-    var windowSize = document.documentElement.clientWidth;
-    if (windowSize < 980) {
-        if (bsCollapse) bsCollapse.toggle();
+    if (document.documentElement.clientWidth < 992 && bsCollapse) {
+        bsCollapse.toggle();
     } else {
         bsCollapse = '';
     }
