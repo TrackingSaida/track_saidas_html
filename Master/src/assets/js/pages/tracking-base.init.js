@@ -8,6 +8,7 @@
 
   const API_URL = "https://track-saidas-api.onrender.com/api";
   const API_BASES = `${API_URL}/base/`;
+  const API_OWNER_ME = `${API_URL}/owner/me`;
 
   const qs = (s) => document.querySelector(s);
   const qsa = (s) => Array.from(document.querySelectorAll(s));
@@ -27,6 +28,32 @@
   };
 
   const onlyDigits = (s) => (s || "").replace(/\D/g, "");
+
+  // CEP & CNPJ helpers reaproveitando padrão das outras telas
+  function maskCep(value) {
+    const digits = (value || "").replace(/\D/g, "").slice(0, 8);
+    if (digits.length > 5) {
+      return digits.replace(/(\d{5})(\d{0,3})/, "$1-$2");
+    }
+    return digits;
+  }
+
+  function maskCnpj(value) {
+    const digits = (value || "").replace(/\D/g, "").slice(0, 14);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 5) return digits.replace(/(\d{2})(\d+)/, "$1.$2");
+    if (digits.length <= 8) return digits.replace(/(\d{2})(\d{3})(\d+)/, "$1.$2.$3");
+    if (digits.length <= 12) return digits.replace(/(\d{2})(\d{3})(\d{3})(\d+)/, "$1.$2.$3/$4");
+    return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2}).*/, "$1.$2.$3/$4-$5");
+  }
+
+  async function lookupCep(cepRaw) {
+    const cep = (cepRaw || "").replace(/\D/g, "");
+    if (cep.length !== 8) throw new Error("CEP inválido");
+    const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    if (!r.ok) throw new Error("Falha ao consultar CEP");
+    return r.json();
+  }
 
   function parseMoeda(valorRaw = "") {
     if (typeof valorRaw === "number") return valorRaw;
@@ -174,7 +201,39 @@ async function apiDelete(id) {
   // =======================================================
   let DATA_CACHE = [];
   let SELECTED_ID = null;
+  let OWNER_INFO = null;
   const offcanvas = new bootstrap.Offcanvas("#oc-form");
+
+  async function carregarOwnerInfo() {
+    try {
+      const owner = await http(API_OWNER_ME);
+      OWNER_INFO = owner || null;
+    } catch (err) {
+      OWNER_INFO = null;
+    }
+  }
+
+  async function carregarSellerDados() {
+    if (!OWNER_INFO || !OWNER_INFO.id_owner) return;
+    try {
+      const seller = await http(`${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados`);
+      if (!seller) return;
+      const setVal = (id, v) => {
+        const el = qs(id);
+        if (el && v != null) el.value = v || "";
+      };
+      setVal("#sellerCnpj", seller.cnpj || "");
+      setVal("#sellerCep", seller.cep || "");
+      setVal("#sellerRua", seller.rua || "");
+      setVal("#sellerNumero", seller.numero || "");
+      setVal("#sellerComplemento", seller.complemento || "");
+      setVal("#sellerBairro", seller.bairro || "");
+      setVal("#sellerCidade", seller.cidade || "");
+      setVal("#sellerEstado", seller.estado || "");
+    } catch (err) {
+      // se 404 ou outro erro, apenas não preenche
+    }
+  }
 
   // =======================================================
   // CRUD Actions
@@ -224,7 +283,47 @@ async function apiDelete(id) {
   // Eventos
   // =======================================================
   document.addEventListener("DOMContentLoaded", async () => {
+    await carregarOwnerInfo();
     await listarBases();
+    await carregarSellerDados();
+
+    // Máscaras e auto-preenchimento dos campos de CNPJ/CEP do Seller/Base
+    const cnpjEl = qs("#sellerCnpj");
+    if (cnpjEl) {
+      cnpjEl.addEventListener("input", (ev) => {
+        ev.target.value = maskCnpj(ev.target.value);
+      });
+    }
+
+    const cepEl = qs("#sellerCep");
+    if (cepEl) {
+      cepEl.addEventListener("input", (ev) => {
+        ev.target.value = maskCep(ev.target.value);
+      });
+
+      async function buscarCepSeller() {
+        const raw = (cepEl.value || "").replace(/\D/g, "");
+        if (raw.length === 8) {
+          try {
+            const data = await lookupCep(raw);
+            if (data && !data.erro) {
+              qs("#sellerRua").value = data.logradouro || "";
+              qs("#sellerBairro").value = data.bairro || "";
+              qs("#sellerCidade").value = data.localidade || "";
+              qs("#sellerEstado").value = data.uf || "";
+              qs("#sellerNumero").focus();
+            }
+          } catch (e) {
+            // falha silenciosa para não travar fluxo
+          }
+        }
+      }
+
+      cepEl.addEventListener("blur", buscarCepSeller);
+      cepEl.addEventListener("keyup", function () {
+        if ((this.value || "").replace(/\D/g, "").length === 8) buscarCepSeller();
+      });
+    }
 
     const tbody = qs("#tbody-bases");
     tbody?.addEventListener("click", (e) => {
@@ -286,14 +385,69 @@ async function apiDelete(id) {
 
       const id = qs("#baseId").value.trim();
       const payload = formPayload();
+
+      // Validação adicional de CNPJ/Endereço do Seller/Base
+      const ownerTipo = (OWNER_INFO?.tipo_owner || "subbase").toLowerCase();
+      const cnpjDig = onlyDigits(qs("#sellerCnpj")?.value || "");
+      const cepDig = onlyDigits(qs("#sellerCep")?.value || "");
+      const rua = (qs("#sellerRua")?.value || "").trim();
+      const numero = (qs("#sellerNumero")?.value || "").trim();
+      const bairro = (qs("#sellerBairro")?.value || "").trim();
+      const cidade = (qs("#sellerCidade")?.value || "").trim();
+      const estado = (qs("#sellerEstado")?.value || "").trim();
+      const complemento = (qs("#sellerComplemento")?.value || "").trim();
+
+      const errosSeller = [];
+      if (ownerTipo === "base") {
+        if (!cnpjDig) errosSeller.push("CNPJ é obrigatório para Seller/Base.");
+        if (cepDig.length !== 8) errosSeller.push("CEP é obrigatório e deve ter 8 dígitos para Seller/Base.");
+        if (!rua) errosSeller.push("Rua é obrigatória para Seller/Base.");
+        if (!numero) errosSeller.push("Número é obrigatório para Seller/Base.");
+        if (!bairro) errosSeller.push("Bairro é obrigatório para Seller/Base.");
+        if (!cidade) errosSeller.push("Cidade é obrigatória para Seller/Base.");
+      }
+
+      if (errosSeller.length) {
+        toast(errosSeller.join(" "), false);
+        return;
+      }
+
       try {
+        let baseIdForSeller = id ? Number(id) : null;
+
         if (id) {
-          await apiUpdate(id, payload);
+          const updated = await apiUpdate(id, payload);
+          baseIdForSeller = updated?.id_base || Number(id);
           toast("Base atualizada com sucesso.");
         } else {
-          await apiCreate(payload);
+          const created = await apiCreate(payload);
+          baseIdForSeller = created?.id_base || null;
           toast("Base criada com sucesso.");
         }
+
+        // Atualiza CNPJ/endereço do Seller para este owner/base
+        if (OWNER_INFO && OWNER_INFO.id_owner) {
+          const bodySeller = {
+            base_id: baseIdForSeller,
+            cnpj: cnpjDig || null,
+            cep: cepDig || null,
+            rua: rua || null,
+            numero: numero || null,
+            complemento: complemento || null,
+            bairro: bairro || null,
+            cidade: cidade || null,
+            estado: estado || null,
+          };
+          try {
+            await http(`${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados`, {
+              method: "PATCH",
+              body: JSON.stringify(bodySeller),
+            });
+          } catch (e) {
+            // se falhar o update de seller, não bloqueia o fluxo de Base
+          }
+        }
+
         offcanvas.hide();
         await listarBases();
       } catch (err) {

@@ -149,6 +149,55 @@
               </div>
             </div>
           </div>
+
+          <div class="card mb-3">
+            <div class="card-header bg-light fw-semibold">Dados do Seller / Base</div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-12">
+                  <label for="sellerCnpj" class="form-label">CNPJ do Seller/Base</label>
+                  <input type="text" id="sellerCnpj" class="form-control" placeholder="00.000.000/0000-00">
+                  <div class="form-text small">Obrigatório quando o Owner for do tipo Base (Seller).</div>
+                </div>
+
+                <div class="col-md-6">
+                  <label for="sellerCep" class="form-label">CEP</label>
+                  <input type="text" id="sellerCep" class="form-control" placeholder="00000-000" maxlength="9" inputmode="numeric">
+                  <div class="form-text small">Digite o CEP e saia do campo para preencher automaticamente (para Seller/Base obrigatório).</div>
+                </div>
+
+                <div class="col-md-6">
+                  <label for="sellerRua" class="form-label">Rua</label>
+                  <input type="text" id="sellerRua" class="form-control" placeholder="Nome da rua">
+                </div>
+
+                <div class="col-md-4">
+                  <label for="sellerNumero" class="form-label">Número</label>
+                  <input type="text" id="sellerNumero" class="form-control" placeholder="123">
+                </div>
+
+                <div class="col-md-8">
+                  <label for="sellerComplemento" class="form-label">Complemento</label>
+                  <input type="text" id="sellerComplemento" class="form-control" placeholder="Apto, sala, bloco...">
+                </div>
+
+                <div class="col-md-6">
+                  <label for="sellerBairro" class="form-label">Bairro</label>
+                  <input type="text" id="sellerBairro" class="form-control" placeholder="Ex: Centro">
+                </div>
+
+                <div class="col-md-4">
+                  <label for="sellerCidade" class="form-label">Cidade</label>
+                  <input type="text" id="sellerCidade" class="form-control" placeholder="Ex: São Paulo">
+                </div>
+
+                <div class="col-md-2">
+                  <label for="sellerEstado" class="form-label">Estado</label>
+                  <input type="text" id="sellerEstado" class="form-control" maxlength="2" placeholder="UF">
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body">

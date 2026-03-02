@@ -90,8 +90,8 @@ function initOwners() {
     document.getElementById("pg-next").addEventListener("click", () => changePage(1));
 
     document.getElementById("ownerContato").addEventListener("input", (ev) => {
-    ev.target.value = maskCellphone(ev.target.value);
-});
+        ev.target.value = maskCellphone(ev.target.value);
+    });
 
     document.getElementById("ownerIgnorarToggle").addEventListener("change", syncModoOperacaoSelect);
 

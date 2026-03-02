@@ -15,6 +15,18 @@ function maskDocumento(value) {
 }
 
 // =====================================================================
+// MÁSCARA CNPJ — 00.000.000/0000-00
+// =====================================================================
+function maskCnpj(value) {
+    const digits = value.replace(/\D/g, "").slice(0, 14);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 5) return digits.replace(/(\d{2})(\d+)/, "$1.$2");
+    if (digits.length <= 8) return digits.replace(/(\d{2})(\d{3})(\d+)/, "$1.$2.$3");
+    if (digits.length <= 12) return digits.replace(/(\d{2})(\d{3})(\d{3})(\d+)/, "$1.$2.$3/$4");
+    return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2}).*/, "$1.$2.$3/$4-$5");
+}
+
+// =====================================================================
 // MÁSCARA CEP — 00000-000
 // =====================================================================
 function maskCep(value) {
@@ -144,6 +156,12 @@ function initUsers() {
     document.getElementById("documento").addEventListener("input", (ev) => {
         ev.target.value = maskDocumento(ev.target.value);
     });
+    const cnpjInput = document.getElementById("cnpj");
+    if (cnpjInput) {
+        cnpjInput.addEventListener("input", (ev) => {
+            ev.target.value = maskCnpj(ev.target.value);
+        });
+    }
     document.getElementById("cep").addEventListener("input", (ev) => {
         ev.target.value = maskCep(ev.target.value);
     });
@@ -427,6 +445,8 @@ function openCreate() {
     document.getElementById("role").value = 2;
 
     document.getElementById("documento").value = "";
+    const cnpjEl = document.getElementById("cnpj");
+    if (cnpjEl) cnpjEl.value = "";
     document.getElementById("cep").value = "";
     document.getElementById("rua").value = "";
     document.getElementById("numero").value = "";
@@ -448,7 +468,7 @@ function openCreate() {
 }
 
 function clearMotoboyValidation() {
-    ["documento", "cep", "rua", "numero", "bairro", "cidade", "username", "email", "password", "passwordConfirm"].forEach(id => {
+    ["documento", "cnpj", "cep", "rua", "numero", "bairro", "cidade", "username", "email", "password", "passwordConfirm"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.remove("is-invalid");
     });
@@ -481,6 +501,8 @@ async function openEdit(id) {
 
     const m = data.motoboy || {};
     document.getElementById("documento").value = m.documento || "";
+    const cnpjEl = document.getElementById("cnpj");
+    if (cnpjEl) cnpjEl.value = m.cnpj || "";
     document.getElementById("cep").value = m.cep || "";
     document.getElementById("rua").value = m.rua || "";
     document.getElementById("numero").value = m.numero || "";
@@ -525,6 +547,7 @@ function renderMotoboyDetail(data) {
         if (el) el.textContent = v || "—";
     };
     assign("d-documento", m.documento);
+    assign("d-cnpj", m.cnpj);
     assign("d-contato", data.contato ? maskCellphone(data.contato) : null);
     assign("d-rua", m.rua);
     assign("d-numero", m.numero);
@@ -625,12 +648,14 @@ async function saveUser(ev) {
 
     if (role === 4) {
         const doc = (document.getElementById("documento").value || "").replace(/\D/g, "");
+        const cnpj = (document.getElementById("cnpj").value || "").replace(/\D/g, "");
         const rua = document.getElementById("rua").value.trim();
         const num = document.getElementById("numero").value.trim();
         const bairro = document.getElementById("bairro").value.trim();
         const cidade = document.getElementById("cidade").value.trim();
         const cep = (document.getElementById("cep").value || "").replace(/\D/g, "");
         if (!doc) { erros.push("Documento é obrigatório para Motoboy."); document.getElementById("documento").classList.add("is-invalid"); }
+        if (!cnpj) { erros.push("CNPJ é obrigatório para Motoboy."); document.getElementById("cnpj").classList.add("is-invalid"); }
         if (!rua) { erros.push("Rua é obrigatória."); document.getElementById("rua").classList.add("is-invalid"); }
         if (!num) { erros.push("Número é obrigatório."); document.getElementById("numero").classList.add("is-invalid"); }
         if (!bairro) { erros.push("Bairro é obrigatório."); document.getElementById("bairro").classList.add("is-invalid"); }
@@ -664,6 +689,7 @@ async function saveUser(ev) {
 
     if (role === 4) {
         payload.documento = (document.getElementById("documento").value || "").replace(/\D/g, "");
+        payload.cnpj = (document.getElementById("cnpj").value || "").replace(/\D/g, "");
         payload.rua = document.getElementById("rua").value.trim();
         payload.numero = document.getElementById("numero").value.trim();
         payload.complemento = document.getElementById("complemento").value.trim() || null;
