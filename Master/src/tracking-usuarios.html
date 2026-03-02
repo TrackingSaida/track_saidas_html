@@ -179,6 +179,12 @@
 #tbl-users tbody tr.row-selected:hover {
   background-color: rgba(var(--vz-primary-rgb, 13, 110, 253), 0.2) !important;
 }
+/* Garante que o input de contato siga o mesmo padrão dos demais,
+   sem herdar o layout da seção #contato da landing */
+#formUser #contato.form-control {
+  padding: 0.5rem 0.75rem !important;
+  background-color: var(--vz-input-bg, #fff);
+}
 </style>
 
 <!-- ===================== OFFCANVAS (CREATE/EDIT) ===================== -->
