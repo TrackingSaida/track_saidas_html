@@ -203,15 +203,64 @@
                         <div class="card-header bg-light fw-semibold">Dados do Usuário</div>
                         <div class="card-body">
                             <div class="row g-3">
-                                <div class="col-6"><label class="form-label">Nome <span class="text-danger">*</span></label><input type="text" id="nome" class="form-control field-required" placeholder="Ex: João" required></div>
-                                <div class="col-6"><label class="form-label">Sobrenome <span class="text-danger">*</span></label><input type="text" id="sobrenome" class="form-control field-required" placeholder="Ex: Silva" required></div>
-                                <div class="col-6"><label class="form-label">Username <span class="text-danger req-asterisk" id="reqUsername">*</span></label><input type="text" id="username" class="form-control" placeholder="Ex: joao.silva"></div>
-                                <div class="col-6"><label class="form-label">Contato <span class="text-danger">*</span></label><input type="text" id="contato" class="form-control field-required" placeholder="(11) 99999-9999" required></div>
-                                <div class="col-12"><label class="form-label">E-mail <span class="text-danger req-asterisk" id="reqEmail">*</span></label><input type="email" id="email" class="form-control" placeholder="email@exemplo.com"></div>
-                                <div class="col-6" id="groupPassword"><label class="form-label">Senha <span class="text-danger req-asterisk" id="reqSenha">*</span></label><input type="password" id="password" class="form-control" placeholder="Mín. 4 caracteres"></div>
-                                <div class="col-6" id="groupPasswordConfirm"><label class="form-label">Confirmar Senha <span class="text-danger req-asterisk" id="reqSenhaConfirm">*</span></label><input type="password" id="passwordConfirm" class="form-control" placeholder="Repita a senha"></div>
-                                <div class="col-12"><label class="form-label">Perfil</label><select id="role" class="form-select"><option value="1">Administrador</option><option value="2">Operador</option><option value="4">Motoboy</option></select></div>
-                                <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="statusToggle" checked><label class="form-check-label">Ativo</label></div></div>
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Nome <span class="text-danger">*</span></label>
+                                        <input type="text" id="nome" class="form-control field-required" placeholder="Ex: João" required>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Sobrenome <span class="text-danger">*</span></label>
+                                        <input type="text" id="sobrenome" class="form-control field-required" placeholder="Ex: Silva" required>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Username <span class="text-danger req-asterisk" id="reqUsername">*</span></label>
+                                        <input type="text" id="username" class="form-control" placeholder="Ex: joao.silva">
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Contato <span class="text-danger">*</span></label>
+                                        <input type="text" id="contato" class="form-control field-required" placeholder="(11) 99999-9999" required>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="mb-3">
+                                        <label class="form-label">E-mail <span class="text-danger req-asterisk" id="reqEmail">*</span></label>
+                                        <input type="email" id="email" class="form-control" placeholder="email@exemplo.com">
+                                    </div>
+                                </div>
+                                <div class="col-6" id="groupPassword">
+                                    <div class="mb-3">
+                                        <label class="form-label">Senha <span class="text-danger req-asterisk" id="reqSenha">*</span></label>
+                                        <input type="password" id="password" class="form-control" placeholder="Mín. 4 caracteres">
+                                    </div>
+                                </div>
+                                <div class="col-6" id="groupPasswordConfirm">
+                                    <div class="mb-3">
+                                        <label class="form-label">Confirmar Senha <span class="text-danger req-asterisk" id="reqSenhaConfirm">*</span></label>
+                                        <input type="password" id="passwordConfirm" class="form-control" placeholder="Repita a senha">
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="mb-3">
+                                        <label class="form-label">Perfil</label>
+                                        <select id="role" class="form-select">
+                                            <option value="1">Administrador</option>
+                                            <option value="2">Operador</option>
+                                            <option value="4">Motoboy</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="statusToggle" checked>
+                                        <label class="form-check-label">Ativo</label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
