@@ -359,7 +359,16 @@ async function gerarPdfFechamentoBases(idFechamento) {
 
   const totalBruto = tabelaBruta.reduce((a, b) => a + b.valor, 0);
   const totalCanceladosValor = tabelaCanc.reduce((a, b) => a + b.valor, 0);
-  const valorLiquido = totalBruto - totalCanceladosValor;
+
+  // Valores consolidados vindos do backend (quando disponíveis)
+  const valorBrutoFech = Number(fech.valor_bruto ?? totalBruto);
+  const valorCancelFech = Number(fech.valor_cancelados ?? totalCanceladosValor);
+  const valorAdicao = Number(fech.valor_adicao ?? 0);
+  const valorSubtracao = Number(fech.valor_subtracao ?? 0);
+  const valorFinalFech =
+    typeof fech.valor_final === "number"
+      ? Number(fech.valor_final)
+      : valorBrutoFech - valorCancelFech + valorAdicao - valorSubtracao;
 
   const totalGShopee = pacotesGNorm.filter(p => String(p.servico || "").toLowerCase().includes("shopee")).length;
   const totalGMercado = pacotesGNorm.filter(p => String(p.servico || "").toLowerCase().includes("mercado")).length;
@@ -372,77 +381,134 @@ async function gerarPdfFechamentoBases(idFechamento) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
+  // Cabeçalho
   doc.setFontSize(15);
   doc.text(`RELATÓRIO DE COLETAS — ${base} (Fechamento)`, 105, 20, { align: "center" });
   doc.setFontSize(10);
   doc.text(`Período: ${isoParaBr(de)} até ${isoParaBr(ate)}`, 105, 26, { align: "center" });
 
-  const colunasFixas = { 0: { minCellWidth: 22 }, 1: { minCellWidth: 18 }, 2: { minCellWidth: 18 }, 3: { minCellWidth: 18 }, 4: { minCellWidth: 18 }, 5: { minCellWidth: 28 } };
+  // Texto jurídico base
+  doc.setFontSize(9);
+  doc.text(
+    "Este relatório foi gerado com base nas coletas realizadas e registradas no sistema durante o período informado.",
+    14,
+    32,
+    { maxWidth: 180 }
+  );
 
+  // Bloco opcional com identificação do seller
+  const seller = fech.seller_info || null;
+  let startY = 40;
+  if (seller) {
+    doc.setFontSize(10);
+    doc.text(`Nome/Base: ${seller.nome_base || base}`, 14, 38);
+    let yId = 43;
+    if (seller.cnpj) {
+      doc.text(`CNPJ: ${seller.cnpj}`, 14, yId);
+      yId += 5;
+    }
+    if (seller.endereco_completo) {
+      doc.text(`Endereço: ${seller.endereco_completo}`, 14, yId, { maxWidth: 180 });
+      yId += 5;
+    }
+    startY = yId + 2;
+  }
+
+  const colunasFixas = {
+    0: { minCellWidth: 22 },
+    1: { minCellWidth: 18 },
+    2: { minCellWidth: 18 },
+    3: { minCellWidth: 18 },
+    4: { minCellWidth: 18 },
+    5: { minCellWidth: 28 }
+  };
+
+  // Tabela principal (coletas por dia)
   doc.autoTable({
-    startY: 40,
+    startY,
     head: [["Data", "Shopee", "Mercado Livre", "Avulso", "Total", "Valor"]],
     body: tabelaBruta.map(l => [isoParaBr(l.data), l.shopee, l.flex, l.avulso, l.total, `R$ ${l.valor.toFixed(2).replace(".", ",")}`]),
     theme: "grid",
     styles: { fontSize: 9, halign: "center" },
+    headStyles: { fillColor: [25, 135, 84] },
+    alternateRowStyles: { fillColor: [245, 245, 245] },
     columnStyles: colunasFixas
   });
 
+  // Tabela de cancelados
+  doc.setFontSize(13);
+  doc.text("REGISTROS CANCELADOS", 14, doc.lastAutoTable.finalY + 10);
   doc.autoTable({
-    startY: doc.lastAutoTable.finalY + 10,
+    startY: doc.lastAutoTable.finalY + 13,
     head: [["Data", "Cancel. Shopee", "Cancel. ML", "Cancel. Avulso", "Total", "Valor"]],
     body: tabelaCanc.map(l => [isoParaBr(l.data), l.shopee, l.flex, l.avulso, l.total, `R$ ${l.valor.toFixed(2).replace(".", ",")}`]),
     theme: "grid",
     styles: { fontSize: 9, halign: "center" },
+    headStyles: { fillColor: [25, 135, 84] },
+    alternateRowStyles: { fillColor: [245, 245, 245] },
     columnStyles: colunasFixas
   });
 
-  const Y = doc.lastAutoTable.finalY + 15;
+  // Seção Pacotes Grandes (G) — antes do resumo financeiro
+  let yAfterTables = doc.lastAutoTable.finalY + 10;
+  if (totalG > 0) {
+    doc.setFontSize(13);
+    doc.text("PACOTES GRANDES (G)", 14, yAfterTables);
+    yAfterTables += 5;
+    doc.autoTable({
+      startY: yAfterTables,
+      head: [["Serviço", "Quantidade"]],
+      body: [
+        ["Shopee", totalGShopee],
+        ["Mercado Livre", totalGMercado],
+        ["Avulso", totalGAvulso],
+        ["Total Pacotes G", totalG]
+      ],
+      theme: "grid",
+      styles: { fontSize: 9, halign: "center" },
+      headStyles: { fillColor: [25, 135, 84] },
+      alternateRowStyles: { fillColor: [245, 245, 245] }
+    });
+    yAfterTables = doc.lastAutoTable.finalY + 8;
+  }
+
+  // Resumo financeiro destacado
+  const valorBrutoTxt = `Valor Bruto: R$ ${valorBrutoFech.toFixed(2).replace(".", ",")}`;
+  const valorCancTxt = `Valor Cancelado: R$ ${valorCancelFech.toFixed(2).replace(".", ",")}`;
+  const ajustesMaisTxt = `Ajustes (+): R$ ${valorAdicao.toFixed(2).replace(".", ",")}`;
+  const ajustesMenosTxt = `Ajustes (-): R$ ${valorSubtracao.toFixed(2).replace(".", ",")}`;
+
   doc.setFontSize(14);
-  doc.text("RESUMO FINAL", 14, Y);
+  doc.text("RESUMO FINANCEIRO", 14, yAfterTables);
   doc.setFontSize(11);
-  doc.text(`Valor Bruto: R$ ${totalBruto.toFixed(2).replace(".", ",")}`, 14, Y + 10);
-  doc.text(`Valor Cancelado: R$ ${totalCanceladosValor.toFixed(2).replace(".", ",")}`, 14, Y + 16);
-  doc.setFontSize(12);
-  doc.setTextColor(0, 100, 0);
-  doc.text(`Valor Líquido a Receber: R$ ${valorLiquido.toFixed(2).replace(".", ",")}`, 14, Y + 25);
+  const yResumo = yAfterTables + 8;
+  doc.text(valorBrutoTxt, 14, yResumo);
+  doc.setTextColor(200, 0, 0);
+  doc.text(valorCancTxt, 14, yResumo + 6);
+  doc.setTextColor(0, 0, 0);
+  doc.text(ajustesMaisTxt, 14, yResumo + 12);
+  doc.text(ajustesMenosTxt, 14, yResumo + 18);
+
+  // Destaque para o valor final
+  const yValorFinal = yResumo + 30;
+  doc.setFontSize(13);
+  doc.setTextColor(0, 128, 0);
+  doc.text(
+    `VALOR FINAL A RECEBER: R$ ${valorFinalFech.toFixed(2).replace(".", ",")}`,
+    14,
+    yValorFinal
+  );
   doc.setTextColor(0, 0, 0);
 
-  // Seção de Pacotes G (Grandes)
-  let yG = Y + 35;
-  doc.setFontSize(13);
-  doc.text("PACOTES GRANDES (G)", 14, yG);
-  yG += 8;
-  doc.setFontSize(10);
-  doc.text(`Total G Shopee: ${totalGShopee}`, 14, yG);
-  yG += 5;
-  doc.text(`Total G Mercado Livre: ${totalGMercado}`, 14, yG);
-  yG += 5;
-  doc.text(`Total G Avulso: ${totalGAvulso}`, 14, yG);
-  yG += 5;
-  doc.text(`Total G (geral): ${totalG}`, 14, yG);
-  yG += 8;
-
-  if (pacotesGNorm.length) {
-    const rowsG = pacotesGNorm
-      .slice()
-      .sort((a, b) => String(a.data || "").localeCompare(String(b.data || "")))
-      .map(p => [
-        isoParaBr((p.data || "").slice(0, 10)),
-        p.codigo || "-",
-        p.servico || "-"
-      ]);
-    doc.autoTable({
-      startY: yG,
-      head: [["Data do registro", "Código", "Serviço"]],
-      body: rowsG,
-      theme: "grid",
-      styles: { fontSize: 9, halign: "center" }
-    });
-  } else {
-    doc.setFontSize(9);
-    doc.text("Nenhum pacote G (Grande) no período.", 14, yG);
-  }
+  // Texto final de aceite
+  const yRodapeTexto = yValorFinal + 10;
+  doc.setFontSize(9);
+  doc.text(
+    "Em caso de divergência, comunicar em até 48 horas. Após esse prazo, considera-se o presente relatório aceito.",
+    14,
+    yRodapeTexto,
+    { maxWidth: 180 }
+  );
 
   const ano = new Date().getFullYear();
   doc.setFontSize(10);

@@ -106,7 +106,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     total_g_shopee: 0,
     total_g_ml: 0,
     total_g_avulso: 0,
-    total_pacotes_g: 0
+    total_pacotes_g: 0,
+    ajusteGValor: 0,
+    ajusteGMotivo: ""
   };
 
   const STATUS_TOOLTIPS = {
@@ -670,6 +672,14 @@ async function carregarResumoCompleto() {
     qs("#fech-base-display").textContent = base || "—";
     qs("#fech-periodo-display").textContent = formatarPeriodo(periodoInicio, periodoFim);
 
+    // Resetar campos de ajuste G no início
+    state.ajusteGValor = 0;
+    state.ajusteGMotivo = "";
+    const inpAjusteGValor = qs("#fech-ajuste-g-valor");
+    const inpAjusteGMotivo = qs("#fech-ajuste-g-motivo");
+    if (inpAjusteGValor) inpAjusteGValor.value = "0";
+    if (inpAjusteGMotivo) inpAjusteGMotivo.value = "";
+
     if (modoEdicao && idFech) {
       try {
         const res = await fetch(`${API_FECHAMENTOS}/${idFech}`, { credentials: "include" });
@@ -756,6 +766,8 @@ async function carregarResumoCompleto() {
       try {
         // Novo fechamento: limpa ajustes anteriores
         state.ajustesFechamento = [];
+        state.ajusteGValor = 0;
+        state.ajusteGMotivo = "";
         const params = new URLSearchParams({ base, periodo_inicio: periodoInicio, periodo_fim: periodoFim });
         const res = await fetch(`${API_FECHAMENTOS}/calcular?${params}`, { credentials: "include" });
         if (!res.ok) throw new Error(res.statusText);
@@ -772,6 +784,15 @@ async function carregarResumoCompleto() {
         state.total_g_ml = data.total_g_ml ?? 0;
         state.total_g_avulso = data.total_g_avulso ?? 0;
         state.total_pacotes_g = data.total_pacotes_g ?? 0;
+        // Ajuste G apenas para preview (se vier do backend)
+        if (typeof data.ajuste_g_valor !== "undefined" && data.ajuste_g_valor !== null) {
+          state.ajusteGValor = Number(data.ajuste_g_valor) || 0;
+          state.ajusteGMotivo = data.ajuste_g_motivo || "";
+          const inpAjusteGValor2 = qs("#fech-ajuste-g-valor");
+          const inpAjusteGMotivo2 = qs("#fech-ajuste-g-motivo");
+          if (inpAjusteGValor2) inpAjusteGValor2.value = String(state.ajusteGValor || 0);
+          if (inpAjusteGMotivo2) inpAjusteGMotivo2.value = state.ajusteGMotivo || "";
+        }
       } catch (err) {
         console.error(err);
         if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao calcular fechamento." });
@@ -874,13 +895,15 @@ async function carregarResumoCompleto() {
       if (a.tipo === "ADIÇÃO") totalAjustes += v;
       else totalAjustes -= v;
     });
-    const totalReceber = totalReceberBase + totalAjustes;
+    // Ajuste específico de G (valor pode ser positivo ou negativo)
+    const ajusteG = Number(state.ajusteGValor || 0);
+    const totalReceber = totalReceberBase + totalAjustes + ajusteG;
     qs("#fech-valor-bruto").textContent = formatarMoeda(valorBruto);
     qs("#fech-valor-cancelados").textContent = formatarMoeda(valorCancelados);
     const elTotalAj = qs("#fech-total-ajustes-base");
     if (elTotalAj) {
-      elTotalAj.textContent = formatarMoeda(totalAjustes);
-      elTotalAj.className = totalAjustes < 0 ? "text-danger" : "";
+      elTotalAj.textContent = formatarMoeda(totalAjustes + ajusteG);
+      elTotalAj.className = (totalAjustes + ajusteG) < 0 ? "text-danger" : "";
     }
     qs("#fech-total-receber").textContent = formatarMoeda(totalReceber);
     const elG = qs("#fech-g-resumo-base");
@@ -924,6 +947,14 @@ async function carregarResumoCompleto() {
         if (a.motivo) motivoSubtracao += (motivoSubtracao ? " | " : "") + a.motivo;
       }
     });
+
+    // Ajuste específico G vindo dos inputs
+    const inpAjusteGValor3 = qs("#fech-ajuste-g-valor");
+    const inpAjusteGMotivo3 = qs("#fech-ajuste-g-motivo");
+    const ajusteGValor = inpAjusteGValor3 ? parseFloat(inpAjusteGValor3.value || "0") || 0 : 0;
+    const ajusteGMotivo = (inpAjusteGMotivo3?.value || "").trim();
+    state.ajusteGValor = ajusteGValor;
+    state.ajusteGMotivo = ajusteGMotivo;
 
     const btn = document.getElementById("btnGerarFechamentoModal");
     if (btn) btn.disabled = true;
@@ -1013,7 +1044,9 @@ async function carregarResumoCompleto() {
             valor_adicao: valorAdicao,
             motivo_adicao: motivoAdicao || null,
             valor_subtracao: valorSubtracao,
-            motivo_subtracao: motivoSubtracao || null
+            motivo_subtracao: motivoSubtracao || null,
+            ajuste_g_valor: ajusteGValor,
+            ajuste_g_motivo: ajusteGMotivo || null
           })
         });
         if (!res.ok) {
