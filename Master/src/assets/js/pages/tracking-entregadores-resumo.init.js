@@ -277,6 +277,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const flexQtde = r.flex?.qtde ?? 0;
         const shopeeQtde = r.shopee?.qtde ?? 0;
         const avulsoQtde = r.avulso?.qtde ?? 0;
+        const gTotal = r.g_total ?? 0;
         const totalEntregas = flexQtde + shopeeQtde + avulsoQtde;
         const valorTotal = r.total_dia != null ? formatarMoeda(r.total_dia) : "—";
         const celFech = celulaFechamento(r);
@@ -288,6 +289,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           '<td class="text-center">' + flexQtde + "</td>" +
           '<td class="text-center">' + shopeeQtde + "</td>" +
           '<td class="text-center">' + avulsoQtde + "</td>" +
+          '<td class="text-center">' + gTotal + "</td>" +
           '<td class="text-center">' + totalEntregas + "</td>" +
           '<td class="text-end">' + valorTotal + "</td>" +
           '<td class="text-center">' + celFech + "</td>" +
@@ -475,8 +477,57 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     if (!state.modoEdicao && !idFech && (state.fechModal.g_total || 0) > 0 && state.ajustesFechamento.length === 0) {
-      const confirmado = window.Swal
-        ? (await Swal.fire({
+      if (window.Swal) {
+        try {
+          const paramsG = new URLSearchParams();
+          if (periodoInicio) paramsG.append("de", periodoInicio);
+          if (periodoFim) paramsG.append("ate", periodoFim);
+          paramsG.append("somente_g", "true");
+          paramsG.append("limit", "5000");
+          // Filtro por executores: entregador ou motoboy
+          if (entIdE > 0) paramsG.append("entregador_id", String(entIdE));
+          if (entIdM > 0) paramsG.append("motoboy_id", String(entIdM));
+          const apiSaidas = `${API_URL.replace(/\\/entregadores\\/resumo$/, "")}/saidas/listar`;
+          const resG = await fetch(`${apiSaidas}?${paramsG.toString()}`, { credentials: "include" });
+          const jsonG = await resG.json().catch(() => ({}));
+          const itensG = Array.isArray(jsonG.items) ? jsonG.items : (Array.isArray(jsonG) ? jsonG : []);
+          const linhas = itensG
+            .map((p) => {
+              const dt = p.timestamp ? new Date(p.timestamp) : null;
+              const dataBr = dt ? dt.toISOString().slice(0, 10).split("-").reverse().join("/") : "-";
+              const cod = p.codigo || "-";
+              const serv = p.servico || "-";
+              return `<tr><td>${dataBr}</td><td>${cod}</td><td>${serv}</td></tr>`;
+            })
+            .join("");
+          const tabelaHtml = `
+            <div class="mt-2 mb-2 text-start" style="max-height:260px;overflow:auto;">
+              <table class="table table-sm table-bordered mb-0">
+                <thead class="table-light">
+                  <tr><th>Data do registro</th><th>Código</th><th>Serviço</th></tr>
+                </thead>
+                <tbody>
+                  ${linhas || "<tr><td colspan='3' class='text-center text-muted'>Nenhum pacote G encontrado.</td></tr>"}
+                </tbody>
+              </table>
+            </div>`;
+          const result = await Swal.fire({
+            icon: "warning",
+            title: "Pacotes G sem ajuste",
+            html:
+              `<p class="mb-2">Há pacotes marcados como G (Grande) neste período para este executor e nenhum ajuste foi informado.</p>` +
+              `<p class="mb-1"><strong>Lista de pacotes G:</strong></p>` +
+              tabelaHtml +
+              `<p class="mt-3 mb-0">Deseja gerar o fechamento mesmo assim?</p>`,
+            showCancelButton: true,
+            confirmButtonText: "Gerar sem ajustar",
+            cancelButtonText: "Voltar ao preview",
+            width: 900,
+          });
+          if (!result.isConfirmed) return;
+        } catch (e) {
+          console.error("Falha ao buscar pacotes G para alerta de motoboy:", e);
+          const confirmadoFallback = await Swal.fire({
             icon: "question",
             title: "Gerar fechamento sem ajuste para pacotes G?",
             text: "Existem pacotes G (Grande) no período e nenhum ajuste foi informado. Deseja realmente gerar o fechamento sem lançar ajuste para os pacotes G?",
@@ -484,9 +535,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             confirmButtonText: "Sim, gerar",
             cancelButtonText: "Cancelar",
             confirmButtonColor: "#0d6efd",
-          })).isConfirmed
-        : confirm("Existem pacotes G no período sem ajuste. Deseja gerar mesmo assim?");
-      if (!confirmado) return;
+          });
+          if (!confirmadoFallback.isConfirmed) return;
+        }
+      } else {
+        const confirmado = confirm("Existem pacotes G no período sem ajuste. Deseja gerar mesmo assim?");
+        if (!confirmado) return;
+      }
     }
 
     const btnSalvar = qs("#btnGerarFechamentoModal");

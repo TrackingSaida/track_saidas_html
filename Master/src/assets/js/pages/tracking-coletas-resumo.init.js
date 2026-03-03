@@ -101,7 +101,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     contextoFechamento: null,
     basesParaReajuste: [],  // quando status GERADO sem base: [{ base, id_fechamento }]
     fechamentoItens: [],
-    fechamentoPrecos: {}
+    fechamentoPrecos: {},
+    ajustesFechamento: [],   // { tipo: 'ADIÇÃO' | 'SUBTRAÇÃO', valor: number, motivo: string }
+    total_g_shopee: 0,
+    total_g_ml: 0,
+    total_g_avulso: 0,
+    total_pacotes_g: 0
   };
 
   const STATUS_TOOLTIPS = {
@@ -298,6 +303,7 @@ async function buscarCancelados() {
           <td class="text-center">${r.shopee}</td>
           <td class="text-center">${r.mercado_livre}</td>
           <td class="text-center">${r.avulso}</td>
+          <td class="text-center">${r.pacotes_g ?? 0}</td>
           <td class="text-center text-danger fw-bold">${r.cancelados}</td>
           <td class="text-center">${formatarMoeda(r.valor_total)}</td>
           <td class="text-center">${celFech}</td>
@@ -684,6 +690,22 @@ async function carregarResumoCompleto() {
         state.total_g_ml = data.total_g_ml ?? 0;
         state.total_g_avulso = data.total_g_avulso ?? 0;
         state.total_pacotes_g = data.total_pacotes_g ?? 0;
+        // Ajustes gravados no fechamento (quando em modo edição)
+        state.ajustesFechamento = [];
+        if ((data.valor_adicao || 0) > 0) {
+          state.ajustesFechamento.push({
+            tipo: "ADIÇÃO",
+            valor: Number(data.valor_adicao) || 0,
+            motivo: data.motivo_adicao || ""
+          });
+        }
+        if ((data.valor_subtracao || 0) > 0) {
+          state.ajustesFechamento.push({
+            tipo: "SUBTRAÇÃO",
+            valor: Number(data.valor_subtracao) || 0,
+            motivo: data.motivo_subtracao || ""
+          });
+        }
         if (data.divergencia_valor && (data.valor_final_recalculado != null || data.valor_bruto_recalculado != null)) {
           const valorAntigo = Number(data.valor_final || 0);
           const valorNovo = Number(data.valor_final_recalculado ?? data.valor_bruto_recalculado ?? 0);
@@ -721,6 +743,8 @@ async function carregarResumoCompleto() {
           const baseObj = Array.isArray(bases) ? bases.find(b => String(b.base || "").toUpperCase() === String(base || "").toUpperCase()) : null;
           state.fechamentoPrecos = baseObj ? { shopee: baseObj.shopee ?? 0, ml: baseObj.ml ?? 0, avulso: baseObj.avulso ?? 0 } : (state.fechamentoPrecos || {});
         }
+        renderListaAjustesBase();
+        atualizarResumoModal();
       } catch (err) {
         console.error(err);
         if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao carregar fechamento." });
@@ -728,6 +752,8 @@ async function carregarResumoCompleto() {
       }
     } else {
       try {
+        // Novo fechamento: limpa ajustes anteriores
+        state.ajustesFechamento = [];
         const params = new URLSearchParams({ base, periodo_inicio: periodoInicio, periodo_fim: periodoFim });
         const res = await fetch(`${API_FECHAMENTOS}/calcular?${params}`, { credentials: "include" });
         if (!res.ok) throw new Error(res.statusText);
@@ -787,6 +813,44 @@ async function carregarResumoCompleto() {
     });
   }
 
+  function renderListaAjustesBase() {
+    const list = qs("#fech-lista-ajustes-base");
+    if (!list) return;
+    const withIdx = state.ajustesFechamento.map((a, idx) => ({ ...a, _idx: idx }));
+    const ordenado = withIdx.slice().sort((a, b) => {
+      if (a.tipo !== b.tipo) return a.tipo === "ADIÇÃO" ? -1 : 1;
+      return a._idx - b._idx;
+    });
+    list.innerHTML = ordenado
+      .map(
+        (a) =>
+          '<div class="d-flex align-items-center justify-content-between py-1 px-2 mb-1 rounded ' +
+          (a.tipo === "ADIÇÃO" ? "bg-success bg-opacity-10" : "bg-danger bg-opacity-10") +
+          '">' +
+          '<span class="small">' +
+          (a.tipo === "ADIÇÃO" ? "+" : "-") +
+          formatarMoeda(a.valor) +
+          " — " +
+          (a.motivo || "—") +
+          "</span>" +
+          '<button type="button" class="btn btn-link btn-sm text-danger p-0 btn-remover-ajuste-base" data-idx="' +
+          a._idx +
+          '"><i class="ri-delete-bin-line"></i></button>' +
+          "</div>"
+      )
+      .join("");
+    list.querySelectorAll(".btn-remover-ajuste-base").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = parseInt(btn.dataset.idx, 10);
+        if (!Number.isNaN(idx)) {
+          state.ajustesFechamento.splice(idx, 1);
+          renderListaAjustesBase();
+          atualizarResumoModal();
+        }
+      });
+    });
+  }
+
   function atualizarResumoModal() {
     const precos = state.fechamentoPrecos;
     const p_s = Number(precos.shopee || 0);
@@ -800,9 +864,22 @@ async function carregarResumoCompleto() {
       valorBruto += s * p_s + m * p_m + a * p_a;
       valorCancelados += cs * p_s + cm * p_m + ca * p_a;
     });
-    const totalReceber = valorBruto - valorCancelados;
+    const totalReceberBase = valorBruto - valorCancelados;
+    // Ajustes manuais (adição/subtração)
+    let totalAjustes = 0;
+    state.ajustesFechamento.forEach((a) => {
+      const v = Number(a.valor) || 0;
+      if (a.tipo === "ADIÇÃO") totalAjustes += v;
+      else totalAjustes -= v;
+    });
+    const totalReceber = totalReceberBase + totalAjustes;
     qs("#fech-valor-bruto").textContent = formatarMoeda(valorBruto);
     qs("#fech-valor-cancelados").textContent = formatarMoeda(valorCancelados);
+    const elTotalAj = qs("#fech-total-ajustes-base");
+    if (elTotalAj) {
+      elTotalAj.textContent = formatarMoeda(totalAjustes);
+      elTotalAj.className = totalAjustes < 0 ? "text-danger" : "";
+    }
     qs("#fech-total-receber").textContent = formatarMoeda(totalReceber);
     const elG = qs("#fech-g-resumo-base");
     if (elG) {
@@ -830,6 +907,22 @@ async function carregarResumoCompleto() {
       cancelados_avulso: it.cancelados_avulso ?? 0
     }));
 
+    // Agregar ajustes manuais em valor_adicao / valor_subtracao
+    let valorAdicao = 0;
+    let motivoAdicao = "";
+    let valorSubtracao = 0;
+    let motivoSubtracao = "";
+    state.ajustesFechamento.forEach((a) => {
+      const v = Number(a.valor) || 0;
+      if (a.tipo === "ADIÇÃO") {
+        valorAdicao += v;
+        if (a.motivo) motivoAdicao += (motivoAdicao ? " | " : "") + a.motivo;
+      } else {
+        valorSubtracao += v;
+        if (a.motivo) motivoSubtracao += (motivoSubtracao ? " | " : "") + a.motivo;
+      }
+    });
+
     const btn = document.getElementById("btnGerarFechamentoModal");
     if (btn) btn.disabled = true;
     try {
@@ -838,7 +931,13 @@ async function carregarResumoCompleto() {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ itens })
+          body: JSON.stringify({
+            itens,
+            valor_adicao: valorAdicao,
+            motivo_adicao: motivoAdicao || null,
+            valor_subtracao: valorSubtracao,
+            motivo_subtracao: motivoSubtracao || null
+          })
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -846,17 +945,90 @@ async function carregarResumoCompleto() {
         }
         if (window.Swal) Swal.fire({ icon: "success", title: "Reajuste salvo" });
       } else {
+        // Quando houver pacotes G e nenhum ajuste, listar G em SweetAlert antes de gerar
+        if (window.Swal && (state.total_pacotes_g || 0) > 0 && state.ajustesFechamento.length === 0) {
+          try {
+            const paramsG = new URLSearchParams();
+            if (base) paramsG.append("base", base);
+            if (periodoInicio) paramsG.append("de", periodoInicio);
+            if (periodoFim) paramsG.append("ate", periodoFim);
+            paramsG.append("somente_g", "true");
+            paramsG.append("limit", "5000");
+            const resG = await fetch(`${API_SAIDAS}?${paramsG.toString()}`, { credentials: "include" });
+            const jsonG = await resG.json().catch(() => ({}));
+            const itensG = Array.isArray(jsonG.items) ? jsonG.items : (Array.isArray(jsonG) ? jsonG : []);
+            const linhas = itensG
+              .map((p) => {
+                const dt = p.timestamp ? new Date(p.timestamp) : null;
+                const dataBr = dt ? dt.toISOString().slice(0, 10).split("-").reverse().join("/") : "-";
+                const cod = p.codigo || "-";
+                const serv = p.servico || "-";
+                return `<tr><td>${dataBr}</td><td>${cod}</td><td>${serv}</td></tr>`;
+              })
+              .join("");
+            const tabelaHtml = `
+              <div class="mt-2 mb-2 text-start" style="max-height:260px;overflow:auto;">
+                <table class="table table-sm table-bordered mb-0">
+                  <thead class="table-light">
+                    <tr><th>Data do registro</th><th>Código</th><th>Serviço</th></tr>
+                  </thead>
+                  <tbody>
+                    ${linhas || "<tr><td colspan='3' class='text-center text-muted'>Nenhum pacote G encontrado.</td></tr>"}
+                  </tbody>
+                </table>
+              </div>`;
+            const result = await Swal.fire({
+              icon: "warning",
+              title: "Pacotes G sem ajuste",
+              html:
+                `<p class="mb-2">Há pacotes marcados como G (Grande) neste período e nenhum ajuste foi informado.</p>` +
+                `<p class="mb-1"><strong>Lista de pacotes G:</strong></p>` +
+                tabelaHtml +
+                `<p class="mt-3 mb-0">Deseja gerar o fechamento mesmo assim?</p>`,
+              showCancelButton: true,
+              confirmButtonText: "Gerar sem ajustar",
+              cancelButtonText: "Voltar ao preview",
+              width: 900,
+            });
+            if (!result.isConfirmed) {
+              if (btn) btn.disabled = false;
+              return;
+            }
+          } catch (e) {
+            console.error("Falha ao buscar pacotes G para alerta:", e);
+          }
+        }
+
         const res = await fetch(API_FECHAMENTOS, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ base, periodo_inicio: periodoInicio, periodo_fim: periodoFim, itens })
+          body: JSON.stringify({
+            base,
+            periodo_inicio: periodoInicio,
+            periodo_fim: periodoFim,
+            itens,
+            valor_adicao: valorAdicao,
+            motivo_adicao: motivoAdicao || null,
+            valor_subtracao: valorSubtracao,
+            motivo_subtracao: motivoSubtracao || null
+          })
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           throw new Error(err?.detail || res.statusText || "Erro ao gerar fechamento");
         }
+        const json = await res.json().catch(() => null);
         if (window.Swal) Swal.fire({ icon: "success", title: "Fechamento gerado" });
+        // Gera PDF automaticamente após novo fechamento
+        try {
+          const idFechNovo = json?.id_fechamento;
+          if (idFechNovo && window.gerarPdfFechamentoBases && typeof window.gerarPdfFechamentoBases === "function") {
+            window.gerarPdfFechamentoBases(idFechNovo);
+          }
+        } catch (e) {
+          console.error("Erro ao gerar PDF de fechamento base:", e);
+        }
       }
       bootstrap.Modal.getInstance(qs("#modalFechamentoBases"))?.hide();
       carregarResumo();
@@ -868,6 +1040,29 @@ async function carregarResumoCompleto() {
   }
 
   document.getElementById("btnGerarFechamentoModal")?.addEventListener("click", salvarFechamento);
+
+  // Ajustes manuais — adicionar
+  const btnAdicionarAjusteBase = document.getElementById("btnAdicionarAjusteBase");
+  if (btnAdicionarAjusteBase) {
+    btnAdicionarAjusteBase.addEventListener("click", () => {
+      const tipoSel = qs("#fech-ajuste-tipo-base");
+      const inpValor = qs("#fech-ajuste-valor-base");
+      const inpMotivo = qs("#fech-ajuste-motivo-base");
+      const tipo = (tipoSel?.value || "ADIÇÃO").toUpperCase();
+      const valor = parseFloat(inpValor?.value || "0") || 0;
+      const motivo = (inpMotivo?.value || "").trim();
+      if (!valor || valor <= 0) {
+        if (window.Swal) Swal.fire({ icon: "warning", title: "Informe um valor", text: "O valor do ajuste deve ser maior que zero." });
+        else alert("Informe um valor de ajuste maior que zero.");
+        return;
+      }
+      state.ajustesFechamento.push({ tipo, valor, motivo });
+      if (inpValor) inpValor.value = "0";
+      if (inpMotivo) inpMotivo.value = "";
+      renderListaAjustesBase();
+      atualizarResumoModal();
+    });
+  }
 
 
     // ====== Date Picker ======
