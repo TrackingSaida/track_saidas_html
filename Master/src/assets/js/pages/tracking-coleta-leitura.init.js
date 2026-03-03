@@ -651,7 +651,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   try {
     const bases = await carregarBases();
-    const list = Array.isArray(bases) ? bases : [];
+    const list = (Array.isArray(bases) ? bases : []).slice().sort((a, b) => {
+      const va = (a.base != null ? a.base : a).toString();
+      const vb = (b.base != null ? b.base : b).toString();
+      return va.localeCompare(vb, "pt-BR");
+    });
     sel.innerHTML =
       '<option value="" disabled selected>Selecione...</option>' +
       list.map(b => `<option value="${(b.base != null ? b.base : b).toString()}">${(b.base != null ? b.base : b).toString()}</option>`).join("");
@@ -668,9 +672,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     const entregadores = await carregarEntregadores();
     const selEnt = qs("#selEntregador");
     if (selEnt && Array.isArray(entregadores)) {
+      const ordenados = [...entregadores].sort((a, b) => {
+        const na = (a.nome || a.name || String(a.id_entregador ?? a.id)).trim() || String(a.id_entregador ?? a.id);
+        const nb = (b.nome || b.name || String(b.id_entregador ?? b.id)).trim() || String(b.id_entregador ?? b.id);
+        return na.localeCompare(nb, "pt-BR");
+      });
       selEnt.innerHTML =
         '<option value="">Usuário logado</option>' +
-        entregadores.map(e => {
+        ordenados.map(e => {
           const id = e.id_entregador ?? e.id;
           const nome = (e.nome || e.name || String(id)).trim() || String(id);
           return `<option value="${id}">${nome}</option>`;

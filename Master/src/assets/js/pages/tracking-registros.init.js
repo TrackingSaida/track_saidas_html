@@ -169,14 +169,19 @@ function loadMotoboys(){
     .then(function(res) { return res.ok ? res.json() : []; })
     .then(function(data) {
       motoboysCache = Array.isArray(data) ? data : [];
+      var ordenados = motoboysCache.slice().sort(function(a, b) {
+        var na = (a.nome || "Motoboy " + (a.id_motoboy || a.id));
+        var nb = (b.nome || "Motoboy " + (b.id_motoboy || b.id));
+        return na.localeCompare(nb, "pt-BR");
+      });
       var selEdit = document.getElementById("edit-motoboy");
       var selBulk = document.getElementById("bulk-motoboy");
       var opts = '<option value="">— selecione —</option>' +
-        motoboysCache.map(function(m) {
+        ordenados.map(function(m) {
           return '<option value="' + (m.id_motoboy || m.id) + '">' + (m.nome || "Motoboy " + (m.id_motoboy || m.id)) + '</option>';
         }).join("");
       if (selEdit) selEdit.innerHTML = opts;
-      if (selBulk) selBulk.innerHTML = '<option value="">(Manter)</option>' + motoboysCache.map(function(m) {
+      if (selBulk) selBulk.innerHTML = '<option value="">(Manter)</option>' + ordenados.map(function(m) {
         return '<option value="' + (m.id_motoboy || m.id) + '">' + (m.nome || "Motoboy " + (m.id_motoboy || m.id)) + '</option>';
       }).join("");
       return motoboysCache;
@@ -232,7 +237,12 @@ function augmentEntregadoresFromRows(rows){
       var bases = Array.isArray(raw) ? raw : (raw?.items || raw?.data || []);
       basesCache = bases;
 
-      var opts = bases.map(b => {
+      var basesOrdenadas = bases.slice().sort((a, b) => {
+        var va = (a.base || a.slug || a.nome || a.name || a);
+        var vb = (b.base || b.slug || b.nome || b.name || b);
+        return String(va).localeCompare(String(vb), "pt-BR");
+      });
+      var opts = basesOrdenadas.map(b => {
         var v = b.base || b.slug || b.nome || b.name || b;
         return `<option value="${v}">${v}</option>`;
       }).join("");
@@ -1083,7 +1093,12 @@ function setupPagerEvents() {
 
     function fillBulkBases(bases){
       if (bulkBase && Array.isArray(bases)){
-        var opts = bases.map(b => {
+        var basesOrdenadas = bases.slice().sort((a, b) => {
+          var va = (a.base || a.slug || a.nome || a.name || a);
+          var vb = (b.base || b.slug || b.nome || b.name || b);
+          return String(va).localeCompare(String(vb), "pt-BR");
+        });
+        var opts = basesOrdenadas.map(b => {
           var v = b.base || b.slug || b.nome || b.name || b;
           return `<option value="${v}">${v}</option>`;
         }).join("");

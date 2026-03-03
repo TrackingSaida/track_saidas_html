@@ -696,7 +696,8 @@ function createRow(row){
           const nome = (e?.nome || e?.name || String(id)).trim() || String(id);
           entregadoresMap.set(String(id), nome);
           return { id, nome };
-        });
+        })
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
       if (!selEnt) return;
       selEnt.innerHTML =
         '<option value="" selected disabled>Motoboy obrigatório</option>' +
