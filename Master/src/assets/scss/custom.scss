@@ -247,8 +247,9 @@
   }
 }
 
-/* OFFCANVAS DO ENTREGADOR */
-#oc-form.offcanvas {
+/* OFFCANVAS COM FORM EM COLUNA (cadastros/configurações) */
+#oc-form.offcanvas,
+.offcanvas-form {
   position: fixed;
   inset: 0 auto 0 auto;
   display: flex;
@@ -256,17 +257,20 @@
   height: 100vh;
   max-height: 100vh;
 }
-#oc-form .offcanvas-header {
+#oc-form .offcanvas-header,
+.offcanvas-form .offcanvas-header {
   flex: 0 0 auto;
 }
-#oc-form .offcanvas-body {
+#oc-form .offcanvas-body,
+.offcanvas-form .offcanvas-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 1rem;
 }
-#oc-form .offcanvas-footer {
+#oc-form .offcanvas-footer,
+.offcanvas-form .offcanvas-footer {
   flex: 0 0 auto;
   position: sticky;
   bottom: 0;
@@ -276,12 +280,14 @@
   padding: 1rem;
 }
 @supports (padding: max(0px)) {
-  #oc-form .offcanvas-footer {
+  #oc-form .offcanvas-footer,
+  .offcanvas-form .offcanvas-footer {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 }
 @media (max-width: 576px) {
-  #oc-form .offcanvas-body {
+  #oc-form .offcanvas-body,
+  .offcanvas-form .offcanvas-body {
     padding-bottom: calc(env(safe-area-inset-bottom) + 7rem);
   }
 }
