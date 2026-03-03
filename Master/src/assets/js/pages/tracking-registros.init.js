@@ -119,6 +119,7 @@ function normalizeCodigoForFilter(rawInput){
     entregador: qs("#flt-entregador"),
     servico: qs("#flt-servico"),
     status: qs("#flt-status"),
+    somenteG: qs("#flt-somente-g"),
     localizar: qs("#flt-localizar"),
     sort: qs("#flt-sort"),
     pageSize: qs("#flt-pageSize")
@@ -268,6 +269,7 @@ function augmentEntregadoresFromRows(rows){
   const entregador  = f.entregador?.value || "";
   const servico     = f.servico?.value || "";
   const status      = f.status?.value || "";
+  const somenteG    = !!f.somenteG?.checked;
   const localizar   = (f.localizar?.value || "").trim();
   const sort        = f.sort?.value || "-ts";
 
@@ -293,6 +295,10 @@ function augmentEntregadoresFromRows(rows){
     sort,
     limit: parseInt(f.pageSize?.value || "200", 10)
   };
+
+  if (somenteG) {
+    params.somente_g = true;
+  }
 
   // APENAS REMOVE SE REALMENTE ESTIVER VAZIO
   Object.keys(params).forEach(k => {
@@ -384,12 +390,12 @@ function augmentEntregadoresFromRows(rows){
     return "servico-avulso";
   }
 
-  var canEditG = (function(){
+  function canEditG(){
     try {
-      var role = (window.__USER__ && window.__USER__.role != null) ? window.__USER__.role : null;
+      var role = (window.__USER__ && window.__USER__.role != null) ? Number(window.__USER__.role) : null;
       return role === 0 || role === 1 || role === 2;
     } catch (_) { return false; }
-  })();
+  }
 
   function renderTable(rows){
     if (!tblBody) return;
@@ -407,7 +413,8 @@ function augmentEntregadoresFromRows(rows){
         var statusBadgeClass = "status-badge " + getStatusClass(r.status);
         var servicoBadgeClass = "servico-badge " + getServicoClass(r.servico);
         var isGrande = !!(r.is_grande);
-        var gCell = canEditG
+        var canG = canEditG();
+        var gCell = canG
           ? '<button type="button" class="btn btn-sm btn-toggle-g ' + (isGrande ? "btn-warning" : "btn-outline-secondary") + '" data-id="' + rid + '" data-g="' + (isGrande ? "1" : "0") + '" title="' + (isGrande ? "Pacote G (Grande) — clique para desmarcar" : "Marcar como G (Grande)") + '">' + (isGrande ? "<strong>G</strong>" : "—") + "</button>"
           : (isGrande ? '<span class="badge bg-warning text-dark" title="Pacote G (Grande)">G</span>' : "—");
         if (isGrande) rowClass += " registro-g-grande";
@@ -522,28 +529,42 @@ function setupPagerEvents() {
   setupPagerEvents();
 
   // =====================================================================
+  // Garantir que __USER__ está carregado antes de renderizar (para coluna G)
+  // =====================================================================
+  function ensureUserForG() {
+    if (window.__USER__ != null) return Promise.resolve();
+    var api = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+    if (!api.endsWith("/api")) api += "/api";
+    return fetch(api + "/auth/me", { credentials: "include", headers: { Accept: "application/json" } })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(user) { if (user) window.__USER__ = user; });
+  }
+
+  // =====================================================================
   // refresh() — busca e atualiza tabela
   // =====================================================================
   function refresh(autoFit){
-    const params = readFilters();
-    params.limit = state.pageSize;
-    params.offset = (state.page - 1) * state.pageSize;
+    ensureUserForG().then(function() {
+      const params = readFilters();
+      params.limit = state.pageSize;
+      params.offset = (state.page - 1) * state.pageSize;
 
-    TrackAPI.listSaidas(params).then(res => {
-      if (!res || res.error){
-        notify("Erro ao carregar registros", "error");
-        return;
-      }
+      TrackAPI.listSaidas(params).then(res => {
+        if (!res || res.error){
+          notify("Erro ao carregar registros", "error");
+          return;
+        }
 
-      state.rows = (res.rows || res.items || []).map(normalizeRow);
+        state.rows = (res.rows || res.items || []).map(normalizeRow);
 
-      state.total = res.total || 0;
+        state.total = res.total || 0;
 
-      renderTable(state.rows);
-      updatePager();
-      updateSummaryCards(res);   // <<< resumo 100% do backend
+        renderTable(state.rows);
+        updatePager();
+        updateSummaryCards(res);   // <<< resumo 100% do backend
 
-      if (autoFit) augmentEntregadoresFromRows(state.rows);
+        if (autoFit) augmentEntregadoresFromRows(state.rows);
+      });
     });
   }
 
@@ -1284,6 +1305,7 @@ function setupPagerEvents() {
     if ((f.entregador?.value || "").trim()) n++;
     if ((f.servico?.value || "").trim()) n++;
     if ((f.status?.value || "").trim()) n++;
+    if (f.somenteG?.checked) n++;
     if (n > 0) {
       filtrosContadorEl.textContent = String(n);
       filtrosContadorEl.classList.remove("d-none");
@@ -1318,6 +1340,7 @@ function setupPagerEvents() {
       if (f.entregador) f.entregador.value = "";
       if (f.servico) f.servico.value = "";
       if (f.status) f.status.value = "";
+      if (f.somenteG) f.somenteG.checked = false;
       if (datePickerInstance && datePickerInstance.applyPreset) {
         datePickerInstance.applyPreset("ultimos30");
         const r = datePickerInstance.getResolvedRange();
