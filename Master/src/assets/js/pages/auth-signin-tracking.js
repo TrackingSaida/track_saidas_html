@@ -171,6 +171,20 @@ if (!resp.ok) {
         if (me.ok) userData = await me.json();
       } catch (_) {}
 
+      // Se backend indicar troca obrigatória de senha, força fluxo de alteração
+      if (userData && userData.must_change_password) {
+        await Swal.fire({
+          icon: "info",
+          title: "Defina uma nova senha",
+          html: "Sua senha atual é temporária. Defina uma nova senha para continuar usando o sistema.",
+          confirmButtonText: "Trocar senha agora",
+        });
+        const url = new URL(window.location.origin + "/profile-settings-tracking.html");
+        url.searchParams.set("force_password_change", "1");
+        window.location.href = url.toString();
+        return;
+      }
+
       // Redirecionamento por role e ignorar_coleta
       const role = Number(userData?.role || 0);
       const ignorarColeta = userData?.ignorar_coleta === true;

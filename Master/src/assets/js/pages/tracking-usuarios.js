@@ -143,6 +143,10 @@ function initUsers() {
     document.getElementById("btnAdd").addEventListener("click", openCreate);
     document.getElementById("btnHeaderEdit").addEventListener("click", openEditFromSelection);
     document.getElementById("btnHeaderDel").addEventListener("click", deleteFromSelection);
+    const btnReset = document.getElementById("btnHeaderReset");
+    if (btnReset) {
+        btnReset.addEventListener("click", resetPasswordFromSelection);
+    }
 
     document.getElementById("toggleAtivos").addEventListener("change", applyFilters);
     document.getElementById("search").addEventListener("input", applyFilters);
@@ -204,10 +208,10 @@ function toggleMotoboySection() {
     const colMotoboy = document.getElementById("colMotoboy");
     const ignorarColeta = (CURRENT_USER && CURRENT_USER.ignorar_coleta) || false;
 
-    // Para Admin (1) e Operador (2): Username, E-mail e Senha obrigatórios com sinalização (*)
+    // Para Admin (1) e Operador (2): Username e E-mail obrigatórios com sinalização (*)
     // Para Motoboy (4): esses campos não são obrigatórios
     const isAdminOrOperador = (role === 1 || role === 2);
-    ["reqUsername", "reqEmail", "reqSenha", "reqSenhaConfirm"].forEach(id => {
+    ["reqUsername", "reqEmail"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = isAdminOrOperador ? "" : "none";
     });
@@ -215,7 +219,7 @@ function toggleMotoboySection() {
     const emailEl = document.getElementById("email");
     const passwordEl = document.getElementById("password");
     const passwordConfirmEl = document.getElementById("passwordConfirm");
-    [usernameEl, emailEl, passwordEl, passwordConfirmEl].forEach(el => {
+    [usernameEl, emailEl].forEach(el => {
         if (!el) return;
         if (isAdminOrOperador) {
             el.classList.add("field-required");
@@ -224,6 +228,11 @@ function toggleMotoboySection() {
             el.classList.remove("field-required");
             el.removeAttribute("required");
         }
+    });
+    [passwordEl, passwordConfirmEl].forEach(el => {
+        if (!el) return;
+        el.classList.remove("field-required");
+        el.removeAttribute("required");
     });
 
     if (role === 4) {
@@ -383,6 +392,10 @@ function setupRowSelection() {
             const isMotoboy = tr && Number(tr.dataset.role) === 4;
             document.getElementById("btnHeaderEdit").disabled = ids.length !== 1;
             document.getElementById("btnHeaderDel").disabled = ids.length < 1;
+            const btnReset = document.getElementById("btnHeaderReset");
+            if (btnReset) {
+                btnReset.disabled = ids.length !== 1;
+            }
             if (ids.length === 1 && isMotoboy) {
                 loadMotoboyDetailById(ids[0]);
             } else {
@@ -634,24 +647,14 @@ async function saveUser(ev) {
 
     const isNew = !id;
     const senhaConfirm = document.getElementById("passwordConfirm").value.trim();
-    if (isNew) {
-        if (isAdminOrOperador) {
-            if (senha.length < 4) {
-                erros.push("Senha é obrigatória (mínimo 4 caracteres) para este perfil.");
-                document.getElementById("password").classList.add("is-invalid");
-            } else if (senha !== senhaConfirm) {
-                erros.push("As senhas não coincidem.");
-                document.getElementById("password").classList.add("is-invalid");
-                document.getElementById("passwordConfirm").classList.add("is-invalid");
-            }
-        } else if (senha || senhaConfirm) {
-            if (senha.length < 4) {
-                erros.push("Senha deve ter no mínimo 4 caracteres.");
-            } else if (senha !== senhaConfirm) {
-                erros.push("As senhas não coincidem.");
-                document.getElementById("password").classList.add("is-invalid");
-                document.getElementById("passwordConfirm").classList.add("is-invalid");
-            }
+    if (isNew && (senha || senhaConfirm)) {
+        if (senha.length < 4) {
+            erros.push("Senha deve ter no mínimo 4 caracteres.");
+            document.getElementById("password").classList.add("is-invalid");
+        } else if (senha !== senhaConfirm) {
+            erros.push("As senhas não coincidem.");
+            document.getElementById("password").classList.add("is-invalid");
+            document.getElementById("passwordConfirm").classList.add("is-invalid");
         }
     }
 
@@ -820,6 +823,82 @@ async function deleteUsers(ids) {
             icon: "error",
             title: "Erro ao excluir",
             text: err.message
+        });
+    }
+}
+
+
+// =====================================================================
+// RESET DE SENHA
+// =====================================================================
+
+async function resetPasswordFromSelection() {
+    const ids = getSelectedIds();
+    if (ids.length !== 1) return;
+    const id = ids[0];
+
+    const tr = document.querySelector(`#tbody-users tr[data-id="${id}"]`);
+    const nome = tr ? (tr.children[1]?.textContent || "").trim() : "";
+
+    const { isConfirmed } = await Swal.fire({
+        icon: "warning",
+        title: "Resetar senha do usuário?",
+        html: `
+            <p>Você está prestes a redefinir a senha do usuário <strong>${nome || id}</strong>.</p>
+            <p>A nova senha será <strong>123456</strong> e o usuário será obrigado a trocá-la no próximo login.</p>
+        `,
+        showCancelButton: true,
+        confirmButtonText: "Sim, resetar",
+        cancelButtonText: "Cancelar",
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+        const resp = await fetch(`${API}/${id}/reset-password`, {
+            method: "POST",
+            credentials: "include",
+        });
+
+        if (!resp.ok) {
+            if (resp.status === 401) {
+                await Swal.fire({
+                    icon: "warning",
+                    title: "Sessão expirada",
+                    text: "Faça login novamente para continuar.",
+                });
+                location.href = "auth-signin-tracking-v2.html";
+                return;
+            }
+
+            let mensagem = "Erro ao resetar senha.";
+            try {
+                const json = await resp.json();
+                if (json.detail) mensagem = json.detail;
+            } catch {}
+
+            await Swal.fire({
+                icon: "error",
+                title: "Falha ao resetar",
+                text: mensagem,
+            });
+            return;
+        }
+
+        await Swal.fire({
+            icon: "success",
+            title: "Senha redefinida!",
+            html: "A nova senha padrão é <strong>123456</strong>.",
+            timer: 2000,
+            showConfirmButton: false,
+        });
+
+        loadUsers();
+    } catch (err) {
+        await Swal.fire({
+            icon: "error",
+            title: "Erro inesperado",
+            text: err.message || "Falha ao resetar senha.",
         });
     }
 }

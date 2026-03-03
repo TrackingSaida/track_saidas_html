@@ -59,6 +59,18 @@
   }
 
   // =============================
+  // Query params helper
+  // =============================
+  function getQueryParam(name) {
+    try {
+      const u = new URL(window.location.href);
+      return u.searchParams.get(name);
+    } catch {
+      return null;
+    }
+  }
+
+  // =============================
   // Carrega usuário completo
   // =============================
   async function loadCurrentUser() {
@@ -86,6 +98,23 @@
       }
 
       profileSubtitle.innerText = `@${user.username}`;
+
+      // Se veio da tela de login com exigência de troca de senha, focar aba de senha
+      const forceChange = getQueryParam("force_password_change");
+      if (forceChange === "1") {
+        const passwordTabTrigger = document.querySelector('[data-bs-target="#password-pane"]') ||
+                                   document.querySelector('[href="#password-pane"]');
+        if (passwordTabTrigger && window.bootstrap && bootstrap.Tab) {
+          const tab = new bootstrap.Tab(passwordTabTrigger);
+          tab.show();
+        }
+        Swal.fire({
+          icon: "info",
+          title: "Troca de senha obrigatória",
+          text: "Defina uma nova senha para continuar utilizando o sistema.",
+          confirmButtonColor: "#556ee6",
+        });
+      }
 
     } catch (err) {
       console.error(err);
