@@ -101,12 +101,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     contextoFechamento: null,
     basesParaReajuste: [],  // quando status GERADO sem base: [{ base, id_fechamento }]
     fechamentoItens: [],
-    fechamentoPrecos: {},
-    ajustesFechamento: [],  // { tipo: 'ADIÇÃO'|'SUBTRAÇÃO', valor: number, motivo: string }
-    total_g_shopee: 0,
-    total_g_ml: 0,
-    total_g_avulso: 0,
-    total_pacotes_g: 0
+    fechamentoPrecos: {}
   };
 
   const STATUS_TOOLTIPS = {
@@ -292,7 +287,7 @@ async function buscarCancelados() {
     }
     items.forEach((r) => {
       const acoesCell = r.origem === "manual" && r.id_coleta
-        ? `<td class="text-center no-export"><button type="button" class="btn btn-sm btn-outline-primary btn-editar-coleta" data-id="${r.id_coleta}" data-data="${r.data_raw || r.data}" data-base="${r.base}" data-shopee="${r.shopee}" data-ml="${r.mercado_livre}" data-avulso="${r.avulso}" data-pacotes-g="${r.pacotes_g ?? 0}" title="Editar"><i class="ri-pencil-line"></i></button></td>`
+        ? `<td class="text-center no-export"><button type="button" class="btn btn-sm btn-outline-primary btn-editar-coleta" data-id="${r.id_coleta}" data-data="${r.data_raw || r.data}" data-base="${r.base}" data-shopee="${r.shopee}" data-ml="${r.mercado_livre}" data-avulso="${r.avulso}" title="Editar"><i class="ri-pencil-line"></i></button></td>`
         : (temManual ? `<td class="text-center no-export"></td>` : "");
       const celFech = celulaFechamento(r);
       tbody.innerHTML += `
@@ -303,7 +298,6 @@ async function buscarCancelados() {
           <td class="text-center">${r.shopee}</td>
           <td class="text-center">${r.mercado_livre}</td>
           <td class="text-center">${r.avulso}</td>
-          <td class="text-center">${r.pacotes_g ?? 0}</td>
           <td class="text-center text-danger fw-bold">${r.cancelados}</td>
           <td class="text-center">${formatarMoeda(r.valor_total)}</td>
           <td class="text-center">${celFech}</td>
@@ -678,21 +672,10 @@ async function carregarResumoCompleto() {
           shopee: i.shopee ?? 0,
           mercado_livre: i.mercado_livre ?? 0,
           avulso: i.avulso ?? 0,
-          pacotes_g: i.pacotes_g ?? 0,
-          g_shopee: i.g_shopee ?? 0,
-          g_ml: i.g_ml ?? 0,
-          g_avulso: i.g_avulso ?? 0,
           cancelados_shopee: i.cancelados_shopee ?? 0,
           cancelados_ml: i.cancelados_ml ?? 0,
           cancelados_avulso: i.cancelados_avulso ?? 0
         }));
-        state.ajustesFechamento = [];
-        if ((data.valor_adicao || 0) > 0) state.ajustesFechamento.push({ tipo: "ADIÇÃO", valor: data.valor_adicao, motivo: data.motivo_adicao || "" });
-        if ((data.valor_subtracao || 0) > 0) state.ajustesFechamento.push({ tipo: "SUBTRAÇÃO", valor: data.valor_subtracao, motivo: data.motivo_subtracao || "" });
-        state.total_g_shopee = state.fechamentoItens.reduce((s, i) => s + (i.g_shopee || 0), 0);
-        state.total_g_ml = state.fechamentoItens.reduce((s, i) => s + (i.g_ml || 0), 0);
-        state.total_g_avulso = state.fechamentoItens.reduce((s, i) => s + (i.g_avulso || 0), 0);
-        state.total_pacotes_g = state.fechamentoItens.reduce((s, i) => s + (i.pacotes_g || 0), 0);
         if (data.divergencia_valor && (data.valor_final_recalculado != null || data.valor_bruto_recalculado != null)) {
           const valorAntigo = Number(data.valor_final || 0);
           const valorNovo = Number(data.valor_final_recalculado ?? data.valor_bruto_recalculado ?? 0);
@@ -709,12 +692,8 @@ async function carregarResumoCompleto() {
             const calcRes = await fetch(`${API_FECHAMENTOS}/calcular?${new URLSearchParams({ base, periodo_inicio: periodoInicio, periodo_fim: periodoFim })}`, { credentials: "include" });
             if (calcRes.ok) {
               const calcData = await calcRes.json();
-              state.fechamentoItens = (calcData.itens || []).map(i => ({ ...i, pacotes_g: i.pacotes_g ?? 0, g_shopee: i.g_shopee ?? 0, g_ml: i.g_ml ?? 0, g_avulso: i.g_avulso ?? 0 }));
+              state.fechamentoItens = (calcData.itens || []).map(i => ({ ...i }));
               state.fechamentoPrecos = calcData.precos || {};
-              state.total_g_shopee = calcData.total_g_shopee ?? 0;
-              state.total_g_ml = calcData.total_g_ml ?? 0;
-              state.total_g_avulso = calcData.total_g_avulso ?? 0;
-              state.total_pacotes_g = calcData.total_pacotes_g ?? 0;
             }
           }
         }
@@ -735,19 +714,8 @@ async function carregarResumoCompleto() {
         const res = await fetch(`${API_FECHAMENTOS}/calcular?${params}`, { credentials: "include" });
         if (!res.ok) throw new Error(res.statusText);
         const data = await res.json();
-        state.fechamentoItens = (data.itens || []).map(i => ({
-          ...i,
-          pacotes_g: i.pacotes_g ?? 0,
-          g_shopee: i.g_shopee ?? 0,
-          g_ml: i.g_ml ?? 0,
-          g_avulso: i.g_avulso ?? 0
-        }));
+        state.fechamentoItens = (data.itens || []).map(i => ({ ...i }));
         state.fechamentoPrecos = data.precos || {};
-        state.total_g_shopee = data.total_g_shopee ?? 0;
-        state.total_g_ml = data.total_g_ml ?? 0;
-        state.total_g_avulso = data.total_g_avulso ?? 0;
-        state.total_pacotes_g = data.total_pacotes_g ?? 0;
-        state.ajustesFechamento = [];
       } catch (err) {
         console.error(err);
         if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao calcular fechamento." });
@@ -756,23 +724,10 @@ async function carregarResumoCompleto() {
     }
 
     renderTabelaFechamentoItens();
-    renderListaAjustesBase();
     atualizarResumoModal();
     const modal = new bootstrap.Modal(qs("#modalFechamentoBases"));
     modal.show();
   }
-
-  qs("#btnAdicionarAjusteBase")?.addEventListener("click", () => {
-    const tipo = qs("#fech-ajuste-tipo-base")?.value || "ADIÇÃO";
-    const valor = Math.abs(parseFloat(qs("#fech-ajuste-valor-base")?.value || 0) || 0);
-    const motivo = (qs("#fech-ajuste-motivo-base")?.value || "").trim();
-    if (valor <= 0) return;
-    state.ajustesFechamento.push({ tipo, valor, motivo });
-    qs("#fech-ajuste-valor-base").value = 0;
-    qs("#fech-ajuste-motivo-base").value = "";
-    renderListaAjustesBase();
-    atualizarResumoModal();
-  });
 
   function renderTabelaFechamentoItens() {
     const tbody = qs("#tbody-fechamento-itens");
@@ -786,7 +741,6 @@ async function carregarResumoCompleto() {
           <td><input type="number" class="form-control form-control-sm fech-input-qtde" data-idx="${idx}" data-field="shopee" min="0" value="${it.shopee ?? 0}" /></td>
           <td><input type="number" class="form-control form-control-sm fech-input-qtde" data-idx="${idx}" data-field="mercado_livre" min="0" value="${it.mercado_livre ?? 0}" /></td>
           <td><input type="number" class="form-control form-control-sm fech-input-qtde" data-idx="${idx}" data-field="avulso" min="0" value="${it.avulso ?? 0}" /></td>
-          <td class="text-center">${it.pacotes_g ?? 0}</td>
           <td><input type="number" class="form-control form-control-sm fech-input-canc" data-idx="${idx}" data-field="cancelados_shopee" min="0" value="${it.cancelados_shopee ?? 0}" /></td>
           <td><input type="number" class="form-control form-control-sm fech-input-canc" data-idx="${idx}" data-field="cancelados_ml" min="0" value="${it.cancelados_ml ?? 0}" /></td>
           <td><input type="number" class="form-control form-control-sm fech-input-canc" data-idx="${idx}" data-field="cancelados_avulso" min="0" value="${it.cancelados_avulso ?? 0}" /></td>
@@ -804,28 +758,6 @@ async function carregarResumoCompleto() {
     });
   }
 
-  function renderListaAjustesBase() {
-    const el = qs("#fech-lista-ajustes-base");
-    if (!el) return;
-    if (!state.ajustesFechamento.length) {
-      el.innerHTML = "";
-      return;
-    }
-    const withIdx = state.ajustesFechamento.map((a, idx) => ({ ...a, _idx: idx }));
-    el.innerHTML = withIdx.map((a) => {
-      const sinal = a.tipo === "ADIÇÃO" ? "+" : "−";
-      const lbl = a.tipo === "ADIÇÃO" ? "Adição" : "Subtração";
-      return `<div class="d-flex align-items-center gap-2 mb-1 small"><span class="badge ${a.tipo === "ADIÇÃO" ? "bg-success" : "bg-danger"}">${sinal} ${formatarMoeda(a.valor)}</span> ${a.motivo ? `<span class="text-muted">${String(a.motivo).replace(/</g, "&lt;")}</span>` : ""} <button type="button" class="btn btn-link btn-sm p-0 ms-auto text-danger btn-remove-ajuste-base" data-idx="${a._idx}" title="Remover"><i class="ri-close-line"></i></button></div>`;
-    }).join("");
-    el.querySelectorAll(".btn-remove-ajuste-base").forEach((btn) => {
-      btn.onclick = () => {
-        state.ajustesFechamento.splice(parseInt(btn.dataset.idx, 10), 1);
-        renderListaAjustesBase();
-        atualizarResumoModal();
-      };
-    });
-  }
-
   function atualizarResumoModal() {
     const precos = state.fechamentoPrecos;
     const p_s = Number(precos.shopee || 0);
@@ -839,21 +771,10 @@ async function carregarResumoCompleto() {
       valorBruto += s * p_s + m * p_m + a * p_a;
       valorCancelados += cs * p_s + cm * p_m + ca * p_a;
     });
-    let valorAdicao = 0;
-    let valorSubtracao = 0;
-    state.ajustesFechamento.forEach((a) => {
-      if (a.tipo === "ADIÇÃO") valorAdicao += Number(a.valor) || 0;
-      else valorSubtracao += Number(a.valor) || 0;
-    });
-    const totalAjustes = valorAdicao - valorSubtracao;
-    const totalReceber = valorBruto - valorCancelados + totalAjustes;
+    const totalReceber = valorBruto - valorCancelados;
     qs("#fech-valor-bruto").textContent = formatarMoeda(valorBruto);
     qs("#fech-valor-cancelados").textContent = formatarMoeda(valorCancelados);
-    const elAjustes = qs("#fech-total-ajustes-base");
-    if (elAjustes) elAjustes.textContent = formatarMoeda(totalAjustes);
     qs("#fech-total-receber").textContent = formatarMoeda(totalReceber);
-    const elG = qs("#fech-g-resumo-base");
-    if (elG) elG.textContent = `G Shopee: ${state.total_g_shopee ?? 0} · G ML: ${state.total_g_ml ?? 0} · G Avulso: ${state.total_g_avulso ?? 0} · Total G: ${state.total_pacotes_g ?? 0}`;
   }
 
   async function salvarFechamento() {
@@ -867,40 +788,10 @@ async function carregarResumoCompleto() {
       shopee: it.shopee ?? 0,
       mercado_livre: it.mercado_livre ?? 0,
       avulso: it.avulso ?? 0,
-      pacotes_g: it.pacotes_g ?? 0,
       cancelados_shopee: it.cancelados_shopee ?? 0,
       cancelados_ml: it.cancelados_ml ?? 0,
       cancelados_avulso: it.cancelados_avulso ?? 0
     }));
-
-    let valorAdicao = 0;
-    let motivoAdicao = "";
-    let valorSubtracao = 0;
-    let motivoSubtracao = "";
-    state.ajustesFechamento.forEach((a) => {
-      if (a.tipo === "ADIÇÃO") {
-        valorAdicao += Number(a.valor) || 0;
-        if (a.motivo) motivoAdicao += (motivoAdicao ? " | " : "") + a.motivo;
-      } else {
-        valorSubtracao += Number(a.valor) || 0;
-        if (a.motivo) motivoSubtracao += (motivoSubtracao ? " | " : "") + a.motivo;
-      }
-    });
-
-    if (!modoEdicao && (state.total_pacotes_g || 0) > 0 && state.ajustesFechamento.length === 0) {
-      const confirmado = window.Swal
-        ? (await Swal.fire({
-            icon: "question",
-            title: "Gerar fechamento sem ajuste para pacotes G?",
-            text: "Existem pacotes G (Grande) no período e nenhum ajuste foi informado. Deseja realmente gerar o fechamento sem lançar ajuste para os pacotes G?",
-            showCancelButton: true,
-            confirmButtonText: "Sim, gerar",
-            cancelButtonText: "Cancelar",
-            confirmButtonColor: "#0d6efd"
-          })).isConfirmed
-        : confirm("Existem pacotes G no período sem ajuste. Deseja gerar mesmo assim?");
-      if (!confirmado) return;
-    }
 
     const btn = document.getElementById("btnGerarFechamentoModal");
     if (btn) btn.disabled = true;
@@ -910,13 +801,7 @@ async function carregarResumoCompleto() {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            itens,
-            valor_adicao: valorAdicao,
-            motivo_adicao: motivoAdicao || null,
-            valor_subtracao: valorSubtracao,
-            motivo_subtracao: motivoSubtracao || null
-          })
+          body: JSON.stringify({ itens })
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -928,16 +813,7 @@ async function carregarResumoCompleto() {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            base,
-            periodo_inicio: periodoInicio,
-            periodo_fim: periodoFim,
-            itens,
-            valor_adicao: valorAdicao,
-            motivo_adicao: motivoAdicao || null,
-            valor_subtracao: valorSubtracao,
-            motivo_subtracao: motivoSubtracao || null
-          })
+          body: JSON.stringify({ base, periodo_inicio: periodoInicio, periodo_fim: periodoFim, itens })
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -1056,7 +932,6 @@ async function carregarResumoCompleto() {
   const modalShopee = document.getElementById("modalColetaManualShopee");
   const modalMl = document.getElementById("modalColetaManualMl");
   const modalAvulso = document.getElementById("modalColetaManualAvulso");
-  const modalPacotesG = document.getElementById("modalColetaManualPacotesG");
   const modalId = document.getElementById("modalColetaManualId");
   const modalSalvar = document.getElementById("modalColetaManualSalvar");
 
@@ -1067,7 +942,6 @@ async function carregarResumoCompleto() {
     modalShopee.value = "0";
     modalMl.value = "0";
     modalAvulso.value = "0";
-    if (modalPacotesG) modalPacotesG.value = "0";
     modalData.disabled = false;
     modalBase.disabled = false;
     document.getElementById("modalColetaManualLabel").textContent = "Coleta Manual";
@@ -1085,7 +959,6 @@ async function carregarResumoCompleto() {
     const shopee = btn.getAttribute("data-shopee") || "0";
     const ml = btn.getAttribute("data-ml") || "0";
     const avulso = btn.getAttribute("data-avulso") || "0";
-    const pacotesG = btn.getAttribute("data-pacotes-g") || "0";
     // data-data pode vir como DD/MM/YYYY ou YYYY-MM-DD
     let dataVal = dataYmd;
     if (dataYmd && dataYmd.includes("/")) {
@@ -1098,7 +971,6 @@ async function carregarResumoCompleto() {
     modalShopee.value = shopee;
     modalMl.value = ml;
     modalAvulso.value = avulso;
-    if (modalPacotesG) modalPacotesG.value = pacotesG;
     modalData.disabled = true;
     modalBase.disabled = true;
     document.getElementById("modalColetaManualLabel").textContent = "Editar Coleta Manual";
@@ -1115,7 +987,6 @@ async function carregarResumoCompleto() {
     const shopee = parseInt(modalShopee.value, 10) || 0;
     const ml = parseInt(modalMl.value, 10) || 0;
     const avulso = parseInt(modalAvulso.value, 10) || 0;
-    const pacotes_g = parseInt(modalPacotesG?.value, 10) || 0;
 
     if (!base) {
       Swal.fire({ icon: "warning", title: "Campo obrigatório", text: "Selecione uma base." });
@@ -1129,7 +1000,7 @@ async function carregarResumoCompleto() {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shopee, mercado_livre: ml, avulso, pacotes_g })
+          body: JSON.stringify({ shopee, mercado_livre: ml, avulso })
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -1142,7 +1013,7 @@ async function carregarResumoCompleto() {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data, base, shopee, mercado_livre: ml, avulso, pacotes_g })
+          body: JSON.stringify({ data, base, shopee, mercado_livre: ml, avulso })
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -1175,7 +1046,9 @@ async function carregarResumoCompleto() {
 
   (async function init() {
     await obterModoOperacao();
-    if (wrapBtnColetaManual && modoOperacao === "coleta_manual") {
+    // Lançamento manual: permitido quando modo = coleta_manual (ignorar_coleta=true) OU quando coleta ativa (ignorar_coleta=false)
+    const mostrarColetaManual = modoOperacao === "coleta_manual" || !window.IGNORAR_COLETA;
+    if (wrapBtnColetaManual && mostrarColetaManual) {
       wrapBtnColetaManual.classList.remove("d-none");
     }
     await carregarBases();
