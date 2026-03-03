@@ -99,3 +99,31 @@ $grid-gutter-width: 24px !default; // ajuste se seu tema usa outro (24px é comu
 .navbar-menu .nav-link {
   position: relative;
 }
+
+
+// ===================================================================
+// 6) SIDEBAR: GARANTIR SCROLL VERTICAL EM QUALQUER ALTURA DE TELA
+// ===================================================================
+//
+// Objetivo:
+// - Em layout vertical/semibox, a barra lateral deve sempre permitir
+//   rolagem vertical para exibir todos os itens de menu, mesmo em
+//   telas mais baixas (ex.: 1366x768).
+// - Mantém compatibilidade com SimpleBar (data-simplebar), pois o
+//   plugin apenas customiza a aparência, mas respeita overflow-y.
+//
+
+[data-layout="vertical"],
+[data-layout="semibox"] {
+  .navbar-menu {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .navbar-menu #scrollbar {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}

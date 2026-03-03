@@ -672,10 +672,18 @@ async function carregarResumoCompleto() {
           shopee: i.shopee ?? 0,
           mercado_livre: i.mercado_livre ?? 0,
           avulso: i.avulso ?? 0,
+          pacotes_g: i.pacotes_g ?? 0,
+          g_shopee: i.g_shopee ?? 0,
+          g_ml: i.g_ml ?? 0,
+          g_avulso: i.g_avulso ?? 0,
           cancelados_shopee: i.cancelados_shopee ?? 0,
           cancelados_ml: i.cancelados_ml ?? 0,
           cancelados_avulso: i.cancelados_avulso ?? 0
         }));
+        state.total_g_shopee = data.total_g_shopee ?? 0;
+        state.total_g_ml = data.total_g_ml ?? 0;
+        state.total_g_avulso = data.total_g_avulso ?? 0;
+        state.total_pacotes_g = data.total_pacotes_g ?? 0;
         if (data.divergencia_valor && (data.valor_final_recalculado != null || data.valor_bruto_recalculado != null)) {
           const valorAntigo = Number(data.valor_final || 0);
           const valorNovo = Number(data.valor_final_recalculado ?? data.valor_bruto_recalculado ?? 0);
@@ -692,8 +700,18 @@ async function carregarResumoCompleto() {
             const calcRes = await fetch(`${API_FECHAMENTOS}/calcular?${new URLSearchParams({ base, periodo_inicio: periodoInicio, periodo_fim: periodoFim })}`, { credentials: "include" });
             if (calcRes.ok) {
               const calcData = await calcRes.json();
-              state.fechamentoItens = (calcData.itens || []).map(i => ({ ...i }));
+              state.fechamentoItens = (calcData.itens || []).map(i => ({
+                ...i,
+                pacotes_g: i.pacotes_g ?? 0,
+                g_shopee: i.g_shopee ?? 0,
+                g_ml: i.g_ml ?? 0,
+                g_avulso: i.g_avulso ?? 0
+              }));
               state.fechamentoPrecos = calcData.precos || {};
+              state.total_g_shopee = calcData.total_g_shopee ?? 0;
+              state.total_g_ml = calcData.total_g_ml ?? 0;
+              state.total_g_avulso = calcData.total_g_avulso ?? 0;
+              state.total_pacotes_g = calcData.total_pacotes_g ?? 0;
             }
           }
         }
@@ -714,8 +732,18 @@ async function carregarResumoCompleto() {
         const res = await fetch(`${API_FECHAMENTOS}/calcular?${params}`, { credentials: "include" });
         if (!res.ok) throw new Error(res.statusText);
         const data = await res.json();
-        state.fechamentoItens = (data.itens || []).map(i => ({ ...i }));
+        state.fechamentoItens = (data.itens || []).map(i => ({
+          ...i,
+          pacotes_g: i.pacotes_g ?? 0,
+          g_shopee: i.g_shopee ?? 0,
+          g_ml: i.g_ml ?? 0,
+          g_avulso: i.g_avulso ?? 0
+        }));
         state.fechamentoPrecos = data.precos || {};
+        state.total_g_shopee = data.total_g_shopee ?? 0;
+        state.total_g_ml = data.total_g_ml ?? 0;
+        state.total_g_avulso = data.total_g_avulso ?? 0;
+        state.total_pacotes_g = data.total_pacotes_g ?? 0;
       } catch (err) {
         console.error(err);
         if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao calcular fechamento." });
@@ -741,6 +769,7 @@ async function carregarResumoCompleto() {
           <td><input type="number" class="form-control form-control-sm fech-input-qtde" data-idx="${idx}" data-field="shopee" min="0" value="${it.shopee ?? 0}" /></td>
           <td><input type="number" class="form-control form-control-sm fech-input-qtde" data-idx="${idx}" data-field="mercado_livre" min="0" value="${it.mercado_livre ?? 0}" /></td>
           <td><input type="number" class="form-control form-control-sm fech-input-qtde" data-idx="${idx}" data-field="avulso" min="0" value="${it.avulso ?? 0}" /></td>
+          <td class="text-center">${it.pacotes_g ?? 0}</td>
           <td><input type="number" class="form-control form-control-sm fech-input-canc" data-idx="${idx}" data-field="cancelados_shopee" min="0" value="${it.cancelados_shopee ?? 0}" /></td>
           <td><input type="number" class="form-control form-control-sm fech-input-canc" data-idx="${idx}" data-field="cancelados_ml" min="0" value="${it.cancelados_ml ?? 0}" /></td>
           <td><input type="number" class="form-control form-control-sm fech-input-canc" data-idx="${idx}" data-field="cancelados_avulso" min="0" value="${it.cancelados_avulso ?? 0}" /></td>
@@ -775,6 +804,14 @@ async function carregarResumoCompleto() {
     qs("#fech-valor-bruto").textContent = formatarMoeda(valorBruto);
     qs("#fech-valor-cancelados").textContent = formatarMoeda(valorCancelados);
     qs("#fech-total-receber").textContent = formatarMoeda(totalReceber);
+    const elG = qs("#fech-g-resumo-base");
+    if (elG) {
+      const tgS = state.total_g_shopee ?? 0;
+      const tgM = state.total_g_ml ?? 0;
+      const tgA = state.total_g_avulso ?? 0;
+      const tG  = state.total_pacotes_g ?? 0;
+      elG.textContent = `G Shopee: ${tgS} · G ML: ${tgM} · G Avulso: ${tgA} · Total G: ${tG}`;
+    }
   }
 
   async function salvarFechamento() {

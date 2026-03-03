@@ -163,3 +163,44 @@
 	background-size: cover;
 	background-position: center;
 }
+
+
+// ============================================================
+// RESPONSIVIDADE DOS MODAIS (ALTURA / SCROLL INTERNO)
+// ============================================================
+//
+// Objetivo:
+// - Garantir que modais com muito conteúdo (tabelas, formulários)
+//   nunca ultrapassem a altura da janela.
+// - Manter cabeçalho e rodapé SEMPRE visíveis, fazendo o corpo
+//   (`.modal-body`) rolar internamente quando necessário.
+//
+
+.modal-dialog {
+	// Mantém comportamento padrão do Bootstrap para centralização,
+	// apenas garantindo que o conteúdo interno respeite a altura da viewport.
+	.modal-content {
+		max-height: calc(100vh - 2rem); // margem de segurança no topo/rodapé
+		display: flex;
+		flex-direction: column;
+	}
+}
+
+.modal-header,
+.modal-footer {
+	flex: 0 0 auto;
+}
+
+.modal-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+@media (max-height: 800px) {
+	.modal-dialog {
+		.modal-content {
+			max-height: calc(100vh - 1rem);
+		}
+	}
+}

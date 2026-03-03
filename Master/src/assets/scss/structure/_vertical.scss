@@ -4,7 +4,8 @@
 
 .app-content {
     margin-left: var(--#{$prefix}vertical-menu-width);
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 
     .content {
         padding: 0 15px 10px 15px;

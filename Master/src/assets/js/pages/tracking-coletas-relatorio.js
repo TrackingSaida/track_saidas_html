@@ -331,9 +331,43 @@ async function gerarPdfFechamentoBases(idFechamento) {
     return { data: r.data, shopee: s, flex: m, avulso: a, total: s + m + a, valor };
   });
 
+  // Pacotes G (Grandes) — buscar diretamente das saídas marcadas como G no período/base
+  const paramsG = new URLSearchParams();
+  if (de) paramsG.set("de", de);
+  if (ate) paramsG.set("ate", ate);
+  if (base) paramsG.set("base", base);
+  paramsG.set("somente_g", "true");
+  paramsG.set("limit", "50000");
+  paramsG.set("offset", "0");
+
+  let pacotesG = [];
+  try {
+    const resG = await fetch(`${api}/saidas/listar?${paramsG.toString()}`, { credentials: "include" });
+    if (resG.ok) {
+      const dataG = await resG.json().catch(() => ({}));
+      if (Array.isArray(dataG.items)) pacotesG = dataG.items;
+      else if (Array.isArray(dataG.rows)) pacotesG = dataG.rows;
+      else if (Array.isArray(dataG)) pacotesG = dataG;
+    }
+  } catch (_) {}
+
+  const pacotesGNorm = pacotesG.map(r => ({
+    data: r.timestamp || r.data || null,
+    codigo: r.codigo || "",
+    servico: r.servico || ""
+  }));
+
   const totalBruto = tabelaBruta.reduce((a, b) => a + b.valor, 0);
   const totalCanceladosValor = tabelaCanc.reduce((a, b) => a + b.valor, 0);
   const valorLiquido = totalBruto - totalCanceladosValor;
+
+  const totalGShopee = pacotesGNorm.filter(p => String(p.servico || "").toLowerCase().includes("shopee")).length;
+  const totalGMercado = pacotesGNorm.filter(p => String(p.servico || "").toLowerCase().includes("mercado")).length;
+  const totalGAvulso = pacotesGNorm.filter(p => {
+    const s = String(p.servico || "").toLowerCase();
+    return !s.includes("shopee") && !s.includes("mercado");
+  }).length;
+  const totalG = pacotesGNorm.length;
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -373,6 +407,42 @@ async function gerarPdfFechamentoBases(idFechamento) {
   doc.setTextColor(0, 100, 0);
   doc.text(`Valor Líquido a Receber: R$ ${valorLiquido.toFixed(2).replace(".", ",")}`, 14, Y + 25);
   doc.setTextColor(0, 0, 0);
+
+  // Seção de Pacotes G (Grandes)
+  let yG = Y + 35;
+  doc.setFontSize(13);
+  doc.text("PACOTES GRANDES (G)", 14, yG);
+  yG += 8;
+  doc.setFontSize(10);
+  doc.text(`Total G Shopee: ${totalGShopee}`, 14, yG);
+  yG += 5;
+  doc.text(`Total G Mercado Livre: ${totalGMercado}`, 14, yG);
+  yG += 5;
+  doc.text(`Total G Avulso: ${totalGAvulso}`, 14, yG);
+  yG += 5;
+  doc.text(`Total G (geral): ${totalG}`, 14, yG);
+  yG += 8;
+
+  if (pacotesGNorm.length) {
+    const rowsG = pacotesGNorm
+      .slice()
+      .sort((a, b) => String(a.data || "").localeCompare(String(b.data || "")))
+      .map(p => [
+        isoParaBr((p.data || "").slice(0, 10)),
+        p.codigo || "-",
+        p.servico || "-"
+      ]);
+    doc.autoTable({
+      startY: yG,
+      head: [["Data do registro", "Código", "Serviço"]],
+      body: rowsG,
+      theme: "grid",
+      styles: { fontSize: 9, halign: "center" }
+    });
+  } else {
+    doc.setFontSize(9);
+    doc.text("Nenhum pacote G (Grande) no período.", 14, yG);
+  }
 
   const ano = new Date().getFullYear();
   doc.setFontSize(10);

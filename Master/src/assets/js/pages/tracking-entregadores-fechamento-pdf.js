@@ -10,6 +10,7 @@
   const API_URL = (window.TRACK_API_URL || "").replace(/\/+$/, "");
   const API_RESUMO = `${API_URL}/entregadores/resumo`;
   const API_FECHAMENTOS = `${API_URL}/entregadores/fechamentos`;
+  const API_SAIDAS = `${API_URL}/saidas/listar`;
 
   const fmt = (v) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v) || 0);
@@ -30,7 +31,7 @@
     doc.line(xIni, y, xFim, y);
   }
 
-  function gerarPdfJs(fech, itensDiarios, ajustes, nomeArq) {
+  function gerarPdfJs(fech, itensDiarios, ajustes, nomeArq, pacotesG) {
     const jspdfLib = window.jspdf || window.jspdf;
     if (!jspdfLib || !jspdfLib.jsPDF) {
       if (window.Swal) window.Swal.fire({ icon: "error", title: "Erro", text: "Biblioteca jsPDF não carregada." });
@@ -63,6 +64,59 @@
     y += ESPACO_LINHA;
     doc.text("Data de geração: " + new Date().toLocaleDateString("pt-BR"), MARGEM, y);
     y += ESPACO_SECAO;
+
+    // 1.3 Pacotes Grandes (G) — totalizador e lista
+    const pacotesGNorm = (pacotesG || []).map((p) => ({
+      data: p.timestamp || p.data || null,
+      codigo: p.codigo || "",
+      servico: p.servico || "",
+    }));
+    const totalGShopee = pacotesGNorm.filter((p) => String(p.servico || "").toLowerCase().includes("shopee")).length;
+    const totalGMercado = pacotesGNorm.filter((p) => String(p.servico || "").toLowerCase().includes("mercado")).length;
+    const totalGAvulso = pacotesGNorm.filter((p) => {
+      const s = String(p.servico || "").toLowerCase();
+      return !s.includes("shopee") && !s.includes("mercado");
+    }).length;
+    const totalG = pacotesGNorm.length;
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Pacotes Grandes (G)", MARGEM, y);
+    doc.setFont("helvetica", "normal");
+    y += ESPACO_LINHA;
+    doc.setFontSize(10);
+    doc.text(`Total G Shopee: ${totalGShopee}`, MARGEM, y);
+    y += ESPACO_LINHA;
+    doc.text(`Total G Mercado Livre: ${totalGMercado}`, MARGEM, y);
+    y += ESPACO_LINHA;
+    doc.text(`Total G Avulso: ${totalGAvulso}`, MARGEM, y);
+    y += ESPACO_LINHA;
+    doc.text(`Total G (geral): ${totalG}`, MARGEM, y);
+    y += ESPACO_LINHA;
+
+    if (pacotesGNorm.length) {
+      const rowsG = pacotesGNorm
+        .slice()
+        .sort((a, b) => String(a.data || "").localeCompare(String(b.data || "")))
+        .map((p) => [
+          fmtData((p.data || "").slice(0, 10)),
+          p.codigo || "—",
+          p.servico || "—",
+        ]);
+      doc.autoTable({
+        startY: y,
+        head: [["Data do registro", "Código", "Serviço"]],
+        body: rowsG,
+        theme: "grid",
+        headStyles: { fillColor: COR_GRADIENTE_SISTEMA, textColor: [255, 255, 255], fontStyle: "bold" },
+        margin: { left: MARGEM },
+        styles: { fontSize: 9, halign: "center" },
+      });
+      y = doc.lastAutoTable.finalY + ESPACO_SECAO;
+    } else {
+      doc.text("Nenhum pacote G (Grande) no período.", MARGEM, y);
+      y += ESPACO_SECAO;
+    }
 
     // 2. TABELA DIÁRIA — cabeçalho destacado, espaçamento confortável, valores R$ com 2 decimais
     const colsDiaria = ["Data", "Shopee", "Mercado Livre", "Avulso", "Total", "Valor do dia"];
@@ -192,7 +246,27 @@
       if ((fech.valor_adicao || 0) > 0) ajustes.push({ tipo: "ADIÇÃO", valor: fech.valor_adicao, motivo: fech.motivo_adicao || "" });
       if ((fech.valor_subtracao || 0) > 0) ajustes.push({ tipo: "SUBTRAÇÃO", valor: fech.valor_subtracao, motivo: fech.motivo_subtracao || "" });
 
-      gerarPdfJs(fech, itensDiarios, ajustes, nomeArq);
+      // Pacotes G (Grandes) para o período/entregador
+      const paramsG = new URLSearchParams();
+      if (periodoInicio) paramsG.set("de", periodoInicio);
+      if (periodoFim) paramsG.set("ate", periodoFim);
+      if (entNome) paramsG.set("entregador", entNome);
+      paramsG.set("somente_g", "true");
+      paramsG.set("limit", "50000");
+      paramsG.set("offset", "0");
+
+      let pacotesG = [];
+      try {
+        const resG = await fetch(`${API_SAIDAS}?${paramsG.toString()}`, { credentials: "include" });
+        if (resG.ok) {
+          const dataG = await resG.json().catch(() => ({}));
+          if (Array.isArray(dataG.items)) pacotesG = dataG.items;
+          else if (Array.isArray(dataG.rows)) pacotesG = dataG.rows;
+          else if (Array.isArray(dataG)) pacotesG = dataG;
+        }
+      } catch (_) {}
+
+      gerarPdfJs(fech, itensDiarios, ajustes, nomeArq, pacotesG);
     } catch (err) {
       console.error(err);
       if (window.Swal) window.Swal.fire({ icon: "error", title: "Erro", text: "Erro ao gerar PDF." });
