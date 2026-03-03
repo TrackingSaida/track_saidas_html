@@ -7,10 +7,11 @@
 document.addEventListener("DOMContentLoaded", async () => {
   "use strict";
 
-  const API_URL = (window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api").replace(/\/+$/, "");
-  const API_RESUMO = `${API_URL}/entregadores/resumo`;
-  const API_ENTREGADORES = `${API_URL}/entregadores`;
-  const API_FECHAMENTOS = `${API_URL}/entregadores/fechamentos`;
+  var _base = (window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api").replace(new RegExp("/+$"), "");
+  const API_URL = _base;
+  const API_RESUMO = _base + "/entregadores/resumo";
+  const API_ENTREGADORES = _base + "/entregadores";
+  const API_FECHAMENTOS = _base + "/entregadores/fechamentos";
 
   const qs = (s) => document.querySelector(s);
 
@@ -487,8 +488,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           // Filtro por executores: entregador ou motoboy
           if (entIdE > 0) paramsG.append("entregador_id", String(entIdE));
           if (entIdM > 0) paramsG.append("motoboy_id", String(entIdM));
-          const apiSaidas = `${API_URL}/saidas/listar`;
-          const resG = await fetch(`${apiSaidas}?${paramsG.toString()}`, { credentials: "include" });
+          const apiSaidas = API_URL + "/saidas/listar";
+          const resG = await fetch(apiSaidas + "?" + paramsG.toString(), { credentials: "include" });
           const jsonG = await resG.json().catch(() => ({}));
           const itensG = Array.isArray(jsonG.items) ? jsonG.items : (Array.isArray(jsonG) ? jsonG : []);
           const linhas = itensG
