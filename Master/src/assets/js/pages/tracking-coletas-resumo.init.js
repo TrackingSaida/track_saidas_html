@@ -396,6 +396,7 @@ async function carregarResumo() {
             shopee: r.shopee,
             mercado_livre: r.mercado_livre,
             avulso: r.avulso,
+            pacotes_g: r.pacotes_g ?? 0,
             valor_total: Number(r.valor_total),
             cancelados: r.cancelados ?? mapaCanc[key] ?? 0,
             id_coleta: r.id_coleta || null,
@@ -504,13 +505,14 @@ async function carregarResumoCompleto() {
         const key     = `${dtISO}_${baseKey}`;
 
         return {
-            data: dtISO,             
-            data_br: dtBR, 
+            data: dtISO,
+            data_br: dtBR,
             base: baseKey,
             entregadores: (r.entregadores || "").toUpperCase(),
             shopee: r.shopee,
             mercado_livre: r.mercado_livre,
             avulso: r.avulso,
+            pacotes_g: r.pacotes_g ?? 0,
             valor_total: Number(r.valor_total),
             cancelados: mapaCanc[key] || 0
         };
