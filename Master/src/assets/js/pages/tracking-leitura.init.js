@@ -487,15 +487,31 @@ if (codigo) {
   }
 }
 
+function canEditG() {
+  return window.__USER__ && [0, 1, 2].includes(Number(window.__USER__.role));
+}
+
+function buildGCell(row) {
+  const isGrande = !!row.is_grande;
+  const idSaida = row.id_saida;
+  if (!idSaida) return '<td class="g-cell text-center">—</td>';
+  if (canEditG())
+    return '<td class="g-cell text-center"><button type="button" class="btn btn-sm ' + (isGrande ? "btn-warning" : "btn-outline-secondary") + '" data-toggle-g="' + idSaida + '" data-g="' + (isGrande ? "1" : "0") + '" title="' + (isGrande ? "Pacote G — clique para desmarcar" : "Marcar como G (Grande)") + '">' + (isGrande ? "<strong>G</strong>" : "—") + "</button></td>";
+  return '<td class="g-cell text-center">' + (isGrande ? '<span class="badge bg-warning text-dark">G</span>' : "—") + "</td>";
+}
+
 function createRow(row){
     const tr = document.createElement("tr");
     tr.dataset.key = keyFor(row.entregador, row.codigo);
+    if (row.id_saida) tr.dataset.idSaida = String(row.id_saida);
+    if (row.is_grande) tr.classList.add("registro-g-grande");
     tr.innerHTML = `
       <td class="ts">${row.tsFmt || new Date().toLocaleString("pt-BR")}</td>
       <td class="ent">${row.entregador || ""}</td>
       <td class="cod">${row.codigo || ""}</td>
       <td class="srv">${row.servico || ""}</td>
       <td class="st">${row.status || "Processando..."}</td>
+      ${buildGCell(row)}
       <td class="remove text-center">
   <button class="btn btn-sm btn-outline-danger btn-remove" data-id="${row.id_saida || ""}">
     <i class="ri-delete-bin-line"></i>
@@ -523,6 +539,12 @@ function createRow(row){
     if (row.id_saida != null) {
       const btn = ex.querySelector(".btn-remove");
       if (btn) btn.dataset.id = String(row.id_saida);
+      ex.dataset.idSaida = String(row.id_saida);
+    }
+    if (row.is_grande !== undefined) {
+      const gCell = ex.querySelector(".g-cell");
+      if (gCell) gCell.outerHTML = buildGCell(row);
+      ex.classList.toggle("registro-g-grande", !!row.is_grande);
     }
     updateSummary();
     return ex;
@@ -542,6 +564,33 @@ function createRow(row){
   return newRow;
 }
 
+  // Toggle G (pacote grande) — delegação no tbody
+  tbLast?.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-toggle-g]");
+    if (!btn || !canEditG()) return;
+    const idSaida = btn.getAttribute("data-toggle-g");
+    const current = btn.getAttribute("data-g") === "1";
+    btn.disabled = true;
+    try {
+      const res = window.TrackAPI?.updateSaida
+        ? await window.TrackAPI.updateSaida(idSaida, { is_grande: !current })
+        : { ok: false };
+      if (res && res.ok) {
+        const tr = btn.closest("tr");
+        if (tr) {
+          const gCell = tr.querySelector(".g-cell");
+          if (gCell) gCell.outerHTML = buildGCell({ id_saida: parseInt(idSaida, 10), is_grande: !current });
+          tr.classList.toggle("registro-g-grande", !current);
+        }
+      } else {
+        showMsgIcon("erro", "Erro ao atualizar G.");
+      }
+    } catch (err) {
+      showMsgIcon("erro", "Erro ao atualizar G.");
+    } finally {
+      btn.disabled = false;
+    }
+  });
 
   // ---------- API helpers ----------
   function apiGetEntregadores(){
@@ -923,6 +972,7 @@ async function registrar() {
         servico: novoServico,
         status: novoStatus,
         id_saida: apiRow.id_saida,
+        is_grande: !!apiRow.is_grande,
         duplicado: false
       });
       codigosLidosSessao.add(codigoFinal);
@@ -1032,6 +1082,7 @@ async function registrar() {
         servico,
         status: "Não Coletado",
         id_saida: data?.id_saida,
+        is_grande: !!data?.is_grande,
         duplicado: false
       });
       codigosLidosSessao.add(codigoFinal);

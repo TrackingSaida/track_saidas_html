@@ -199,6 +199,7 @@
         <th class="text-center">Shopee</th>
         <th class="text-center">Mercado Livre</th>
         <th class="text-center">Avulso</th>
+        <th class="text-center">G</th>
         <th class="text-center text-danger">Cancelados</th>
         <th class="text-center">Valor Total</th>
         <th class="text-center">Situação</th>
@@ -338,6 +339,7 @@
                     <th class="text-center">Shopee</th>
                     <th class="text-center">Mercado Livre</th>
                     <th class="text-center">Avulso</th>
+                    <th class="text-center">G</th>
                     <th class="text-center text-danger">Cancel. Shopee</th>
                     <th class="text-center text-danger">Cancel. ML</th>
                     <th class="text-center text-danger">Cancel. Avulso</th>
@@ -347,11 +349,45 @@
               </table>
             </div>
 
+            <div class="mb-3">
+              <label class="form-label form-label-modal fw-semibold">Ajustes Manuais</label>
+              <div id="fech-lista-ajustes-base" class="mb-2"></div>
+              <div class="row g-2 align-items-end fechamento-ajuste-row">
+                <div class="col-md-2">
+                  <label class="form-label form-label-modal small">Tipo</label>
+                  <select id="fech-ajuste-tipo-base" class="form-select form-select-sm">
+                    <option value="ADIÇÃO">+ Adição</option>
+                    <option value="SUBTRAÇÃO">- Subtração</option>
+                  </select>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label form-label-modal small">Valor (R$)</label>
+                  <input type="number" id="fech-ajuste-valor-base" class="form-control form-control-sm" step="0.01" min="0" value="0" placeholder="0,00">
+                </div>
+                <div class="col-md-5">
+                  <label class="form-label form-label-modal small">Justificativa</label>
+                  <input type="text" id="fech-ajuste-motivo-base" class="form-control form-control-sm" placeholder="Ex: Ajuste para pacotes G">
+                </div>
+                <div class="col-md-2 d-flex flex-column">
+                  <label class="form-label form-label-modal small invisible" aria-hidden="true">Ação</label>
+                  <button type="button" id="btnAdicionarAjusteBase" class="btn btn-primary btn-sm w-100">
+                    <i class="ri-add-line me-1"></i> Adicionar Ajuste
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <hr class="fechamento-resumo-separator">
+            <div class="fechamento-resumo-compacto mb-2">
+              <div class="d-flex flex-wrap align-items-center gap-3 gap-md-4 small text-muted">
+                <span id="fech-g-resumo-base">G Shopee: 0 · G ML: 0 · G Avulso: 0 · Total G: 0</span>
+              </div>
+            </div>
             <div class="fechamento-resumo-compacto">
               <div class="d-flex flex-wrap align-items-center gap-3 gap-md-4">
                 <span class="form-label-modal"><span class="text-nowrap">Valor Bruto:</span> <strong id="fech-valor-bruto">R$ 0,00</strong></span>
                 <span class="form-label-modal"><span class="text-nowrap">Valor Cancelados:</span> <strong id="fech-valor-cancelados" class="text-danger">R$ 0,00</strong></span>
+                <span class="form-label-modal"><span class="text-nowrap">Total ajustes:</span> <strong id="fech-total-ajustes-base">R$ 0,00</strong></span>
                 <span class="form-label-modal fw-bold ms-auto fechamento-total-label"><span class="text-nowrap">TOTAL A RECEBER:</span> <span id="fech-total-receber" class="fechamento-total-valor">R$ 0,00</span></span>
               </div>
             </div>
@@ -398,6 +434,10 @@
             <div class="mb-3">
               <label class="form-label">Avulso</label>
               <input type="number" id="modalColetaManualAvulso" class="form-control" min="0" value="0" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Pacotes G (Grande)</label>
+              <input type="number" id="modalColetaManualPacotesG" class="form-control" min="0" value="0" title="Quantidade de pacotes grandes" />
             </div>
           </div>
           <div class="modal-footer">

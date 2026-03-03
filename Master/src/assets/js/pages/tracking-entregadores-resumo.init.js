@@ -55,6 +55,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       periodoInicio: "",
       periodoFim: "",
       valorBase: 0,
+      g_por_servico: { shopee: 0, ml: 0, avulso: 0 },
+      g_total: 0,
     },
     contextoFechamento: null, // { status, id_fechamento, periodo_inicio, periodo_fim, entregador_nome } quando um único entregador
     entregadoresParaReajuste: [], // quando status GERADO sem entregador no filtro: lista de { entregador_id, entregador_nome, id_fechamento, periodo_inicio, periodo_fim }
@@ -155,6 +157,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       elAjustes.className = totalAjustes < 0 ? "text-danger" : "";
     }
     qs("#fech-total-pagar").textContent = formatarMoeda(totalPagar);
+    const g = state.fechModal.g_por_servico || { shopee: 0, ml: 0, avulso: 0 };
+    const gTotal = state.fechModal.g_total ?? 0;
+    const elG = qs("#fech-g-resumo");
+    if (elG) elG.textContent = `Pacotes G: Shopee ${g.shopee ?? 0}, ML ${g.ml ?? 0}, Avulso ${g.avulso ?? 0} · Total G: ${gTotal}`;
   }
 
   function temAlteracoesPendentesFechamento() {
@@ -378,7 +384,11 @@ document.addEventListener("DOMContentLoaded", async () => {
           const data = await res.json();
           state.fechModal.valorBase = Number(data.valor_base || 0);
           qs("#fech-valor-base").value = formatarMoeda(data.valor_base);
+          state.fechModal.g_por_servico = data.g_por_servico || { shopee: 0, ml: 0, avulso: 0 };
+          state.fechModal.g_total = data.g_total ?? 0;
         } else {
+          state.fechModal.g_por_servico = { shopee: 0, ml: 0, avulso: 0 };
+          state.fechModal.g_total = 0;
           const resumoParams = new URLSearchParams({ data_inicio: periodoInicio, data_fim: periodoFim, pageSize: 500 });
           if (executorTipo === "e" && executorId) resumoParams.append("entregador_id", executorId);
           if (executorTipo === "m" && executorId) resumoParams.append("motoboy_id", executorId);
@@ -463,6 +473,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (a.motivo) motivoSubtracao += (motivoSubtracao ? " | " : "") + a.motivo;
       }
     });
+
+    if (!state.modoEdicao && !idFech && (state.fechModal.g_total || 0) > 0 && state.ajustesFechamento.length === 0) {
+      const confirmado = window.Swal
+        ? (await Swal.fire({
+            icon: "question",
+            title: "Gerar fechamento sem ajuste para pacotes G?",
+            text: "Existem pacotes G (Grande) no período e nenhum ajuste foi informado. Deseja realmente gerar o fechamento sem lançar ajuste para os pacotes G?",
+            showCancelButton: true,
+            confirmButtonText: "Sim, gerar",
+            cancelButtonText: "Cancelar",
+            confirmButtonColor: "#0d6efd",
+          })).isConfirmed
+        : confirm("Existem pacotes G no período sem ajuste. Deseja gerar mesmo assim?");
+      if (!confirmado) return;
+    }
 
     const btnSalvar = qs("#btnGerarFechamentoModal");
     if (btnSalvar) btnSalvar.disabled = true;

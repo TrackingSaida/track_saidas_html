@@ -211,6 +211,7 @@ async function enviarColetasLote(base, itens, entregadorId = null) {
     itens: itens.map(i => {
       const o = { codigo: i.codigo, servico: i.servico };
       if (i.qr_payload_raw) o.qr_payload_raw = i.qr_payload_raw;
+      if (i.is_grande) o.is_grande = true;
       return o;
     })
   };
@@ -234,6 +235,7 @@ async function enviarColetaUnica(item, entregadorId = null) {
     // 🔹 Monta corpo apenas com os campos esperados pela API
     const it = { codigo: item.codigo, servico: item.servico };
     if (item.qr_payload_raw) it.qr_payload_raw = item.qr_payload_raw;
+    if (item.is_grande) it.is_grande = true;
     const body = { base: item.base, itens: [it] };
     if (entregadorId != null && entregadorId !== "") {
       body.entregador_id = parseInt(entregadorId, 10);
@@ -248,6 +250,9 @@ async function enviarColetaUnica(item, entregadorId = null) {
 
     if (r.status === 201) {
       item.status = "enviado";
+      const data = await r.json().catch(() => ({}));
+      if (data.saidas_criadas && data.saidas_criadas[0])
+        item.id_saida = data.saidas_criadas[0].id_saida;
       toast("Enviado com sucesso!");
       Sound.play("ok");
     } else {
@@ -463,13 +468,27 @@ function alternarModoColetas() {
 }
 
 /* =============== Renderização da Tabela ============= */
+const canEditG = () => window.__USER__ && [0, 1, 2].includes(Number(window.__USER__.role));
+
 function renderTabela() {
   const tbody = qs("#tbody-coletas");
   if (!tbody) return;
   tbody.innerHTML = "";
 
+  const canG = canEditG();
   COLETAS.slice(-150).forEach((item, i) => {
+    const isGrande = !!item.is_grande;
+    let gCell = "—";
+    if (item.id_saida) {
+      if (canG)
+        gCell = `<button type="button" class="btn btn-sm ${isGrande ? "btn-warning" : "btn-outline-secondary"}" data-toggle-g="${item.id_saida}" data-codigo="${String(item.codigo).replace(/"/g, "&quot;")}" data-g="${isGrande ? "1" : "0"}" title="${isGrande ? "Pacote G — clique para desmarcar" : "Marcar como G (Grande)"}">${isGrande ? "<strong>G</strong>" : "—"}</button>`;
+      else
+        gCell = isGrande ? '<span class="badge bg-warning text-dark" title="Pacote G (Grande)">G</span>' : "—";
+    } else if (canG) {
+      gCell = `<label class="mb-0"><input type="checkbox" class="form-check-input fech-check-g-pendente" data-codigo="${String(item.codigo).replace(/"/g, "&quot;")}" ${isGrande ? "checked" : ""} title="Marcar como G antes de enviar"> G</label>`;
+    }
     const row = document.createElement("tr");
+    if (isGrande) row.classList.add("registro-g-grande");
     row.innerHTML = `
       <td>${i + 1}</td>
       <td>${item.base}</td>
@@ -486,6 +505,7 @@ function renderTabela() {
           ? '<span class="badge bg-info text-dark">Reenviando</span>'
           : '<span class="badge bg-secondary">Pendente</span>'}
       </td>
+      <td>${gCell}</td>
       <td><button class="btn btn-sm btn-link text-danger" data-remove="${item.codigo}"><i class="ri-delete-bin-line"></i></button></td>
     `;
     tbody.appendChild(row);
@@ -574,7 +594,8 @@ COLETAS.push({
   status: "pendente",
   tentativas: 0,
   data: hojeStr,
-  qr_payload_raw: parsed.qr_payload_raw || undefined
+  qr_payload_raw: parsed.qr_payload_raw || undefined,
+  is_grande: false
 });
 toast("Código registrado.");
 Sound.play("ok");
@@ -623,9 +644,14 @@ async function reenviarPendentes() {
     const entId = qs("#selEntregador")?.value || null;
     const r = await enviarColetasLote(BASE_ATUAL, pendentes, entId);
     if (r.status === 201) {
-      // marca todos os pendentes como enviados
+      const data = await r.json().catch(() => ({}));
+      // marca todos os pendentes como enviados e associa id_saida
       COLETAS.forEach(c => {
         if (["pendente", "erro"].includes(c.status)) c.status = "enviado";
+      });
+      (data.saidas_criadas || []).forEach(sc => {
+        const c = COLETAS.find(x => x.codigo === sc.codigo);
+        if (c) c.id_saida = sc.id_saida;
       });
 
       // 💾 Atualiza armazenamento local
@@ -737,7 +763,46 @@ document.addEventListener("DOMContentLoaded", async () => {
     btnReenvio.addEventListener("click", reenviarPendentes);
   }
 
-  qs("#tbody-coletas")?.addEventListener("click", e => {
+  qs("#tbody-coletas")?.addEventListener("click", async e => {
+    const checkG = e.target.closest(".fech-check-g-pendente");
+    if (checkG && checkG.type === "checkbox") {
+      const cod = checkG.getAttribute("data-codigo");
+      const item = COLETAS.find(c => c.codigo === cod);
+      if (item) {
+        item.is_grande = checkG.checked;
+        renderTabela();
+      }
+      return;
+    }
+    const btnToggleG = e.target.closest("[data-toggle-g]");
+    if (btnToggleG) {
+      const idSaida = btnToggleG.getAttribute("data-toggle-g");
+      const current = btnToggleG.getAttribute("data-g") === "1";
+      if (!idSaida || !canEditG()) return;
+      btnToggleG.disabled = true;
+      try {
+        const baseUrl = getBaseUrl();
+        const r = await fetch(baseUrl + "/saidas/" + idSaida, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_grande: !current })
+        });
+        if (r.ok) {
+          const item = COLETAS.find(c => c.id_saida == idSaida);
+          if (item) item.is_grande = !current;
+          renderTabela();
+        } else {
+          const err = await r.json().catch(() => ({}));
+          toast(err?.detail || "Erro ao atualizar G.", false);
+        }
+      } catch (err) {
+        toast("Erro de rede.", false);
+      } finally {
+        btnToggleG.disabled = false;
+      }
+      return;
+    }
     const btn = e.target.closest("[data-remove]");
     if (!btn) return;
     const cod = btn.dataset.remove;

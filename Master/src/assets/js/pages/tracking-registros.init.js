@@ -384,11 +384,18 @@ function augmentEntregadoresFromRows(rows){
     return "servico-avulso";
   }
 
+  var canEditG = (function(){
+    try {
+      var role = (window.__USER__ && window.__USER__.role != null) ? window.__USER__.role : null;
+      return role === 0 || role === 1 || role === 2;
+    } catch (_) { return false; }
+  })();
+
   function renderTable(rows){
     if (!tblBody) return;
     if (!rows?.length){
       tblBody.innerHTML =
-        '<tr><td colspan="9" class="text-muted text-center py-4">Sem registros.</td></tr>';
+        '<tr><td colspan="10" class="text-muted text-center py-4">Sem registros.</td></tr>';
       return;
     }
 
@@ -399,6 +406,11 @@ function augmentEntregadoresFromRows(rows){
         var rowClass = "registro-row clickable-row" + (isCancelado ? " table-danger-subtle bg-danger-subtle" : "");
         var statusBadgeClass = "status-badge " + getStatusClass(r.status);
         var servicoBadgeClass = "servico-badge " + getServicoClass(r.servico);
+        var isGrande = !!(r.is_grande);
+        var gCell = canEditG
+          ? '<button type="button" class="btn btn-sm btn-toggle-g ' + (isGrande ? "btn-warning" : "btn-outline-secondary") + '" data-id="' + rid + '" data-g="' + (isGrande ? "1" : "0") + '" title="' + (isGrande ? "Pacote G (Grande) — clique para desmarcar" : "Marcar como G (Grande)") + '">' + (isGrande ? "<strong>G</strong>" : "—") + "</button>"
+          : (isGrande ? '<span class="badge bg-warning text-dark" title="Pacote G (Grande)">G</span>' : "—");
+        if (isGrande) rowClass += " registro-g-grande";
         return `
           <tr data-id="${rid}" class="${rowClass}">
             <td class="expand-icon"><i class="ri-arrow-right-s-line"></i></td>
@@ -410,9 +422,36 @@ function augmentEntregadoresFromRows(rows){
             <td><span class="d-inline-flex align-items-center gap-1">${r.codigo || "-"} <button type="button" class="btn btn-link btn-sm p-0 text-primary" title="Gerar etiqueta" data-etiqueta="${(r.codigo || "").replace(/"/g, "&quot;")}" data-id-saida="${rid || ""}" data-servico="${(r.servico || "").replace(/"/g, "&quot;")}"><i class="ri-printer-line"></i></button></span></td>
             <td><span class="${servicoBadgeClass}">${r.servico || "-"}</span></td>
             <td><span class="${statusBadgeClass}">${r.status || "-"}</span></td>
+            <td class="text-center">${gCell}</td>
           </tr>`;
       })
       .join("");
+
+    qsa(".btn-toggle-g").forEach(function(btn){
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        var id = btn.getAttribute("data-id");
+        var current = btn.getAttribute("data-g") === "1";
+        if (!id) return;
+        var apiUrl = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+        if (!apiUrl.endsWith("/api")) apiUrl += "/api";
+        btn.disabled = true;
+        fetch(apiUrl + "/saidas/" + id, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_grande: !current })
+        }).then(function(res){
+          if (res.ok) {
+            var row = state.rows.find(function(r){ return String(getRowId(r)) === String(id); });
+            if (row) row.is_grande = !current;
+            renderTable(state.rows);
+          } else {
+            return res.json().then(function(err){ notify(err?.detail || "Erro ao atualizar G.", "error"); });
+          }
+        }).catch(function(){ notify("Erro de rede.", "error"); }).finally(function(){ btn.disabled = false; });
+      });
+    });
   }
 
   // =====================================================================
