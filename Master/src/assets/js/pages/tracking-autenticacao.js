@@ -51,7 +51,7 @@ function initPage() {
     document.getElementById("btnAtualizarLista").addEventListener("click", () => loadSellers());
 }
 
-/** Verifica se o usuário voltou da página de sucesso do ML e atualiza a lista. */
+/** Verifica se o usuário voltou da página de sucesso do ML ou Shopee e atualiza a lista. */
 function checkReturnFromAuth() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("ml") === "ok") {
@@ -62,6 +62,17 @@ function checkReturnFromAuth() {
         try {
             const url = new URL(window.location.href);
             url.searchParams.delete("ml");
+            window.history.replaceState({}, "", url.toString());
+        } catch (_) {}
+    }
+    if (params.get("shopee") === "ok") {
+        loadSellers();
+        if (typeof Swal !== "undefined") {
+            Swal.fire({ icon: "success", title: "Conta conectada", text: "O seller Shopee foi autorizado e já aparece na lista abaixo.", timer: 3000, showConfirmButton: false });
+        }
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("shopee");
             window.history.replaceState({}, "", url.toString());
         } catch (_) {}
     }
@@ -96,7 +107,11 @@ async function gerarLink() {
                 Swal.fire({ icon: "success", title: "Link gerado", text: "Copie e envie ao seller. Após autorizar no Mercado Livre, ele aparecerá na lista abaixo.", timer: 2500, showConfirmButton: false });
             }
         } else {
-            const res = await fetch(`${API_BASE}/shopee/auth-url`, { credentials: "include" });
+            const shopeeState = (me && me.sub_base) ? String(me.sub_base).trim() : "";
+            const shopeeUrl = shopeeState
+                ? `${API_BASE}/shopee/auth-url?state=${encodeURIComponent(shopeeState)}`
+                : `${API_BASE}/shopee/auth-url`;
+            const res = await fetch(shopeeUrl, { credentials: "include" });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ detail: res.statusText }));
                 throw new Error(err.detail || "Erro ao gerar link");
