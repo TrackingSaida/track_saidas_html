@@ -462,11 +462,16 @@ document.addEventListener("DOMContentLoaded", async () => {
           let mensagem = "Erro ao calcular fechamento.";
           try {
             const errJson = await res.json().catch(() => null);
-            const detail = errJson?.detail || "";
-            if (res.status === 400 && typeof detail === "string" && detail.includes("período ainda em aberto")) {
+            const detail = errJson?.detail;
+            if (typeof detail === "string") {
               mensagem = detail;
-            } else if (detail) {
-              mensagem = detail;
+            } else if (Array.isArray(detail) && detail.length > 0) {
+              const first = detail[0];
+              if (typeof first === "string") mensagem = first;
+              else if (first && typeof first.msg === "string") mensagem = first.msg;
+            } else if (detail && typeof detail === "object") {
+              if (typeof detail.message === "string") mensagem = detail.message;
+              else mensagem = JSON.stringify(detail);
             }
           } catch (_) {}
           state.fechModal.g_por_servico = { shopee: 0, ml: 0, avulso: 0 };
@@ -484,7 +489,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           } else {
             qs("#fech-valor-base").value = formatarMoeda(0);
           }
-          if (window.Swal) Swal.fire({ icon: "warning", title: "Período inválido para fechamento", text: mensagem });
+          const titulo = typeof mensagem === "string" && mensagem.toLowerCase().includes("período ainda em aberto")
+            ? "Período inválido para fechamento"
+            : "Não foi possível calcular o fechamento";
+          if (window.Swal) Swal.fire({ icon: "warning", title: titulo, text: mensagem });
           else alert(mensagem);
         }
       } catch (err) {

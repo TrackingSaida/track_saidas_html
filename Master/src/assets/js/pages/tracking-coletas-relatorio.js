@@ -583,7 +583,16 @@ async function gerarPdfFechamentoBases(idFechamento) {
   doc.setTextColor(80);
   doc.text(`${ano} © TrackingSaídas.`, 105, doc.internal.pageSize.height - 10, { align: "center" });
 
-  window.open(doc.output("bloburl"), "_blank");
+  // Nome de arquivo padronizado: fechamento_{base}_{ddIni}_a_{ddFim}_{mm}.pdf
+  const dIni = String(de || "").split("-");
+  const dFim = String(ate || "").split("-");
+  const ddIni = dIni.length >= 3 ? dIni[2] : "01";
+  const ddFim = dFim.length >= 3 ? dFim[2] : "01";
+  const mm = dFim.length >= 2 ? dFim[1] : dIni.length >= 2 ? dIni[1] : "01";
+  const baseNome = String(base || "base").replace(/\s+/g, "_");
+  const nomeArq = `fechamento_${baseNome}_${ddIni}_a_${ddFim}_${mm}.pdf`;
+
+  doc.save(nomeArq);
 }
 
 window.gerarPdfFechamentoBases = gerarPdfFechamentoBases;
