@@ -389,6 +389,8 @@ async function gerarPdfFechamentoBases(idFechamento) {
     return !s.includes("shopee") && !s.includes("mercado");
   }).length;
   const totalG = pacotesGNorm.length;
+  const ajusteGTotal = Number(fech.ajuste_g_valor ?? 0);
+  const valorUnitarioG = totalG > 0 && ajusteGTotal !== 0 ? ajusteGTotal / totalG : 0;
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -501,12 +503,32 @@ async function gerarPdfFechamentoBases(idFechamento) {
     yAfterTables += 5;
     doc.autoTable({
       startY: yAfterTables,
-      head: [["Serviço", "Quantidade"]],
+      head: [["Serviço", "Quantidade", "Valor unitário", "Valor total"]],
       body: [
-        ["Shopee", totalGShopee],
-        ["Mercado Livre", totalGMercado],
-        ["Avulso", totalGAvulso],
-        ["Total Pacotes G", totalG]
+        [
+          "Shopee",
+          totalGShopee,
+          valorUnitarioG ? `R$ ${valorUnitarioG.toFixed(2).replace(".", ",")}` : "-",
+          valorUnitarioG ? `R$ ${(valorUnitarioG * totalGShopee).toFixed(2).replace(".", ",")}` : "-"
+        ],
+        [
+          "Mercado Livre",
+          totalGMercado,
+          valorUnitarioG ? `R$ ${valorUnitarioG.toFixed(2).replace(".", ",")}` : "-",
+          valorUnitarioG ? `R$ ${(valorUnitarioG * totalGMercado).toFixed(2).replace(".", ",")}` : "-"
+        ],
+        [
+          "Avulso",
+          totalGAvulso,
+          valorUnitarioG ? `R$ ${valorUnitarioG.toFixed(2).replace(".", ",")}` : "-",
+          valorUnitarioG ? `R$ ${(valorUnitarioG * totalGAvulso).toFixed(2).replace(".", ",")}` : "-"
+        ],
+        [
+          "Total Pacotes G",
+          totalG,
+          valorUnitarioG ? `R$ ${valorUnitarioG.toFixed(2).replace(".", ",")}` : "-",
+          valorUnitarioG ? `R$ ${ajusteGTotal.toFixed(2).replace(".", ",")}` : "-"
+        ]
       ],
       theme: "grid",
       styles: { fontSize: 9, halign: "center" },

@@ -1057,6 +1057,15 @@ async function carregarResumoCompleto() {
           }
         }
 
+        // calcula quanto do ajuste total é específico de G (somando itens marcados como origem G)
+        const totalG = state.total_pacotes_g ?? 0;
+        let ajusteGTotal = 0;
+        state.ajustesFechamento.forEach((a) => {
+          if (isAjusteG(a)) {
+            ajusteGTotal += Number(a.valor || 0);
+          }
+        });
+
         const res = await fetch(API_FECHAMENTOS, {
           method: "POST",
           credentials: "include",
@@ -1070,8 +1079,8 @@ async function carregarResumoCompleto() {
             motivo_adicao: motivoAdicao || null,
             valor_subtracao: valorSubtracao,
             motivo_subtracao: motivoSubtracao || null,
-            ajuste_g_valor: 0,
-            ajuste_g_motivo: null
+            ajuste_g_valor: totalG > 0 && ajusteGTotal !== 0 ? ajusteGTotal : 0,
+            ajuste_g_motivo: totalG > 0 && ajusteGTotal !== 0 ? "Ajuste Pacotes G" : null
           })
         });
         if (!res.ok) {
