@@ -309,6 +309,7 @@ function openEdit(o) {
     document.getElementById("ownerSubBase").value = o.sub_base;
     document.getElementById("ownerTipo").value = (o.tipo_owner || "subbase").toLowerCase();
     document.getElementById("ownerUsername").value = o.username;
+    document.getElementById("ownerNomeFantasia").value = o.nome_fantasia || "";
     document.getElementById("ownerEmail").value = o.email;
     document.getElementById("ownerContato").value = o.contato || "";
     document.getElementById("ownerValor").value = Number(o.valor).toFixed(2);
@@ -335,6 +336,7 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
 
     const body = {
         username: document.getElementById("ownerUsername").value.trim(),
+        nome_fantasia: document.getElementById("ownerNomeFantasia").value.trim() || null,
         email: document.getElementById("ownerEmail").value.trim(),
         contato: document.getElementById("ownerContato").value.trim(),
         valor: Number(document.getElementById("ownerValor").value),
