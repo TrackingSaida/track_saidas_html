@@ -73,6 +73,13 @@
     if (el) el.textContent = text;
   }
 
+  function updateModoBadge() {
+    var el = document.getElementById("fin-dash-modo-badge");
+    if (!el) return;
+    var modo = (window.TrackPrefs && window.TrackPrefs.getIndicadorStatusMode && window.TrackPrefs.getIndicadorStatusMode()) || "saiu";
+    el.textContent = modo === "entregue" ? "Baseado em: Entregue (app mobile)" : "Baseado em: Saiu para entrega";
+  }
+
   function escapeHtml(s) {
     if (s == null) return "";
     const div = document.createElement("div");
@@ -93,6 +100,8 @@
     const params = new URLSearchParams();
     params.set("data_inicio", from);
     params.set("data_fim", to);
+    var modo = (window.TrackPrefs && window.TrackPrefs.getIndicadorStatusMode && window.TrackPrefs.getIndicadorStatusMode()) || "saiu";
+    params.set("modo_entregas", modo);
     return fetchJson(API_BASE + "/contabilidade/resumo?" + params.toString());
   }
 
@@ -349,6 +358,7 @@
     if (dataInicioEl) dataInicioEl.value = q.start;
     if (dataFimEl) dataFimEl.value = q.end;
     updatePeriodLabel(q.start, q.end);
+    updateModoBadge();
 
     function showLoading(show) {
       var loading = document.getElementById("fin-dash-loading");

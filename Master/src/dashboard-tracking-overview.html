@@ -18,11 +18,23 @@
           <!-- Título e caminho do breadcrumb -->
           @@include("partials/page-title.html", {"pagetitle": "Indicadores", "title": "Visão Geral", "withSubtitle": false, "ownerTerm": ""})
 
-          <!-- Saudação e seletor global de datas -->
+          <!-- Saudação, toggle de modo de indicadores e seletor global de datas -->
           <div class="row align-items-center mb-4">
             <div class="col">
               <h4 id="greeting" class="fs-18 fw-semibold"></h4>
               <p id="greeting-sub" class="text-muted"></p>
+              <!-- Toggle global: contar entregas por "Saiu para entrega" ou "Entregue (app mobile)" -->
+              <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
+                <span class="text-muted small">Indicadores de entrega:</span>
+                <div id="indicador-status-mode-group" class="btn-group btn-group-sm" role="group">
+                  <button type="button" class="btn btn-outline-secondary" data-mode="saiu" title="Contar como entregue quando registrou saiu para entrega">
+                    Saiu para entrega
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" data-mode="entregue" title="Contar apenas status Entregue (app mobile)">
+                    Entregue (app)
+                  </button>
+                </div>
+              </div>
             </div>
             <div class="col-auto">
               <div class="d-flex gap-2">
@@ -75,7 +87,7 @@
                 <div class="card-body">
                   <div class="d-flex align-items-center">
                     <div class="flex-grow-1">
-                      <p class="text-muted mb-1">Pedidos que saíram para entrega</p>
+                      <p class="text-muted mb-1" id="kpi-entregues-label">Pedidos que saíram para entrega</p>
                       <h4 class="mb-0"><span id="kpi-entregues" class="counter-value">0</span></h4>
                       <p class="text-muted mb-0 fs-12">Conversão: <span id="kpi-conversion">0%</span></p>
                     </div>
@@ -178,7 +190,7 @@
             <div class="col-xl-8">
               <div class="card card-height-100">
                 <div class="card-header align-items-center d-flex">
-                  <h4 class="card-title mb-0 flex-grow-1">Evolução Diária dos Pedidos Saiu para Entrega</h4>
+                  <h4 class="card-title mb-0 flex-grow-1" id="chart-delivered-title">Evolução Diária dos Pedidos Saiu para Entrega</h4>
                 </div>
                 <div class="card-header p-0 border-0 bg-light-subtle">
                   <div class="row g-0 text-center">

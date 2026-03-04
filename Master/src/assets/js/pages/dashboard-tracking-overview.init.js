@@ -125,36 +125,6 @@ function classifyServico(servico) {
   return "avulso";
 }
 
-// ---------------------------------------------------------------------------
-// VERIFICA SE É “SAIU PARA ENTREGA”
-// ---------------------------------------------------------------------------
-function isSaiuParaEntrega(row) {
-  const st = (row?.status || "").toLowerCase();
-  return st.includes("saiu") && st.includes("entrega");
-}
-
-
-// ------------------------------------------------------------
-// Classificação de serviços
-// ------------------------------------------------------------
-function classifyServico(servico) {
-    if (!servico) return "outros";
-    const v = servico.toString().toLowerCase();
-    if (v.includes("shopee")) return "shopee";
-    if (v.includes("mercado") || v.includes("ml") || v.includes("flex")) return "ml";
-    if (v.includes("avulso")) return "avulso";
-    return "outros";
-}
-
-// ------------------------------------------------------------
-// Detecta "Saiu para entrega"
-// ------------------------------------------------------------
-function isSaiuParaEntrega(row) {
-    const st = (row?.status || "").toLowerCase();
-    return st.includes("saiu");
-}
-
-
   // ---------------------------------------------------------------------------
   // Estado e referências de DOM
   // ---------------------------------------------------------------------------
@@ -210,6 +180,34 @@ function initRevenueChart() {
 
 
 // ---------------------------------------------------------------------------
+// Toggle de modo de indicadores (saiu vs entregue)
+// ---------------------------------------------------------------------------
+function syncIndicadorStatusToggleUI() {
+  const mode = (window.TrackPrefs && window.TrackPrefs.getIndicadorStatusMode()) || "saiu";
+  const group = document.getElementById("indicador-status-mode-group");
+  if (!group) return;
+  group.querySelectorAll("button[data-mode]").forEach((b) => {
+    const isActive = b.getAttribute("data-mode") === mode;
+    b.classList.toggle("btn-primary", isActive);
+    b.classList.toggle("btn-outline-secondary", !isActive);
+  });
+}
+
+function updateIndicadorModeLabels() {
+  const mode = (window.TrackPrefs && window.TrackPrefs.getIndicadorStatusMode()) || "saiu";
+  const labelEl = document.getElementById("kpi-entregues-label");
+  const titleEl = document.getElementById("chart-delivered-title");
+  if (labelEl) {
+    labelEl.textContent = mode === "saiu" ? "Pedidos que saíram para entrega" : "Pedidos Entregues (app mobile)";
+  }
+  if (titleEl) {
+    titleEl.textContent = mode === "saiu"
+      ? "Evolução Diária dos Pedidos Saiu para Entrega"
+      : "Evolução Diária dos Pedidos Entregues (app)";
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Inicialização da página
 // ---------------------------------------------------------------------------
 async function init() {
@@ -246,6 +244,27 @@ async function init() {
   // Listeners
   btnRefresh.addEventListener("click", loadAll);
 
+  // Toggle de modo de indicadores (saiu vs entregue)
+  syncIndicadorStatusToggleUI();
+  const modeGroupEl = document.getElementById("indicador-status-mode-group");
+  if (modeGroupEl) {
+    modeGroupEl.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("button[data-mode]");
+      if (!btn) return;
+      const mode = btn.getAttribute("data-mode");
+      if (mode !== "saiu" && mode !== "entregue") return;
+      if (window.TrackPrefs) window.TrackPrefs.setIndicadorStatusMode(mode);
+      syncIndicadorStatusToggleUI();
+      updateIndicadorModeLabels();
+      if (window._lastDashboardData) {
+        processData(window._lastDashboardData.coletas, window._lastDashboardData.saidas, window._lastDashboardData.basePrices);
+        renderRevenueChart();
+      } else {
+        loadAll();
+      }
+    });
+  }
+
   if (zoomGroup) {
     zoomGroup.addEventListener("click", (ev) => {
       const btn = ev.target.closest("button[data-zoom]");
@@ -266,6 +285,7 @@ async function init() {
 
   // Carregamento inicial
   await loadAll();
+  updateIndicadorModeLabels();
 
    renderRevenueChart();
 }
@@ -301,6 +321,9 @@ async function loadAll() {
       listBasePrices(),
     ]);
 
+    // Guarda para reprocessar ao alternar o toggle sem refetch
+    window._lastDashboardData = { coletas: coletas || [], saidas: saidas || [], basePrices: basePrices || {} };
+
     // Atualiza KPIs, séries e dados dos gráficos
     processData(coletas || [], saidas || [], basePrices);
 
@@ -316,6 +339,20 @@ async function loadAll() {
 
   // Processa dados e atualiza a UI
 function processData(coletas, saidas, basePrices) {
+
+    const mode = (window.TrackPrefs && window.TrackPrefs.getIndicadorStatusMode()) || "saiu";
+
+    function isSaiuParaEntregaLocal(row) {
+      const st = (row?.status || "").toLowerCase();
+      return st.includes("saiu");
+    }
+    function isStatusEntregueLocal(row) {
+      const st = (row?.status || "").toLowerCase().trim();
+      return st === "entregue";
+    }
+    function isEntregueIndicador(row) {
+      return mode === "entregue" ? isStatusEntregueLocal(row) : isSaiuParaEntregaLocal(row);
+    }
 
     // Normalizador de base para agrupar (ignora diferenças de caixa e espaços)
     function normalizeBaseName(name) {
@@ -377,10 +414,6 @@ const baseEntregues = {};
 // valor financeiro perdido por cancelamentos
 let totalCanceladosValor = 0;
 
-function isStatusEntregue(row) {
-  const st = (row?.status || "").toLowerCase().trim();
-  return st === "entregue";
-}
 function isStatusEmRota(row) {
   const st = (row?.status || "").toLowerCase().trim();
   return st === "em_rota" || (st.includes("saiu") && !st.includes("cancelado"));
@@ -405,8 +438,8 @@ saidas.forEach((s) => {
 
     const statusTxt = (s.status || "").toLowerCase().trim();
 
-    // entregue (apenas status entregue — alinhado ao app mobile)
-    if (isStatusEntregue(s)) {
+    // entregue conforme modo do toggle (saiu para entrega ou status entregue)
+    if (isEntregueIndicador(s)) {
         totalEntregues++;
         if (!baseEntregues[base]) baseEntregues[base] = 0;
         baseEntregues[base]++;
@@ -530,12 +563,12 @@ window.revenueData = {
 
 
     // -----------------------------------------------------------------------
-// 4d. Série diária de pedidos entregues (agrupado por serviço — apenas status entregue)
+// 4d. Série diária de pedidos entregues (agrupado por serviço — conforme modo do toggle)
 // -----------------------------------------------------------------------
 const deliveredByDay = {};
 
 saidas.forEach((s) => {
-  if (!isStatusEntregue(s)) return;
+  if (!isEntregueIndicador(s)) return;
   const dt = s.timestamp ? fmtYMD(new Date(s.timestamp)) : null;
   if (!dt) return;
 
@@ -655,7 +688,8 @@ baseArray.forEach(({ display, collected, delivered, ratio }) => {
   const pctValue = Math.min(100, ratio * 100);
   const pctText = pctValue.toFixed(1); // mais elegante que 0 casas
 
-  const tooltip = `Coletados: ${collected}\nSaiu para entrega: ${delivered}`;
+  const entreguesLabel = mode === "entregue" ? "Entregues (app):" : "Saiu para entrega:";
+  const tooltip = `Coletados: ${collected}\n${entreguesLabel} ${delivered}`;
 
   baseHtml += `
     <div class="mb-3">

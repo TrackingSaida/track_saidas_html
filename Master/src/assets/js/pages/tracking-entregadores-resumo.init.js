@@ -299,8 +299,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (window.Swal) Swal.fire({ icon: "warning", title: "Período obrigatório", text: "Selecione o período (data início e fim) antes de gerar o fechamento." });
         return;
       }
-      periodoInicio = pInicio;
-      periodoFim = pFim;
       // Se nenhum motoboy estiver selecionado no filtro, abre seleção modal (SweetAlert)
       if (!executor.tipo || executor.id <= 0) {
         try {
@@ -334,14 +332,14 @@ document.addEventListener("DOMContentLoaded", async () => {
           const escolhido = parseExecutorVal(selecionado);
           if (!escolhido.tipo || escolhido.id <= 0) return;
           const nomeEscolhido = inputOptions[selecionado] || "Executor";
-          abrirModalFechamento(false, null, escolhido.tipo, escolhido.id, periodoInicio, periodoFim, nomeEscolhido);
+          abrirModalFechamento(false, null, escolhido.tipo, escolhido.id, pInicio, pFim, nomeEscolhido);
         } catch (err) {
           console.error("Erro ao selecionar entregador para fechamento:", err);
           if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao carregar entregadores para seleção." });
         }
         return;
       }
-      abrirModalFechamento(false, null, executor.tipo, executor.id, periodoInicio, periodoFim, entNome);
+      abrirModalFechamento(false, null, executor.tipo, executor.id, pInicio, pFim, entNome);
     }
   }
 
