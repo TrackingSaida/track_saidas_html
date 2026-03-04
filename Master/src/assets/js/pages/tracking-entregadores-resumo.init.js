@@ -216,48 +216,117 @@ document.addEventListener("DOMContentLoaded", async () => {
   function atualizarBtnGerarFechamento() {
     const btn = qs("#btnGerarFechamento");
     const wrap = qs("#wrapBtnGerarFechamento");
-    const menu = qs("#dropdownFechamentoMenu");
     if (!btn || !wrap) return;
     const dataInicio = fltDataInicio?.value || "";
     const dataFim = fltDataFim?.value || "";
-    const executor = parseExecutorVal(fltEntregador?.value || "");
-    const habilitadoPeriodoEntregador = !!(dataInicio && dataFim && executor.tipo && executor.id > 0);
+    const temPeriodo = !!(dataInicio && dataFim);
     const ctx = state.contextoFechamento;
     const listaReajuste = state.entregadoresParaReajuste || [];
     const statusFiltro = (fltStatus?.value || "").trim().toUpperCase();
     // Reajustar habilitado só por status GERADO: um contexto único ou vários entregadores para escolher
     const podeReajustarSóStatus = statusFiltro === "GERADO" && (ctx?.id_fechamento || listaReajuste.length > 0);
-    const status = (habilitadoPeriodoEntregador && ctx ? (ctx.status || "PENDENTE").toUpperCase() : null) || (podeReajustarSóStatus ? "GERADO" : "PENDENTE");
+    const status = podeReajustarSóStatus ? "GERADO" : "PENDENTE";
 
-    const itemGerar = menu?.querySelector('[data-acao="gerar"]')?.closest("li");
-    const itemReajustar = menu?.querySelector('[data-acao="reajustar"]')?.closest("li");
-
-    if (!habilitadoPeriodoEntregador && !podeReajustarSóStatus) {
+    if (!temPeriodo && !podeReajustarSóStatus) {
       btn.disabled = true;
       btn.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
-      wrap.title = "Preencha Data início, Data fim e Motoboy para gerar fechamento; ou filtre por Status GERADO para reajustar.";
-      if (itemGerar) itemGerar.classList.add("d-none");
-      if (itemReajustar) itemReajustar.classList.add("d-none");
+      wrap.title = "Selecione um período para gerar ou reajustar o fechamento.";
     } else if (status === "REAJUSTADO") {
       btn.disabled = true;
       btn.innerHTML = '<i class="ri-check-double-line me-1"></i> Reajustado';
       wrap.title = "Este fechamento já foi reajustado.";
-      if (itemGerar) itemGerar.classList.add("d-none");
-      if (itemReajustar) itemReajustar.classList.add("d-none");
     } else if (status === "GERADO") {
       btn.disabled = false;
       btn.innerHTML = '<i class="ri-edit-line me-1"></i> Reajustar';
-      wrap.title = listaReajuste.length > 1 ? "Reajustar fechamento: selecione o entregador na lista." : "Reajustar fechamento do período e entregador.";
-      if (itemGerar) itemGerar.classList.add("d-none");
-      if (itemReajustar) itemReajustar.classList.remove("d-none");
+      wrap.title = listaReajuste.length > 1 ? "Reajustar fechamento: selecione o motoboy na lista." : "Reajustar fechamento do período selecionado.";
     } else {
       btn.disabled = false;
       btn.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
-      wrap.title = "Gerar fechamento para o período e motoboy selecionado.";
-      if (itemGerar) itemGerar.classList.remove("d-none");
-      if (itemReajustar) itemReajustar.classList.add("d-none");
+      wrap.title = "Gerar fechamento para o período selecionado (o motoboy será escolhido em seguida).";
     }
     wrap.setAttribute("data-bs-original-title", wrap.title);
+  }
+
+  async function executarAcaoFechamento(acao) {
+    const ctx = state.contextoFechamento;
+    const listaReajuste = state.entregadoresParaReajuste || [];
+    const periodoInicio = fltDataInicio?.value || "";
+    const periodoFim = fltDataFim?.value || "";
+    const executor = parseExecutorVal(fltEntregador?.value || "");
+    const entNome = fltEntregador?.options[fltEntregador.selectedIndex]?.text || "";
+
+    if (acao === "reajustar") {
+      if (listaReajuste.length > 1) {
+        const opcoes = listaReajuste.map((u) => ({ key: (u.executorTipo || "e") + "_" + (u.executorId || u.entregador_id), nome: u.entregador_nome, ...u }));
+        const inputOptions = {};
+        opcoes.forEach((o) => { inputOptions[o.key] = o.nome; });
+        const { value: selecionado } = await window.Swal.fire({
+          title: "Selecione o motoboy",
+          html: "Há mais de um motoboy com fechamento GERADO. Escolha qual deseja reajustar.",
+          showCancelButton: true,
+          cancelButtonText: "Cancelar",
+          confirmButtonText: "Reajustar",
+          input: "select",
+          inputOptions,
+          inputPlaceholder: "Selecione o motoboy",
+          inputValidator: (v) => (!v ? "Selecione um motoboy" : null),
+        });
+        if (selecionado) {
+          const u = opcoes.find((o) => o.key === selecionado);
+          if (u?.id_fechamento) abrirModalFechamento(true, u.id_fechamento, u.executorTipo || "e", u.executorId != null ? u.executorId : u.entregador_id, u.periodo_inicio, u.periodo_fim, u.entregador_nome);
+        }
+      } else if (ctx?.id_fechamento) {
+        const tipo = ctx.executorTipo || executor.tipo || "e";
+        const id = ctx.executorId != null ? ctx.executorId : (executor.id > 0 ? executor.id : 0);
+        const nome = ctx.entregador_nome || entNome;
+        abrirModalFechamento(true, ctx.id_fechamento, tipo, id, ctx.periodo_inicio, ctx.periodo_fim, nome);
+      }
+      return;
+    }
+    if (acao === "gerar") {
+      if (!periodoInicio || !periodoFim) return;
+      // Se nenhum motoboy estiver selecionado no filtro, abre seleção modal (SweetAlert)
+      if (!executor.tipo || executor.id <= 0) {
+        try {
+          const res = await fetch(`${API_ENTREGADORES}/executores?status=ativo`, { credentials: "include" });
+          if (!res.ok) throw new Error("Erro ao carregar entregadores.");
+          const list = await res.json();
+          const arr = Array.isArray(list) ? list : [];
+          if (!arr.length) {
+            if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: "Nenhum motoboy disponível para gerar fechamento." });
+            return;
+          }
+          const inputOptions = {};
+          arr.forEach((e) => {
+            const key = e.id_entregador != null ? "e_" + e.id_entregador : (e.id_motoboy != null ? "m_" + e.id_motoboy : "");
+            if (!key) return;
+            const nome = (e.nome || key).replace(/</g, "&lt;").replace(/"/g, "&quot;");
+            inputOptions[key] = nome;
+          });
+          const { value: selecionado } = await window.Swal.fire({
+            title: "Selecione o motoboy",
+            html: "Nenhum motoboy foi selecionado no filtro. Escolha qual deseja gerar o fechamento.",
+            showCancelButton: true,
+            cancelButtonText: "Cancelar",
+            confirmButtonText: "Gerar fechamento",
+            input: "select",
+            inputOptions,
+            inputPlaceholder: "Selecione o motoboy",
+            inputValidator: (v) => (!v ? "Selecione um motoboy" : null),
+          });
+          if (!selecionado) return;
+          const escolhido = parseExecutorVal(selecionado);
+          if (!escolhido.tipo || escolhido.id <= 0) return;
+          const nomeEscolhido = inputOptions[selecionado] || "Executor";
+          abrirModalFechamento(false, null, escolhido.tipo, escolhido.id, periodoInicio, periodoFim, nomeEscolhido);
+        } catch (err) {
+          console.error("Erro ao selecionar entregador para fechamento:", err);
+          if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao carregar entregadores para seleção." });
+        }
+        return;
+      }
+      abrirModalFechamento(false, null, executor.tipo, executor.id, periodoInicio, periodoFim, entNome);
+    }
   }
 
   function renderTable(items) {
@@ -828,90 +897,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     fecharDropdownFiltros();
   });
 
-  qs("#dropdownFechamentoMenu")?.addEventListener("click", async (e) => {
-    const item = e.target.closest("[data-acao]");
-    if (!item || item.tagName !== "A") return;
-    e.preventDefault();
-    const acao = item.getAttribute("data-acao");
+  qs("#btnGerarFechamento")?.addEventListener("click", async () => {
+    const statusFiltro = (fltStatus?.value || "").trim().toUpperCase();
     const ctx = state.contextoFechamento;
     const listaReajuste = state.entregadoresParaReajuste || [];
-    const periodoInicio = fltDataInicio?.value || "";
-    const periodoFim = fltDataFim?.value || "";
-    const executor = parseExecutorVal(fltEntregador?.value || "");
-    const entNome = fltEntregador?.options[fltEntregador.selectedIndex]?.text || "";
-
-    if (acao === "reajustar") {
-      if (listaReajuste.length > 1) {
-        const opcoes = listaReajuste.map((u) => ({ key: (u.executorTipo || "e") + "_" + (u.executorId || u.entregador_id), nome: u.entregador_nome, ...u }));
-        const inputOptions = {};
-        opcoes.forEach((o) => { inputOptions[o.key] = o.nome; });
-        const { value: selecionado } = await window.Swal.fire({
-          title: "Selecione o motoboy",
-          html: "Há mais de um motoboy com fechamento GERADO. Escolha qual deseja reajustar.",
-          showCancelButton: true,
-          cancelButtonText: "Cancelar",
-          confirmButtonText: "Reajustar",
-          input: "select",
-          inputOptions,
-          inputPlaceholder: "Selecione o motoboy",
-          inputValidator: (v) => (!v ? "Selecione um motoboy" : null),
-        });
-        if (selecionado) {
-          const u = opcoes.find((o) => o.key === selecionado);
-          if (u?.id_fechamento) abrirModalFechamento(true, u.id_fechamento, u.executorTipo || "e", u.executorId != null ? u.executorId : u.entregador_id, u.periodo_inicio, u.periodo_fim, u.entregador_nome);
-        }
-      } else if (ctx?.id_fechamento) {
-        const tipo = ctx.executorTipo || executor.tipo || "e";
-        const id = ctx.executorId != null ? ctx.executorId : (executor.id > 0 ? executor.id : 0);
-        const nome = ctx.entregador_nome || entNome;
-        abrirModalFechamento(true, ctx.id_fechamento, tipo, id, ctx.periodo_inicio, ctx.periodo_fim, nome);
-      }
-      return;
-    }
-    if (acao === "gerar") {
-      if (!periodoInicio || !periodoFim) return;
-      // Se nenhum entregador estiver selecionado no filtro, abre seleção modal (SweetAlert)
-      if (!executor.tipo || executor.id <= 0) {
-        try {
-          const res = await fetch(`${API_ENTREGADORES}/executores?status=ativo`, { credentials: "include" });
-          if (!res.ok) throw new Error("Erro ao carregar entregadores.");
-          const list = await res.json();
-          const arr = Array.isArray(list) ? list : [];
-          if (!arr.length) {
-            if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: "Nenhum motoboy disponível para gerar fechamento." });
-            return;
-          }
-          const inputOptions = {};
-          arr.forEach((e) => {
-            const key = e.id_entregador != null ? "e_" + e.id_entregador : (e.id_motoboy != null ? "m_" + e.id_motoboy : "");
-            if (!key) return;
-            const nome = (e.nome || key).replace(/</g, "&lt;").replace(/"/g, "&quot;");
-            inputOptions[key] = nome;
-          });
-          const { value: selecionado } = await window.Swal.fire({
-            title: "Selecione o motoboy",
-            html: "Nenhum motoboy foi selecionado no filtro. Escolha qual deseja gerar o fechamento.",
-            showCancelButton: true,
-            cancelButtonText: "Cancelar",
-            confirmButtonText: "Gerar fechamento",
-            input: "select",
-            inputOptions,
-            inputPlaceholder: "Selecione o motoboy",
-            inputValidator: (v) => (!v ? "Selecione um motoboy" : null),
-          });
-          if (!selecionado) return;
-          const escolhido = parseExecutorVal(selecionado);
-          if (!escolhido.tipo || escolhido.id <= 0) return;
-          const nomeEscolhido = inputOptions[selecionado] || "Executor";
-          abrirModalFechamento(false, null, escolhido.tipo, escolhido.id, periodoInicio, periodoFim, nomeEscolhido);
-        } catch (err) {
-          console.error("Erro ao selecionar entregador para fechamento:", err);
-          if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao carregar entregadores para seleção." });
-        }
-        return;
-      }
-      abrirModalFechamento(false, null, executor.tipo, executor.id, periodoInicio, periodoFim, entNome);
-    }
+    const podeReajustar = statusFiltro === "GERADO" && (ctx?.id_fechamento || listaReajuste.length > 0);
+    const acao = podeReajustar ? "reajustar" : "gerar";
+    await executarAcaoFechamento(acao);
   });
 
   [fltDataInicio, fltDataFim, fltEntregador, fltStatus].forEach((el) => {
