@@ -390,6 +390,16 @@ document.addEventListener("DOMContentLoaded", async () => {
           state.fechModal.g_por_servico = data.g_por_servico || { shopee: 0, ml: 0, avulso: 0 };
           state.fechModal.g_total = data.g_total ?? 0;
         } else {
+          let mensagem = "Erro ao calcular fechamento.";
+          try {
+            const errJson = await res.json().catch(() => null);
+            const detail = errJson?.detail || "";
+            if (res.status === 400 && typeof detail === "string" && detail.includes("período ainda em aberto")) {
+              mensagem = detail;
+            } else if (detail) {
+              mensagem = detail;
+            }
+          } catch (_) {}
           state.fechModal.g_por_servico = { shopee: 0, ml: 0, avulso: 0 };
           state.fechModal.g_total = 0;
           const resumoParams = new URLSearchParams({ data_inicio: periodoInicio, data_fim: periodoFim, pageSize: 500 });
@@ -405,6 +415,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           } else {
             qs("#fech-valor-base").value = formatarMoeda(0);
           }
+          if (window.Swal) Swal.fire({ icon: "warning", title: "Período inválido para fechamento", text: mensagem });
+          else alert(mensagem);
         }
       } catch (err) {
         const resumoParams = new URLSearchParams({ data_inicio: periodoInicio, data_fim: periodoFim, pageSize: 500 });

@@ -770,7 +770,21 @@ async function carregarResumoCompleto() {
         state.ajustesFechamento = [];
         const params = new URLSearchParams({ base, periodo_inicio: periodoInicio, periodo_fim: periodoFim });
         const res = await fetch(`${API_FECHAMENTOS}/calcular?${params}`, { credentials: "include" });
-        if (!res.ok) throw new Error(res.statusText);
+        if (!res.ok) {
+          let mensagem = "Erro ao calcular fechamento.";
+          try {
+            const errJson = await res.json().catch(() => null);
+            const detail = errJson?.detail || "";
+            if (res.status === 400 && typeof detail === "string" && detail.includes("período ainda em aberto")) {
+              mensagem = detail;
+            } else if (detail) {
+              mensagem = detail;
+            }
+          } catch (_) {}
+          if (window.Swal) Swal.fire({ icon: "warning", title: "Período inválido para fechamento", text: mensagem });
+          else alert(mensagem);
+          return;
+        }
         const data = await res.json();
         state.fechamentoItens = (data.itens || []).map(i => ({
           ...i,
@@ -786,7 +800,8 @@ async function carregarResumoCompleto() {
         state.total_pacotes_g = data.total_pacotes_g ?? 0;
       } catch (err) {
         console.error(err);
-        if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao calcular fechamento." });
+        if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: err?.message || "Erro ao calcular fechamento." });
+        else alert(err?.message || "Erro ao calcular fechamento.");
         return;
       }
     }
