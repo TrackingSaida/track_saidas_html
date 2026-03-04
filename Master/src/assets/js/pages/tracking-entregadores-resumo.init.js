@@ -284,7 +284,23 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
     if (acao === "gerar") {
-      if (!periodoInicio || !periodoFim) return;
+      let pInicio = periodoInicio || "";
+      let pFim = periodoFim || "";
+      if (!pInicio || !pFim) {
+        const r = datePickerInstance?.getResolvedRange?.();
+        if (r?.start && r?.end) {
+          if (fltDataInicio) fltDataInicio.value = r.start;
+          if (fltDataFim) fltDataFim.value = r.end;
+          pInicio = r.start;
+          pFim = r.end;
+        }
+      }
+      if (!pInicio || !pFim) {
+        if (window.Swal) Swal.fire({ icon: "warning", title: "Período obrigatório", text: "Selecione o período (data início e fim) antes de gerar o fechamento." });
+        return;
+      }
+      periodoInicio = pInicio;
+      periodoFim = pFim;
       // Se nenhum motoboy estiver selecionado no filtro, abre seleção modal (SweetAlert)
       if (!executor.tipo || executor.id <= 0) {
         try {
@@ -465,10 +481,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             const detail = errJson?.detail;
             if (typeof detail === "string") {
               mensagem = detail;
+              if (mensagem.includes("entregador_id") && mensagem.includes("motoboy_id"))
+                mensagem = "Selecione um motoboy para calcular o fechamento.";
             } else if (Array.isArray(detail) && detail.length > 0) {
               const first = detail[0];
               if (typeof first === "string") mensagem = first;
-              else if (first && typeof first.msg === "string") mensagem = first.msg;
+              else if (first && typeof first.msg === "string") {
+                const msg = (first.msg || "").toLowerCase();
+                if (msg === "field required" || msg.includes("value_error.missing"))
+                  mensagem = "Informe o período (data início e fim) e o motoboy para calcular o fechamento.";
+                else if (msg.includes("entregador_id") || msg.includes("motoboy_id"))
+                  mensagem = "Selecione um motoboy para calcular o fechamento.";
+                else mensagem = first.msg;
+              }
             } else if (detail && typeof detail === "object") {
               if (typeof detail.message === "string") mensagem = detail.message;
               else mensagem = JSON.stringify(detail);
