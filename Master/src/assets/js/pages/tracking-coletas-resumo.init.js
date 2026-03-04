@@ -1197,7 +1197,7 @@ async function carregarResumoCompleto() {
     datePickerInstance = window.initDatePickerDashboard({
       containerId: "coletas-resumo-date-picker-container",
       prefix: "coletas-resumo-dp",
-      defaultPreset: "quinzena",
+      defaultPreset: "quinzena-ant",
       onApply: function (start, end) {
         if (fltFrom) fltFrom.value = start;
         if (fltTo) fltTo.value = end;
@@ -1217,7 +1217,7 @@ async function carregarResumoCompleto() {
       }
     });
     if (datePickerInstance && datePickerInstance.applyPreset) {
-      datePickerInstance.applyPreset("quinzena");
+      datePickerInstance.applyPreset("quinzena-ant");
     }
     const r = datePickerInstance ? datePickerInstance.getResolvedRange() : { start: "", end: "" };
     if (fltFrom) fltFrom.value = r.start;
@@ -1260,7 +1260,7 @@ async function carregarResumoCompleto() {
     fltBase.value = "";
     if (fltStatus) fltStatus.value = "";
     if (datePickerInstance && datePickerInstance.applyPreset) {
-      datePickerInstance.applyPreset("quinzena");
+      datePickerInstance.applyPreset("quinzena-ant");
       const r = datePickerInstance.getResolvedRange();
       if (fltFrom) fltFrom.value = r.start;
       if (fltTo) fltTo.value = r.end;

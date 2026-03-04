@@ -235,7 +235,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!habilitadoPeriodoEntregador && !podeReajustarSóStatus) {
       btn.disabled = true;
       btn.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
-      wrap.title = "Preencha Data início, Data fim e Entregador para gerar fechamento; ou filtre por Status GERADO para reajustar.";
+      wrap.title = "Preencha Data início, Data fim e Motoboy para gerar fechamento; ou filtre por Status GERADO para reajustar.";
       if (itemGerar) itemGerar.classList.add("d-none");
       if (itemReajustar) itemReajustar.classList.add("d-none");
     } else if (status === "REAJUSTADO") {
@@ -253,7 +253,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else {
       btn.disabled = false;
       btn.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
-      wrap.title = "Gerar fechamento para o período e entregador selecionados.";
+      wrap.title = "Gerar fechamento para o período e motoboy selecionado.";
       if (itemGerar) itemGerar.classList.remove("d-none");
       if (itemReajustar) itemReajustar.classList.add("d-none");
     }
@@ -769,7 +769,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     datePickerInstance = window.initDatePickerDashboard({
       containerId: "entregadores-resumo-date-picker-container",
       prefix: "entregadores-resumo-dp",
-      defaultPreset: "quinzena",
+      defaultPreset: "quinzena-ant",
       onApply: function (start, end) {
         if (fltDataInicio) fltDataInicio.value = start;
         if (fltDataFim) fltDataFim.value = end;
@@ -790,7 +790,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     });
     if (datePickerInstance && datePickerInstance.applyPreset) {
-      datePickerInstance.applyPreset("quinzena");
+      datePickerInstance.applyPreset("quinzena-ant");
     }
     const r = datePickerInstance ? datePickerInstance.getResolvedRange() : { start: "", end: "" };
     if (fltDataInicio) fltDataInicio.value = r.start;
@@ -846,15 +846,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         const inputOptions = {};
         opcoes.forEach((o) => { inputOptions[o.key] = o.nome; });
         const { value: selecionado } = await window.Swal.fire({
-          title: "Selecione o entregador",
-          html: "Há mais de um entregador com fechamento GERADO. Escolha qual deseja reajustar.",
+          title: "Selecione o motoboy",
+          html: "Há mais de um motoboy com fechamento GERADO. Escolha qual deseja reajustar.",
           showCancelButton: true,
           cancelButtonText: "Cancelar",
           confirmButtonText: "Reajustar",
           input: "select",
           inputOptions,
-          inputPlaceholder: "Selecione o entregador",
-          inputValidator: (v) => (!v ? "Selecione um entregador" : null),
+          inputPlaceholder: "Selecione o motoboy",
+          inputValidator: (v) => (!v ? "Selecione um motoboy" : null),
         });
         if (selecionado) {
           const u = opcoes.find((o) => o.key === selecionado);
@@ -869,7 +869,47 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
     if (acao === "gerar") {
-      if (!periodoInicio || !periodoFim || !executor.tipo || executor.id <= 0) return;
+      if (!periodoInicio || !periodoFim) return;
+      // Se nenhum entregador estiver selecionado no filtro, abre seleção modal (SweetAlert)
+      if (!executor.tipo || executor.id <= 0) {
+        try {
+          const res = await fetch(`${API_ENTREGADORES}/executores?status=ativo`, { credentials: "include" });
+          if (!res.ok) throw new Error("Erro ao carregar entregadores.");
+          const list = await res.json();
+          const arr = Array.isArray(list) ? list : [];
+          if (!arr.length) {
+            if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: "Nenhum motoboy disponível para gerar fechamento." });
+            return;
+          }
+          const inputOptions = {};
+          arr.forEach((e) => {
+            const key = e.id_entregador != null ? "e_" + e.id_entregador : (e.id_motoboy != null ? "m_" + e.id_motoboy : "");
+            if (!key) return;
+            const nome = (e.nome || key).replace(/</g, "&lt;").replace(/"/g, "&quot;");
+            inputOptions[key] = nome;
+          });
+          const { value: selecionado } = await window.Swal.fire({
+            title: "Selecione o motoboy",
+            html: "Nenhum motoboy foi selecionado no filtro. Escolha qual deseja gerar o fechamento.",
+            showCancelButton: true,
+            cancelButtonText: "Cancelar",
+            confirmButtonText: "Gerar fechamento",
+            input: "select",
+            inputOptions,
+            inputPlaceholder: "Selecione o motoboy",
+            inputValidator: (v) => (!v ? "Selecione um motoboy" : null),
+          });
+          if (!selecionado) return;
+          const escolhido = parseExecutorVal(selecionado);
+          if (!escolhido.tipo || escolhido.id <= 0) return;
+          const nomeEscolhido = inputOptions[selecionado] || "Executor";
+          abrirModalFechamento(false, null, escolhido.tipo, escolhido.id, periodoInicio, periodoFim, nomeEscolhido);
+        } catch (err) {
+          console.error("Erro ao selecionar entregador para fechamento:", err);
+          if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao carregar entregadores para seleção." });
+        }
+        return;
+      }
       abrirModalFechamento(false, null, executor.tipo, executor.id, periodoInicio, periodoFim, entNome);
     }
   });
@@ -881,7 +921,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   qs("#btnFiltroLimpar")?.addEventListener("click", () => {
     if (datePickerInstance && datePickerInstance.applyPreset) {
-      datePickerInstance.applyPreset("quinzena");
+      datePickerInstance.applyPreset("quinzena-ant");
       const r = datePickerInstance.getResolvedRange();
       if (fltDataInicio) fltDataInicio.value = r.start;
       if (fltDataFim) fltDataFim.value = r.end;
