@@ -320,6 +320,18 @@ async function gerarPdfFechamentoBases(idFechamento) {
     return ano && mes && dia ? `${dia}/${mes}/${ano}` : dataISO;
   }
 
+  function formatarCnpjPdf(cnpj) {
+    if (cnpj == null || cnpj === "") return "";
+    try {
+      const s = String(cnpj);
+      const digits = s.replace(/\D/g, "");
+      if (digits.length === 14) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+      return s;
+    } catch (_) {
+      return String(cnpj);
+    }
+  }
+
   const tabelaBruta = itens.map(r => {
     const s = r.shopee ?? 0, m = r.mercado_livre ?? 0, a = r.avulso ?? 0;
     const valor = s * pShopee + m * pFlex + a * pAvulso;
@@ -381,37 +393,69 @@ async function gerarPdfFechamentoBases(idFechamento) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-  // Cabeçalho
-  doc.setFontSize(15);
-  doc.text(`RELATÓRIO DE COLETAS — ${base} (Fechamento)`, 105, 20, { align: "center" });
+  // Cabeçalho institucional
+  doc.setFontSize(16);
+  doc.text("RELATÓRIO DE COLETAS", 105, 20, { align: "center" });
   doc.setFontSize(10);
-  doc.text(`Período: ${isoParaBr(de)} até ${isoParaBr(ate)}`, 105, 26, { align: "center" });
+  const emitidoPor = fech.emitido_por || fech.sub_base || "Tracking Saídas";
+  doc.text(`Emitido por: ${emitidoPor}`, 105, 26, { align: "center" });
+  doc.text(`Período: ${isoParaBr(de)} a ${isoParaBr(ate)}`, 105, 32, { align: "center" });
 
   // Texto jurídico base
   doc.setFontSize(9);
   doc.text(
     "Este relatório foi gerado com base nas coletas realizadas e registradas no sistema durante o período informado.",
     14,
-    32,
+    40,
     { maxWidth: 180 }
   );
 
-  // Bloco opcional com identificação do seller
+  // Bloco da empresa (cliente/base): caixa com fundo, borda e rótulos em negrito
   const seller = fech.seller_info || null;
-  let startY = 40;
-  if (seller) {
+  const marginLeft = 14;
+  const pageWidth = 210;
+  const boxWidth = pageWidth - marginLeft * 2;
+  const paddingBox = 4;
+  const lineH = 5;
+  let startY = 48;
+  if (seller || base) {
     doc.setFontSize(10);
-    doc.text(`Nome/Base: ${seller.nome_base || base}`, 14, 38);
-    let yId = 43;
-    if (seller.cnpj) {
-      doc.text(`CNPJ: ${seller.cnpj}`, 14, yId);
-      yId += 5;
+    const nomeEmpresa = (seller && seller.nome_base) ? seller.nome_base : base;
+    const cnpjVal = seller && seller.cnpj ? formatarCnpjPdf(seller.cnpj) : null;
+    const enderecoVal = (seller && seller.endereco_completo) ? seller.endereco_completo : null;
+    let boxTop = startY;
+    let contentH = paddingBox;
+    contentH += lineH;
+    if (cnpjVal) contentH += lineH;
+    if (enderecoVal) {
+      const enderecoLines = doc.splitTextToSize(enderecoVal, boxWidth - paddingBox * 2 - 22);
+      contentH += lineH * enderecoLines.length;
     }
-    if (seller.endereco_completo) {
-      doc.text(`Endereço: ${seller.endereco_completo}`, 14, yId, { maxWidth: 180 });
-      yId += 5;
+    contentH += paddingBox;
+    doc.setFillColor(245, 245, 245);
+    doc.setDrawColor(200, 200, 200);
+    doc.rect(marginLeft, boxTop, boxWidth, contentH, "FD");
+    let cursorY = boxTop + paddingBox;
+    doc.setFont(undefined, "bold");
+    doc.text("Empresa:", marginLeft + paddingBox, cursorY);
+    doc.setFont(undefined, "normal");
+    doc.text(nomeEmpresa || base || "—", marginLeft + paddingBox + 22, cursorY);
+    cursorY += lineH;
+    if (cnpjVal) {
+      doc.setFont(undefined, "bold");
+      doc.text("CNPJ:", marginLeft + paddingBox, cursorY);
+      doc.setFont(undefined, "normal");
+      doc.text(cnpjVal, marginLeft + paddingBox + 22, cursorY);
+      cursorY += lineH;
     }
-    startY = yId + 2;
+    if (enderecoVal) {
+      doc.setFont(undefined, "bold");
+      doc.text("Endereço:", marginLeft + paddingBox, cursorY);
+      doc.setFont(undefined, "normal");
+      const enderecoLines = doc.splitTextToSize(enderecoVal, boxWidth - paddingBox * 2 - 22);
+      doc.text(enderecoLines, marginLeft + paddingBox + 22, cursorY);
+    }
+    startY = boxTop + contentH + 6;
   }
 
   const colunasFixas = {
@@ -449,7 +493,7 @@ async function gerarPdfFechamentoBases(idFechamento) {
     columnStyles: colunasFixas
   });
 
-  // Seção Pacotes Grandes (G) — antes do resumo financeiro
+  // Seção Pacotes Grandes (G) — somente se totalG > 0, antes do resumo financeiro
   let yAfterTables = doc.lastAutoTable.finalY + 10;
   if (totalG > 0) {
     doc.setFontSize(13);
@@ -472,43 +516,45 @@ async function gerarPdfFechamentoBases(idFechamento) {
     yAfterTables = doc.lastAutoTable.finalY + 8;
   }
 
-  // Resumo financeiro destacado
-  const valorBrutoTxt = `Valor Bruto: R$ ${valorBrutoFech.toFixed(2).replace(".", ",")}`;
-  const valorCancTxt = `Valor Cancelado: R$ ${valorCancelFech.toFixed(2).replace(".", ",")}`;
-  const ajustesMaisTxt = `Ajustes (+): R$ ${valorAdicao.toFixed(2).replace(".", ",")}`;
-  const ajustesMenosTxt = `Ajustes (-): R$ ${valorSubtracao.toFixed(2).replace(".", ",")}`;
-
+  // Resumo financeiro: valores à direita, linha divisória, VALOR FINAL em destaque
+  const fmtVal = (v) => `R$ ${Number(v).toFixed(2).replace(".", ",")}`;
+  const xRight = 190;
   doc.setFontSize(14);
   doc.text("RESUMO FINANCEIRO", 14, yAfterTables);
   doc.setFontSize(11);
   const yResumo = yAfterTables + 8;
-  doc.text(valorBrutoTxt, 14, yResumo);
+  doc.text("Valor Bruto:", 14, yResumo);
+  doc.text(fmtVal(valorBrutoFech), xRight, yResumo, { align: "right" });
   doc.setTextColor(200, 0, 0);
-  doc.text(valorCancTxt, 14, yResumo + 6);
+  doc.text("(-) Valor Cancelado:", 14, yResumo + 6);
+  doc.text(fmtVal(valorCancelFech), xRight, yResumo + 6, { align: "right" });
   doc.setTextColor(0, 0, 0);
-  doc.text(ajustesMaisTxt, 14, yResumo + 12);
-  doc.text(ajustesMenosTxt, 14, yResumo + 18);
-
-  // Destaque para o valor final
-  const yValorFinal = yResumo + 30;
+  doc.text("(+) Ajustes:", 14, yResumo + 12);
+  doc.text(fmtVal(valorAdicao), xRight, yResumo + 12, { align: "right" });
+  doc.text("(-) Ajustes:", 14, yResumo + 18);
+  doc.text(fmtVal(valorSubtracao), xRight, yResumo + 18, { align: "right" });
+  const yLinha = yResumo + 24;
+  doc.setDrawColor(200, 200, 200);
+  doc.line(14, yLinha, xRight, yLinha);
+  doc.setFont(undefined, "bold");
   doc.setFontSize(13);
-  doc.setTextColor(0, 128, 0);
-  doc.text(
-    `VALOR FINAL A RECEBER: R$ ${valorFinalFech.toFixed(2).replace(".", ",")}`,
-    14,
-    yValorFinal
-  );
+  doc.setTextColor(0, 100, 0);
+  doc.text("VALOR FINAL A RECEBER:", 14, yLinha + 8);
+  doc.text(fmtVal(valorFinalFech), xRight, yLinha + 8, { align: "right" });
+  doc.setFont(undefined, "normal");
   doc.setTextColor(0, 0, 0);
 
-  // Texto final de aceite
-  const yRodapeTexto = yValorFinal + 10;
-  doc.setFontSize(9);
+  // Rodapé legal: fonte menor, cor acinzentada, centralizado (texto de aceite; o primeiro já está no topo)
+  const yRodape = yLinha + 18;
+  doc.setFontSize(8);
+  doc.setTextColor(120, 120, 120);
   doc.text(
     "Em caso de divergência, comunicar em até 48 horas. Após esse prazo, considera-se o presente relatório aceito.",
-    14,
-    yRodapeTexto,
-    { maxWidth: 180 }
+    105,
+    yRodape,
+    { align: "center", maxWidth: 170 }
   );
+  doc.setTextColor(0, 0, 0);
 
   const ano = new Date().getFullYear();
   doc.setFontSize(10);

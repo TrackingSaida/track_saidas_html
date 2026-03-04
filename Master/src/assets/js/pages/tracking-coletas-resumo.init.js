@@ -672,12 +672,9 @@ async function carregarResumoCompleto() {
     qs("#fech-base-display").textContent = base || "—";
     qs("#fech-periodo-display").textContent = formatarPeriodo(periodoInicio, periodoFim);
 
-    // Resetar campos de ajuste G no início
-    state.ajusteGValor = 0;
-    state.ajusteGMotivo = "";
-    const inpAjusteGValor = qs("#fech-ajuste-g-valor");
+    const inpAjusteGValorUnit = qs("#fech-ajuste-g-valor-unit");
     const inpAjusteGMotivo = qs("#fech-ajuste-g-motivo");
-    if (inpAjusteGValor) inpAjusteGValor.value = "0";
+    if (inpAjusteGValorUnit) inpAjusteGValorUnit.value = "0";
     if (inpAjusteGMotivo) inpAjusteGMotivo.value = "";
 
     if (modoEdicao && idFech) {
@@ -704,19 +701,29 @@ async function carregarResumoCompleto() {
         state.total_pacotes_g = data.total_pacotes_g ?? 0;
         // Ajustes gravados no fechamento (quando em modo edição)
         state.ajustesFechamento = [];
+        const motivoAd = (data.motivo_adicao || "").trim();
+        const isOrigemG = (m) => (m || "").includes("Ajuste Pacotes G") || (m || "").includes("[Pacotes G]");
         if ((data.valor_adicao || 0) > 0) {
           state.ajustesFechamento.push({
             tipo: "ADIÇÃO",
             valor: Number(data.valor_adicao) || 0,
-            motivo: data.motivo_adicao || ""
+            motivo: motivoAd,
+            _origemG: isOrigemG(motivoAd)
           });
         }
         if ((data.valor_subtracao || 0) > 0) {
           state.ajustesFechamento.push({
             tipo: "SUBTRAÇÃO",
             valor: Number(data.valor_subtracao) || 0,
-            motivo: data.motivo_subtracao || ""
+            motivo: (data.motivo_subtracao || "").trim(),
+            _origemG: isOrigemG(data.motivo_subtracao)
           });
+        }
+        if (!state.fechamentoPrecos || Object.keys(state.fechamentoPrecos || {}).length === 0) {
+          const basesRes = await fetch(API_BASES, { credentials: "include" });
+          const bases = await basesRes.json();
+          const baseObj = Array.isArray(bases) ? bases.find(b => String(b.base || "").toUpperCase() === String(base || "").toUpperCase()) : null;
+          state.fechamentoPrecos = baseObj ? { shopee: baseObj.shopee ?? 0, ml: baseObj.ml ?? 0, avulso: baseObj.avulso ?? 0 } : (state.fechamentoPrecos || {});
         }
         if (data.divergencia_valor && (data.valor_final_recalculado != null || data.valor_bruto_recalculado != null)) {
           const valorAntigo = Number(data.valor_final || 0);
@@ -749,14 +756,9 @@ async function carregarResumoCompleto() {
             }
           }
         }
-        if (!state.fechamentoPrecos || Object.keys(state.fechamentoPrecos || {}).length === 0) {
-          const basesRes = await fetch(API_BASES, { credentials: "include" });
-          const bases = await basesRes.json();
-          const baseObj = Array.isArray(bases) ? bases.find(b => String(b.base || "").toUpperCase() === String(base || "").toUpperCase()) : null;
-          state.fechamentoPrecos = baseObj ? { shopee: baseObj.shopee ?? 0, ml: baseObj.ml ?? 0, avulso: baseObj.avulso ?? 0 } : (state.fechamentoPrecos || {});
-        }
         renderListaAjustesBase();
         atualizarResumoModal();
+        atualizarBlocoAjusteG();
       } catch (err) {
         console.error(err);
         if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao carregar fechamento." });
@@ -766,8 +768,6 @@ async function carregarResumoCompleto() {
       try {
         // Novo fechamento: limpa ajustes anteriores
         state.ajustesFechamento = [];
-        state.ajusteGValor = 0;
-        state.ajusteGMotivo = "";
         const params = new URLSearchParams({ base, periodo_inicio: periodoInicio, periodo_fim: periodoFim });
         const res = await fetch(`${API_FECHAMENTOS}/calcular?${params}`, { credentials: "include" });
         if (!res.ok) throw new Error(res.statusText);
@@ -784,15 +784,6 @@ async function carregarResumoCompleto() {
         state.total_g_ml = data.total_g_ml ?? 0;
         state.total_g_avulso = data.total_g_avulso ?? 0;
         state.total_pacotes_g = data.total_pacotes_g ?? 0;
-        // Ajuste G apenas para preview (se vier do backend)
-        if (typeof data.ajuste_g_valor !== "undefined" && data.ajuste_g_valor !== null) {
-          state.ajusteGValor = Number(data.ajuste_g_valor) || 0;
-          state.ajusteGMotivo = data.ajuste_g_motivo || "";
-          const inpAjusteGValor2 = qs("#fech-ajuste-g-valor");
-          const inpAjusteGMotivo2 = qs("#fech-ajuste-g-motivo");
-          if (inpAjusteGValor2) inpAjusteGValor2.value = String(state.ajusteGValor || 0);
-          if (inpAjusteGMotivo2) inpAjusteGMotivo2.value = state.ajusteGMotivo || "";
-        }
       } catch (err) {
         console.error(err);
         if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao calcular fechamento." });
@@ -802,8 +793,46 @@ async function carregarResumoCompleto() {
 
     renderTabelaFechamentoItens();
     atualizarResumoModal();
+    atualizarBlocoAjusteG();
     const modal = new bootstrap.Modal(qs("#modalFechamentoBases"));
     modal.show();
+  }
+
+  function atualizarBlocoAjusteG() {
+    const totalG = state.total_pacotes_g ?? 0;
+    const msgZero = qs("#fech-ajuste-g-msg-zero");
+    const campos = qs("#fech-ajuste-g-campos");
+    const totalNum = qs("#fech-ajuste-g-total-num");
+    const valorUnit = qs("#fech-ajuste-g-valor-unit");
+    const motivo = qs("#fech-ajuste-g-motivo");
+    const preview = qs("#fech-ajuste-g-preview");
+    const btnAplicar = qs("#btnAplicarAjusteG");
+    if (totalNum) totalNum.textContent = String(totalG);
+    if (totalG === 0) {
+      if (msgZero) { msgZero.classList.remove("d-none"); msgZero.textContent = "Não existem Pacotes G neste período."; }
+      if (campos) campos.classList.add("d-none");
+      if (valorUnit) { valorUnit.disabled = true; valorUnit.value = "0"; }
+      if (motivo) { motivo.disabled = true; motivo.value = ""; }
+      if (preview) preview.textContent = "";
+      if (btnAplicar) btnAplicar.disabled = true;
+      return;
+    }
+    if (msgZero) msgZero.classList.add("d-none");
+    if (campos) campos.classList.remove("d-none");
+    if (valorUnit) valorUnit.disabled = false;
+    if (motivo) motivo.disabled = false;
+    if (btnAplicar) btnAplicar.disabled = false;
+    const vUnit = parseFloat(valorUnit?.value || "0") || 0;
+    const totalCalc = totalG * vUnit;
+    if (preview) {
+      if (vUnit <= 0) {
+        preview.textContent = "Informe o valor por pacote para ver o preview.";
+        preview.classList.add("text-warning");
+      } else {
+        preview.textContent = `${totalG} × ${vUnit.toFixed(2).replace(".", ",")} = R$ ${formatarMoeda(totalCalc)}`;
+        preview.classList.remove("text-warning");
+      }
+    }
   }
 
   function renderTabelaFechamentoItens() {
@@ -888,22 +917,19 @@ async function carregarResumoCompleto() {
       valorCancelados += cs * p_s + cm * p_m + ca * p_a;
     });
     const totalReceberBase = valorBruto - valorCancelados;
-    // Ajustes manuais (adição/subtração)
     let totalAjustes = 0;
     state.ajustesFechamento.forEach((a) => {
       const v = Number(a.valor) || 0;
       if (a.tipo === "ADIÇÃO") totalAjustes += v;
       else totalAjustes -= v;
     });
-    // Ajuste específico de G (valor pode ser positivo ou negativo)
-    const ajusteG = Number(state.ajusteGValor || 0);
-    const totalReceber = totalReceberBase + totalAjustes + ajusteG;
+    const totalReceber = totalReceberBase + totalAjustes;
     qs("#fech-valor-bruto").textContent = formatarMoeda(valorBruto);
     qs("#fech-valor-cancelados").textContent = formatarMoeda(valorCancelados);
     const elTotalAj = qs("#fech-total-ajustes-base");
     if (elTotalAj) {
-      elTotalAj.textContent = formatarMoeda(totalAjustes + ajusteG);
-      elTotalAj.className = (totalAjustes + ajusteG) < 0 ? "text-danger" : "";
+      elTotalAj.textContent = formatarMoeda(totalAjustes);
+      elTotalAj.className = totalAjustes < 0 ? "text-danger" : "";
     }
     qs("#fech-total-receber").textContent = formatarMoeda(totalReceber);
     const elG = qs("#fech-g-resumo-base");
@@ -948,13 +974,12 @@ async function carregarResumoCompleto() {
       }
     });
 
-    // Ajuste específico G vindo dos inputs
-    const inpAjusteGValor3 = qs("#fech-ajuste-g-valor");
-    const inpAjusteGMotivo3 = qs("#fech-ajuste-g-motivo");
-    const ajusteGValor = inpAjusteGValor3 ? parseFloat(inpAjusteGValor3.value || "0") || 0 : 0;
-    const ajusteGMotivo = (inpAjusteGMotivo3?.value || "").trim();
-    state.ajusteGValor = ajusteGValor;
-    state.ajusteGMotivo = ajusteGMotivo;
+    const totalG = state.total_pacotes_g ?? 0;
+    const temAjusteG = state.ajustesFechamento.some((a) => isAjusteG(a));
+    if (totalG > 0 && !temAjusteG) {
+      if (window.Swal) Swal.fire({ icon: "warning", title: "Ajuste de Pacotes G", text: "Existem Pacotes G neste período. Aplique o ajuste de Pacotes G antes de salvar ou remova os pacotes G do período." });
+      return;
+    }
 
     const btn = document.getElementById("btnGerarFechamentoModal");
     if (btn) btn.disabled = true;
@@ -978,8 +1003,8 @@ async function carregarResumoCompleto() {
         }
         if (window.Swal) Swal.fire({ icon: "success", title: "Reajuste salvo" });
       } else {
-        // Quando houver pacotes G e nenhum ajuste, listar G em SweetAlert antes de gerar
-        if (window.Swal && (state.total_pacotes_g || 0) > 0 && state.ajustesFechamento.length === 0) {
+        // Quando houver pacotes G e nenhum ajuste aplicado, listar G em SweetAlert antes de gerar
+        if (window.Swal && (state.total_pacotes_g || 0) > 0 && !state.ajustesFechamento.some((a) => isAjusteG(a))) {
           try {
             const paramsG = new URLSearchParams();
             if (base) paramsG.append("base", base);
@@ -1045,8 +1070,8 @@ async function carregarResumoCompleto() {
             motivo_adicao: motivoAdicao || null,
             valor_subtracao: valorSubtracao,
             motivo_subtracao: motivoSubtracao || null,
-            ajuste_g_valor: ajusteGValor,
-            ajuste_g_motivo: ajusteGMotivo || null
+            ajuste_g_valor: 0,
+            ajuste_g_motivo: null
           })
         });
         if (!res.ok) {
@@ -1098,6 +1123,47 @@ async function carregarResumoCompleto() {
       atualizarResumoModal();
     });
   }
+
+  function isAjusteG(a) {
+    return a._origemG === true || ((a.motivo || "").includes("Ajuste Pacotes G") || (a.motivo || "").includes("[Pacotes G]"));
+  }
+
+  const btnAplicarAjusteG = document.getElementById("btnAplicarAjusteG");
+  if (btnAplicarAjusteG) {
+    btnAplicarAjusteG.addEventListener("click", () => {
+      const totalG = state.total_pacotes_g ?? 0;
+      if (totalG <= 0) {
+        if (window.Swal) Swal.fire({ icon: "warning", title: "Sem pacotes G", text: "Não existem Pacotes G neste período." });
+        return;
+      }
+      const valorUnit = parseFloat(qs("#fech-ajuste-g-valor-unit")?.value || "0") || 0;
+      const motivo = (qs("#fech-ajuste-g-motivo")?.value || "").trim();
+      if (valorUnit <= 0) {
+        if (window.Swal) Swal.fire({ icon: "warning", title: "Valor inválido", text: "Informe um valor por pacote maior que zero." });
+        return;
+      }
+      if (!motivo) {
+        if (window.Swal) Swal.fire({ icon: "warning", title: "Justificativa obrigatória", text: "Informe o motivo do ajuste de Pacotes G." });
+        return;
+      }
+      const valorTotal = totalG * valorUnit;
+      state.ajustesFechamento = state.ajustesFechamento.filter((a) => !isAjusteG(a));
+      state.ajustesFechamento.push({
+        tipo: "ADIÇÃO",
+        valor: Math.round(valorTotal * 100) / 100,
+        motivo: "Ajuste Pacotes G - " + motivo,
+        _origemG: true
+      });
+      renderListaAjustesBase();
+      atualizarResumoModal();
+      atualizarBlocoAjusteG();
+    });
+  }
+
+  const fechAjusteGValorUnit = qs("#fech-ajuste-g-valor-unit");
+  const fechAjusteGMotivo = qs("#fech-ajuste-g-motivo");
+  if (fechAjusteGValorUnit) fechAjusteGValorUnit.addEventListener("input", atualizarBlocoAjusteG);
+  if (fechAjusteGMotivo) fechAjusteGMotivo.addEventListener("input", atualizarBlocoAjusteG);
 
 
     // ====== Date Picker ======

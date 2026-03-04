@@ -377,16 +377,30 @@
               </div>
             </div>
 
-            <div class="mb-3">
-              <label class="form-label form-label-modal fw-semibold">Ajuste específico para Pacotes Grandes (G)</label>
-              <div class="row g-2">
-                <div class="col-md-3">
-                  <label class="form-label form-label-modal small">Valor ajuste G (R$)</label>
-                  <input type="number" id="fech-ajuste-g-valor" class="form-control form-control-sm" step="0.01" value="0" />
-                </div>
-                <div class="col-md-9">
-                  <label class="form-label form-label-modal small">Motivo ajuste G</label>
-                  <input type="text" id="fech-ajuste-g-motivo" class="form-control form-control-sm" placeholder="Ex: Ajuste referente a pacotes grandes (G)" />
+            <div class="mb-3 card border fechamento-ajuste-g-card" id="fech-ajuste-g-container">
+              <div class="card-body">
+                <label class="form-label form-label-modal fw-semibold">Ajuste para Pacotes Grandes (G)</label>
+                <p class="small text-muted mb-2">O ajuste de Pacotes G será convertido automaticamente em ajuste financeiro no fechamento.</p>
+                <div id="fech-ajuste-g-msg-zero" class="small text-muted mb-2 d-none">Não existem Pacotes G neste período.</div>
+                <div id="fech-ajuste-g-campos">
+                  <div class="mb-2">
+                    <span class="form-label-modal small fw-semibold">Quantidade total de Pacotes G:</span>
+                    <span id="fech-ajuste-g-total-num" class="ms-1">0</span>
+                  </div>
+                  <div class="row g-2 mb-2">
+                    <div class="col-md-3">
+                      <label class="form-label form-label-modal small">Valor por pacote (R$)</label>
+                      <input type="number" id="fech-ajuste-g-valor-unit" class="form-control form-control-sm text-end" step="0.01" min="0" value="0" placeholder="0,00" />
+                    </div>
+                    <div class="col-md-9">
+                      <label class="form-label form-label-modal small">Motivo do ajuste</label>
+                      <input type="text" id="fech-ajuste-g-motivo" class="form-control form-control-sm" placeholder="Ex: Adicional por pacote grande" />
+                    </div>
+                  </div>
+                  <div id="fech-ajuste-g-preview" class="small mb-2 text-secondary"></div>
+                  <button type="button" id="btnAplicarAjusteG" class="btn btn-outline-primary btn-sm">
+                    <i class="ri-add-circle-line me-1"></i> Aplicar Ajuste de Pacotes G
+                  </button>
                 </div>
               </div>
             </div>
@@ -397,12 +411,12 @@
                 <span id="fech-g-resumo-base">G Shopee: 0 · G ML: 0 · G Avulso: 0 · Total G: 0</span>
               </div>
             </div>
-            <div class="fechamento-resumo-compacto card bg-light border-0 shadow-sm">
-              <div class="card-body py-2 d-flex flex-wrap align-items-center gap-3 gap-md-4">
-                <span class="form-label-modal"><span class="text-nowrap">Valor Bruto:</span> <strong id="fech-valor-bruto">R$ 0,00</strong></span>
-                <span class="form-label-modal"><span class="text-nowrap">Valor Cancelados:</span> <strong id="fech-valor-cancelados" class="text-danger">R$ 0,00</strong></span>
-                <span class="form-label-modal"><span class="text-nowrap">Total ajustes:</span> <strong id="fech-total-ajustes-base">R$ 0,00</strong></span>
-                <span class="form-label-modal fw-bold ms-auto fechamento-total-label"><span class="text-nowrap">TOTAL A RECEBER:</span> <span id="fech-total-receber" class="fechamento-total-valor">R$ 0,00</span></span>
+            <div class="fechamento-resumo-compacto card border-0 shadow-sm bg-light fechamento-resumo-final" id="fech-resumo-financeiro-card">
+              <div class="card-body py-3 d-flex flex-wrap align-items-center gap-3 gap-md-4">
+                <span class="form-label-modal"><span class="text-nowrap">Valor Bruto:</span> <strong id="fech-valor-bruto" class="text-end d-inline-block" style="min-width:5rem">R$ 0,00</strong></span>
+                <span class="form-label-modal"><span class="text-nowrap">Valor Cancelados:</span> <strong id="fech-valor-cancelados" class="text-danger text-end d-inline-block" style="min-width:5rem">R$ 0,00</strong></span>
+                <span class="form-label-modal"><span class="text-nowrap">Total ajustes:</span> <strong id="fech-total-ajustes-base" class="text-end d-inline-block" style="min-width:5rem">R$ 0,00</strong></span>
+                <span class="form-label-modal fw-bold ms-auto fechamento-total-label"><span class="text-nowrap">TOTAL A RECEBER:</span> <span id="fech-total-receber" class="fechamento-total-valor text-end d-inline-block" style="min-width:5rem">R$ 0,00</span></span>
               </div>
             </div>
           </div>
