@@ -255,11 +255,18 @@
       var ml = params.get("ml");
       var shopee = params.get("shopee");
       var subBase = params.get("sub_base");
+      var nomeFantasia = params.get("nome_fantasia");
       var sellerName = params.get("seller_name");
       var erro = params.get("erro");
 
+      // Exibir nome fantasia do owner quando existir; caso contrário, sub_base do id_owner
       var transportadoraNome = null;
-      if (subBase) try { transportadoraNome = decodeURIComponent(subBase); } catch (e) { transportadoraNome = subBase; }
+      if (nomeFantasia && nomeFantasia.trim()) {
+        try { transportadoraNome = decodeURIComponent(nomeFantasia.trim()); } catch (e) { transportadoraNome = nomeFantasia.trim(); }
+      }
+      if (!transportadoraNome && subBase) {
+        try { transportadoraNome = decodeURIComponent(subBase); } catch (e) { transportadoraNome = subBase; }
+      }
       var sellerNameDecoded = null;
       if (sellerName) try { sellerNameDecoded = decodeURIComponent(sellerName); } catch (e) { sellerNameDecoded = sellerName; }
 
