@@ -222,23 +222,31 @@ async function apiDelete(id) {
     }
   }
 
-  async function carregarSellerDados() {
+  function preencherFormSellerDados(seller) {
+    if (!seller) return;
+    const setVal = (id, v) => {
+      const el = qs(id);
+      if (el && v != null) el.value = v || "";
+    };
+    setVal("#sellerCnpj", seller.cnpj ? maskCnpj(seller.cnpj) : "");
+    setVal("#sellerCep", seller.cep ? maskCep(seller.cep) : "");
+    setVal("#sellerRua", seller.rua || "");
+    setVal("#sellerNumero", seller.numero || "");
+    setVal("#sellerComplemento", seller.complemento || "");
+    setVal("#sellerBairro", seller.bairro || "");
+    setVal("#sellerCidade", seller.cidade || "");
+    setVal("#sellerEstado", seller.estado || "");
+  }
+
+  async function carregarSellerDados(baseId = null) {
     if (!OWNER_INFO || !OWNER_INFO.id_owner) return;
     try {
-      const seller = await http(`${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados`);
+      const url = baseId != null
+        ? `${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados?base_id=${encodeURIComponent(baseId)}`
+        : `${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados`;
+      const seller = await http(url);
       if (!seller) return;
-      const setVal = (id, v) => {
-        const el = qs(id);
-        if (el && v != null) el.value = v || "";
-      };
-      setVal("#sellerCnpj", seller.cnpj || "");
-      setVal("#sellerCep", seller.cep || "");
-      setVal("#sellerRua", seller.rua || "");
-      setVal("#sellerNumero", seller.numero || "");
-      setVal("#sellerComplemento", seller.complemento || "");
-      setVal("#sellerBairro", seller.bairro || "");
-      setVal("#sellerCidade", seller.cidade || "");
-      setVal("#sellerEstado", seller.estado || "");
+      preencherFormSellerDados(seller);
     } catch (err) {
       // se 404 ou outro erro, apenas não preenche
     }
@@ -435,6 +443,11 @@ async function apiDelete(id) {
       try {
         const data = await apiGet(SELECTED_ID);
         openForm("edit", data);
+        // Carregar Dados do Seller/Base para a base selecionada (preenche CNPJ, CEP, endereço no modal)
+        if (OWNER_INFO?.id_owner) {
+          const baseId = data?.id_base ?? data?.id ?? Number(SELECTED_ID);
+          await carregarSellerDados(baseId);
+        }
       } catch (err) {
         toast("Erro ao carregar base.", false);
       }

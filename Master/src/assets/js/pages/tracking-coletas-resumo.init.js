@@ -1444,7 +1444,12 @@ async function carregarResumoCompleto() {
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err?.detail || res.statusText || "Erro ao criar");
+          const msg = Array.isArray(err?.detail) ? (err.detail[0]?.msg || err.detail[0]) : (err?.detail || res.statusText);
+          if (res.status === 409) {
+            Swal.fire({ icon: "warning", title: "Lançamento já existente", text: msg || "Já existe um lançamento para essa mesma data e base. Use Editar no registro existente." });
+            return;
+          }
+          throw new Error(msg || "Erro ao criar");
         }
         const coleta = await res.json();
         Swal.fire({ icon: "success", title: "Coleta criada", text: `Valor total: ${formatarMoeda(coleta.valor_total)}` });
