@@ -1418,6 +1418,9 @@ async function carregarResumoCompleto() {
     const avulso = parseInt(modalAvulso.value, 10) || 0;
     const pacotes_g = parseInt(modalPacotesG?.value, 10);
     const pacotesGVal = isNaN(pacotes_g) ? 0 : Math.max(0, pacotes_g);
+    const g_shopee = chkGshopee?.checked ? (parseInt(inputGshopee?.value, 10) || 1) : 0;
+    const g_ml = chkGml?.checked ? (parseInt(inputGml?.value, 10) || 1) : 0;
+    const g_avulso = chkGavulso?.checked ? (parseInt(inputGavulso?.value, 10) || 1) : 0;
 
     if (!base) {
       Swal.fire({ icon: "warning", title: "Campo obrigatório", text: "Selecione uma base." });
@@ -1431,7 +1434,7 @@ async function carregarResumoCompleto() {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shopee, mercado_livre: ml, avulso, pacotes_g: pacotesGVal })
+          body: JSON.stringify({ shopee, mercado_livre: ml, avulso, pacotes_g: pacotesGVal, g_shopee, g_ml, g_avulso })
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -1444,7 +1447,7 @@ async function carregarResumoCompleto() {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data, base, shopee, mercado_livre: ml, avulso, pacotes_g: pacotesGVal })
+          body: JSON.stringify({ data, base, shopee, mercado_livre: ml, avulso, pacotes_g: pacotesGVal, g_shopee, g_ml, g_avulso })
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
