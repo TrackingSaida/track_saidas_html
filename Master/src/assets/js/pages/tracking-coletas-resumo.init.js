@@ -1289,9 +1289,50 @@ async function carregarResumoCompleto() {
   const modalShopee = document.getElementById("modalColetaManualShopee");
   const modalMl = document.getElementById("modalColetaManualMl");
   const modalAvulso = document.getElementById("modalColetaManualAvulso");
-  const modalPacotesG = document.getElementById("modalColetaManualPacotesG");
+  // Controles de Pacotes G por serviço
+  const modalPacotesG = document.getElementById("modalColetaManualPacotesG"); // hidden total
+  const chkGshopee = document.getElementById("chkColetaGshopee");
+  const chkGml = document.getElementById("chkColetaGml");
+  const chkGavulso = document.getElementById("chkColetaGavulso");
+  const inputGshopee = document.getElementById("inputColetaGshopee");
+  const inputGml = document.getElementById("inputColetaGml");
+  const inputGavulso = document.getElementById("inputColetaGavulso");
   const modalId = document.getElementById("modalColetaManualId");
   const modalSalvar = document.getElementById("modalColetaManualSalvar");
+
+  function recomputarPacotesGTotal() {
+    const vShopee = chkGshopee?.checked ? (parseInt(inputGshopee.value, 10) || 1) : 0;
+    const vMl = chkGml?.checked ? (parseInt(inputGml.value, 10) || 1) : 0;
+    const vAvulso = chkGavulso?.checked ? (parseInt(inputGavulso.value, 10) || 1) : 0;
+    const total = Math.max(0, vShopee + vMl + vAvulso);
+    if (modalPacotesG) modalPacotesG.value = String(total);
+  }
+
+  function configurarToggleG(chk, input) {
+    if (!chk || !input) return;
+    chk.addEventListener("change", () => {
+      if (chk.checked) {
+        const n = parseInt(input.value, 10);
+        if (!n || n <= 0) input.value = "1";
+        input.disabled = false;
+      } else {
+        input.disabled = true;
+      }
+      recomputarPacotesGTotal();
+    });
+    input.addEventListener("input", () => {
+      let n = parseInt(input.value, 10);
+      if (!n || n <= 0) {
+        n = 1;
+        input.value = "1";
+      }
+      recomputarPacotesGTotal();
+    });
+  }
+
+  configurarToggleG(chkGshopee, inputGshopee);
+  configurarToggleG(chkGml, inputGml);
+  configurarToggleG(chkGavulso, inputGavulso);
 
   function abrirModalNova() {
     modalId.value = "";
@@ -1300,6 +1341,12 @@ async function carregarResumoCompleto() {
     modalShopee.value = "0";
     modalMl.value = "0";
     modalAvulso.value = "0";
+    if (chkGshopee) chkGshopee.checked = false;
+    if (chkGml) chkGml.checked = false;
+    if (chkGavulso) chkGavulso.checked = false;
+    if (inputGshopee) { inputGshopee.value = "1"; inputGshopee.disabled = true; }
+    if (inputGml) { inputGml.value = "1"; inputGml.disabled = true; }
+    if (inputGavulso) { inputGavulso.value = "1"; inputGavulso.disabled = true; }
     if (modalPacotesG) modalPacotesG.value = "0";
     modalData.disabled = false;
     modalBase.disabled = false;
@@ -1331,7 +1378,24 @@ async function carregarResumoCompleto() {
     modalShopee.value = shopee;
     modalMl.value = ml;
     modalAvulso.value = avulso;
-    if (modalPacotesG) modalPacotesG.value = pacotesG;
+    const totalG = parseInt(pacotesG, 10) || 0;
+    // Distribui G somente em Shopee por padrão ao editar (user pode ajustar)
+    if (chkGshopee && inputGshopee && chkGml && inputGml && chkGavulso && inputGavulso) {
+      chkGml.checked = false;
+      chkGavulso.checked = false;
+      inputGml.disabled = true;
+      inputGavulso.disabled = true;
+      if (totalG > 0) {
+        chkGshopee.checked = true;
+        inputGshopee.disabled = false;
+        inputGshopee.value = String(totalG);
+      } else {
+        chkGshopee.checked = false;
+        inputGshopee.disabled = true;
+        inputGshopee.value = "1";
+      }
+    }
+    if (modalPacotesG) modalPacotesG.value = String(Math.max(0, totalG));
     modalData.disabled = true;
     modalBase.disabled = true;
     document.getElementById("modalColetaManualLabel").textContent = "Editar Coleta Manual";
