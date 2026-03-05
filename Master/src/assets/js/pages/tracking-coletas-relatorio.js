@@ -392,6 +392,11 @@ async function gerarPdfFechamentoBases(idFechamento) {
   const ajusteGTotal = Number(fech.ajuste_g_valor ?? 0);
   const valorUnitarioG = totalG > 0 && ajusteGTotal !== 0 ? ajusteGTotal / totalG : 0;
 
+  // Exibir seções apenas quando houver dados: cancelados > 0 ou pacotes G > 0 (ou ajuste G lançado)
+  const totalCancQtd = tabelaCanc.reduce((a, b) => a + b.total, 0);
+  const temCancelados = totalCancQtd > 0 || totalCanceladosValor > 0;
+  const temPacotesG = totalG > 0 || ajusteGTotal !== 0;
+
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
@@ -481,61 +486,71 @@ async function gerarPdfFechamentoBases(idFechamento) {
     columnStyles: colunasFixas
   });
 
-  // Tabela de cancelados
-  doc.setFontSize(13);
-  doc.text("REGISTROS CANCELADOS", 14, doc.lastAutoTable.finalY + 10);
-  doc.autoTable({
-    startY: doc.lastAutoTable.finalY + 13,
-    head: [["Data", "Cancel. Shopee", "Cancel. ML", "Cancel. Avulso", "Total", "Valor"]],
-    body: tabelaCanc.map(l => [isoParaBr(l.data), l.shopee, l.flex, l.avulso, l.total, `R$ ${l.valor.toFixed(2).replace(".", ",")}`]),
-    theme: "grid",
-    styles: { fontSize: 9, halign: "center" },
-    headStyles: { fillColor: [25, 135, 84] },
-    alternateRowStyles: { fillColor: [245, 245, 245] },
-    columnStyles: colunasFixas
-  });
-
-  // Seção Pacotes Grandes (G) — somente se totalG > 0, antes do resumo financeiro
+  // Seções condicionais: só exibir se houver dados
   let yAfterTables = doc.lastAutoTable.finalY + 10;
-  if (totalG > 0) {
+
+  if (temCancelados) {
     doc.setFontSize(13);
-    doc.text("PACOTES GRANDES (G)", 14, yAfterTables);
-    yAfterTables += 5;
+    doc.text("REGISTROS CANCELADOS", 14, yAfterTables);
     doc.autoTable({
-      startY: yAfterTables,
-      head: [["Serviço", "Quantidade", "Valor unitário", "Valor total"]],
-      body: [
-        [
-          "Shopee",
-          totalGShopee,
-          valorUnitarioG ? `R$ ${valorUnitarioG.toFixed(2).replace(".", ",")}` : "-",
-          valorUnitarioG ? `R$ ${(valorUnitarioG * totalGShopee).toFixed(2).replace(".", ",")}` : "-"
-        ],
-        [
-          "Mercado Livre",
-          totalGMercado,
-          valorUnitarioG ? `R$ ${valorUnitarioG.toFixed(2).replace(".", ",")}` : "-",
-          valorUnitarioG ? `R$ ${(valorUnitarioG * totalGMercado).toFixed(2).replace(".", ",")}` : "-"
-        ],
-        [
-          "Avulso",
-          totalGAvulso,
-          valorUnitarioG ? `R$ ${valorUnitarioG.toFixed(2).replace(".", ",")}` : "-",
-          valorUnitarioG ? `R$ ${(valorUnitarioG * totalGAvulso).toFixed(2).replace(".", ",")}` : "-"
-        ],
-        [
-          "Total Pacotes G",
-          totalG,
-          valorUnitarioG ? `R$ ${valorUnitarioG.toFixed(2).replace(".", ",")}` : "-",
-          valorUnitarioG ? `R$ ${ajusteGTotal.toFixed(2).replace(".", ",")}` : "-"
-        ]
-      ],
+      startY: yAfterTables + 5,
+      head: [["Data", "Cancel. Shopee", "Cancel. ML", "Cancel. Avulso", "Total", "Valor"]],
+      body: tabelaCanc.map(l => [isoParaBr(l.data), l.shopee, l.flex, l.avulso, l.total, `R$ ${l.valor.toFixed(2).replace(".", ",")}`]),
       theme: "grid",
       styles: { fontSize: 9, halign: "center" },
       headStyles: { fillColor: [25, 135, 84] },
-      alternateRowStyles: { fillColor: [245, 245, 245] }
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+      columnStyles: colunasFixas
     });
-    yAfterTables = doc.lastAutoTable.finalY + 8;
+    yAfterTables = doc.lastAutoTable.finalY + 10;
+  }
+
+  if (temPacotesG) {
+    doc.setFontSize(13);
+    doc.text("PACOTES GRANDES (G)", 14, yAfterTables);
+    yAfterTables += 5;
+    if (totalG > 0) {
+      doc.autoTable({
+        startY: yAfterTables,
+        head: [["Serviço", "Quantidade", "Valor unitário", "Valor total"]],
+        body: [
+          [
+            "Shopee",
+            totalGShopee,
+            valorUnitarioG ? `R$ ${valorUnitarioG.toFixed(2).replace(".", ",")}` : "-",
+            valorUnitarioG ? `R$ ${(valorUnitarioG * totalGShopee).toFixed(2).replace(".", ",")}` : "-"
+          ],
+          [
+            "Mercado Livre",
+            totalGMercado,
+            valorUnitarioG ? `R$ ${valorUnitarioG.toFixed(2).replace(".", ",")}` : "-",
+            valorUnitarioG ? `R$ ${(valorUnitarioG * totalGMercado).toFixed(2).replace(".", ",")}` : "-"
+          ],
+          [
+            "Avulso",
+            totalGAvulso,
+            valorUnitarioG ? `R$ ${valorUnitarioG.toFixed(2).replace(".", ",")}` : "-",
+            valorUnitarioG ? `R$ ${(valorUnitarioG * totalGAvulso).toFixed(2).replace(".", ",")}` : "-"
+          ],
+          [
+            "Total Pacotes G",
+            totalG,
+            valorUnitarioG ? `R$ ${valorUnitarioG.toFixed(2).replace(".", ",")}` : "-",
+            valorUnitarioG ? `R$ ${ajusteGTotal.toFixed(2).replace(".", ",")}` : "-"
+          ]
+        ],
+        theme: "grid",
+        styles: { fontSize: 9, halign: "center" },
+        headStyles: { fillColor: [25, 135, 84] },
+        alternateRowStyles: { fillColor: [245, 245, 245] }
+      });
+      yAfterTables = doc.lastAutoTable.finalY + 8;
+    } else {
+      // Ajuste G lançado sem quantidade de pacotes G (valor único)
+      doc.setFontSize(10);
+      doc.text(`Ajuste para Pacotes G: R$ ${ajusteGTotal.toFixed(2).replace(".", ",")}`, 14, yAfterTables + 2);
+      yAfterTables += 10;
+    }
   }
 
   // Resumo financeiro: valores à direita, linha divisória, VALOR FINAL em destaque
