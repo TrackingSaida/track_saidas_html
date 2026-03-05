@@ -185,7 +185,7 @@ async function loadSellers() {
 
         merged.forEach(row => {
             const id = row.user_id_ml != null ? row.user_id_ml : row.shop_id;
-            const nickname = (row.user_nickname_ml || "").trim();
+            const nickname = (row.user_nickname_ml || row.user_nickname_shopee || "").trim();
             const plataforma = platformLabel[row.platform] || row.platform || "—";
             const status = statusLabel[row.status] || row.status || "—";
             const badgeClass = statusClass[row.status] || "secondary";
