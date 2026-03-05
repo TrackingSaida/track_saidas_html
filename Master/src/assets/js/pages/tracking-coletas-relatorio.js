@@ -382,14 +382,31 @@ async function gerarPdfFechamentoBases(idFechamento) {
       ? Number(fech.valor_final)
       : valorBrutoFech - valorCancelFech + valorAdicao - valorSubtracao;
 
-  const totalGShopee = pacotesGNorm.filter(p => String(p.servico || "").toLowerCase().includes("shopee")).length;
-  const totalGMercado = pacotesGNorm.filter(p => String(p.servico || "").toLowerCase().includes("mercado")).length;
-  const totalGAvulso = pacotesGNorm.filter(p => {
+  // Totais de Pacotes G: preferir itens gravados no fechamento (base_fechamento_itens); fallback para API saidas
+  const itensFech = fech.itens || [];
+  const totalGFromItens = itensFech.reduce((a, i) => a + (Number(i.pacotes_g) || 0), 0);
+  const totalGShopeeFromItens = itensFech.reduce((a, i) => a + (Number(i.g_shopee) || 0), 0);
+  const totalGMercadoFromItens = itensFech.reduce((a, i) => a + (Number(i.g_ml) || 0), 0);
+  const totalGAvulsoFromItens = itensFech.reduce((a, i) => a + (Number(i.g_avulso) || 0), 0);
+
+  let totalGShopee = pacotesGNorm.filter(p => String(p.servico || "").toLowerCase().includes("shopee")).length;
+  let totalGMercado = pacotesGNorm.filter(p => String(p.servico || "").toLowerCase().includes("mercado")).length;
+  let totalGAvulso = pacotesGNorm.filter(p => {
     const s = String(p.servico || "").toLowerCase();
     return !s.includes("shopee") && !s.includes("mercado");
   }).length;
-  const totalG = pacotesGNorm.length;
-  const ajusteGTotal = Number(fech.ajuste_g_valor ?? 0);
+  let totalG = pacotesGNorm.length;
+  if (totalGFromItens > 0) {
+    totalG = totalGFromItens;
+    totalGShopee = totalGShopeeFromItens;
+    totalGMercado = totalGMercadoFromItens;
+    totalGAvulso = totalGAvulsoFromItens;
+  }
+
+  let ajusteGTotal = Number(fech.ajuste_g_valor ?? 0);
+  if (ajusteGTotal === 0 && fech.motivo_adicao && String(fech.motivo_adicao).toLowerCase().includes("pacotes g")) {
+    ajusteGTotal = Number(fech.valor_adicao ?? 0);
+  }
   const valorUnitarioG = totalG > 0 && ajusteGTotal !== 0 ? ajusteGTotal / totalG : 0;
 
   // Exibir seções apenas quando houver dados: cancelados > 0 ou pacotes G > 0 (ou ajuste G lançado)

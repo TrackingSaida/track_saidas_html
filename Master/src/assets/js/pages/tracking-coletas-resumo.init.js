@@ -970,7 +970,11 @@ async function carregarResumoCompleto() {
       avulso: it.avulso ?? 0,
       cancelados_shopee: it.cancelados_shopee ?? 0,
       cancelados_ml: it.cancelados_ml ?? 0,
-      cancelados_avulso: it.cancelados_avulso ?? 0
+      cancelados_avulso: it.cancelados_avulso ?? 0,
+      pacotes_g: it.pacotes_g ?? 0,
+      g_shopee: it.g_shopee ?? 0,
+      g_ml: it.g_ml ?? 0,
+      g_avulso: it.g_avulso ?? 0
     }));
 
     // Agregar ajustes manuais em valor_adicao / valor_subtracao
