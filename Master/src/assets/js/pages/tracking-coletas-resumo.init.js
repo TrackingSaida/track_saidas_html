@@ -294,7 +294,7 @@ async function buscarCancelados() {
     }
     items.forEach((r) => {
       const acoesCell = r.origem === "manual" && r.id_coleta
-        ? `<td class="text-center no-export"><button type="button" class="btn btn-sm btn-outline-primary btn-editar-coleta" data-id="${r.id_coleta}" data-data="${r.data_raw || r.data}" data-base="${r.base}" data-shopee="${r.shopee}" data-ml="${r.mercado_livre}" data-avulso="${r.avulso}" title="Editar"><i class="ri-pencil-line"></i></button></td>`
+        ? `<td class="text-center no-export"><button type="button" class="btn btn-sm btn-outline-primary btn-editar-coleta" data-id="${r.id_coleta}" data-data="${r.data_raw || r.data}" data-base="${r.base}" data-shopee="${r.shopee}" data-ml="${r.mercado_livre}" data-avulso="${r.avulso}" data-pacotes-g="${r.pacotes_g ?? 0}" title="Editar"><i class="ri-pencil-line"></i></button></td>`
         : (temManual ? `<td class="text-center no-export"></td>` : "");
       const celFech = celulaFechamento(r);
       tbody.innerHTML += `
@@ -1289,6 +1289,7 @@ async function carregarResumoCompleto() {
   const modalShopee = document.getElementById("modalColetaManualShopee");
   const modalMl = document.getElementById("modalColetaManualMl");
   const modalAvulso = document.getElementById("modalColetaManualAvulso");
+  const modalPacotesG = document.getElementById("modalColetaManualPacotesG");
   const modalId = document.getElementById("modalColetaManualId");
   const modalSalvar = document.getElementById("modalColetaManualSalvar");
 
@@ -1299,6 +1300,7 @@ async function carregarResumoCompleto() {
     modalShopee.value = "0";
     modalMl.value = "0";
     modalAvulso.value = "0";
+    if (modalPacotesG) modalPacotesG.value = "0";
     modalData.disabled = false;
     modalBase.disabled = false;
     document.getElementById("modalColetaManualLabel").textContent = "Coleta Manual";
@@ -1316,6 +1318,7 @@ async function carregarResumoCompleto() {
     const shopee = btn.getAttribute("data-shopee") || "0";
     const ml = btn.getAttribute("data-ml") || "0";
     const avulso = btn.getAttribute("data-avulso") || "0";
+    const pacotesG = btn.getAttribute("data-pacotes-g") ?? "0";
     // data-data pode vir como DD/MM/YYYY ou YYYY-MM-DD
     let dataVal = dataYmd;
     if (dataYmd && dataYmd.includes("/")) {
@@ -1328,6 +1331,7 @@ async function carregarResumoCompleto() {
     modalShopee.value = shopee;
     modalMl.value = ml;
     modalAvulso.value = avulso;
+    if (modalPacotesG) modalPacotesG.value = pacotesG;
     modalData.disabled = true;
     modalBase.disabled = true;
     document.getElementById("modalColetaManualLabel").textContent = "Editar Coleta Manual";
@@ -1344,6 +1348,8 @@ async function carregarResumoCompleto() {
     const shopee = parseInt(modalShopee.value, 10) || 0;
     const ml = parseInt(modalMl.value, 10) || 0;
     const avulso = parseInt(modalAvulso.value, 10) || 0;
+    const pacotes_g = parseInt(modalPacotesG?.value, 10);
+    const pacotesGVal = isNaN(pacotes_g) ? 0 : Math.max(0, pacotes_g);
 
     if (!base) {
       Swal.fire({ icon: "warning", title: "Campo obrigatório", text: "Selecione uma base." });
@@ -1357,7 +1363,7 @@ async function carregarResumoCompleto() {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shopee, mercado_livre: ml, avulso })
+          body: JSON.stringify({ shopee, mercado_livre: ml, avulso, pacotes_g: pacotesGVal })
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -1370,7 +1376,7 @@ async function carregarResumoCompleto() {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data, base, shopee, mercado_livre: ml, avulso })
+          body: JSON.stringify({ data, base, shopee, mercado_livre: ml, avulso, pacotes_g: pacotesGVal })
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
