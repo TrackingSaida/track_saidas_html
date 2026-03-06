@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   var modo = user ? (user.modo_operacao || "codigo") : (window.MODO_OPERACAO || "codigo");
 
   if (deveRedirecionarColetasResumo(ignorar, modo)) {
-    window.location.replace("dashboard-tracking-overview.html");
+    window.location.replace("dashboard-saidas.html");
     return;
   }
 

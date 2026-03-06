@@ -48,7 +48,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             title: "Acesso negado",
             text: "Esta área é restrita a administradores."
         }).then(() => {
-            window.location.href = "dashboard-tracking-saidas.html";
+            window.location.href = "dashboard-saidas.html";
         });
         return;
     }

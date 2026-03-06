@@ -1,13 +1,13 @@
 /* =================== Config =================== */
 (function checkIgnorarColeta() {
   if (window.IGNORAR_COLETA === true || localStorage.getItem("ignorar_coleta") === "1") {
-    window.location.replace("dashboard-tracking-overview.html");
+    window.location.replace("dashboard-saidas.html");
     return;
   }
   document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => {
       if (window.IGNORAR_COLETA === true) {
-        window.location.replace("dashboard-tracking-overview.html");
+        window.location.replace("dashboard-saidas.html");
       }
     }, 600);
   }, { once: true });
