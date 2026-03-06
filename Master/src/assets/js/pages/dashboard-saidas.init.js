@@ -256,6 +256,30 @@
     if (dataFimEl) dataFimEl.value = today;
     updatePeriodLabel(today, today);
 
+    function syncSaidasIndicadorToggleUI() {
+      var modo = (window.TrackPrefs && window.TrackPrefs.getIndicadorStatusMode && window.TrackPrefs.getIndicadorStatusMode()) || "saiu";
+      var group = document.getElementById("saidas-indicador-status-mode-group");
+      if (!group) return;
+      group.querySelectorAll("button[data-mode]").forEach(function (b) {
+        var isActive = b.getAttribute("data-mode") === modo;
+        b.classList.toggle("btn-primary", isActive);
+        b.classList.toggle("btn-outline-secondary", !isActive);
+      });
+    }
+    syncSaidasIndicadorToggleUI();
+    var saidasModeGroup = document.getElementById("saidas-indicador-status-mode-group");
+    if (saidasModeGroup) {
+      saidasModeGroup.addEventListener("click", function (ev) {
+        var btn = ev.target && ev.target.closest && ev.target.closest("button[data-mode]");
+        if (!btn) return;
+        var mode = btn.getAttribute("data-mode");
+        if (mode !== "saiu" && mode !== "entregue") return;
+        if (window.TrackPrefs && window.TrackPrefs.setIndicadorStatusMode) window.TrackPrefs.setIndicadorStatusMode(mode);
+        syncSaidasIndicadorToggleUI();
+        load();
+      });
+    }
+
     function showLoading(show) {
       const loading = document.getElementById("saidas-dash-loading");
       if (loading) loading.classList.toggle("d-none", !show);

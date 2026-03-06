@@ -73,11 +73,15 @@
     if (el) el.textContent = text;
   }
 
-  function updateModoBadge() {
-    var el = document.getElementById("fin-dash-modo-badge");
-    if (!el) return;
+  function syncFinIndicadorToggleUI() {
     var modo = (window.TrackPrefs && window.TrackPrefs.getIndicadorStatusMode && window.TrackPrefs.getIndicadorStatusMode()) || "saiu";
-    el.textContent = modo === "entregue" ? "Baseado em: Entregue (app mobile)" : "Baseado em: Saiu para entrega";
+    var group = document.getElementById("fin-indicador-status-mode-group");
+    if (!group) return;
+    group.querySelectorAll("button[data-mode]").forEach(function (b) {
+      var isActive = b.getAttribute("data-mode") === modo;
+      b.classList.toggle("btn-primary", isActive);
+      b.classList.toggle("btn-outline-secondary", !isActive);
+    });
   }
 
   function escapeHtml(s) {
@@ -358,7 +362,20 @@
     if (dataInicioEl) dataInicioEl.value = q.start;
     if (dataFimEl) dataFimEl.value = q.end;
     updatePeriodLabel(q.start, q.end);
-    updateModoBadge();
+    syncFinIndicadorToggleUI();
+
+    var modeGroupEl = document.getElementById("fin-indicador-status-mode-group");
+    if (modeGroupEl) {
+      modeGroupEl.addEventListener("click", function (ev) {
+        var btn = ev.target && ev.target.closest && ev.target.closest("button[data-mode]");
+        if (!btn) return;
+        var mode = btn.getAttribute("data-mode");
+        if (mode !== "saiu" && mode !== "entregue") return;
+        if (window.TrackPrefs && window.TrackPrefs.setIndicadorStatusMode) window.TrackPrefs.setIndicadorStatusMode(mode);
+        syncFinIndicadorToggleUI();
+        load();
+      });
+    }
 
     function showLoading(show) {
       var loading = document.getElementById("fin-dash-loading");

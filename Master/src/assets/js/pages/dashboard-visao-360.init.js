@@ -508,6 +508,30 @@
     if (dataFimEl) dataFimEl.value = today;
     updatePeriodLabel(today, today);
 
+    function syncVisao360IndicadorToggleUI() {
+      var modo = (window.TrackPrefs && window.TrackPrefs.getIndicadorStatusMode && window.TrackPrefs.getIndicadorStatusMode()) || "saiu";
+      var group = document.getElementById("visao360-indicador-status-mode-group");
+      if (!group) return;
+      group.querySelectorAll("button[data-mode]").forEach(function (b) {
+        var isActive = b.getAttribute("data-mode") === modo;
+        b.classList.toggle("btn-primary", isActive);
+        b.classList.toggle("btn-outline-secondary", !isActive);
+      });
+    }
+    syncVisao360IndicadorToggleUI();
+    var visao360ModeGroup = document.getElementById("visao360-indicador-status-mode-group");
+    if (visao360ModeGroup) {
+      visao360ModeGroup.addEventListener("click", function (ev) {
+        var btn = ev.target && ev.target.closest && ev.target.closest("button[data-mode]");
+        if (!btn) return;
+        var mode = btn.getAttribute("data-mode");
+        if (mode !== "saiu" && mode !== "entregue") return;
+        if (window.TrackPrefs && window.TrackPrefs.setIndicadorStatusMode) window.TrackPrefs.setIndicadorStatusMode(mode);
+        syncVisao360IndicadorToggleUI();
+        load();
+      });
+    }
+
     async function load() {
       const from = dataInicioEl ? dataInicioEl.value : today;
       const to = dataFimEl ? dataFimEl.value : today;
