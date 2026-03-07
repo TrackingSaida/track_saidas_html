@@ -1054,8 +1054,14 @@ function setupPagerEvents() {
         servico:    classifyCodigo(eCod.value).servico,
         status:     mapStatusToApi(eSta.value)
       };
-      if (eEnt?.value) payload.entregador = eEnt.value;
-      if (eMotoboy?.value) payload.motoboy_id = Number(eMotoboy.value);
+      // Correto é pelo id_motoboy (tela de users); quando tem motoboy não enviar entregador (nome) para evitar resolução por nome
+      if (eMotoboy?.value) {
+        payload.motoboy_id = Number(eMotoboy.value);
+      }
+      // Só enviar entregador (nome) quando não há motoboy; entregador_id é provisório, não usar no PATCH
+      if (eEnt?.value && !eMotoboy?.value) {
+        payload.entregador = eEnt.value;
+      }
 
       if ((eSta.value === "Não Coletado" || eSta.value === "Coletado") && eBase?.value)
         payload.base = eBase.value;
@@ -1085,9 +1091,11 @@ function setupPagerEvents() {
 
           if (r.status === 422){
             var msg = (r.data?.detail || r.data?.message || r.error || "");
-            if (Array.isArray(msg))
-              msg = msg.map(d => d.msg || d.message).join("; ");
-            return notify(msg, "error");
+            if (typeof msg === "object" && msg !== null && msg.message)
+              msg = msg.message;
+            else if (Array.isArray(msg))
+              msg = msg.map(function(d){ return d.msg || d.message; }).join("; ");
+            return notify(String(msg || "Erro de validação."), "error");
           }
 
           notify("Falha ao atualizar.", "error");
