@@ -149,6 +149,7 @@
   window.initDatePickerDashboard = function (opts) {
     const container = document.getElementById(opts.containerId);
     if (!container) return null;
+    container.classList.add("date-picker-dashboard");
     const prefix = opts.prefix || "dp";
     const onApply = opts.onApply || function () {};
     const onCancel = opts.onCancel || function () {};
