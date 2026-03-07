@@ -449,7 +449,11 @@
 
     container.querySelectorAll(".dp-preset").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        applyPreset(this.getAttribute("data-preset"));
+        var preset = this.getAttribute("data-preset");
+        applyPreset(preset);
+        /* Atalho aplica na hora; só o calendário manual exige clicar em Aplicar */
+        var r = getResolvedRange();
+        onApply(r.start, r.end);
       });
     });
 
