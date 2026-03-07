@@ -571,11 +571,84 @@
 }
 
 /* ===================================================
+   Date picker: desktop — details/summary como label estático (conteúdo sempre visível)
+   =================================================== */
+@media (min-width: 769px) {
+  .date-picker-dashboard .dp-atalhos-collapse .dp-collapse-content,
+  .date-picker-dashboard .dp-calendario-collapse .dp-collapse-content {
+    display: block !important;
+  }
+  .date-picker-dashboard .dp-atalhos-collapse summary.dp-collapse-summary,
+  .date-picker-dashboard .dp-calendario-collapse summary.dp-collapse-summary {
+    list-style: none;
+    cursor: default;
+    padding: 0;
+  }
+  .date-picker-dashboard .dp-atalhos-collapse summary.dp-collapse-summary::-webkit-details-marker,
+  .date-picker-dashboard .dp-calendario-collapse summary.dp-collapse-summary::-webkit-details-marker {
+    display: none;
+  }
+  .date-picker-dashboard .dp-atalhos-collapse summary.dp-collapse-summary {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--bs-secondary);
+    margin-bottom: 0.5rem;
+  }
+  .date-picker-dashboard .dp-calendario-collapse summary.dp-collapse-summary {
+    display: none;
+  }
+}
+
+/* ===================================================
    MOBILE ONLY — Responsividade (Registros, Acompanhamento, Indicadores, cadastros)
    Todas as regras abaixo aplicam apenas em viewport estreito; desktop permanece inalterado.
    =================================================== */
 
 @media (max-width: 768px) {
+  /* Date picker: Atalhos e Calendário recolhíveis (accordion) */
+  .date-picker-dashboard .dp-atalhos-collapse summary.dp-collapse-summary,
+  .date-picker-dashboard .dp-calendario-collapse summary.dp-collapse-summary {
+    list-style: none;
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 500;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.25rem;
+    background: var(--bs-light, #f8f9fa);
+    user-select: none;
+  }
+  .date-picker-dashboard .dp-atalhos-collapse summary.dp-collapse-summary::-webkit-details-marker,
+  .date-picker-dashboard .dp-calendario-collapse summary.dp-collapse-summary::-webkit-details-marker {
+    display: none;
+  }
+  .date-picker-dashboard .dp-atalhos-collapse summary.dp-collapse-summary::after,
+  .date-picker-dashboard .dp-calendario-collapse summary.dp-collapse-summary::after {
+    content: "";
+    margin-left: auto;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid currentColor;
+    opacity: 0.7;
+  }
+  .date-picker-dashboard .dp-atalhos-collapse[open] summary.dp-collapse-summary::after,
+  .date-picker-dashboard .dp-calendario-collapse[open] summary.dp-collapse-summary::after {
+    border-top: none;
+    border-bottom: 6px solid currentColor;
+  }
+  .date-picker-dashboard .dp-atalhos-collapse .dp-collapse-content {
+    margin-top: 0.5rem;
+    padding-top: 0.25rem;
+  }
+  .date-picker-dashboard .dp-calendario-collapse .dp-collapse-content {
+    margin-top: 0.5rem;
+    padding-top: 0.25rem;
+  }
+
   /* Painéis de período (dropdown): não ultrapassar viewport */
   #registros-period-panel,
   #saidas-period-panel,

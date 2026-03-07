@@ -391,46 +391,53 @@
 
     container.innerHTML = '<div class="row g-0">' +
       '<div class="col-4 border-end p-2">' +
-        '<div class="small text-uppercase text-muted mb-2">Atalhos</div>' +
-        '<div class="d-flex flex-column gap-1">' +
-          '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="ontem">Ontem</button>' +
-          '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="hoje">Hoje</button>' +
-          '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="semana">Semana atual</button>' +
-          '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="quinzena">Quinzena atual</button>' +
-          '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="quinzena-ant">Quinzena anterior</button>' +
-          '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="mes">Mês</button>' +
-          '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="ultimos30">Hoje - 30 dias</button>' +
-        '</div>' +
+        '<details class="dp-atalhos-collapse">' +
+          '<summary class="dp-collapse-summary">Atalhos</summary>' +
+          '<div class="dp-collapse-content d-flex flex-column gap-1">' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="ontem">Ontem</button>' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="hoje">Hoje</button>' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="semana">Semana atual</button>' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="quinzena">Quinzena atual</button>' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="quinzena-ant">Quinzena anterior</button>' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="mes">Mês</button>' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="ultimos30">Hoje - 30 dias</button>' +
+          '</div>' +
+        '</details>' +
       '</div>' +
       '<div class="col-8 p-3">' +
-        '<div class="mb-2">' +
-          '<label class="form-label small mb-1">Filtro</label>' +
-          '<select class="form-select form-select-sm" id="' + prefix + '-filter-mode">' +
-            '<option value="a_partir_de" selected>A partir de</option>' +
-            '<option value="igual_a">Igual a</option>' +
-            '<option value="diferente_de">Diferente de</option>' +
-            '<option value="ate">Até</option>' +
-            '<option value="periodo">Período</option>' +
-          '</select>' +
-        '</div>' +
-        '<div class="d-flex gap-3 flex-wrap">' +
-          '<div class="flex-grow-1" style="min-width:200px">' +
-            '<div id="' + prefix + '-cal1-header"></div>' +
-            '<div id="' + prefix + '-month-picker1-wrap" class="d-none mb-2"></div>' +
-            '<div id="' + prefix + '-year-picker1-wrap" class="d-none mb-2"></div>' +
-            '<div id="' + prefix + '-cal1-grid"></div>' +
+        '<details class="dp-calendario-collapse">' +
+          '<summary class="dp-collapse-summary">Calendário</summary>' +
+          '<div class="dp-collapse-content">' +
+            '<div class="mb-2">' +
+              '<label class="form-label small mb-1">Filtro</label>' +
+              '<select class="form-select form-select-sm" id="' + prefix + '-filter-mode">' +
+                '<option value="a_partir_de" selected>A partir de</option>' +
+                '<option value="igual_a">Igual a</option>' +
+                '<option value="diferente_de">Diferente de</option>' +
+                '<option value="ate">Até</option>' +
+                '<option value="periodo">Período</option>' +
+              '</select>' +
+            '</div>' +
+            '<div class="d-flex gap-3 flex-wrap">' +
+              '<div class="flex-grow-1" style="min-width:200px">' +
+                '<div id="' + prefix + '-cal1-header"></div>' +
+                '<div id="' + prefix + '-month-picker1-wrap" class="d-none mb-2"></div>' +
+                '<div id="' + prefix + '-year-picker1-wrap" class="d-none mb-2"></div>' +
+                '<div id="' + prefix + '-cal1-grid"></div>' +
+              '</div>' +
+              '<div class="flex-grow-1 d-none" id="' + prefix + '-cal2-wrap" style="min-width:200px">' +
+                '<div id="' + prefix + '-cal2-header"></div>' +
+                '<div id="' + prefix + '-month-picker2-wrap" class="d-none mb-2"></div>' +
+                '<div id="' + prefix + '-year-picker2-wrap" class="d-none mb-2"></div>' +
+                '<div id="' + prefix + '-cal2-grid"></div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="d-flex justify-content-end gap-2 mt-3">' +
+              '<button type="button" class="btn btn-outline-secondary btn-sm" id="' + prefix + '-btn-cancel">Cancelar</button>' +
+              '<button type="button" class="btn btn-primary btn-sm" id="' + prefix + '-btn-apply">Aplicar</button>' +
+            '</div>' +
           '</div>' +
-          '<div class="flex-grow-1 d-none" id="' + prefix + '-cal2-wrap" style="min-width:200px">' +
-            '<div id="' + prefix + '-cal2-header"></div>' +
-            '<div id="' + prefix + '-month-picker2-wrap" class="d-none mb-2"></div>' +
-            '<div id="' + prefix + '-year-picker2-wrap" class="d-none mb-2"></div>' +
-            '<div id="' + prefix + '-cal2-grid"></div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="d-flex justify-content-end gap-2 mt-3">' +
-          '<button type="button" class="btn btn-outline-secondary btn-sm" id="' + prefix + '-btn-cancel">Cancelar</button>' +
-          '<button type="button" class="btn btn-primary btn-sm" id="' + prefix + '-btn-apply">Aplicar</button>' +
-        '</div>' +
+        '</details>' +
       '</div>' +
     '</div>';
 
