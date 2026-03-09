@@ -355,7 +355,7 @@ async function apiDelete(id) {
     qs("#flex").value = data ? `R$ ${Number(data.ml).toFixed(2).replace(".", ",")}` : "";
     qs("#shopee").value = data ? `R$ ${Number(data.shopee).toFixed(2).replace(".", ",")}` : "";
     qs("#avulso").value = data ? `R$ ${Number(data.avulso).toFixed(2).replace(".", ",")}` : "";
-    qs("#ativo").checked = !!data?.ativo;
+    qs("#ativo").checked = data != null ? !!data.ativo : true;
 
     offcanvas.show();
   }
@@ -515,15 +515,13 @@ async function apiDelete(id) {
         if (id) {
           const updated = await apiUpdate(id, payload);
           baseIdForSeller = updated?.id_base || Number(id);
-          toast("Base atualizada com sucesso.");
         } else {
           const created = await apiCreate(payload);
           baseIdForSeller = created?.id_base || null;
-          toast("Base criada com sucesso.");
         }
 
-        // Atualiza CNPJ/endereço do Seller para este owner/base
-        if (OWNER_INFO && OWNER_INFO.id_owner) {
+        // Atualiza CNPJ/endereço do Seller para este owner/base (um registro por base)
+        if (OWNER_INFO && OWNER_INFO.id_owner && baseIdForSeller != null) {
           const bodySeller = {
             base_id: baseIdForSeller,
             cnpj: cnpjDig || null,
@@ -535,16 +533,21 @@ async function apiDelete(id) {
             cidade: cidade || null,
             estado: estado || null,
           };
-          try {
-            await http(`${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados`, {
-              method: "PATCH",
-              body: JSON.stringify(bodySeller),
-            });
-          } catch (e) {
-            // se falhar o update de seller, não bloqueia o fluxo de Base
+          const rSeller = await fetch(`${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(bodySeller),
+          });
+          if (!rSeller.ok) {
+            const errBody = await rSeller.json().catch(() => ({}));
+            const msg = errBody.detail || errBody.message || "Falha ao salvar dados do Seller/Base.";
+            toast(msg, false);
+            return;
           }
         }
 
+        toast(id ? "Base atualizada com sucesso." : "Base criada com sucesso.");
         offcanvas.hide();
         await listarBases();
       } catch (err) {
