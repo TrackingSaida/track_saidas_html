@@ -132,7 +132,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 let ALL_USERS = [];
 let FILTERED = [];
 let CURRENT_PAGE = 1;
-let PER_PAGE = 10;
+let PER_PAGE = 5;
 
 
 // =====================================================================
@@ -150,12 +150,24 @@ function initUsers() {
 
     document.getElementById("toggleAtivos").addEventListener("change", applyFilters);
     document.getElementById("search").addEventListener("input", applyFilters);
+    const filterRole = document.getElementById("filterRole");
+    if (filterRole) {
+        filterRole.addEventListener("change", applyFilters);
+    }
 
-    document.getElementById("perPage").addEventListener("change", () => {
-        PER_PAGE = Number(document.getElementById("perPage").value);
-        CURRENT_PAGE = 1;
-        renderTable();
-    });
+    const perPageSelect = document.getElementById("perPage");
+    if (perPageSelect) {
+        const initial = Number(perPageSelect.value);
+        if (!Number.isNaN(initial) && initial > 0) {
+            PER_PAGE = initial;
+        }
+        perPageSelect.addEventListener("change", () => {
+            const v = Number(perPageSelect.value);
+            PER_PAGE = !Number.isNaN(v) && v > 0 ? v : PER_PAGE;
+            CURRENT_PAGE = 1;
+            renderTable();
+        });
+    }
 
     document.getElementById("pg-prev").addEventListener("click", () => changePage(-1));
     document.getElementById("pg-next").addEventListener("click", () => changePage(1));
@@ -296,10 +308,17 @@ async function loadUsers() {
 function applyFilters() {
     const onlyActives = document.getElementById("toggleAtivos").checked;
     const q = document.getElementById("search").value.trim().toLowerCase();
+    const roleFilterEl = document.getElementById("filterRole");
+    const roleFilter = roleFilterEl ? roleFilterEl.value : "all";
 
     FILTERED = ALL_USERS.filter(u => {
 
         if (onlyActives && !u.status) return false;
+
+        if (roleFilter !== "all") {
+            const roleNum = Number(roleFilter);
+            if (Number(u.role) !== roleNum) return false;
+        }
 
         return (
             (u.nome || "").toLowerCase().includes(q) ||
@@ -321,17 +340,20 @@ function applyFilters() {
 function renderTable() {
     const tbody = document.getElementById("tbody-users");
     const empty = document.getElementById("empty");
+    const pageInfo = document.getElementById("page-info-users");
 
     if (FILTERED.length === 0) {
         tbody.innerHTML = "";
         empty.classList.remove("d-none");
+        if (pageInfo) pageInfo.textContent = "Nenhum item";
         return;
     } else {
         empty.classList.add("d-none");
     }
 
     const start = (CURRENT_PAGE - 1) * PER_PAGE;
-    const rows = FILTERED.slice(start, start + PER_PAGE);
+    const end = Math.min(start + PER_PAGE, FILTERED.length);
+    const rows = FILTERED.slice(start, end);
 
     tbody.innerHTML = rows.map(u => {
 
@@ -369,6 +391,9 @@ function renderTable() {
 
     setupRowSelection();
     renderPagination();
+    if (pageInfo) {
+        pageInfo.textContent = `Exibindo ${start + 1} a ${end} de ${FILTERED.length}`;
+    }
     showMotoboyDetailEmpty();
 }
 
@@ -426,19 +451,21 @@ function changePage(delta) {
 }
 
 function renderPagination() {
-    const total = Math.ceil(FILTERED.length / PER_PAGE);
+    const totalPages = Math.max(1, Math.ceil(FILTERED.length / PER_PAGE));
 
-    document.getElementById("pg-prev").classList.toggle("disabled", CURRENT_PAGE <= 1);
-    document.getElementById("pg-next").classList.toggle("disabled", CURRENT_PAGE >= total);
+    document.getElementById("pg-prev").classList.toggle("disabled", CURRENT_PAGE <= 1 || totalPages <= 1);
+    document.getElementById("pg-next").classList.toggle("disabled", CURRENT_PAGE >= totalPages || totalPages <= 1);
 
     const ul = document.getElementById("pg-numbers");
     ul.innerHTML = "";
 
-    for (let i = 1; i <= total; i++) {
-        ul.innerHTML += `
-            <li class="page-item ${i === CURRENT_PAGE ? "active" : ""}">
-                <a class="page-link" href="javascript:void(0);" onclick="goToPage(${i})">${i}</a>
-            </li>`;
+    if (totalPages > 1) {
+        for (let i = 1; i <= totalPages; i++) {
+            ul.innerHTML += `
+                <li class="page-item ${i === CURRENT_PAGE ? "active" : ""}">
+                    <a class="page-link" href="javascript:void(0);" onclick="goToPage(${i})">${i}</a>
+                </li>`;
+        }
     }
 }
 
