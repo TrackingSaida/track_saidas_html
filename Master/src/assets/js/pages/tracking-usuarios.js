@@ -411,6 +411,15 @@ function setupRowSelection() {
     };
     document.querySelectorAll(".row-select").forEach(chk => {
         chk.addEventListener("change", () => {
+            // Permitir seleção de apenas um usuário por vez
+            if (chk.checked) {
+                document.querySelectorAll(".row-select").forEach(other => {
+                    if (other !== chk) {
+                        other.checked = false;
+                    }
+                });
+            }
+
             updateRowStyles();
             const ids = getSelectedIds();
             const tr = ids.length === 1 ? document.querySelector(`tr[data-id="${ids[0]}"]`) : null;
