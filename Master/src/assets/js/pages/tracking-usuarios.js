@@ -328,6 +328,19 @@ function applyFilters() {
         );
     });
 
+    // Ordenar por nome (asc) e, em seguida, sobrenome
+    FILTERED.sort((a, b) => {
+        const nomeA = (a.nome || "").toLowerCase();
+        const nomeB = (b.nome || "").toLowerCase();
+        if (nomeA < nomeB) return -1;
+        if (nomeA > nomeB) return 1;
+        const sobA = (a.sobrenome || "").toLowerCase();
+        const sobB = (b.sobrenome || "").toLowerCase();
+        if (sobA < sobB) return -1;
+        if (sobA > sobB) return 1;
+        return 0;
+    });
+
     CURRENT_PAGE = 1;
     renderTable();
 }
