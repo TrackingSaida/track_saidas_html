@@ -211,6 +211,8 @@ async function apiDelete(id) {
   let DATA_CACHE = [];
   let SELECTED_ID = null;
   let OWNER_INFO = null;
+  let CURRENT_PAGE = 1;
+  let PER_PAGE = 10;
   const offcanvas = new bootstrap.Offcanvas("#oc-form");
 
   async function carregarOwnerInfo() {
@@ -328,6 +330,65 @@ async function apiDelete(id) {
   // =======================================================
   // CRUD Actions
   // =======================================================
+  function getPagedData() {
+    const total = DATA_CACHE.length;
+    if (total === 0) {
+      return { pageItems: [], start: 0, end: 0, total: 0, totalPages: 1 };
+    }
+    const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+    if (CURRENT_PAGE > totalPages) CURRENT_PAGE = totalPages;
+    const startIndex = (CURRENT_PAGE - 1) * PER_PAGE;
+    const endIndex = Math.min(startIndex + PER_PAGE, total);
+    return {
+      pageItems: DATA_CACHE.slice(startIndex, endIndex),
+      start: startIndex + 1,
+      end: endIndex,
+      total,
+      totalPages,
+    };
+  }
+
+  function renderPage() {
+    const { pageItems, start, end, total, totalPages } = getPagedData();
+    renderTable(pageItems);
+
+    const empty = qs("#empty");
+    if (empty) {
+      if (total === 0) empty.classList.remove("d-none");
+      else empty.classList.add("d-none");
+    }
+
+    const pageInfo = qs("#page-info");
+    if (pageInfo) {
+      if (total === 0) pageInfo.textContent = "Nenhum item";
+      else pageInfo.textContent = `Exibindo ${start} a ${end} de ${total}`;
+    }
+
+    const pgPrev = qs("#pg-prev");
+    const pgNext = qs("#pg-next");
+    const pgNumbers = qs("#pg-numbers");
+
+    if (pgPrev) {
+      pgPrev.classList.toggle("disabled", CURRENT_PAGE <= 1 || totalPages <= 1);
+    }
+    if (pgNext) {
+      pgNext.classList.toggle("disabled", CURRENT_PAGE >= totalPages || totalPages <= 1);
+    }
+
+    if (pgNumbers) {
+      if (totalPages <= 1) {
+        pgNumbers.innerHTML = "";
+      } else {
+        let html = "";
+        for (let p = 1; p <= totalPages; p++) {
+          const active = p === CURRENT_PAGE ? " active" : "";
+          html += `<li class="page-item${active}" data-page="${p}"><a class="page-link" href="#">${p}</a></li>`;
+        }
+        pgNumbers.innerHTML = html;
+      }
+    }
+  }
+
   async function listarBases() {
     try {
       const data = await apiList();
@@ -336,7 +397,8 @@ async function apiDelete(id) {
         b.base?.toLowerCase().includes(term)
       );
       DATA_CACHE = filtrados;
-      renderTable(filtrados);
+      CURRENT_PAGE = 1;
+      renderPage();
       showSellerDetailEmpty();
     } catch (err) {
       console.error(err);
@@ -375,6 +437,19 @@ async function apiDelete(id) {
   // =======================================================
   document.addEventListener("DOMContentLoaded", async () => {
     await carregarOwnerInfo();
+
+    const perPageSelect = qs("#perPage");
+    if (perPageSelect) {
+      const val = parseInt(perPageSelect.value, 10);
+      if (!Number.isNaN(val) && val > 0) PER_PAGE = val;
+      perPageSelect.addEventListener("change", () => {
+        const v = parseInt(perPageSelect.value, 10);
+        PER_PAGE = !Number.isNaN(v) && v > 0 ? v : 10;
+        CURRENT_PAGE = 1;
+        renderPage();
+      });
+    }
+
     await listarBases();
     await carregarSellerDados();
 
@@ -428,8 +503,49 @@ async function apiDelete(id) {
       loadSellerDetail();
     });
 
-    qs("#search")?.addEventListener("input", listarBases);
-    qs("#toggleAtivos")?.addEventListener("change", listarBases);
+    qs("#search")?.addEventListener("input", () => {
+      CURRENT_PAGE = 1;
+      listarBases();
+    });
+    qs("#toggleAtivos")?.addEventListener("change", () => {
+      CURRENT_PAGE = 1;
+      listarBases();
+    });
+
+    const pgPrev = qs("#pg-prev");
+    const pgNext = qs("#pg-next");
+    const pgNumbers = qs("#pg-numbers");
+
+    pgPrev?.addEventListener("click", (e) => {
+      e.preventDefault();
+      const { total } = getPagedData();
+      if (total === 0) return;
+      if (CURRENT_PAGE > 1) {
+        CURRENT_PAGE -= 1;
+        renderPage();
+      }
+    });
+
+    pgNext?.addEventListener("click", (e) => {
+      e.preventDefault();
+      const { totalPages, total } = getPagedData();
+      if (total === 0) return;
+      if (CURRENT_PAGE < totalPages) {
+        CURRENT_PAGE += 1;
+        renderPage();
+      }
+    });
+
+    pgNumbers?.addEventListener("click", (e) => {
+      const li = e.target.closest("li[data-page]");
+      if (!li) return;
+      e.preventDefault();
+      const page = parseInt(li.getAttribute("data-page"), 10);
+      if (!Number.isNaN(page) && page >= 1) {
+        CURRENT_PAGE = page;
+        renderPage();
+      }
+    });
 
 
     qs("#btnAdd")?.addEventListener("click", () => {
