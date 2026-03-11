@@ -162,17 +162,18 @@ if (!resp.ok) {
   return;
 }
 
-
-
-      // /me
-      let userData = {};
+      // Login com cookie deu certo. Lê o corpo para inspecionar must_change_password
+      let loginData = {};
       try {
-        const me = await fetch(base + "/me", { credentials: "include" });
-        if (me.ok) userData = await me.json();
-      } catch (_) {}
+        loginData = await resp.json();
+      } catch (_) {
+        loginData = {};
+      }
 
-      // Se backend indicar troca obrigatória de senha, força fluxo de alteração
-      if (userData && userData.must_change_password) {
+      const loginUser = loginData && loginData.user ? loginData.user : null;
+
+      // Se o backend já sinalizar troca obrigatória de senha no login, força fluxo imediatamente.
+      if (loginUser && loginUser.must_change_password) {
         await Swal.fire({
           icon: "info",
           title: "Defina uma nova senha",
@@ -183,6 +184,15 @@ if (!resp.ok) {
         url.searchParams.set("force_password_change", "1");
         window.location.href = url.toString();
         return;
+      }
+
+      // Fallback: ainda tenta /me para manter compatibilidade e obter dados completos de usuário
+      let userData = loginUser || {};
+      if (!userData || !userData.role) {
+        try {
+          const me = await fetch(base + "/me", { credentials: "include" });
+          if (me.ok) userData = await me.json();
+        } catch (_) {}
       }
 
       // Redirecionamento por role e ignorar_coleta
