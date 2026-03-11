@@ -102,8 +102,8 @@
       // Se veio da tela de login com exigência de troca de senha, focar aba de senha
       const forceChange = getQueryParam("force_password_change");
       if (forceChange === "1") {
-        const passwordTabTrigger = document.querySelector('[data-bs-target="#password-pane"]') ||
-                                   document.querySelector('[href="#password-pane"]');
+        const passwordTabTrigger = document.querySelector('[data-bs-target="#changePassword"]') ||
+                                   document.querySelector('[href="#changePassword"]');
         if (passwordTabTrigger && window.bootstrap && bootstrap.Tab) {
           const tab = new bootstrap.Tab(passwordTabTrigger);
           tab.show();

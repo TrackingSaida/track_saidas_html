@@ -116,23 +116,61 @@
 
                             <div class="col-lg-12">
                               <label class="form-label">Senha atual</label>
-                              <input type="password" class="form-control" id="current-pass" required>
+                              <div class="position-relative auth-pass-inputgroup">
+                                <input
+                                  type="password"
+                                  class="form-control pe-5"
+                                  id="current-pass"
+                                  required
+                                >
+                                <button
+                                  class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted material-shadow-none"
+                                  type="button"
+                                  data-toggle="eye"
+                                >
+                                  <i class="ri-eye-fill align-middle"></i>
+                                </button>
+                              </div>
                             </div>
 
                             <div class="col-lg-6">
                               <label class="form-label">Nova senha</label>
-                              <input type="password" class="form-control"
-                                id="new-pass"
-                                pattern="(?=.*\\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
-                                required>
+                              <div class="position-relative auth-pass-inputgroup">
+                                <input
+                                  type="password"
+                                  class="form-control pe-5"
+                                  id="new-pass"
+                                  pattern="(?=.*\\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
+                                  required
+                                >
+                                <button
+                                  class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted material-shadow-none"
+                                  type="button"
+                                  data-toggle="eye"
+                                >
+                                  <i class="ri-eye-fill align-middle"></i>
+                                </button>
+                              </div>
                             </div>
 
                             <div class="col-lg-6">
                               <label class="form-label">Confirmar nova senha</label>
-                              <input type="password" class="form-control"
-                                id="confirm-pass"
-                                pattern="(?=.*\\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
-                                required>
+                              <div class="position-relative auth-pass-inputgroup">
+                                <input
+                                  type="password"
+                                  class="form-control pe-5"
+                                  id="confirm-pass"
+                                  pattern="(?=.*\\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
+                                  required
+                                >
+                                <button
+                                  class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted material-shadow-none"
+                                  type="button"
+                                  data-toggle="eye"
+                                >
+                                  <i class="ri-eye-fill align-middle"></i>
+                                </button>
+                              </div>
                             </div>
                           </div>
 
