@@ -28,6 +28,14 @@
     }
   }
 
+  function isOnProfileSettingsPage() {
+    try {
+      return window.location.pathname.endsWith("/profile-settings-tracking.html");
+    } catch (_) {
+      return false;
+    }
+  }
+
   function clearAuthMarkers() {
     try {
       localStorage.removeItem("trackingToken");
@@ -130,6 +138,17 @@
 
       const user = await resp.json();
       window.__USER__ = user;
+
+      // ----------------------------
+      // Troca de senha obrigatória: bloquear acesso às demais páginas até trocar
+      // ----------------------------
+      if (user && user.must_change_password === true && !isOnProfileSettingsPage()) {
+        window.location.replace(
+          window.location.pathname.replace(/[^/]+$/, "profile-settings-tracking.html") +
+            "?force_password_change=1"
+        );
+        return;
+      }
 
       // ----------------------------
       // IGNORAR_COLETA, MODO_OPERACAO e TIPO_OWNER (vem do JWT)
