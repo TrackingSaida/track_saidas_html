@@ -466,6 +466,18 @@
     applyPreset(opts.defaultPreset || "hoje");
     renderCalendars();
 
+    /* PC: details abertos; mobile: fechados (recolhíveis) */
+    var atalhosDetails = container.querySelector(".dp-atalhos-collapse");
+    var calendarioDetails = container.querySelector(".dp-calendario-collapse");
+    var mqDesktop = window.matchMedia("(min-width: 769px)");
+    function syncDetailsOpen() {
+      var open = mqDesktop.matches;
+      if (atalhosDetails) atalhosDetails[open ? "setAttribute" : "removeAttribute"]("open", "");
+      if (calendarioDetails) calendarioDetails[open ? "setAttribute" : "removeAttribute"]("open", "");
+    }
+    syncDetailsOpen();
+    mqDesktop.addEventListener("change", syncDetailsOpen);
+
     return { getResolvedRange, applyPreset };
   };
 })();
