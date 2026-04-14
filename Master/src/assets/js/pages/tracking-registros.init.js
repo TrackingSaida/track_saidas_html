@@ -300,6 +300,14 @@ function augmentEntregadoresFromRows(rows){
     params.somente_g = true;
   }
 
+  // Busca no campo "localizar" (código, entregador, base…): não restringir por período,
+  // para o resultado não sumir só por estar fora dos últimos 30 dias.
+  const temBuscaLocalizar = !!((f.localizar?.value || "").trim());
+  if (temBuscaLocalizar) {
+    delete params.de;
+    delete params.ate;
+  }
+
   // APENAS REMOVE SE REALMENTE ESTIVER VAZIO
   Object.keys(params).forEach(k => {
     if (params[k] === "" || params[k] === undefined || params[k] === null) {
