@@ -93,9 +93,52 @@ function normalizeCodigoForFilter(rawInput){
     });
   }
 
+  function classifyKnownCodigo(codigoRaw){
+    var codigo = toAsciiDigits(String(codigoRaw || "")).toUpperCase().trim();
+    if (/^BR(\d{13}|\d{12}[A-Z])$/i.test(codigo)) {
+      return { servico: "Shopee", codigo: codigo };
+    }
+    var mlDigits = codigo.replace(/\D+/g, "").match(/4[5-9]\d{9,}/);
+    if (mlDigits) {
+      return { servico: "Mercado Livre", codigo: mlDigits[0].slice(0, 11) };
+    }
+    return { servico: "Avulso", codigo: codigo };
+  }
+
   function classifyCodigo(rawInput){
+    var rawInputStr = String(rawInput || "").trim();
     var raw = toAsciiDigits(String(rawInput || "")).toUpperCase().trim();
     var allDigits = raw.replace(/\D+/g, "");
+
+    try {
+      if (rawInputStr.startsWith("{") && rawInputStr.endsWith("}")) {
+        var obj = JSON.parse(rawInputStr);
+        var rawId = obj && obj.id;
+        if (rawId !== null && rawId !== undefined) {
+          var idStr = String(rawId).trim();
+          var mlByDigits = idStr.replace(/\D+/g, "").match(/4[5-9]\d{9,}/);
+          var hasMlMarkers = !!(obj.sender_id || obj.SENDER_ID || obj.hash_code || obj.HASH_CODE);
+          if (idStr && (hasMlMarkers || mlByDigits)) {
+            return {
+              ok: true,
+              servico: "Mercado Livre",
+              codigo: mlByDigits ? mlByDigits[0].slice(0, 11) : idStr
+            };
+          }
+        }
+        var eoid = obj && (obj.external_order_id || obj.EXTERNAL_ORDER_ID);
+        if (typeof eoid === "string" && eoid.trim()) {
+          var known = classifyKnownCodigo(eoid);
+          return { ok: true, servico: known.servico, codigo: known.codigo };
+        }
+      }
+    } catch (_) {}
+
+    var extMatch = raw.match(/external_order_id["']?\s*[:=]\s*["']?([\w-]+)/i);
+    if (extMatch) {
+      var extKnown = classifyKnownCodigo(extMatch[1]);
+      return { ok: true, servico: extKnown.servico, codigo: extKnown.codigo };
+    }
 
     if (/^\d{44}$/.test(allDigits))
       return { ok:false, motivo:"NF-e (44 dígitos)" };
@@ -103,10 +146,21 @@ function normalizeCodigoForFilter(rawInput){
     var sh = raw.match(/(?:^|[^A-Z0-9])(BR(?:\d{13}|\d{12}[A-Z]))(?=$|[^A-Z0-9])/i);
     if (sh) return { ok:true, servico:"Shopee", codigo: sh[1].toUpperCase() };
 
-    var mlRun = allDigits.match(/45\d{9,}/);
+    var mlRun = allDigits.match(/4[5-9]\d{9,}/);
     if (mlRun) return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11) };
 
     return { ok:true, servico:"Avulso", codigo: raw };
+  }
+
+  function isMercadoServico(servico){
+    var s = String(servico || "").toLowerCase();
+    return (
+      s.indexOf("mercado") !== -1 ||
+      s.indexOf("mercado livre") !== -1 ||
+      s.indexOf("mercadolivre") !== -1 ||
+      s.indexOf("flex") !== -1 ||
+      /\bml\b/.test(s)
+    );
   }
 
   // =====================================================================
@@ -394,7 +448,7 @@ function augmentEntregadoresFromRows(rows){
     if (!servico) return "servico-default";
     var s = String(servico).toLowerCase();
     if (s.indexOf("shopee") !== -1) return "servico-shopee";
-    if (s.indexOf("mercado") !== -1 || s.indexOf("livre") !== -1) return "servico-ml";
+    if (isMercadoServico(s) || s.indexOf("livre") !== -1) return "servico-ml";
     return "servico-avulso";
   }
 
@@ -1419,8 +1473,8 @@ function updateSummaryCards(res) {
     rows.forEach(r => {
       const serv = String((r.servico || r.service || r.servico || "") || "").toLowerCase();
       if (name === 'shopee' && serv.includes('shopee')) n++;
-      else if (name === 'mercado' && (serv.includes('mercado') || serv.includes('mercadolivre') || serv.includes('mercado livre'))) n++;
-      else if (name === 'avulso' && !(serv.includes('shopee') || serv.includes('mercado'))) n++;
+      else if (name === 'mercado' && isMercadoServico(serv)) n++;
+      else if (name === 'avulso' && !(serv.includes('shopee') || isMercadoServico(serv))) n++;
     });
     return n;
   };
