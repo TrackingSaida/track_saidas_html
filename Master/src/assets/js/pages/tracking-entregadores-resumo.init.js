@@ -738,7 +738,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const list = await res.json();
       const arr = Array.isArray(list) ? list : [];
       const opts = arr.map((e) => {
-        const val = e.id_entregador != null ? "e_" + e.id_entregador : "m_" + e.id_motoboy;
+        const val = e.executor_key || (e.id_motoboy != null ? "m_" + e.id_motoboy : "e_" + e.id_entregador);
         const nome = (e.nome || val).replace(/</g, "&lt;").replace(/"/g, "&quot;");
         return `<option value="${val}">${nome}</option>`;
       });
@@ -761,6 +761,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const params = new URLSearchParams({ page: state.page, pageSize: state.pageSize });
     if (dataInicio) params.append("data_inicio", dataInicio);
     if (dataFim) params.append("data_fim", dataFim);
+    if (executor.tipo && executor.id > 0) {
+      params.append("executor_tipo", executor.tipo);
+      params.append("executor_id", String(executor.id));
+    }
+    // Compatibilidade com backends que ainda não suportam executor_tipo/executor_id.
     if (executor.tipo === "e" && executor.id > 0) params.append("entregador_id", executor.id);
     if (executor.tipo === "m" && executor.id > 0) params.append("motoboy_id", executor.id);
     const statusFiltro = fltStatus?.value?.trim() || "";
