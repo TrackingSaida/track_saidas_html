@@ -34,6 +34,7 @@
     if (params?.somente_g)  q.set("somente_g", "true");
     if (params?.localizar)  q.set("localizar", params.localizar);
     if (params?.codigo)     q.set("codigo", params.codigo);
+    if (params?.codigo_exato) q.set("codigo_exato", "true");
     if (params?.sort)       q.set("sort", params.sort);
 
     q.set("limit",  String(limit));

@@ -82,6 +82,26 @@ function normalizeCodigoForFilter(rawInput){
   return raw;
 }
 
+function parseCodigoFromBusca(rawInput){
+  const normalized = normalizeCodigoForFilter(rawInput);
+  if (!normalized) return null;
+
+  const codigo = String(normalized).toUpperCase().trim();
+  if (!codigo) return null;
+
+  // Evita classificar nomes/frases como código.
+  if (/\s/.test(codigo)) return null;
+
+  if (/^BR(\d{13}|\d{12}[A-Z])$/i.test(codigo)) return codigo;
+  if (/^4[5-9]\d{10}$/.test(codigo)) return codigo;
+  if (/^LM[\w\d-]{4,}$/i.test(codigo)) return codigo;
+
+  // Códigos avulsos costumam ser alfanuméricos sem espaços.
+  if (/^[A-Z0-9][A-Z0-9-]{7,}$/.test(codigo) && /\d/.test(codigo)) return codigo;
+
+  return null;
+}
+
 
   // ================== Classificação de código ==================
   function toAsciiDigits(str){
@@ -338,6 +358,8 @@ function augmentEntregadoresFromRows(rows){
   else if (st === "Não Coletado") st = "Nao Coletado";
   else if (st === "Cancelado") st = "cancelado";
 
+  const codigoBusca = parseCodigoFromBusca(localizar);
+
   const params = {
     de,
     ate,
@@ -350,14 +372,18 @@ function augmentEntregadoresFromRows(rows){
     limit: parseInt(f.pageSize?.value || "200", 10)
   };
 
+  if (codigoBusca) {
+    params.codigo = codigoBusca;
+    params.codigo_exato = true;
+    delete params.localizar;
+  }
+
   if (somenteG) {
     params.somente_g = true;
   }
 
-  // Busca no campo "localizar" (código, entregador, base…): não restringir por período,
-  // para o resultado não sumir só por estar fora dos últimos 30 dias.
-  const temBuscaLocalizar = !!((f.localizar?.value || "").trim());
-  if (temBuscaLocalizar) {
+  // Apenas busca por código deve ignorar período para permitir histórico completo.
+  if (codigoBusca) {
     delete params.de;
     delete params.ate;
   }
