@@ -326,7 +326,11 @@
 
         <div class="col-md-4">
           <label class="form-label">Serviço</label>
-          <input id="edit-servico" class="form-control" readonly />
+          <select id="edit-servico" class="form-control">
+            <option value="Shopee">Shopee</option>
+            <option value="Mercado Livre">Mercado Livre</option>
+            <option value="Avulso">Avulso</option>
+          </select>
         </div>
 
         <div class="col-md-4">
@@ -492,7 +496,7 @@
               </select>
             </div>
           </div>
-          <div class="form-text">Troca permitida apenas se todos os registros forem do mesmo entregador e status “Saiu para entrega”.</div>
+          <div class="form-text">Troca permitida apenas se todos os registros forem do mesmo entregador/motoboy e status válido para edição em lote.</div>
         </div>
 
         <!-- Motoboy (atribuir ao motoboy = Saiu para entrega) -->
@@ -513,6 +517,17 @@
             <option value="Coletado">Coletado</option>
             <option value="Não Coletado">Não Coletado</option>
             <option value="Cancelado">Cancelado</option>
+          </select>
+        </div>
+
+        <!-- Serviço -->
+        <div class="mb-4">
+          <label class="form-label fw-semibold">Serviço</label>
+          <select id="bulk-servico" class="form-select">
+            <option value="">(Manter)</option>
+            <option value="Shopee">Shopee</option>
+            <option value="Mercado Livre">Mercado Livre</option>
+            <option value="Avulso">Avulso</option>
           </select>
         </div>
 

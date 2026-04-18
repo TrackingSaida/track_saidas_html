@@ -1069,12 +1069,13 @@ function setupPagerEvents() {
     });
   }
 
-  if (eCod){
-    eCod.addEventListener("input", () => {
-      if (eSrv){
-        eSrv.value = classifyCodigo(eCod.value).servico;
-      }
-    });
+  function normalizeServicoForEdit(rawServico, rawCodigo){
+    var srv = String(rawServico || "").trim();
+    if (!srv) return classifyCodigo(rawCodigo || "").servico;
+    var lower = srv.toLowerCase();
+    if (lower.indexOf("shopee") !== -1) return "Shopee";
+    if (lower.indexOf("mercado") !== -1 || lower.indexOf("flex") !== -1 || /\bml\b/.test(lower)) return "Mercado Livre";
+    return "Avulso";
   }
 
   function openEditModal(id){
@@ -1085,7 +1086,7 @@ function setupPagerEvents() {
     if (eEnt) eEnt.value = row.entregador || "";
     if (eMotoboy) eMotoboy.value = (row.motoboy_id != null && row.motoboy_id !== "") ? String(row.motoboy_id) : "";
     if (eCod) eCod.value = row.codigo || "";
-    if (eSrv) eSrv.value = classifyCodigo(row.codigo || "").servico;
+    if (eSrv) eSrv.value = normalizeServicoForEdit(row.servico, row.codigo);
 
     var uiStatus = (() => {
       var s = (row.status || "").toLowerCase();
@@ -1139,7 +1140,7 @@ function setupPagerEvents() {
 
       var payload = {
         codigo:     eCod.value,
-        servico:    classifyCodigo(eCod.value).servico,
+        servico:    normalizeServicoForEdit(eSrv?.value, eCod?.value),
         status:     mapStatusToApi(eSta.value)
       };
       // Correto é pelo id_motoboy (tela de users); quando tem motoboy não enviar entregador (nome) para evitar resolução por nome
@@ -1205,9 +1206,28 @@ function setupPagerEvents() {
   var bulkFromEl   = document.getElementById("bulk-entregador-from");
   var bulkMotoboy  = document.getElementById("bulk-motoboy");
   var bulkStatus   = document.getElementById("bulk-status");
+  var bulkServico  = document.getElementById("bulk-servico");
   var bulkBaseGrp  = document.getElementById("bulk-base-group");
   var bulkBase     = document.getElementById("bulk-base");
   var bulkApplyBtn = document.getElementById("bulk-apply");
+
+  function normalizeStatusForBulk(rawStatus){
+    var s = String(rawStatus || "").toLowerCase().trim();
+    if (s === "saiu para entrega" || s === "saiu_pra_entrega" || s === "saiu") return "saiu";
+    if (s === "em rota" || s === "em_rota") return "em_rota";
+    if (s === "entregue") return "entregue";
+    if (s === "ausente") return "ausente";
+    return s;
+  }
+
+  function getExecutorKeyForBulk(row){
+    if (!row) return "none";
+    if (row.motoboy_id != null && row.motoboy_id !== "") return "m:" + String(row.motoboy_id);
+    if (row.entregador_id != null && row.entregador_id !== "") return "e:" + String(row.entregador_id);
+    var ent = String(row.entregador || "").trim().toLowerCase();
+    if (ent) return "n:" + ent;
+    return "none";
+  }
 
   if (bulkStatus){
     bulkStatus.addEventListener("change", () => {
@@ -1224,24 +1244,25 @@ function setupPagerEvents() {
       state.rows.find(r => String(getRowId(r)) === String(id))
     ).filter(Boolean);
 
-    var entregadores = Array.from(new Set(registros.map(r => r.entregador).filter(Boolean)));
-    var statusList   = Array.from(new Set(registros.map(r => (r.status || "").toLowerCase())));
+    var executores = Array.from(new Set(registros.map(getExecutorKeyForBulk).filter(Boolean)));
+    var statusList = Array.from(new Set(registros.map(r => normalizeStatusForBulk(r.status))));
+    var executorLabel = String(registros[0]?.entregador || "(vazio)").trim() || "(vazio)";
 
-    if (entregadores.length > 1)
-      return notify("Selecione apenas registros do mesmo entregador.", "warning");
+    if (executores.length > 1)
+      return notify("Selecione apenas registros do mesmo entregador/motoboy.", "warning");
 
-    if (statusList.some(s => !(s === "saiu" || s === "saiu para entrega")))
-      return notify("Todos precisam estar com status 'Saiu para entrega'.", "warning");
+    if (statusList.some(s => !["saiu", "em_rota", "entregue", "ausente"].includes(s)))
+      return notify("Todos precisam estar com status Saiu, Em rota, Entregue ou Ausente.", "warning");
 
     if (bulkFromEl)
-      bulkFromEl.value = entregadores[0] || "(vazio)";
+      bulkFromEl.value = executorLabel;
 
     loadCombosBase().then(nomes => {
       if (bulkEnt){
         var nomesMotoboys = (motoboysCache || []).map(function(m) { return m.nome || ("Motoboy " + (m.id_motoboy || m.id)); });
         var list = Array.from(new Set((nomes || []).concat(nomesMotoboys))).filter(Boolean).sort((a,b)=>a.localeCompare(b,"pt-BR"));
         bulkEnt.innerHTML = '<option value="">(Manter)</option>' +
-          list.filter(n => n !== entregadores[0])
+          list.filter(n => n !== executorLabel)
               .map(n => `<option value="${n}">${n}</option>`)
               .join("");
       }
@@ -1262,6 +1283,7 @@ function setupPagerEvents() {
       }
       if (bulkCount) bulkCount.textContent = ids.length + " registro(s) selecionado(s).";
       bulkStatus.value = "";
+      if (bulkServico) bulkServico.value = "";
       bulkBaseGrp?.classList.add("d-none");
       if (bulkBase) bulkBase.value = "";
       if (bulkMotoboy) bulkMotoboy.value = "";
@@ -1301,6 +1323,7 @@ function setupPagerEvents() {
       if (bulkEnt?.value) body.entregador = bulkEnt.value;
       if (bulkMotoboy?.value) body.motoboy_id = Number(bulkMotoboy.value);
       if (bulkStatus?.value) body.status = mapStatusToApi(bulkStatus.value);
+      if (bulkServico?.value) body.servico = normalizeServicoForEdit(bulkServico.value, "");
       if ((bulkStatus?.value === "Não Coletado" || bulkStatus?.value === "Coletado") && bulkBase?.value)
         body.base = bulkBase.value;
 
