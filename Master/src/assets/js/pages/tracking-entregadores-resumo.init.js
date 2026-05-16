@@ -781,7 +781,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       const res = await fetch(`${API_ENTREGADORES}/executores?status=ativo`, { credentials: "include" });
       if (!res.ok) return;
       const list = await res.json();
-      const arr = Array.isArray(list) ? list : [];
+      const arr = (Array.isArray(list) ? list : []).slice().sort((a, b) => {
+        const na = String(a?.nome || a?.executor_key || "").localeCompare(String(b?.nome || b?.executor_key || ""), "pt-BR", { sensitivity: "base" });
+        if (na !== 0) return na;
+        return String(a?.executor_key || "").localeCompare(String(b?.executor_key || ""), "pt-BR", { sensitivity: "base" });
+      });
       const opts = arr.map((e) => {
         const val = e.executor_key || (e.id_motoboy != null ? "m_" + e.id_motoboy : "e_" + e.id_entregador);
         const nome = (e.nome || val).replace(/</g, "&lt;").replace(/"/g, "&quot;");

@@ -192,9 +192,12 @@
       const select = qs("#selectEntregador");
       if (!select) return;
       const idsComExcecao = CACHE_EXCECÕES.map((e) => e.entregador_id);
+      const ordenados = arr
+        .filter((e) => !idsComExcecao.includes(e.id_entregador))
+        .slice()
+        .sort((a, b) => String(a?.nome || a?.id_entregador || "").localeCompare(String(b?.nome || b?.id_entregador || ""), "pt-BR", { sensitivity: "base" }));
       select.innerHTML = '<option value="">Selecione o entregador</option>' +
-        arr
-          .filter((e) => !idsComExcecao.includes(e.id_entregador))
+        ordenados
           .map((e) => `<option value="${e.id_entregador}">${e.nome || e.id_entregador}</option>`)
           .join("");
     } catch (err) {
