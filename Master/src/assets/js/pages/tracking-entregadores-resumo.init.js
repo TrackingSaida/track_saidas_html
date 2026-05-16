@@ -82,6 +82,36 @@ document.addEventListener("DOMContentLoaded", async () => {
     REAJUSTADO: "Fechamento reajustado",
   };
 
+  function formatarCodigoFechamento(r) {
+    const idFech = Number(r?.id_fechamento || 0);
+    if (!idFech) return "";
+    const periodoRaw = String(r?.data || "");
+    const [y, m] = periodoRaw.split("-");
+    const ym = y && m ? `${y}${m}` : "000000";
+    const entTag = String(r?.entregador_nome || "MOTOBOY")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]+/g, "")
+      .toUpperCase()
+      .slice(0, 12) || "MOTOBOY";
+    return `FEC-${ym}-${entTag}-${String(idFech).padStart(6, "0")}`;
+  }
+
+  function formatarCodigoFechamentoDetalhe(idFech, periodoFim, periodoInicio, entNome) {
+    const id = Number(idFech || 0);
+    if (!id) return "—";
+    const periodo = String(periodoFim || periodoInicio || "");
+    const [y, m] = periodo.split("-");
+    const ym = y && m ? `${y}${m}` : "000000";
+    const entTag = String(entNome || "MOTOBOY")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]+/g, "")
+      .toUpperCase()
+      .slice(0, 12) || "MOTOBOY";
+    return `FEC-${ym}-${entTag}-${String(id).padStart(6, "0")}`;
+  }
+
   const PLACEHOLDER_MOTIVO = {
     ADIÇÃO: "Ex: Coletas realizadas (50 x R$ 2,00)",
     SUBTRAÇÃO: "Ex: Adiantamento pago",
@@ -90,18 +120,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   function celulaFechamento(r) {
     const st = (r.fechamento_status || "PENDENTE").toUpperCase();
     const idFech = r.id_fechamento || "";
+    const codigoFech = formatarCodigoFechamento(r);
     let html = "";
     if (st === "PENDENTE") {
       html = '<span class="badge bg-warning-subtle text-warning" title="' + (STATUS_TOOLTIPS.PENDENTE || "Pendente") + '">🟡 PENDENTE</span>';
     } else if (st === "GERADO") {
-      html = '<span class="badge bg-success-subtle text-success" title="' + (STATUS_TOOLTIPS.GERADO || "Gerado") + '">🟢 GERADO</span>';
+      html = '<span class="badge bg-success-subtle text-success" title="' + (STATUS_TOOLTIPS.GERADO || "Gerado") + (codigoFech ? " · " + codigoFech : "") + '">🟢 GERADO</span>';
       if (idFech) {
-        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
+        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF · ' + (codigoFech || "") + '" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
       }
     } else {
-      html = '<span class="badge bg-info-subtle text-info" title="' + (STATUS_TOOLTIPS.REAJUSTADO || "Reajustado") + '">🔵 REAJUSTADO</span>';
+      html = '<span class="badge bg-info-subtle text-info" title="' + (STATUS_TOOLTIPS.REAJUSTADO || "Reajustado") + (codigoFech ? " · " + codigoFech : "") + '">🔵 REAJUSTADO</span>';
       if (idFech) {
-        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
+        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF · ' + (codigoFech || "") + '" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
       }
     }
     return html;
@@ -426,6 +457,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     qs("#fech-periodo-fim").value = periodoFim || "";
     qs("#fech-entregador-nome").textContent = entNome || fltEntregador?.options[fltEntregador.selectedIndex]?.text || "—";
     qs("#fech-periodo-display").textContent = formatarPeriodo(periodoInicio, periodoFim);
+    const codigoEl = qs("#fech-codigo");
+    if (codigoEl) codigoEl.textContent = formatarCodigoFechamentoDetalhe(idFech, periodoFim, periodoInicio, entNome);
 
     const alertDiverg = qs("#fechamentoAlertaDivergencia");
     if (alertDiverg) alertDiverg.classList.add("d-none");
@@ -474,6 +507,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (executorTipo === "m" && executorId) calcParams.append("motoboy_id", executorId);
       try {
         const res = await fetch(`${API_FECHAMENTOS}/calcular?${calcParams}`, { credentials: "include" });
+        let calculoComFallback = false;
         if (res.ok) {
           const data = await res.json();
           state.fechModal.valorBase = Number(data.valor_base || 0);
@@ -514,17 +548,20 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (resumoRes.ok) {
             const resumoData = await resumoRes.json();
             const itens = Array.isArray(resumoData.items) ? resumoData.items : [];
-            const valorBase = itens.reduce((s, r) => s + (Number(r.total_dia) || 0), 0);
+            const valorBase = itens.reduce((s, r) => s + (Number(r.valor_total ?? r.total_dia) || 0), 0);
             state.fechModal.valorBase = valorBase;
             qs("#fech-valor-base").value = formatarMoeda(valorBase);
+            calculoComFallback = true;
           } else {
             qs("#fech-valor-base").value = formatarMoeda(0);
           }
-          const titulo = typeof mensagem === "string" && mensagem.toLowerCase().includes("período ainda em aberto")
-            ? "Período inválido para fechamento"
-            : "Não foi possível calcular o fechamento";
-          if (window.Swal) Swal.fire({ icon: "warning", title: titulo, text: mensagem });
-          else alert(mensagem);
+          if (!calculoComFallback) {
+            const titulo = typeof mensagem === "string" && mensagem.toLowerCase().includes("período ainda em aberto")
+              ? "Período inválido para fechamento"
+              : "Não foi possível calcular o fechamento";
+            if (window.Swal) Swal.fire({ icon: "warning", title: titulo, text: mensagem });
+            else alert(mensagem);
+          }
         }
       } catch (err) {
         const resumoParams = new URLSearchParams({ data_inicio: periodoInicio, data_fim: periodoFim, pageSize: 500 });
@@ -535,7 +572,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (resumoRes.ok) {
             const resumoData = await resumoRes.json();
             const itens = Array.isArray(resumoData.items) ? resumoData.items : [];
-            const valorBase = itens.reduce((s, r) => s + (Number(r.total_dia) || 0), 0);
+            const valorBase = itens.reduce((s, r) => s + (Number(r.valor_total ?? r.total_dia) || 0), 0);
             state.fechModal.valorBase = valorBase;
             qs("#fech-valor-base").value = formatarMoeda(valorBase);
           } else {

@@ -464,6 +464,7 @@
 .card-er-flex .small,
 .card-er-shopee .small,
 .card-er-avulso .small,
+.card-er-cancelado .small,
 .card-er-total .small,
 .card-er-valor .small {
   color: #6c757d !important;
@@ -471,6 +472,7 @@
 .card-er-flex .fs-5,
 .card-er-shopee .fs-5,
 .card-er-avulso .fs-5,
+.card-er-cancelado .fs-5,
 .card-er-total .fs-5,
 .card-er-valor .fs-5 {
   font-size: 1.5rem !important;
@@ -495,6 +497,11 @@
   background: linear-gradient(135deg, rgba(13, 110, 253, 0.08) 0%, rgba(13, 110, 253, 0.14) 100%);
   border: 1px solid rgba(13, 110, 253, 0.45);
   color: #0d6efd;
+}
+.card-er-cancelado {
+  background: linear-gradient(135deg, rgba(108, 117, 125, 0.08) 0%, rgba(108, 117, 125, 0.14) 100%);
+  border: 1px solid rgba(108, 117, 125, 0.45);
+  color: #6c757d;
 }
 .card-er-total {
   background: linear-gradient(135deg, rgba(111, 66, 193, 0.08) 0%, rgba(111, 66, 193, 0.14) 100%);

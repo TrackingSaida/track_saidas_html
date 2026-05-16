@@ -40,7 +40,7 @@
                   <div class="dropdown">
                     <button class="btn btn-soft-primary dropdown-toggle d-flex align-items-center gap-2" type="button" id="registros-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
                       <i class="bx bx-calendar"></i>
-                      <span id="registros-period-label" class="text-truncate">Hoje - 30 dias</span>
+                      <span id="registros-period-label" class="text-truncate">Hoje - 90 dias</span>
                     </button>
                     <div class="dropdown-menu dropdown-menu-end p-0" id="registros-period-panel" style="min-width: 640px;">
                       <input type="hidden" id="flt-from" />
@@ -66,27 +66,122 @@
                           <option value="">(Todos)</option>
                         </select>
                       </div>
-                      <div class="mb-2">
-                        <label class="form-label small">Serviço</label>
-                        <select id="flt-servico" class="form-select form-select-sm">
-                          <option value="">(Todos)</option>
-                          <option value="Shopee">Shopee</option>
-                          <option value="Mercado Livre">Mercado Livre</option>
-                          <option value="Avulso">Avulso</option>
-                        </select>
-                      </div>
-                      <div class="mb-3">
-                        <label class="form-label small">Status</label>
-                        <select id="flt-status" class="form-select form-select-sm">
-                          <option value="">(Todos)</option>
-                          <option value="saiu">Saiu para entrega</option>
-                          <option value="em_rota">Em rota</option>
-                          <option value="entregue">Entregue</option>
-                          <option value="ausente">Ausente</option>
-                          <option value="Coletado">Coletado</option>
-                          <option value="Não Coletado">Não Coletado</option>
-                          <option value="Cancelado">Cancelado</option>
-                        </select>
+                      <div class="accordion accordion-flush mb-3" id="filtrosAccordion">
+                        <div class="accordion-item">
+                          <h2 class="accordion-header" id="headingServico">
+                            <button class="accordion-button collapsed py-2 small" type="button" data-bs-toggle="collapse" data-bs-target="#collapseServico" aria-expanded="false" aria-controls="collapseServico">
+                              Serviço
+                            </button>
+                          </h2>
+                          <div id="collapseServico" class="accordion-collapse collapse" aria-labelledby="headingServico" data-bs-parent="#filtrosAccordion">
+                            <div class="accordion-body pt-2 pb-1">
+                              <div id="flt-servico-toggle" class="filtro-switch-list d-flex flex-column gap-1">
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-servico-shopee" value="Shopee" checked>
+                                  <label class="form-check-label small" for="flt-servico-shopee">Shopee</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-servico-ml" value="Mercado Livre" checked>
+                                  <label class="form-check-label small" for="flt-servico-ml">Mercado Livre</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-servico-avulso" value="Avulso" checked>
+                                  <label class="form-check-label small" for="flt-servico-avulso">Avulso</label>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="accordion-item">
+                          <h2 class="accordion-header" id="headingStatus">
+                            <button class="accordion-button collapsed py-2 small" type="button" data-bs-toggle="collapse" data-bs-target="#collapseStatus" aria-expanded="false" aria-controls="collapseStatus">
+                              Situação
+                            </button>
+                          </h2>
+                          <div id="collapseStatus" class="accordion-collapse collapse" aria-labelledby="headingStatus" data-bs-parent="#filtrosAccordion">
+                            <div class="accordion-body pt-2 pb-1">
+                              <div id="flt-status-toggle" class="filtro-switch-list d-flex flex-column gap-1">
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-status-saiu" value="saiu" checked>
+                                  <label class="form-check-label small" for="flt-status-saiu">Saiu para entrega</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-status-emrota" value="em_rota" checked>
+                                  <label class="form-check-label small" for="flt-status-emrota">Em rota</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-status-entregue" value="entregue" checked>
+                                  <label class="form-check-label small" for="flt-status-entregue">Entregue</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-status-ausente" value="ausente" checked>
+                                  <label class="form-check-label small" for="flt-status-ausente">Ausente</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-status-coletado" value="coletado" checked>
+                                  <label class="form-check-label small" for="flt-status-coletado">Coletado</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-status-nao-coletado" value="nao_coletado" checked>
+                                  <label class="form-check-label small" for="flt-status-nao-coletado">Não Coletado</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-status-cancelado" value="cancelado" checked>
+                                  <label class="form-check-label small" for="flt-status-cancelado">Cancelado</label>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="accordion-item">
+                          <h2 class="accordion-header" id="headingAcao">
+                            <button class="accordion-button collapsed py-2 small" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAcao" aria-expanded="false" aria-controls="collapseAcao">
+                              Ação
+                            </button>
+                          </h2>
+                          <div id="collapseAcao" class="accordion-collapse collapse" aria-labelledby="headingAcao" data-bs-parent="#filtrosAccordion">
+                            <div class="accordion-body pt-2 pb-1">
+                              <div id="flt-acao-toggle" class="filtro-switch-list d-flex flex-column gap-1">
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-lido" value="lido" checked>
+                                  <label class="form-check-label small" for="flt-acao-lido">Leu pedido</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-scan" value="scan" checked>
+                                  <label class="form-check-label small" for="flt-acao-scan">Escaneou pedido</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-reatribuido" value="reatribuido" checked>
+                                  <label class="form-check-label small" for="flt-acao-reatribuido">Reatribuiu pedido</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-reatribuido-em-rota" value="reatribuido_em_rota" checked>
+                                  <label class="form-check-label small" for="flt-acao-reatribuido-em-rota">Reatribuído -> Iniciou rota</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-em-rota" value="em_rota" checked>
+                                  <label class="form-check-label small" for="flt-acao-em-rota">Iniciou rota</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-entregue" value="entregue" checked>
+                                  <label class="form-check-label small" for="flt-acao-entregue">Finalizou entrega</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-ausente" value="ausente" checked>
+                                  <label class="form-check-label small" for="flt-acao-ausente">Registrou ausência</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-cancelado" value="cancelado" checked>
+                                  <label class="form-check-label small" for="flt-acao-cancelado">Registrou cancelamento</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-desatribuido" value="desatribuido" checked>
+                                  <label class="form-check-label small" for="flt-acao-desatribuido">Desatribuiu pedido</label>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="flt-somente-g">
@@ -225,19 +320,20 @@
                     <tr>
                       <th style="width:40px;"></th>
                       <th style="width:36px"><input id="chk-all" type="checkbox" class="form-check-input" /></th>
-                      <th>Data/Hora ação</th>
-                      <th data-owner-term="base">Base</th>
-                      <th>Lido por</th>
-                      <th>Ação</th>
-                      <th>Entregador</th>
-                      <th>Código</th>
-                      <th>Serviço</th>
-                      <th>Status</th>
+                      <th style="min-width:180px;">Código</th>
+                      <th style="min-width:120px;">Serviço</th>
+                      <th style="min-width:120px;">Status</th>
+                      <th style="min-width:160px;">Ação</th>
+                      <th style="min-width:150px;">Entregador</th>
+                      <th style="min-width:160px;">Horário da ação</th>
+                      <th style="min-width:170px;">Entrada no sistema</th>
+                      <th style="min-width:110px;">Lido por</th>
+                      <th style="min-width:110px;">Seller</th>
                       <th class="text-center" style="width:50px" title="Pacote G (Grande)">G</th>
                     </tr>
                   </thead>
                   <tbody id="reg-rows">
-                    <tr><td colspan="11" class="text-center text-muted py-4">Carregando...</td></tr>
+                    <tr><td colspan="12" class="text-center text-muted py-4">Carregando...</td></tr>
                   </tbody>
                 </table>
               </div>

@@ -191,8 +191,9 @@ function parseCodigoFromBusca(rawInput){
     from: qs("#flt-from"),
     to: qs("#flt-to"),
     entregador: qs("#flt-entregador"),
-    servico: qs("#flt-servico"),
-    status: qs("#flt-status"),
+    servicoToggles: qsa("#flt-servico-toggle .filtro-toggle-item"),
+    statusToggles: qsa("#flt-status-toggle .filtro-toggle-item"),
+    acaoToggles: qsa("#flt-acao-toggle .filtro-toggle-item"),
     somenteG: qs("#flt-somente-g"),
     localizar: qs("#flt-localizar"),
     sort: qs("#flt-sort"),
@@ -341,8 +342,9 @@ function augmentEntregadoresFromRows(rows){
   const to          = f.to?.value || "";
   const base        = document.getElementById("flt-base")?.value || "";
   const entregador  = f.entregador?.value || "";
-  const servico     = f.servico?.value || "";
-  const status      = f.status?.value || "";
+  const servicosSelecionados = (f.servicoToggles || []).filter(el => el.checked).map(el => el.value);
+  const statusSelecionados = (f.statusToggles || []).filter(el => el.checked).map(el => el.value);
+  const acoesSelecionadas = (f.acaoToggles || []).filter(el => el.checked).map(el => el.value);
   const somenteG    = !!f.somenteG?.checked;
   const localizar   = (f.localizar?.value || "").trim();
   const sort        = f.sort?.value || "-ts";
@@ -351,13 +353,6 @@ function augmentEntregadoresFromRows(rows){
   const de  = (from && from.trim()) ? from.trim() : "";
   const ate = (to && to.trim()) ? to.trim() : (de ? de : "");
 
-  // NORMALIZA STATUS PARA API
-  let st = status;
-  if (st === "Saiu para entrega") st = "saiu";
-  else if (st === "Coletado") st = "coletado";
-  else if (st === "Não Coletado") st = "Nao Coletado";
-  else if (st === "Cancelado") st = "cancelado";
-
   const codigoBusca = parseCodigoFromBusca(localizar);
 
   const params = {
@@ -365,8 +360,9 @@ function augmentEntregadoresFromRows(rows){
     ate,
     base,
     entregador,
-    servico,
-    status: st,
+    servico: servicosSelecionados,
+    status: statusSelecionados,
+    acao: acoesSelecionadas,
     localizar: localizar || undefined,
     sort,
     limit: parseInt(f.pageSize?.value || "200", 10)
@@ -390,7 +386,7 @@ function augmentEntregadoresFromRows(rows){
 
   // APENAS REMOVE SE REALMENTE ESTIVER VAZIO
   Object.keys(params).forEach(k => {
-    if (params[k] === "" || params[k] === undefined || params[k] === null) {
+    if (params[k] === "" || params[k] === undefined || params[k] === null || (Array.isArray(params[k]) && params[k].length === 0)) {
       delete params[k];
     }
   });
@@ -417,12 +413,24 @@ function augmentEntregadoresFromRows(rows){
     if (!r) return r;
 
     var id = getRowId(r);
-    var ts = r.data_hora_acao || r.timestamp || r.ts || r.data_hora || r.datahora || r.date;
+    var tsEntrada = r.timestamp || r.ts || r.data_hora || r.datahora || r.date;
+    var tsAcao = r.data_hora_acao || r.timestamp || r.ts || r.data_hora || r.datahora || r.date;
 
-    var tsFmt = r.tsFmt || (() => {
+    var tsEntradaFmt = (() => {
       try {
-        if (!ts) return "";
-        var d = (ts instanceof Date) ? ts : new Date(ts);
+        if (!tsEntrada) return "";
+        var d = (tsEntrada instanceof Date) ? tsEntrada : new Date(tsEntrada);
+        if (isNaN(d.getTime())) return "";
+        return d.toLocaleString("pt-BR");
+      } catch {
+        return "";
+      }
+    })();
+
+    var tsAcaoFmt = (() => {
+      try {
+        if (!tsAcao) return "";
+        var d = (tsAcao instanceof Date) ? tsAcao : new Date(tsAcao);
         if (isNaN(d.getTime())) return "";
         return d.toLocaleString("pt-BR");
       } catch {
@@ -436,6 +444,7 @@ function augmentEntregadoresFromRows(rows){
       r.usuario ||
       r.created_by ||
       "-";
+    var seller = r.base || r.seller || "-";
     var acao = r.acao || r.action || "Sem ação";
 
     var rawSt = String(r.status || "").toLowerCase();
@@ -444,8 +453,10 @@ function augmentEntregadoresFromRows(rows){
     return {
       ...r,
       id,
-      tsFmt,
+      tsEntradaFmt,
+      tsAcaoFmt,
       username,
+      seller,
       acao,
       status: statusUI
     };
@@ -491,7 +502,7 @@ function augmentEntregadoresFromRows(rows){
     if (!tblBody) return;
     if (!rows?.length){
       tblBody.innerHTML =
-        '<tr><td colspan="11" class="text-muted text-center py-4">Sem registros.</td></tr>';
+        '<tr><td colspan="12" class="text-muted text-center py-4">Sem registros.</td></tr>';
       return;
     }
 
@@ -512,14 +523,15 @@ function augmentEntregadoresFromRows(rows){
           <tr data-id="${rid}" class="${rowClass}">
             <td class="expand-icon"><i class="ri-arrow-right-s-line"></i></td>
             <td><input type="checkbox" class="rowchk form-check-input" /></td>
-            <td>${r.tsFmt || ""}</td>
-            <td>${r.base || "-"}</td>
-            <td>${r.username || "-"}</td>
-            <td>${r.acao || "-"}</td>
-            <td>${r.entregador || "-"}</td>
             <td><span class="d-inline-flex align-items-center gap-1">${r.codigo || "-"} <button type="button" class="btn btn-link btn-sm p-0 text-primary" title="Gerar etiqueta" data-etiqueta="${(r.codigo || "").replace(/"/g, "&quot;")}" data-id-saida="${rid || ""}" data-servico="${(r.servico || "").replace(/"/g, "&quot;")}"><i class="ri-printer-line"></i></button></span></td>
             <td><span class="${servicoBadgeClass}">${r.servico || "-"}</span></td>
             <td><span class="${statusBadgeClass}">${r.status || "-"}</span></td>
+            <td>${r.acao || "-"}</td>
+            <td>${r.entregador || "-"}</td>
+            <td>${r.tsAcaoFmt || ""}</td>
+            <td>${r.tsEntradaFmt || ""}</td>
+            <td>${r.username || "-"}</td>
+            <td class="text-muted">${r.seller || "-"}</td>
             <td class="text-center">${gCell}</td>
           </tr>`;
       })
@@ -1384,7 +1396,7 @@ function setupPagerEvents() {
     datePickerInstance = window.initDatePickerDashboard({
       containerId: "registros-date-picker-container",
       prefix: "registros-dp",
-      defaultPreset: "ultimos30",
+      defaultPreset: "ultimos45",
       onApply: function (start, end) {
         if (f.from) f.from.value = start;
         if (f.to) f.to.value = end;
@@ -1404,7 +1416,7 @@ function setupPagerEvents() {
       }
     });
     if (datePickerInstance && datePickerInstance.applyPreset) {
-      datePickerInstance.applyPreset("ultimos30");
+      datePickerInstance.applyPreset("ultimos45");
     }
     const r = datePickerInstance ? datePickerInstance.getResolvedRange() : { start: "", end: "" };
     if (f.from) f.from.value = r.start;
@@ -1414,7 +1426,7 @@ function setupPagerEvents() {
     // fallback: definir período manualmente se date picker não disponível
     const now = new Date();
     const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
-    const start = new Date(y, m, d - 30);
+    const start = new Date(y, m, d - 45);
     const fmt = (x) => x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0");
     if (f.from) f.from.value = fmt(start);
     if (f.to) f.to.value = fmt(now);
@@ -1425,8 +1437,15 @@ function setupPagerEvents() {
     let n = 0;
     if ((document.getElementById("flt-base")?.value || "").trim()) n++;
     if ((f.entregador?.value || "").trim()) n++;
-    if ((f.servico?.value || "").trim()) n++;
-    if ((f.status?.value || "").trim()) n++;
+    var totalServico = (f.servicoToggles || []).length;
+    var totalStatus = (f.statusToggles || []).length;
+    var totalAcao = (f.acaoToggles || []).length;
+    var ativosServico = (f.servicoToggles || []).filter(el => el.checked).length;
+    var ativosStatus = (f.statusToggles || []).filter(el => el.checked).length;
+    var ativosAcao = (f.acaoToggles || []).filter(el => el.checked).length;
+    if (totalServico > 0 && ativosServico !== totalServico) n++;
+    if (totalStatus > 0 && ativosStatus !== totalStatus) n++;
+    if (totalAcao > 0 && ativosAcao !== totalAcao) n++;
     if (f.somenteG?.checked) n++;
     if (n > 0) {
       filtrosContadorEl.textContent = String(n);
@@ -1460,11 +1479,10 @@ function setupPagerEvents() {
       const fltBase = document.getElementById("flt-base");
       if (fltBase) fltBase.value = "";
       if (f.entregador) f.entregador.value = "";
-      if (f.servico) f.servico.value = "";
-      if (f.status) f.status.value = "";
+      ativarTodosFiltros();
       if (f.somenteG) f.somenteG.checked = false;
       if (datePickerInstance && datePickerInstance.applyPreset) {
-        datePickerInstance.applyPreset("ultimos30");
+        datePickerInstance.applyPreset("ultimos45");
         const r = datePickerInstance.getResolvedRange();
         if (f.from) f.from.value = r.start;
         if (f.to) f.to.value = r.end;
@@ -1475,6 +1493,38 @@ function setupPagerEvents() {
       atualizarContadorFiltros();
       fecharDropdownFiltros();
     };
+  }
+
+  function setupModoSelecao(){
+    var toggles = []
+      .concat(f.servicoToggles || [])
+      .concat(f.statusToggles || [])
+      .concat(f.acaoToggles || []);
+    function aplicarModo(){
+      var grupos = [f.servicoToggles || [], f.statusToggles || [], f.acaoToggles || []];
+      grupos.forEach(function(grupo){
+        if (grupo.length && !grupo.some(el => el.checked)) {
+          grupo[0].checked = true;
+        }
+      });
+    }
+    toggles.forEach(function(el){
+      el.addEventListener("change", function(){
+        var parent = el.closest("#flt-servico-toggle, #flt-status-toggle, #flt-acao-toggle");
+        if (!parent) return;
+        var grupo = qsa("input.filtro-toggle-item", parent);
+        if (grupo.length && !grupo.some(function(item){ return item.checked; })) {
+          el.checked = true;
+        }
+      });
+    });
+    aplicarModo();
+  }
+
+  function ativarTodosFiltros(){
+    (f.servicoToggles || []).forEach(el => { el.checked = true; });
+    (f.statusToggles || []).forEach(el => { el.checked = true; });
+    (f.acaoToggles || []).forEach(el => { el.checked = true; });
   }
   if (btnFiltroCancelar) {
     btnFiltroCancelar.onclick = fecharDropdownFiltros;
@@ -1494,10 +1544,12 @@ function setupPagerEvents() {
       fillEntregadores(unicos);
     })
     .finally(() => {
+      ativarTodosFiltros();
       if (f.pageSize) f.pageSize.value = String(state.pageSize);
       refresh(false);
       updateEditButtonState();
       if (typeof atualizarContadorFiltros === "function") atualizarContadorFiltros();
+      setupModoSelecao();
       if (typeof window.applyOwnerLabels === "function") window.applyOwnerLabels();
     });
 
