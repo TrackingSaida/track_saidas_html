@@ -1396,7 +1396,7 @@ function setupPagerEvents() {
     datePickerInstance = window.initDatePickerDashboard({
       containerId: "registros-date-picker-container",
       prefix: "registros-dp",
-      defaultPreset: "ultimos30",
+      defaultPreset: "ultimos90",
       onApply: function (start, end) {
         if (f.from) f.from.value = start;
         if (f.to) f.to.value = end;
@@ -1416,7 +1416,7 @@ function setupPagerEvents() {
       }
     });
     if (datePickerInstance && datePickerInstance.applyPreset) {
-      datePickerInstance.applyPreset("ultimos30");
+      datePickerInstance.applyPreset("ultimos90");
     }
     const r = datePickerInstance ? datePickerInstance.getResolvedRange() : { start: "", end: "" };
     if (f.from) f.from.value = r.start;
@@ -1426,7 +1426,7 @@ function setupPagerEvents() {
     // fallback: definir período manualmente se date picker não disponível
     const now = new Date();
     const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
-    const start = new Date(y, m, d - 30);
+    const start = new Date(y, m, d - 90);
     const fmt = (x) => x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0");
     if (f.from) f.from.value = fmt(start);
     if (f.to) f.to.value = fmt(now);
@@ -1482,7 +1482,7 @@ function setupPagerEvents() {
       ativarTodosFiltros();
       if (f.somenteG) f.somenteG.checked = false;
       if (datePickerInstance && datePickerInstance.applyPreset) {
-        datePickerInstance.applyPreset("ultimos30");
+        datePickerInstance.applyPreset("ultimos90");
         const r = datePickerInstance.getResolvedRange();
         if (f.from) f.from.value = r.start;
         if (f.to) f.to.value = r.end;
