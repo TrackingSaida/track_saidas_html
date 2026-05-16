@@ -113,11 +113,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const cardShopee = qs("#card-shopee");
     const cardAvulso = qs("#card-avulso");
     const cardTotalEntregas = qs("#card-total-entregas");
+    const cardTotalCancelado = qs("#card-total-cancelado");
     const cardValor = qs("#card-valor");
     if (cardFlex) cardFlex.textContent = String(data.sumFlex ?? 0);
     if (cardShopee) cardShopee.textContent = String(data.sumShopee ?? 0);
     if (cardAvulso) cardAvulso.textContent = String(data.sumAvulso ?? 0);
     if (cardTotalEntregas) cardTotalEntregas.textContent = String(data.sumTotalEntregas ?? 0);
+    if (cardTotalCancelado) cardTotalCancelado.textContent = String(data.sumTotalCancelado ?? 0);
     if (cardValor) cardValor.textContent = formatarMoeda(data.sumValor);
   }
 
@@ -362,8 +364,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         const shopeeQtde = r.shopee?.qtde ?? 0;
         const avulsoQtde = r.avulso?.qtde ?? 0;
         const gTotal = r.g_total ?? 0;
-        const totalEntregas = flexQtde + shopeeQtde + avulsoQtde;
-        const valorTotal = r.total_dia != null ? formatarMoeda(r.total_dia) : "—";
+        const totalEntregas = r.total_feitos ?? (flexQtde + shopeeQtde + avulsoQtde);
+        const totalCancelado = r.total_cancelado ?? 0;
+        const valorFeitos = r.valor_feitos != null ? formatarMoeda(r.valor_feitos) : "—";
+        const valorCancelados = r.valor_cancelados != null ? formatarMoeda(r.valor_cancelados) : "—";
+        const valorTotal = r.valor_total != null ? formatarMoeda(r.valor_total) : (r.total_dia != null ? formatarMoeda(r.total_dia) : "—");
         const celFech = celulaFechamento(r);
 
         return (
@@ -375,6 +380,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           '<td class="text-center">' + avulsoQtde + "</td>" +
           '<td class="text-center">' + gTotal + "</td>" +
           '<td class="text-center">' + totalEntregas + "</td>" +
+          '<td class="text-center">' + totalCancelado + "</td>" +
+          '<td class="text-end">' + valorFeitos + "</td>" +
+          '<td class="text-end text-danger">' + valorCancelados + "</td>" +
           '<td class="text-end">' + valorTotal + "</td>" +
           '<td class="text-center">' + celFech + "</td>" +
           "</tr>"
