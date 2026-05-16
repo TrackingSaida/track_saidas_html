@@ -413,12 +413,24 @@ function augmentEntregadoresFromRows(rows){
     if (!r) return r;
 
     var id = getRowId(r);
-    var ts = r.data_hora_acao || r.timestamp || r.ts || r.data_hora || r.datahora || r.date;
+    var tsEntrada = r.timestamp || r.ts || r.data_hora || r.datahora || r.date;
+    var tsAcao = r.data_hora_acao || r.timestamp || r.ts || r.data_hora || r.datahora || r.date;
 
-    var tsFmt = r.tsFmt || (() => {
+    var tsEntradaFmt = (() => {
       try {
-        if (!ts) return "";
-        var d = (ts instanceof Date) ? ts : new Date(ts);
+        if (!tsEntrada) return "";
+        var d = (tsEntrada instanceof Date) ? tsEntrada : new Date(tsEntrada);
+        if (isNaN(d.getTime())) return "";
+        return d.toLocaleString("pt-BR");
+      } catch {
+        return "";
+      }
+    })();
+
+    var tsAcaoFmt = (() => {
+      try {
+        if (!tsAcao) return "";
+        var d = (tsAcao instanceof Date) ? tsAcao : new Date(tsAcao);
         if (isNaN(d.getTime())) return "";
         return d.toLocaleString("pt-BR");
       } catch {
@@ -440,7 +452,8 @@ function augmentEntregadoresFromRows(rows){
     return {
       ...r,
       id,
-      tsFmt,
+      tsEntradaFmt,
+      tsAcaoFmt,
       username,
       acao,
       status: statusUI
@@ -487,7 +500,7 @@ function augmentEntregadoresFromRows(rows){
     if (!tblBody) return;
     if (!rows?.length){
       tblBody.innerHTML =
-        '<tr><td colspan="11" class="text-muted text-center py-4">Sem registros.</td></tr>';
+        '<tr><td colspan="12" class="text-muted text-center py-4">Sem registros.</td></tr>';
       return;
     }
 
@@ -508,7 +521,8 @@ function augmentEntregadoresFromRows(rows){
           <tr data-id="${rid}" class="${rowClass}">
             <td class="expand-icon"><i class="ri-arrow-right-s-line"></i></td>
             <td><input type="checkbox" class="rowchk form-check-input" /></td>
-            <td>${r.tsFmt || ""}</td>
+            <td>${r.tsEntradaFmt || ""}</td>
+            <td>${r.tsAcaoFmt || ""}</td>
             <td>${r.base || "-"}</td>
             <td>${r.username || "-"}</td>
             <td>${r.acao || "-"}</td>

@@ -144,15 +144,19 @@
                               <div id="flt-acao-toggle" class="filtro-switch-list d-flex flex-column gap-1">
                                 <div class="form-check form-switch">
                                   <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-lido" value="lido" checked>
-                                  <label class="form-check-label small" for="flt-acao-lido">Lido</label>
+                                  <label class="form-check-label small" for="flt-acao-lido">Leu pedido</label>
                                 </div>
                                 <div class="form-check form-switch">
                                   <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-scan" value="scan" checked>
-                                  <label class="form-check-label small" for="flt-acao-scan">Scan</label>
+                                  <label class="form-check-label small" for="flt-acao-scan">Escaneou pedido</label>
                                 </div>
                                 <div class="form-check form-switch">
-                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-assumir" value="assumir" checked>
-                                  <label class="form-check-label small" for="flt-acao-assumir">Reatribuido</label>
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-reatribuido" value="reatribuido" checked>
+                                  <label class="form-check-label small" for="flt-acao-reatribuido">Reatribuiu pedido</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-reatribuido-em-rota" value="reatribuido_em_rota" checked>
+                                  <label class="form-check-label small" for="flt-acao-reatribuido-em-rota">Reatribuído -> Iniciou rota</label>
                                 </div>
                                 <div class="form-check form-switch">
                                   <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-em-rota" value="em_rota" checked>
@@ -160,19 +164,19 @@
                                 </div>
                                 <div class="form-check form-switch">
                                   <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-entregue" value="entregue" checked>
-                                  <label class="form-check-label small" for="flt-acao-entregue">Entregue</label>
+                                  <label class="form-check-label small" for="flt-acao-entregue">Finalizou entrega</label>
                                 </div>
                                 <div class="form-check form-switch">
                                   <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-ausente" value="ausente" checked>
-                                  <label class="form-check-label small" for="flt-acao-ausente">Ausente</label>
+                                  <label class="form-check-label small" for="flt-acao-ausente">Registrou ausência</label>
                                 </div>
                                 <div class="form-check form-switch">
                                   <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-cancelado" value="cancelado" checked>
-                                  <label class="form-check-label small" for="flt-acao-cancelado">Cancelado</label>
+                                  <label class="form-check-label small" for="flt-acao-cancelado">Registrou cancelamento</label>
                                 </div>
                                 <div class="form-check form-switch">
                                   <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-desatribuido" value="desatribuido" checked>
-                                  <label class="form-check-label small" for="flt-acao-desatribuido">Desatribuido</label>
+                                  <label class="form-check-label small" for="flt-acao-desatribuido">Desatribuiu pedido</label>
                                 </div>
                               </div>
                             </div>
@@ -316,6 +320,7 @@
                     <tr>
                       <th style="width:40px;"></th>
                       <th style="width:36px"><input id="chk-all" type="checkbox" class="form-check-input" /></th>
+                      <th>Data/Hora entrada</th>
                       <th>Data/Hora ação</th>
                       <th data-owner-term="base">Base</th>
                       <th>Lido por</th>
@@ -328,7 +333,7 @@
                     </tr>
                   </thead>
                   <tbody id="reg-rows">
-                    <tr><td colspan="11" class="text-center text-muted py-4">Carregando...</td></tr>
+                    <tr><td colspan="12" class="text-center text-muted py-4">Carregando...</td></tr>
                   </tbody>
                 </table>
               </div>
