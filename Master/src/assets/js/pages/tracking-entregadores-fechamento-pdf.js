@@ -82,38 +82,15 @@
       return;
     }
     const { jsPDF } = jspdfLib;
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const M = 10;
+    const FOOTER_RESERVED = 14;
 
     const statusFechamento = normalizeStatus(fech?.status);
     const entNome = fech.username_entregador || fech.entregador_nome || "Motoboy";
     const fechamentoCode = buildFechamentoCode(fech, entNome);
-    let y = 15;
-
-    doc.setFillColor(COR_GRADIENTE_SISTEMA[0], COR_GRADIENTE_SISTEMA[1], COR_GRADIENTE_SISTEMA[2]);
-    doc.rect(0, 0, pageW, 22, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("FECHAMENTO DE ENTREGAS — MOTOBOY", 105, y + 4, { align: "center" });
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(0, 0, 0);
-    y = 28;
-    linhaHorizontal(doc, y, 14, pageW - 14);
-    y += 8;
-
-    // 1.2 Informações iniciais (linhas separadas, espaçamento confortável)
-    doc.setFontSize(10);
-    doc.text("Código do fechamento: " + fechamentoCode, MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text("Status: " + statusFechamento, MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text("Entregador: " + entNome, MARGEM, y);
-    y += ESPACO_SECAO;
-    doc.text("Período: " + fmtData(fech.periodo_inicio) + " a " + fmtData(fech.periodo_fim), MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text("Data de geração: " + new Date().toLocaleString("pt-BR"), MARGEM, y);
-    y += ESPACO_SECAO;
 
     const sumShopee = itensDiarios.reduce((s, r) => s + (r.shopee?.qtde ?? 0), 0);
     const sumFlex = itensDiarios.reduce((s, r) => s + (r.flex?.qtde ?? 0), 0);
@@ -125,53 +102,80 @@
     const valorBaseCalculado = valorFeitos - valorCancelados;
     const totalAjustes = (fech.valor_adicao || 0) - (fech.valor_subtracao || 0);
 
-    // 1.3 Pacotes Grandes (G) — totalizador e lista
     const pacotesGNorm = (pacotesG || []).map((p) => ({
       data: p.timestamp || p.data || null,
       codigo: p.codigo || "",
       servico: p.servico || "",
     }));
     const totalGShopee = pacotesGNorm.filter((p) => String(p.servico || "").toLowerCase().includes("shopee")).length;
-    const totalGMercado = pacotesGNorm.filter((p) => String(p.servico || "").toLowerCase().includes("mercado")).length;
+    const totalGMercado = pacotesGNorm.filter((p) => {
+      const s = String(p.servico || "").toLowerCase();
+      return s.includes("mercado") || s.includes("flex") || s === "ml";
+    }).length;
     const totalGAvulso = pacotesGNorm.filter((p) => {
       const s = String(p.servico || "").toLowerCase();
-      return !s.includes("shopee") && !s.includes("mercado");
+      return !s.includes("shopee") && !s.includes("mercado") && !s.includes("flex") && s !== "ml";
     }).length;
     const totalG = pacotesGNorm.length;
 
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Resumo do fechamento", MARGEM, y);
-    doc.setFont("helvetica", "normal");
-    y += ESPACO_LINHA;
-    doc.setFontSize(10);
-    doc.text(`Total feitos: ${totalFeitos}`, MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text(`Cancelados: ${totalCancelados}`, MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text(`Pacotes grandes: ${totalG}`, MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text(`Valor bruto das entregas: ${fmt(valorFeitos)}`, MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text(`Desconto por cancelamentos: ${fmtDesconto(valorCancelados)}`, MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text(`Ajustes manuais: ${fmtSigned(totalAjustes)}`, MARGEM, y);
-    y += ESPACO_LINHA + 1;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(`TOTAL A PAGAR: ${fmt(fech.valor_final)}`, MARGEM, y);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    y += ESPACO_SECAO;
+    const ensureSpace = (y, needed) => {
+      if (y + needed <= pageH - FOOTER_RESERVED) return y;
+      doc.addPage();
+      let ny = 14;
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("FECHAMENTO DE ENTREGAS — MOTOBOY (continuação)", M, ny);
+      ny += 4;
+      linhaHorizontal(doc, ny, M, pageW - M);
+      return ny + 4;
+    };
 
-    // 2. RESUMO FINANCEIRO
-    linhaHorizontal(doc, y, MARGEM, pageW - MARGEM);
-    y += 6;
-    doc.setFontSize(11);
+    let y = 12;
+    doc.setFillColor(COR_GRADIENTE_SISTEMA[0], COR_GRADIENTE_SISTEMA[1], COR_GRADIENTE_SISTEMA[2]);
+    doc.rect(0, 0, pageW, 18, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(15);
     doc.setFont("helvetica", "bold");
-    doc.text("Resumo Financeiro", MARGEM, y);
+    doc.text("FECHAMENTO DE ENTREGAS — MOTOBOY", pageW / 2, y, { align: "center" });
+    doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "normal");
-    y += ESPACO_LINHA;
+    y = 22;
+    linhaHorizontal(doc, y, M, pageW - M);
+    y += 5;
+
+    doc.setFontSize(9.5);
+    doc.text(`Código: ${fechamentoCode}`, M, y);
+    doc.text(`Status: ${statusFechamento}`, M + 78, y);
+    doc.text(`Entregador: ${entNome}`, M + 130, y);
+    y += 4.5;
+    doc.text(`Período: ${fmtData(fech.periodo_inicio)} a ${fmtData(fech.periodo_fim)}`, M, y);
+    doc.text(`Geração: ${new Date().toLocaleString("pt-BR")}`, M + 130, y);
+    y += 6;
+
+    y = ensureSpace(y, 14);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    doc.text("Resumo do fechamento", M, y);
+    doc.setFont("helvetica", "normal");
+    y += 4.5;
+    doc.setFontSize(9);
+    const resumoLinha =
+      `Feitos: ${totalFeitos} | Cancelados: ${totalCancelados} | G: ${totalG} | ` +
+      `Bruto: ${fmt(valorFeitos)} | Desc.: ${fmtDesconto(valorCancelados)} | Ajustes: ${fmtSigned(totalAjustes)}`;
+    doc.text(resumoLinha, M, y);
+    y += 4.5;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11.5);
+    doc.text(`TOTAL A PAGAR: ${fmt(fech.valor_final)}`, M, y);
+    doc.setFont("helvetica", "normal");
+    y += 6;
+
+    y = ensureSpace(y, 24);
+    doc.setFontSize(10.5);
+    doc.setFont("helvetica", "bold");
+    doc.text("Resumo Financeiro", M, y);
+    doc.setFont("helvetica", "normal");
+    y += 4;
     doc.autoTable({
       startY: y,
       head: [["Descrição", "Valor"]],
@@ -184,29 +188,28 @@
         ["TOTAL A PAGAR", fmt(fech.valor_final)],
       ],
       theme: "grid",
+      margin: { left: M, right: M, bottom: FOOTER_RESERVED + 2 },
+      styles: { fontSize: 8.6, cellPadding: 1.8, overflow: "linebreak" },
       headStyles: { fillColor: COR_GRADIENTE_SISTEMA, textColor: [255, 255, 255], fontStyle: "bold" },
-      columnStyles: {
-        0: { halign: "left" },
-        1: { halign: "right" },
-      },
+      columnStyles: { 0: { halign: "left" }, 1: { halign: "right" } },
       didParseCell: function (data) {
         if (data.row.section === "body" && data.row.index === 5) {
           data.cell.styles.fontStyle = "bold";
           data.cell.styles.fillColor = [245, 245, 245];
         }
       },
-      margin: { left: MARGEM },
-      styles: { fontSize: 9 },
+      pageBreak: "auto",
+      rowPageBreak: "avoid",
     });
-    y = doc.lastAutoTable.finalY + ESPACO_SECAO;
+    y = doc.lastAutoTable.finalY + 5;
 
-    // 3. TABELA DIÁRIA — cabeçalho destacado, espaçamento confortável, valores R$ com 2 decimais
-    doc.setFontSize(11);
+    y = ensureSpace(y, 12);
+    doc.setFontSize(10.5);
     doc.setFont("helvetica", "bold");
-    doc.text("Detalhamento por dia", MARGEM, y);
+    doc.text("Detalhamento por dia", M, y);
     doc.setFont("helvetica", "normal");
-    y += ESPACO_LINHA;
-    const colsDiaria = ["Data", "Flex", "Shopee", "Avulso", "G", "Total Feitos", "Cancelados", "Valor Feitos", "Valor Cancelados", "Valor Total"];
+    y += 4;
+    const colsDiaria = ["Data", "Flex", "Shopee", "Avulso", "G", "Feitos", "Canc.", "Valor feitos", "Valor canc.", "Total"];
     const rowsDiaria = itensDiarios.map((r) => [
       fmtData(r.data),
       r.flex?.qtde ?? 0,
@@ -216,7 +219,7 @@
       r.total_feitos ?? ((r.shopee?.qtde ?? 0) + (r.flex?.qtde ?? 0) + (r.avulso?.qtde ?? 0)),
       r.total_cancelado ?? 0,
       fmt(r.valor_feitos),
-      fmt(r.valor_cancelados),
+      fmtDesconto(r.valor_cancelados),
       fmt(r.valor_total != null ? r.valor_total : r.total_dia),
     ]);
     doc.autoTable({
@@ -224,30 +227,24 @@
       head: [colsDiaria],
       body: rowsDiaria,
       theme: "grid",
-      headStyles: { fillColor: COR_GRADIENTE_SISTEMA, textColor: [255, 255, 255], fontStyle: "bold" },
+      margin: { left: M, right: M, bottom: FOOTER_RESERVED + 2 },
+      styles: { fontSize: 8.2, cellPadding: 1.4, overflow: "linebreak" },
+      headStyles: { fillColor: COR_GRADIENTE_SISTEMA, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8.2 },
       columnStyles: {
-        1: { halign: "right" },
-        2: { halign: "right" },
-        3: { halign: "right" },
-        4: { halign: "right" },
-        5: { halign: "right" },
-        6: { halign: "right" },
-        7: { halign: "right" },
-        8: { halign: "right" },
-        9: { halign: "right" },
+        1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" },
+        5: { halign: "right" }, 6: { halign: "right" }, 7: { halign: "right" }, 8: { halign: "right" }, 9: { halign: "right" },
       },
-      margin: { left: MARGEM },
-      tableLineColor: [200, 200, 200],
-      cellPadding: 3,
+      pageBreak: "auto",
+      rowPageBreak: "avoid",
     });
-    y = doc.lastAutoTable.finalY + ESPACO_SECAO;
+    y = doc.lastAutoTable.finalY + 5;
 
-    // 4. TABELA DE AJUSTES — cabeçalho destacado; se vazio: mensagem
-    doc.setFontSize(11);
+    y = ensureSpace(y, ajustes.length ? 18 : 10);
+    doc.setFontSize(10.5);
     doc.setFont("helvetica", "bold");
-    doc.text("Ajustes Manuais", MARGEM, y);
+    doc.text("Ajustes Manuais", M, y);
     doc.setFont("helvetica", "normal");
-    y += ESPACO_LINHA;
+    y += 4;
     if (ajustes.length) {
       const tipoAjuste = (a) => (a.tipo === "ADIÇÃO" ? "Acréscimo" : "Desconto");
       const valorComSinal = (a) => (a.tipo === "ADIÇÃO" ? fmtSigned(a.valor) : fmtSigned(-Math.abs(a.valor)));
@@ -256,32 +253,29 @@
         head: [["Tipo", "Justificativa", "Valor"]],
         body: ajustes.map((a) => [tipoAjuste(a), a.motivo || "—", valorComSinal(a)]),
         theme: "grid",
+        margin: { left: M, right: M, bottom: FOOTER_RESERVED + 2 },
+        styles: { fontSize: 8.6, cellPadding: 1.6 },
         headStyles: { fillColor: COR_GRADIENTE_SISTEMA, textColor: [255, 255, 255], fontStyle: "bold" },
         columnStyles: { 2: { halign: "right" } },
-        margin: { left: MARGEM },
-        tableLineColor: [200, 200, 200],
-        cellPadding: 3,
+        pageBreak: "auto",
+        rowPageBreak: "avoid",
       });
-      y = doc.lastAutoTable.finalY + ESPACO_SECAO;
+      y = doc.lastAutoTable.finalY + 5;
     } else {
-      doc.setFontSize(10);
+      doc.setFontSize(8.8);
       doc.setTextColor(100, 100, 100);
-      doc.text("Nenhum ajuste manual aplicado.", MARGEM, y);
+      doc.text("Nenhum ajuste manual aplicado.", M, y);
       doc.setTextColor(0, 0, 0);
-      y += ESPACO_SECAO;
+      y += 5;
     }
 
-    // 5. PACOTES G
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Pacotes Grandes", MARGEM, y);
-    doc.setFont("helvetica", "normal");
-    y += ESPACO_LINHA;
-    if (!pacotesGNorm.length) {
-      doc.setFontSize(10);
-      doc.text("Nenhum pacote grande no período.", MARGEM, y);
-      y += ESPACO_SECAO;
-    } else {
+    if (totalG > 0) {
+      y = ensureSpace(y, 16);
+      doc.setFontSize(10.5);
+      doc.setFont("helvetica", "bold");
+      doc.text("Pacotes Grandes", M, y);
+      doc.setFont("helvetica", "normal");
+      y += 4;
       doc.autoTable({
         startY: y,
         head: [["Serviço", "Quantidade G"]],
@@ -292,43 +286,32 @@
           ["Total", totalG],
         ],
         theme: "grid",
+        margin: { left: M, right: M, bottom: FOOTER_RESERVED + 2 },
+        styles: { fontSize: 8.6, cellPadding: 1.6 },
         headStyles: { fillColor: COR_GRADIENTE_SISTEMA, textColor: [255, 255, 255], fontStyle: "bold" },
         columnStyles: { 1: { halign: "right" } },
-        margin: { left: MARGEM },
-        styles: { fontSize: 9 },
       });
-      y = doc.lastAutoTable.finalY + ESPACO_SECAO;
+      y = doc.lastAutoTable.finalY + 5;
     }
 
-    // 6. Critério de cálculo
-    doc.setFontSize(11);
+    y = ensureSpace(y, 14);
+    doc.setFontSize(10.5);
     doc.setFont("helvetica", "bold");
-    doc.text("Critério de cálculo", MARGEM, y);
+    doc.text("Critério de cálculo", M, y);
     doc.setFont("helvetica", "normal");
-    y += ESPACO_LINHA;
-    doc.setFontSize(9);
-    const criterio = [
-      "• O valor bruto das entregas corresponde à soma das entregas feitas no período.",
-      "• Cancelamentos são exibidos separadamente e abatidos do valor bruto quando aplicável.",
-      "• O valor base corresponde ao valor bruto das entregas menos o desconto por cancelamentos.",
-      "• Ajustes manuais podem somar ou descontar valores do fechamento.",
-      "• Pacotes grandes são identificados pela coluna G e podem ter tratamento específico conforme regra vigente.",
-      "• O Total a pagar representa o valor final calculado para o período.",
-    ];
-    criterio.forEach((linha) => {
-      doc.text(linha, MARGEM, y);
-      y += 4.5;
-    });
     y += 4;
+    doc.setFontSize(8.6);
+    doc.text("Valor base = valor bruto das entregas - cancelamentos.", M, y); y += 3.8;
+    doc.text("Total a pagar = valor base + ajustes manuais + adicionais aplicáveis.", M, y); y += 3.8;
+    doc.text("Pacotes grandes são identificados pela coluna G e seguem a regra vigente.", M, y);
 
-    // 7. Rodapé de validação digital
     const ano = new Date().getFullYear();
-    doc.setFontSize(8.5);
+    doc.setFontSize(8.2);
     doc.setTextColor(80);
-    const footerY = doc.internal.pageSize.height - 16;
-    doc.text("Documento gerado digitalmente pelo sistema.", 105, footerY, { align: "center" });
-    doc.text(`Código do fechamento: ${fechamentoCode} · Status: ${statusFechamento}`, 105, footerY + 4, { align: "center" });
-    doc.text(`Data de geração: ${new Date().toLocaleString("pt-BR")} · ${ano} © TrackingSaídas.`, 105, footerY + 8, { align: "center" });
+    const footerY = pageH - 10;
+    doc.text("Documento gerado digitalmente pelo sistema.", pageW / 2, footerY - 4, { align: "center" });
+    doc.text(`Código do fechamento: ${fechamentoCode} · Status: ${statusFechamento}`, pageW / 2, footerY, { align: "center" });
+    doc.text(`Data de geração: ${new Date().toLocaleString("pt-BR")} · ${ano} © TrackingSaídas.`, pageW / 2, footerY + 4, { align: "center" });
     doc.save(nomeArq);
   }
 
