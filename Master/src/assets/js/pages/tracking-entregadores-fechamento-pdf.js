@@ -17,11 +17,11 @@
   const fmtSigned = (v) => {
     const n = Number(v) || 0;
     if (n === 0) return fmt(0);
-    return `${n > 0 ? "+" : "-"} ${fmt(Math.abs(n))}`;
+    return `${n > 0 ? "+" : "-"}${fmt(Math.abs(n))}`;
   };
   const fmtDesconto = (v) => {
     const n = Number(v) || 0;
-    return n > 0 ? `- ${fmt(n)}` : fmt(0);
+    return n > 0 ? `-${fmt(n)}` : fmt(0);
   };
   const fmtData = (ymd) => {
     if (!ymd) return "—";
@@ -143,13 +143,10 @@
     linhaHorizontal(doc, y, M, pageW - M);
     y += 5;
 
-    doc.setFontSize(9.5);
-    doc.text(`Código: ${fechamentoCode}`, M, y);
-    doc.text(`Status: ${statusFechamento}`, M + 78, y);
-    doc.text(`Entregador: ${entNome}`, M + 130, y);
+    doc.setFontSize(9.3);
+    doc.text(`Código: ${fechamentoCode} | Status: ${statusFechamento} | Entregador: ${entNome}`, M, y);
     y += 4.5;
-    doc.text(`Período: ${fmtData(fech.periodo_inicio)} a ${fmtData(fech.periodo_fim)}`, M, y);
-    doc.text(`Geração: ${new Date().toLocaleString("pt-BR")}`, M + 130, y);
+    doc.text(`Período: ${fmtData(fech.periodo_inicio)} a ${fmtData(fech.periodo_fim)} | Geração: ${new Date().toLocaleString("pt-BR")}`, M, y);
     y += 6;
 
     y = ensureSpace(y, 14);
@@ -161,7 +158,7 @@
     doc.setFontSize(9);
     const resumoLinha =
       `Feitos: ${totalFeitos} | Cancelados: ${totalCancelados} | G: ${totalG} | ` +
-      `Bruto: ${fmt(valorFeitos)} | Desc.: ${fmtDesconto(valorCancelados)} | Ajustes: ${fmtSigned(totalAjustes)}`;
+      `Bruto: ${fmt(valorFeitos)} | Canc.: ${fmtDesconto(valorCancelados)} | Ajustes: ${fmtSigned(totalAjustes)}`;
     doc.text(resumoLinha, M, y);
     y += 4.5;
     doc.setFont("helvetica", "bold");
@@ -176,24 +173,32 @@
     doc.text("Resumo Financeiro", M, y);
     doc.setFont("helvetica", "normal");
     y += 4;
+    const adicionalPacoteGrande = Number(
+      fech?.valor_adicional_pacote_grande ?? fech?.valor_pacote_grande ?? 0
+    );
+    const mostrarAdicionalPacote = totalG > 0 || adicionalPacoteGrande > 0;
+    const linhasFinanceiras = [
+      ["Valor bruto das entregas", fmt(valorFeitos)],
+      ["Desconto por cancelamentos", fmtDesconto(valorCancelados)],
+      ["Valor base", fmt(valorBaseCalculado)],
+      ["Ajustes manuais", fmtSigned(totalAjustes)],
+    ];
+    if (mostrarAdicionalPacote) {
+      linhasFinanceiras.push(["Adicional pacote grande", fmt(adicionalPacoteGrande)]);
+    }
+    linhasFinanceiras.push(["TOTAL A PAGAR", fmt(fech.valor_final)]);
+    const idxTotalFinanceiro = linhasFinanceiras.length - 1;
     doc.autoTable({
       startY: y,
       head: [["Descrição", "Valor"]],
-      body: [
-        ["Valor bruto das entregas", fmt(valorFeitos)],
-        ["Desconto por cancelamentos", fmtDesconto(valorCancelados)],
-        ["Valor base", fmt(valorBaseCalculado)],
-        ["Ajustes manuais", fmtSigned(totalAjustes)],
-        ["Adicional pacote grande", fmt(0)],
-        ["TOTAL A PAGAR", fmt(fech.valor_final)],
-      ],
+      body: linhasFinanceiras,
       theme: "grid",
       margin: { left: M, right: M, bottom: FOOTER_RESERVED + 2 },
       styles: { fontSize: 8.6, cellPadding: 1.8, overflow: "linebreak" },
       headStyles: { fillColor: COR_GRADIENTE_SISTEMA, textColor: [255, 255, 255], fontStyle: "bold" },
       columnStyles: { 0: { halign: "left" }, 1: { halign: "right" } },
       didParseCell: function (data) {
-        if (data.row.section === "body" && data.row.index === 5) {
+        if (data.row.section === "body" && data.row.index === idxTotalFinanceiro) {
           data.cell.styles.fontStyle = "bold";
           data.cell.styles.fillColor = [245, 245, 245];
         }
