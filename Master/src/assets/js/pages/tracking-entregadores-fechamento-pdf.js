@@ -24,6 +24,40 @@
   const ESPACO_SECAO = 10;
   const ESPACO_LINHA = 6;
   const COR_GRADIENTE_SISTEMA = [74, 46, 127];
+  const STATUS_LABELS = {
+    PENDENTE: "PENDENTE",
+    GERADO: "GERADO",
+    REAJUSTADO: "REAJUSTADO",
+    FECHADO: "GERADO",
+  };
+
+  function toIsoMonth(ymd) {
+    const [y, m] = String(ymd || "").split("-");
+    if (!y || !m) return "000000";
+    return `${y}${m}`;
+  }
+
+  function padLeft(v, n) {
+    const s = String(v == null ? "" : v);
+    return s.padStart(n, "0");
+  }
+
+  function buildFechamentoCode(fech, entNome) {
+    const id = Number(fech?.id_fechamento || 0);
+    const periodoKey = toIsoMonth(fech?.periodo_fim || fech?.periodo_inicio);
+    const executorTag = String(entNome || fech?.username_entregador || "MOTOBOY")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]+/g, "")
+      .toUpperCase()
+      .slice(0, 12) || "MOTOBOY";
+    return `FEC-${periodoKey}-${executorTag}-${padLeft(id, 6)}`;
+  }
+
+  function normalizeStatus(status) {
+    const key = String(status || "PENDENTE").toUpperCase();
+    return STATUS_LABELS[key] || key;
+  }
 
   function linhaHorizontal(doc, y, xIni, xFim) {
     doc.setDrawColor(180, 180, 180);
@@ -42,6 +76,9 @@
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
 
+    const statusFechamento = normalizeStatus(fech?.status);
+    const entNome = fech.username_entregador || fech.entregador_nome || "Motoboy";
+    const fechamentoCode = buildFechamentoCode(fech, entNome);
     let y = 15;
 
     doc.setFillColor(COR_GRADIENTE_SISTEMA[0], COR_GRADIENTE_SISTEMA[1], COR_GRADIENTE_SISTEMA[2]);
@@ -49,7 +86,7 @@
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    doc.text("FECHAMENTO DE ENTREGAS", 105, y + 4, { align: "center" });
+    doc.text("FECHAMENTO DE ENTREGAS — MOTOBOY", 105, y + 4, { align: "center" });
     doc.setFont("helvetica", "normal");
     doc.setTextColor(0, 0, 0);
     y = 28;
@@ -58,12 +95,25 @@
 
     // 1.2 Informações iniciais (linhas separadas, espaçamento confortável)
     doc.setFontSize(10);
-    doc.text("Entregador: " + (fech.username_entregador || fech.entregador_nome || "—"), MARGEM, y);
+    doc.text("Código do fechamento: " + fechamentoCode, MARGEM, y);
     y += ESPACO_LINHA;
+    doc.text("Status: " + statusFechamento, MARGEM, y);
+    y += ESPACO_LINHA;
+    doc.text("Entregador: " + entNome, MARGEM, y);
+    y += ESPACO_SECAO;
     doc.text("Período: " + fmtData(fech.periodo_inicio) + " a " + fmtData(fech.periodo_fim), MARGEM, y);
     y += ESPACO_LINHA;
-    doc.text("Data de geração: " + new Date().toLocaleDateString("pt-BR"), MARGEM, y);
+    doc.text("Data de geração: " + new Date().toLocaleString("pt-BR"), MARGEM, y);
     y += ESPACO_SECAO;
+
+    const sumShopee = itensDiarios.reduce((s, r) => s + (r.shopee?.qtde ?? 0), 0);
+    const sumFlex = itensDiarios.reduce((s, r) => s + (r.flex?.qtde ?? 0), 0);
+    const sumAvulso = itensDiarios.reduce((s, r) => s + (r.avulso?.qtde ?? 0), 0);
+    const totalFeitos = sumShopee + sumFlex + sumAvulso;
+    const totalCancelados = itensDiarios.reduce((s, r) => s + Number(r.total_cancelado ?? 0), 0);
+    const valorFeitos = itensDiarios.reduce((s, r) => s + Number(r.valor_feitos ?? 0), 0);
+    const valorCancelados = itensDiarios.reduce((s, r) => s + Number(r.valor_cancelados ?? 0), 0);
+    const totalAjustes = (fech.valor_adicao || 0) - (fech.valor_subtracao || 0);
 
     // 1.3 Pacotes Grandes (G) — totalizador e lista
     const pacotesGNorm = (pacotesG || []).map((p) => ({
@@ -78,6 +128,31 @@
       return !s.includes("shopee") && !s.includes("mercado");
     }).length;
     const totalG = pacotesGNorm.length;
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Resumo do fechamento", MARGEM, y);
+    doc.setFont("helvetica", "normal");
+    y += ESPACO_LINHA;
+    doc.setFontSize(10);
+    doc.text(`Total feitos: ${totalFeitos}`, MARGEM, y);
+    y += ESPACO_LINHA;
+    doc.text(`Cancelados: ${totalCancelados}`, MARGEM, y);
+    y += ESPACO_LINHA;
+    doc.text(`Pacotes grandes: ${totalG}`, MARGEM, y);
+    y += ESPACO_LINHA;
+    doc.text(`Valor feitos: ${fmt(valorFeitos)}`, MARGEM, y);
+    y += ESPACO_LINHA;
+    doc.text(`Valor cancelados: ${fmt(valorCancelados)}`, MARGEM, y);
+    y += ESPACO_LINHA;
+    doc.text(`Ajustes: ${fmt(totalAjustes)}`, MARGEM, y);
+    y += ESPACO_LINHA + 1;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(`TOTAL A PAGAR: ${fmt(fech.valor_final)}`, MARGEM, y);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    y += ESPACO_SECAO;
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
@@ -119,14 +194,23 @@
     }
 
     // 2. TABELA DIÁRIA — cabeçalho destacado, espaçamento confortável, valores R$ com 2 decimais
-    const colsDiaria = ["Data", "Shopee", "Mercado Livre", "Avulso", "Total", "Valor do dia"];
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Detalhamento por dia", MARGEM, y);
+    doc.setFont("helvetica", "normal");
+    y += ESPACO_LINHA;
+    const colsDiaria = ["Data", "Flex", "Shopee", "Avulso", "G", "Total Feitos", "Cancelados", "Valor Feitos", "Valor Cancelados", "Valor Total"];
     const rowsDiaria = itensDiarios.map((r) => [
       fmtData(r.data),
-      r.shopee?.qtde ?? 0,
       r.flex?.qtde ?? 0,
+      r.shopee?.qtde ?? 0,
       r.avulso?.qtde ?? 0,
-      (r.shopee?.qtde ?? 0) + (r.flex?.qtde ?? 0) + (r.avulso?.qtde ?? 0),
-      fmt(r.total_dia),
+      r.g_total ?? 0,
+      r.total_feitos ?? ((r.shopee?.qtde ?? 0) + (r.flex?.qtde ?? 0) + (r.avulso?.qtde ?? 0)),
+      r.total_cancelado ?? 0,
+      fmt(r.valor_feitos),
+      fmt(r.valor_cancelados),
+      fmt(r.valor_total != null ? r.valor_total : r.total_dia),
     ]);
     doc.autoTable({
       startY: y,
@@ -134,35 +218,51 @@
       body: rowsDiaria,
       theme: "grid",
       headStyles: { fillColor: COR_GRADIENTE_SISTEMA, textColor: [255, 255, 255], fontStyle: "bold" },
-      columnStyles: { 5: { cellWidth: "auto" } },
+      columnStyles: {
+        1: { halign: "right" },
+        2: { halign: "right" },
+        3: { halign: "right" },
+        4: { halign: "right" },
+        5: { halign: "right" },
+        6: { halign: "right" },
+        7: { halign: "right" },
+        8: { halign: "right" },
+        9: { halign: "right" },
+      },
       margin: { left: MARGEM },
       tableLineColor: [200, 200, 200],
       cellPadding: 3,
     });
     y = doc.lastAutoTable.finalY + ESPACO_SECAO;
 
-    // 3. BLOCO "RESUMO DAS SAÍDAS" — linhas separadas, espaçamento antes/depois
-    const sumShopee = itensDiarios.reduce((s, r) => s + (r.shopee?.qtde ?? 0), 0);
-    const sumFlex = itensDiarios.reduce((s, r) => s + (r.flex?.qtde ?? 0), 0);
-    const sumAvulso = itensDiarios.reduce((s, r) => s + (r.avulso?.qtde ?? 0), 0);
-    const sumTotal = sumShopee + sumFlex + sumAvulso;
-    y += 4;
+    // 3. PACOTES G
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("Resumo das Saídas", MARGEM, y);
+    doc.text("Pacotes Grandes", MARGEM, y);
     doc.setFont("helvetica", "normal");
     y += ESPACO_LINHA;
-    doc.setFontSize(10);
-    doc.text("Shopee: " + sumShopee, MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text("Mercado Livre: " + sumFlex, MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text("Avulso: " + sumAvulso, MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text("Total: " + sumTotal, MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text("Valor Base: " + fmt(fech.valor_base), MARGEM, y);
-    y += ESPACO_SECAO + 2;
+    if (!pacotesGNorm.length) {
+      doc.setFontSize(10);
+      doc.text("Pacotes Grandes: nenhum pacote grande no período.", MARGEM, y);
+      y += ESPACO_SECAO;
+    } else {
+      doc.autoTable({
+        startY: y,
+        head: [["Serviço", "Quantidade G"]],
+        body: [
+          ["Shopee", totalGShopee],
+          ["Flex", totalGMercado],
+          ["Avulso", totalGAvulso],
+          ["Total", totalG],
+        ],
+        theme: "grid",
+        headStyles: { fillColor: COR_GRADIENTE_SISTEMA, textColor: [255, 255, 255], fontStyle: "bold" },
+        columnStyles: { 1: { halign: "right" } },
+        margin: { left: MARGEM },
+        styles: { fontSize: 9 },
+      });
+      y = doc.lastAutoTable.finalY + ESPACO_SECAO;
+    }
 
     // 4. TABELA DE AJUSTES — cabeçalho destacado; se vazio: mensagem
     doc.setFontSize(11);
@@ -191,7 +291,27 @@
       y += ESPACO_SECAO;
     }
 
-    // 5. BLOCO "RESUMO FINANCEIRO" — linha antes; TOTAL A PAGAR em destaque
+    // 5. Critério de cálculo
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Critério de cálculo", MARGEM, y);
+    doc.setFont("helvetica", "normal");
+    y += ESPACO_LINHA;
+    doc.setFontSize(9);
+    const criterio = [
+      "• Entregas concluídas são consideradas no valor de pagamento.",
+      "• Entregas canceladas são exibidas separadamente para conferência.",
+      "• Pacotes grandes são identificados pela coluna G.",
+      "• Ajustes manuais, quando existirem, são somados/subtraídos do valor final.",
+      "• O Total a pagar representa o valor final calculado para o período.",
+    ];
+    criterio.forEach((linha) => {
+      doc.text(linha, MARGEM, y);
+      y += 4.5;
+    });
+    y += 4;
+
+    // 6. BLOCO "RESUMO FINANCEIRO" — linha antes; TOTAL A PAGAR em destaque
     linhaHorizontal(doc, y, MARGEM, pageW - MARGEM);
     y += 6;
     doc.setFontSize(11);
@@ -200,10 +320,15 @@
     doc.setFont("helvetica", "normal");
     y += ESPACO_LINHA;
     doc.setFontSize(10);
-    doc.text("Valor Base (Saídas): " + fmt(fech.valor_base), MARGEM, y);
+    doc.text("Valor feitos: " + fmt(valorFeitos), MARGEM, y);
     y += ESPACO_LINHA;
-    const totalAjustes = (fech.valor_adicao || 0) - (fech.valor_subtracao || 0);
-    doc.text("Total Ajustes: " + fmt(totalAjustes), MARGEM, y);
+    doc.text("Valor cancelados: " + fmt(valorCancelados), MARGEM, y);
+    y += ESPACO_LINHA;
+    doc.text("Valor base: " + fmt(fech.valor_base), MARGEM, y);
+    y += ESPACO_LINHA;
+    doc.text("Ajustes manuais: " + fmt(totalAjustes), MARGEM, y);
+    y += ESPACO_LINHA;
+    doc.text("Adicional pacote grande: " + fmt(0), MARGEM, y);
     y += ESPACO_LINHA + 2;
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
@@ -211,11 +336,14 @@
     doc.setFont("helvetica", "normal");
     y += 12;
 
-    // Rodapé (conteúdo já ajustado — não alterar)
+    // Rodapé de validação digital
     const ano = new Date().getFullYear();
-    doc.setFontSize(10);
+    doc.setFontSize(8.5);
     doc.setTextColor(80);
-    doc.text(`${ano} © TrackingSaídas.`, 105, doc.internal.pageSize.height - 10, { align: "center" });
+    const footerY = doc.internal.pageSize.height - 16;
+    doc.text("Documento gerado digitalmente pelo sistema.", 105, footerY, { align: "center" });
+    doc.text(`Código do fechamento: ${fechamentoCode} · Status: ${statusFechamento}`, 105, footerY + 4, { align: "center" });
+    doc.text(`Data de geração: ${new Date().toLocaleString("pt-BR")} · ${ano} © TrackingSaídas.`, 105, footerY + 8, { align: "center" });
     doc.save(nomeArq);
   }
 
@@ -240,7 +368,8 @@
       const ddIni = dIni.length >= 3 ? dIni[2] : "01";
       const ddFim = dFim.length >= 3 ? dFim[2] : "01";
       const mm = dFim.length >= 2 ? dFim[1] : dIni.length >= 2 ? dIni[1] : "01";
-      const nomeArq = "fechamento_" + String(entNome).replace(/\s+/g, "_") + "_" + ddIni + "_a_" + ddFim + "_" + mm + ".pdf";
+      const fechamentoCode = buildFechamentoCode(fech, entNome);
+      const nomeArq = "fechamento_" + fechamentoCode + "_" + String(entNome).replace(/\s+/g, "_") + "_" + ddIni + "_a_" + ddFim + "_" + mm + ".pdf";
 
       const ajustes = [];
       if ((fech.valor_adicao || 0) > 0) ajustes.push({ tipo: "ADIÇÃO", valor: fech.valor_adicao, motivo: fech.motivo_adicao || "" });

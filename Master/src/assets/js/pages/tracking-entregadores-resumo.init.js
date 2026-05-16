@@ -82,6 +82,36 @@ document.addEventListener("DOMContentLoaded", async () => {
     REAJUSTADO: "Fechamento reajustado",
   };
 
+  function formatarCodigoFechamento(r) {
+    const idFech = Number(r?.id_fechamento || 0);
+    if (!idFech) return "";
+    const periodoRaw = String(r?.data || "");
+    const [y, m] = periodoRaw.split("-");
+    const ym = y && m ? `${y}${m}` : "000000";
+    const entTag = String(r?.entregador_nome || "MOTOBOY")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]+/g, "")
+      .toUpperCase()
+      .slice(0, 12) || "MOTOBOY";
+    return `FEC-${ym}-${entTag}-${String(idFech).padStart(6, "0")}`;
+  }
+
+  function formatarCodigoFechamentoDetalhe(idFech, periodoFim, periodoInicio, entNome) {
+    const id = Number(idFech || 0);
+    if (!id) return "—";
+    const periodo = String(periodoFim || periodoInicio || "");
+    const [y, m] = periodo.split("-");
+    const ym = y && m ? `${y}${m}` : "000000";
+    const entTag = String(entNome || "MOTOBOY")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]+/g, "")
+      .toUpperCase()
+      .slice(0, 12) || "MOTOBOY";
+    return `FEC-${ym}-${entTag}-${String(id).padStart(6, "0")}`;
+  }
+
   const PLACEHOLDER_MOTIVO = {
     ADIÇÃO: "Ex: Coletas realizadas (50 x R$ 2,00)",
     SUBTRAÇÃO: "Ex: Adiantamento pago",
@@ -90,18 +120,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   function celulaFechamento(r) {
     const st = (r.fechamento_status || "PENDENTE").toUpperCase();
     const idFech = r.id_fechamento || "";
+    const codigoFech = formatarCodigoFechamento(r);
     let html = "";
     if (st === "PENDENTE") {
       html = '<span class="badge bg-warning-subtle text-warning" title="' + (STATUS_TOOLTIPS.PENDENTE || "Pendente") + '">🟡 PENDENTE</span>';
     } else if (st === "GERADO") {
-      html = '<span class="badge bg-success-subtle text-success" title="' + (STATUS_TOOLTIPS.GERADO || "Gerado") + '">🟢 GERADO</span>';
+      html = '<span class="badge bg-success-subtle text-success" title="' + (STATUS_TOOLTIPS.GERADO || "Gerado") + (codigoFech ? " · " + codigoFech : "") + '">🟢 GERADO</span>';
       if (idFech) {
-        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
+        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF · ' + (codigoFech || "") + '" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
       }
     } else {
-      html = '<span class="badge bg-info-subtle text-info" title="' + (STATUS_TOOLTIPS.REAJUSTADO || "Reajustado") + '">🔵 REAJUSTADO</span>';
+      html = '<span class="badge bg-info-subtle text-info" title="' + (STATUS_TOOLTIPS.REAJUSTADO || "Reajustado") + (codigoFech ? " · " + codigoFech : "") + '">🔵 REAJUSTADO</span>';
       if (idFech) {
-        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
+        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF · ' + (codigoFech || "") + '" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
       }
     }
     return html;
@@ -426,6 +457,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     qs("#fech-periodo-fim").value = periodoFim || "";
     qs("#fech-entregador-nome").textContent = entNome || fltEntregador?.options[fltEntregador.selectedIndex]?.text || "—";
     qs("#fech-periodo-display").textContent = formatarPeriodo(periodoInicio, periodoFim);
+    const codigoEl = qs("#fech-codigo");
+    if (codigoEl) codigoEl.textContent = formatarCodigoFechamentoDetalhe(idFech, periodoFim, periodoInicio, entNome);
 
     const alertDiverg = qs("#fechamentoAlertaDivergencia");
     if (alertDiverg) alertDiverg.classList.add("d-none");
