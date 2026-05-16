@@ -444,6 +444,7 @@ function augmentEntregadoresFromRows(rows){
       r.usuario ||
       r.created_by ||
       "-";
+    var seller = r.base || r.seller || "-";
     var acao = r.acao || r.action || "Sem ação";
 
     var rawSt = String(r.status || "").toLowerCase();
@@ -455,6 +456,7 @@ function augmentEntregadoresFromRows(rows){
       tsEntradaFmt,
       tsAcaoFmt,
       username,
+      seller,
       acao,
       status: statusUI
     };
@@ -521,15 +523,15 @@ function augmentEntregadoresFromRows(rows){
           <tr data-id="${rid}" class="${rowClass}">
             <td class="expand-icon"><i class="ri-arrow-right-s-line"></i></td>
             <td><input type="checkbox" class="rowchk form-check-input" /></td>
-            <td>${r.tsEntradaFmt || ""}</td>
-            <td>${r.tsAcaoFmt || ""}</td>
-            <td>${r.base || "-"}</td>
-            <td>${r.username || "-"}</td>
-            <td>${r.acao || "-"}</td>
-            <td>${r.entregador || "-"}</td>
             <td><span class="d-inline-flex align-items-center gap-1">${r.codigo || "-"} <button type="button" class="btn btn-link btn-sm p-0 text-primary" title="Gerar etiqueta" data-etiqueta="${(r.codigo || "").replace(/"/g, "&quot;")}" data-id-saida="${rid || ""}" data-servico="${(r.servico || "").replace(/"/g, "&quot;")}"><i class="ri-printer-line"></i></button></span></td>
             <td><span class="${servicoBadgeClass}">${r.servico || "-"}</span></td>
             <td><span class="${statusBadgeClass}">${r.status || "-"}</span></td>
+            <td>${r.acao || "-"}</td>
+            <td>${r.entregador || "-"}</td>
+            <td>${r.tsAcaoFmt || ""}</td>
+            <td>${r.tsEntradaFmt || ""}</td>
+            <td>${r.username || "-"}</td>
+            <td class="text-muted">${r.seller || "-"}</td>
             <td class="text-center">${gCell}</td>
           </tr>`;
       })
