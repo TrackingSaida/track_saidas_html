@@ -14,6 +14,15 @@
 
   const fmt = (v) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v) || 0);
+  const fmtSigned = (v) => {
+    const n = Number(v) || 0;
+    if (n === 0) return fmt(0);
+    return `${n > 0 ? "+" : "-"} ${fmt(Math.abs(n))}`;
+  };
+  const fmtDesconto = (v) => {
+    const n = Number(v) || 0;
+    return n > 0 ? `- ${fmt(n)}` : fmt(0);
+  };
   const fmtData = (ymd) => {
     if (!ymd) return "—";
     const [y, m, d] = String(ymd).split("-");
@@ -113,6 +122,7 @@
     const totalCancelados = itensDiarios.reduce((s, r) => s + Number(r.total_cancelado ?? 0), 0);
     const valorFeitos = itensDiarios.reduce((s, r) => s + Number(r.valor_feitos ?? 0), 0);
     const valorCancelados = itensDiarios.reduce((s, r) => s + Number(r.valor_cancelados ?? 0), 0);
+    const valorBaseCalculado = valorFeitos - valorCancelados;
     const totalAjustes = (fech.valor_adicao || 0) - (fech.valor_subtracao || 0);
 
     // 1.3 Pacotes Grandes (G) — totalizador e lista
@@ -141,11 +151,11 @@
     y += ESPACO_LINHA;
     doc.text(`Pacotes grandes: ${totalG}`, MARGEM, y);
     y += ESPACO_LINHA;
-    doc.text(`Valor feitos: ${fmt(valorFeitos)}`, MARGEM, y);
+    doc.text(`Valor bruto das entregas: ${fmt(valorFeitos)}`, MARGEM, y);
     y += ESPACO_LINHA;
-    doc.text(`Valor cancelados: ${fmt(valorCancelados)}`, MARGEM, y);
+    doc.text(`Desconto por cancelamentos: ${fmtDesconto(valorCancelados)}`, MARGEM, y);
     y += ESPACO_LINHA;
-    doc.text(`Ajustes: ${fmt(totalAjustes)}`, MARGEM, y);
+    doc.text(`Ajustes manuais: ${fmtSigned(totalAjustes)}`, MARGEM, y);
     y += ESPACO_LINHA + 1;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
@@ -154,46 +164,43 @@
     doc.setFontSize(10);
     y += ESPACO_SECAO;
 
+    // 2. RESUMO FINANCEIRO
+    linhaHorizontal(doc, y, MARGEM, pageW - MARGEM);
+    y += 6;
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("Pacotes Grandes (G)", MARGEM, y);
+    doc.text("Resumo Financeiro", MARGEM, y);
     doc.setFont("helvetica", "normal");
     y += ESPACO_LINHA;
-    doc.setFontSize(10);
-    doc.text(`Total G Shopee: ${totalGShopee}`, MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text(`Total G Mercado Livre: ${totalGMercado}`, MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text(`Total G Avulso: ${totalGAvulso}`, MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text(`Total G (geral): ${totalG}`, MARGEM, y);
-    y += ESPACO_LINHA;
+    doc.autoTable({
+      startY: y,
+      head: [["Descrição", "Valor"]],
+      body: [
+        ["Valor bruto das entregas", fmt(valorFeitos)],
+        ["Desconto por cancelamentos", fmtDesconto(valorCancelados)],
+        ["Valor base", fmt(valorBaseCalculado)],
+        ["Ajustes manuais", fmtSigned(totalAjustes)],
+        ["Adicional pacote grande", fmt(0)],
+        ["TOTAL A PAGAR", fmt(fech.valor_final)],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: COR_GRADIENTE_SISTEMA, textColor: [255, 255, 255], fontStyle: "bold" },
+      columnStyles: {
+        0: { halign: "left" },
+        1: { halign: "right" },
+      },
+      didParseCell: function (data) {
+        if (data.row.section === "body" && data.row.index === 5) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = [245, 245, 245];
+        }
+      },
+      margin: { left: MARGEM },
+      styles: { fontSize: 9 },
+    });
+    y = doc.lastAutoTable.finalY + ESPACO_SECAO;
 
-    if (pacotesGNorm.length) {
-      const rowsG = pacotesGNorm
-        .slice()
-        .sort((a, b) => String(a.data || "").localeCompare(String(b.data || "")))
-        .map((p) => [
-          fmtData((p.data || "").slice(0, 10)),
-          p.codigo || "—",
-          p.servico || "—",
-        ]);
-      doc.autoTable({
-        startY: y,
-        head: [["Data do registro", "Código", "Serviço"]],
-        body: rowsG,
-        theme: "grid",
-        headStyles: { fillColor: COR_GRADIENTE_SISTEMA, textColor: [255, 255, 255], fontStyle: "bold" },
-        margin: { left: MARGEM },
-        styles: { fontSize: 9, halign: "center" },
-      });
-      y = doc.lastAutoTable.finalY + ESPACO_SECAO;
-    } else {
-      doc.text("Nenhum pacote G (Grande) no período.", MARGEM, y);
-      y += ESPACO_SECAO;
-    }
-
-    // 2. TABELA DIÁRIA — cabeçalho destacado, espaçamento confortável, valores R$ com 2 decimais
+    // 3. TABELA DIÁRIA — cabeçalho destacado, espaçamento confortável, valores R$ com 2 decimais
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("Detalhamento por dia", MARGEM, y);
@@ -235,7 +242,36 @@
     });
     y = doc.lastAutoTable.finalY + ESPACO_SECAO;
 
-    // 3. PACOTES G
+    // 4. TABELA DE AJUSTES — cabeçalho destacado; se vazio: mensagem
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Ajustes Manuais", MARGEM, y);
+    doc.setFont("helvetica", "normal");
+    y += ESPACO_LINHA;
+    if (ajustes.length) {
+      const tipoAjuste = (a) => (a.tipo === "ADIÇÃO" ? "Acréscimo" : "Desconto");
+      const valorComSinal = (a) => (a.tipo === "ADIÇÃO" ? fmtSigned(a.valor) : fmtSigned(-Math.abs(a.valor)));
+      doc.autoTable({
+        startY: y,
+        head: [["Tipo", "Justificativa", "Valor"]],
+        body: ajustes.map((a) => [tipoAjuste(a), a.motivo || "—", valorComSinal(a)]),
+        theme: "grid",
+        headStyles: { fillColor: COR_GRADIENTE_SISTEMA, textColor: [255, 255, 255], fontStyle: "bold" },
+        columnStyles: { 2: { halign: "right" } },
+        margin: { left: MARGEM },
+        tableLineColor: [200, 200, 200],
+        cellPadding: 3,
+      });
+      y = doc.lastAutoTable.finalY + ESPACO_SECAO;
+    } else {
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text("Nenhum ajuste manual aplicado.", MARGEM, y);
+      doc.setTextColor(0, 0, 0);
+      y += ESPACO_SECAO;
+    }
+
+    // 5. PACOTES G
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("Pacotes Grandes", MARGEM, y);
@@ -243,7 +279,7 @@
     y += ESPACO_LINHA;
     if (!pacotesGNorm.length) {
       doc.setFontSize(10);
-      doc.text("Pacotes Grandes: nenhum pacote grande no período.", MARGEM, y);
+      doc.text("Nenhum pacote grande no período.", MARGEM, y);
       y += ESPACO_SECAO;
     } else {
       doc.autoTable({
@@ -264,34 +300,7 @@
       y = doc.lastAutoTable.finalY + ESPACO_SECAO;
     }
 
-    // 4. TABELA DE AJUSTES — cabeçalho destacado; se vazio: mensagem
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Ajustes Manuais", MARGEM, y);
-    doc.setFont("helvetica", "normal");
-    y += ESPACO_LINHA;
-    if (ajustes.length) {
-      const valorComSinal = (a) => (a.tipo === "ADIÇÃO" ? "+ " + fmt(a.valor) : "- " + fmt(a.valor));
-      doc.autoTable({
-        startY: y,
-        head: [["Tipo", "Justificativa", "Valor"]],
-        body: ajustes.map((a) => [(a.tipo === "ADIÇÃO" ? "+ Adição" : "- Subtração"), a.motivo || "—", valorComSinal(a)]),
-        theme: "grid",
-        headStyles: { fillColor: COR_GRADIENTE_SISTEMA, textColor: [255, 255, 255], fontStyle: "bold" },
-        margin: { left: MARGEM },
-        tableLineColor: [200, 200, 200],
-        cellPadding: 3,
-      });
-      y = doc.lastAutoTable.finalY + ESPACO_SECAO;
-    } else {
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.text("Nenhum ajuste manual aplicado.", MARGEM, y);
-      doc.setTextColor(0, 0, 0);
-      y += ESPACO_SECAO;
-    }
-
-    // 5. Critério de cálculo
+    // 6. Critério de cálculo
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("Critério de cálculo", MARGEM, y);
@@ -299,10 +308,11 @@
     y += ESPACO_LINHA;
     doc.setFontSize(9);
     const criterio = [
-      "• Entregas concluídas são consideradas no valor de pagamento.",
-      "• Entregas canceladas são exibidas separadamente para conferência.",
-      "• Pacotes grandes são identificados pela coluna G.",
-      "• Ajustes manuais, quando existirem, são somados/subtraídos do valor final.",
+      "• O valor bruto das entregas corresponde à soma das entregas feitas no período.",
+      "• Cancelamentos são exibidos separadamente e abatidos do valor bruto quando aplicável.",
+      "• O valor base corresponde ao valor bruto das entregas menos o desconto por cancelamentos.",
+      "• Ajustes manuais podem somar ou descontar valores do fechamento.",
+      "• Pacotes grandes são identificados pela coluna G e podem ter tratamento específico conforme regra vigente.",
       "• O Total a pagar representa o valor final calculado para o período.",
     ];
     criterio.forEach((linha) => {
@@ -311,32 +321,7 @@
     });
     y += 4;
 
-    // 6. BLOCO "RESUMO FINANCEIRO" — linha antes; TOTAL A PAGAR em destaque
-    linhaHorizontal(doc, y, MARGEM, pageW - MARGEM);
-    y += 6;
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Resumo Financeiro", MARGEM, y);
-    doc.setFont("helvetica", "normal");
-    y += ESPACO_LINHA;
-    doc.setFontSize(10);
-    doc.text("Valor feitos: " + fmt(valorFeitos), MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text("Valor cancelados: " + fmt(valorCancelados), MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text("Valor base: " + fmt(fech.valor_base), MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text("Ajustes manuais: " + fmt(totalAjustes), MARGEM, y);
-    y += ESPACO_LINHA;
-    doc.text("Adicional pacote grande: " + fmt(0), MARGEM, y);
-    y += ESPACO_LINHA + 2;
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("TOTAL A PAGAR: " + fmt(fech.valor_final), MARGEM, y);
-    doc.setFont("helvetica", "normal");
-    y += 12;
-
-    // Rodapé de validação digital
+    // 7. Rodapé de validação digital
     const ano = new Date().getFullYear();
     doc.setFontSize(8.5);
     doc.setTextColor(80);
