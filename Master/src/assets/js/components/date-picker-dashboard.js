@@ -70,8 +70,8 @@
         start = new Date(y, m, d - 30);
         end = new Date(y, m, d);
         break;
-      case "ultimos90":
-        start = new Date(y, m, d - 90);
+      case "ultimos45":
+        start = new Date(y, m, d - 45);
         end = new Date(y, m, d);
         break;
       default:
@@ -203,8 +203,8 @@
       const r = getPresetRange(preset);
       selectedStart = r.start;
       selectedEnd = r.end;
-      // Presets que definem intervalo (quinzena, semana, mês, ultimos30/90) devem usar modo "periodo" para Aplicar retornar start e end corretos
-      if (preset === "quinzena" || preset === "quinzena-ant" || preset === "semana" || preset === "mes" || preset === "ultimos30" || preset === "ultimos90") {
+      // Presets que definem intervalo (quinzena, semana, mês, ultimos30/45) devem usar modo "periodo" para Aplicar retornar start e end corretos
+      if (preset === "quinzena" || preset === "quinzena-ant" || preset === "semana" || preset === "mes" || preset === "ultimos30" || preset === "ultimos45") {
         filterMode = "periodo";
         isSelectingStart = false;
         var modeSelect = document.getElementById(prefix + "-filter-mode");
@@ -405,7 +405,7 @@
             '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="quinzena-ant">Quinzena anterior</button>' +
             '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="mes">Mês</button>' +
             '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="ultimos30">Hoje - 30 dias</button>' +
-            '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="ultimos90">Hoje - 90 dias</button>' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm text-start dp-preset" data-preset="ultimos45">Hoje - 45 dias</button>' +
           '</div>' +
         '</details>' +
       '</div>' +
