@@ -474,6 +474,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (executorTipo === "m" && executorId) calcParams.append("motoboy_id", executorId);
       try {
         const res = await fetch(`${API_FECHAMENTOS}/calcular?${calcParams}`, { credentials: "include" });
+        let calculoComFallback = false;
         if (res.ok) {
           const data = await res.json();
           state.fechModal.valorBase = Number(data.valor_base || 0);
@@ -514,17 +515,20 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (resumoRes.ok) {
             const resumoData = await resumoRes.json();
             const itens = Array.isArray(resumoData.items) ? resumoData.items : [];
-            const valorBase = itens.reduce((s, r) => s + (Number(r.total_dia) || 0), 0);
+            const valorBase = itens.reduce((s, r) => s + (Number(r.valor_total ?? r.total_dia) || 0), 0);
             state.fechModal.valorBase = valorBase;
             qs("#fech-valor-base").value = formatarMoeda(valorBase);
+            calculoComFallback = true;
           } else {
             qs("#fech-valor-base").value = formatarMoeda(0);
           }
-          const titulo = typeof mensagem === "string" && mensagem.toLowerCase().includes("período ainda em aberto")
-            ? "Período inválido para fechamento"
-            : "Não foi possível calcular o fechamento";
-          if (window.Swal) Swal.fire({ icon: "warning", title: titulo, text: mensagem });
-          else alert(mensagem);
+          if (!calculoComFallback) {
+            const titulo = typeof mensagem === "string" && mensagem.toLowerCase().includes("período ainda em aberto")
+              ? "Período inválido para fechamento"
+              : "Não foi possível calcular o fechamento";
+            if (window.Swal) Swal.fire({ icon: "warning", title: titulo, text: mensagem });
+            else alert(mensagem);
+          }
         }
       } catch (err) {
         const resumoParams = new URLSearchParams({ data_inicio: periodoInicio, data_fim: periodoFim, pageSize: 500 });
@@ -535,7 +539,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (resumoRes.ok) {
             const resumoData = await resumoRes.json();
             const itens = Array.isArray(resumoData.items) ? resumoData.items : [];
-            const valorBase = itens.reduce((s, r) => s + (Number(r.total_dia) || 0), 0);
+            const valorBase = itens.reduce((s, r) => s + (Number(r.valor_total ?? r.total_dia) || 0), 0);
             state.fechModal.valorBase = valorBase;
             qs("#fech-valor-base").value = formatarMoeda(valorBase);
           } else {
