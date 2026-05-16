@@ -194,7 +194,6 @@ function parseCodigoFromBusca(rawInput){
     servicoToggles: qsa("#flt-servico-toggle .filtro-toggle-item"),
     statusToggles: qsa("#flt-status-toggle .filtro-toggle-item"),
     acaoToggles: qsa("#flt-acao-toggle .filtro-toggle-item"),
-    multiToggle: qs("#flt-multi-toggle"),
     somenteG: qs("#flt-somente-g"),
     localizar: qs("#flt-localizar"),
     sort: qs("#flt-sort"),
@@ -346,7 +345,6 @@ function augmentEntregadoresFromRows(rows){
   const servicosSelecionados = (f.servicoToggles || []).filter(el => el.checked).map(el => el.value);
   const statusSelecionados = (f.statusToggles || []).filter(el => el.checked).map(el => el.value);
   const acoesSelecionadas = (f.acaoToggles || []).filter(el => el.checked).map(el => el.value);
-  const multiAtivo = !!f.multiToggle?.checked;
   const somenteG    = !!f.somenteG?.checked;
   const localizar   = (f.localizar?.value || "").trim();
   const sort        = f.sort?.value || "-ts";
@@ -362,9 +360,9 @@ function augmentEntregadoresFromRows(rows){
     ate,
     base,
     entregador,
-    servico: multiAtivo ? servicosSelecionados : servicosSelecionados.slice(0, 1),
-    status: multiAtivo ? statusSelecionados : statusSelecionados.slice(0, 1),
-    acao: multiAtivo ? acoesSelecionadas : acoesSelecionadas.slice(0, 1),
+    servico: servicosSelecionados,
+    status: statusSelecionados,
+    acao: acoesSelecionadas,
     localizar: localizar || undefined,
     sort,
     limit: parseInt(f.pageSize?.value || "200", 10)
@@ -1433,7 +1431,6 @@ function setupPagerEvents() {
     if (totalStatus > 0 && ativosStatus !== totalStatus) n++;
     if (totalAcao > 0 && ativosAcao !== totalAcao) n++;
     if (f.somenteG?.checked) n++;
-    if (f.multiToggle?.checked) n++;
     if (n > 0) {
       filtrosContadorEl.textContent = String(n);
       filtrosContadorEl.classList.remove("d-none");
@@ -1466,10 +1463,7 @@ function setupPagerEvents() {
       const fltBase = document.getElementById("flt-base");
       if (fltBase) fltBase.value = "";
       if (f.entregador) f.entregador.value = "";
-      (f.servicoToggles || []).forEach(el => { el.checked = true; });
-      (f.statusToggles || []).forEach(el => { el.checked = true; });
-      (f.acaoToggles || []).forEach(el => { el.checked = true; });
-      if (f.multiToggle) f.multiToggle.checked = false;
+      ativarTodosFiltros();
       if (f.somenteG) f.somenteG.checked = false;
       if (datePickerInstance && datePickerInstance.applyPreset) {
         datePickerInstance.applyPreset("ultimos30");
@@ -1491,14 +1485,8 @@ function setupPagerEvents() {
       .concat(f.statusToggles || [])
       .concat(f.acaoToggles || []);
     function aplicarModo(){
-      var multi = !!f.multiToggle?.checked;
-      if (multi) return;
       var grupos = [f.servicoToggles || [], f.statusToggles || [], f.acaoToggles || []];
       grupos.forEach(function(grupo){
-        var ativos = grupo.filter(el => el.checked);
-        if (ativos.length > 1){
-          grupo.forEach((el, idx) => { el.checked = idx === grupo.indexOf(ativos[0]); });
-        }
         if (grupo.length && !grupo.some(el => el.checked)) {
           grupo[0].checked = true;
         }
@@ -1506,19 +1494,21 @@ function setupPagerEvents() {
     }
     toggles.forEach(function(el){
       el.addEventListener("change", function(){
-        if (!f.multiToggle?.checked && el.checked) {
-          var parent = el.closest("#flt-servico-toggle, #flt-status-toggle, #flt-acao-toggle");
-          if (!parent) return;
-          qsa("input.filtro-toggle-item", parent).forEach(function(other){
-            if (other !== el) other.checked = false;
-          });
+        var parent = el.closest("#flt-servico-toggle, #flt-status-toggle, #flt-acao-toggle");
+        if (!parent) return;
+        var grupo = qsa("input.filtro-toggle-item", parent);
+        if (grupo.length && !grupo.some(function(item){ return item.checked; })) {
+          el.checked = true;
         }
       });
     });
-    if (f.multiToggle){
-      f.multiToggle.addEventListener("change", aplicarModo);
-    }
     aplicarModo();
+  }
+
+  function ativarTodosFiltros(){
+    (f.servicoToggles || []).forEach(el => { el.checked = true; });
+    (f.statusToggles || []).forEach(el => { el.checked = true; });
+    (f.acaoToggles || []).forEach(el => { el.checked = true; });
   }
   if (btnFiltroCancelar) {
     btnFiltroCancelar.onclick = fecharDropdownFiltros;
@@ -1538,6 +1528,7 @@ function setupPagerEvents() {
       fillEntregadores(unicos);
     })
     .finally(() => {
+      ativarTodosFiltros();
       if (f.pageSize) f.pageSize.value = String(state.pageSize);
       refresh(false);
       updateEditButtonState();
