@@ -71,6 +71,8 @@
     const params = new URLSearchParams();
     if (from) params.set("data_inicio", from);
     if (to) params.set("data_fim", to);
+    var modo = (window.TrackPrefs && window.TrackPrefs.getIndicadorStatusMode && window.TrackPrefs.getIndicadorStatusMode()) || "operacional";
+    params.set("modo_entregas", modo);
     return fetchJson(API_BASE + "/dashboard/saidas?" + params.toString());
   }
 
@@ -257,7 +259,7 @@
     updatePeriodLabel(today, today);
 
     function syncSaidasIndicadorToggleUI() {
-      var modo = (window.TrackPrefs && window.TrackPrefs.getIndicadorStatusMode && window.TrackPrefs.getIndicadorStatusMode()) || "saiu";
+      var modo = (window.TrackPrefs && window.TrackPrefs.getIndicadorStatusMode && window.TrackPrefs.getIndicadorStatusMode()) || "operacional";
       var group = document.getElementById("saidas-indicador-status-mode-group");
       if (!group) return;
       group.querySelectorAll("button[data-mode]").forEach(function (b) {
@@ -273,7 +275,7 @@
         var btn = ev.target && ev.target.closest && ev.target.closest("button[data-mode]");
         if (!btn) return;
         var mode = btn.getAttribute("data-mode");
-        if (mode !== "saiu" && mode !== "entregue") return;
+        if (mode !== "saiu" && mode !== "operacional" && mode !== "entregue") return;
         if (window.TrackPrefs && window.TrackPrefs.setIndicadorStatusMode) window.TrackPrefs.setIndicadorStatusMode(mode);
         syncSaidasIndicadorToggleUI();
         load();
