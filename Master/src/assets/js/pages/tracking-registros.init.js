@@ -191,8 +191,9 @@ function parseCodigoFromBusca(rawInput){
     from: qs("#flt-from"),
     to: qs("#flt-to"),
     entregador: qs("#flt-entregador"),
-    servico: qs("#flt-servico"),
-    status: qs("#flt-status"),
+    servicoToggles: qsa("#flt-servico-toggle .filtro-toggle-item"),
+    statusToggles: qsa("#flt-status-toggle .filtro-toggle-item"),
+    acaoToggles: qsa("#flt-acao-toggle .filtro-toggle-item"),
     somenteG: qs("#flt-somente-g"),
     localizar: qs("#flt-localizar"),
     sort: qs("#flt-sort"),
@@ -341,8 +342,9 @@ function augmentEntregadoresFromRows(rows){
   const to          = f.to?.value || "";
   const base        = document.getElementById("flt-base")?.value || "";
   const entregador  = f.entregador?.value || "";
-  const servico     = f.servico?.value || "";
-  const status      = f.status?.value || "";
+  const servicosSelecionados = (f.servicoToggles || []).filter(el => el.checked).map(el => el.value);
+  const statusSelecionados = (f.statusToggles || []).filter(el => el.checked).map(el => el.value);
+  const acoesSelecionadas = (f.acaoToggles || []).filter(el => el.checked).map(el => el.value);
   const somenteG    = !!f.somenteG?.checked;
   const localizar   = (f.localizar?.value || "").trim();
   const sort        = f.sort?.value || "-ts";
@@ -351,13 +353,6 @@ function augmentEntregadoresFromRows(rows){
   const de  = (from && from.trim()) ? from.trim() : "";
   const ate = (to && to.trim()) ? to.trim() : (de ? de : "");
 
-  // NORMALIZA STATUS PARA API
-  let st = status;
-  if (st === "Saiu para entrega") st = "saiu";
-  else if (st === "Coletado") st = "coletado";
-  else if (st === "Não Coletado") st = "Nao Coletado";
-  else if (st === "Cancelado") st = "cancelado";
-
   const codigoBusca = parseCodigoFromBusca(localizar);
 
   const params = {
@@ -365,8 +360,9 @@ function augmentEntregadoresFromRows(rows){
     ate,
     base,
     entregador,
-    servico,
-    status: st,
+    servico: servicosSelecionados,
+    status: statusSelecionados,
+    acao: acoesSelecionadas,
     localizar: localizar || undefined,
     sort,
     limit: parseInt(f.pageSize?.value || "200", 10)
@@ -390,7 +386,7 @@ function augmentEntregadoresFromRows(rows){
 
   // APENAS REMOVE SE REALMENTE ESTIVER VAZIO
   Object.keys(params).forEach(k => {
-    if (params[k] === "" || params[k] === undefined || params[k] === null) {
+    if (params[k] === "" || params[k] === undefined || params[k] === null || (Array.isArray(params[k]) && params[k].length === 0)) {
       delete params[k];
     }
   });
@@ -1425,8 +1421,15 @@ function setupPagerEvents() {
     let n = 0;
     if ((document.getElementById("flt-base")?.value || "").trim()) n++;
     if ((f.entregador?.value || "").trim()) n++;
-    if ((f.servico?.value || "").trim()) n++;
-    if ((f.status?.value || "").trim()) n++;
+    var totalServico = (f.servicoToggles || []).length;
+    var totalStatus = (f.statusToggles || []).length;
+    var totalAcao = (f.acaoToggles || []).length;
+    var ativosServico = (f.servicoToggles || []).filter(el => el.checked).length;
+    var ativosStatus = (f.statusToggles || []).filter(el => el.checked).length;
+    var ativosAcao = (f.acaoToggles || []).filter(el => el.checked).length;
+    if (totalServico > 0 && ativosServico !== totalServico) n++;
+    if (totalStatus > 0 && ativosStatus !== totalStatus) n++;
+    if (totalAcao > 0 && ativosAcao !== totalAcao) n++;
     if (f.somenteG?.checked) n++;
     if (n > 0) {
       filtrosContadorEl.textContent = String(n);
@@ -1460,8 +1463,9 @@ function setupPagerEvents() {
       const fltBase = document.getElementById("flt-base");
       if (fltBase) fltBase.value = "";
       if (f.entregador) f.entregador.value = "";
-      if (f.servico) f.servico.value = "";
-      if (f.status) f.status.value = "";
+      (f.servicoToggles || []).forEach(el => { el.checked = true; });
+      (f.statusToggles || []).forEach(el => { el.checked = true; });
+      (f.acaoToggles || []).forEach(el => { el.checked = true; });
       if (f.somenteG) f.somenteG.checked = false;
       if (datePickerInstance && datePickerInstance.applyPreset) {
         datePickerInstance.applyPreset("ultimos30");

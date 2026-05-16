@@ -29,8 +29,21 @@
     if (params?.ate)        q.set("ate", params.ate);
     if (params?.base)       q.set("base", params.base);
     if (params?.entregador) q.set("entregador", params.entregador);
-    if (params?.status)     q.set("status", params.status);
-    if (params?.servico)    q.set("servico", params.servico);
+    if (Array.isArray(params?.status)) {
+      params.status.forEach(v => { if (v != null && String(v).trim()) q.append("status", String(v).trim()); });
+    } else if (params?.status) {
+      q.set("status", params.status);
+    }
+    if (Array.isArray(params?.servico)) {
+      params.servico.forEach(v => { if (v != null && String(v).trim()) q.append("servico", String(v).trim()); });
+    } else if (params?.servico) {
+      q.set("servico", params.servico);
+    }
+    if (Array.isArray(params?.acao)) {
+      params.acao.forEach(v => { if (v != null && String(v).trim()) q.append("acao", String(v).trim()); });
+    } else if (params?.acao) {
+      q.set("acao", params.acao);
+    }
     if (params?.somente_g)  q.set("somente_g", "true");
     if (params?.localizar)  q.set("localizar", params.localizar);
     if (params?.codigo)     q.set("codigo", params.codigo);
