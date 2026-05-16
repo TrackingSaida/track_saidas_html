@@ -417,7 +417,7 @@ function augmentEntregadoresFromRows(rows){
     if (!r) return r;
 
     var id = getRowId(r);
-    var ts = r.timestamp || r.ts || r.data_hora || r.datahora || r.date;
+    var ts = r.data_hora_acao || r.timestamp || r.ts || r.data_hora || r.datahora || r.date;
 
     var tsFmt = r.tsFmt || (() => {
       try {
@@ -436,6 +436,7 @@ function augmentEntregadoresFromRows(rows){
       r.usuario ||
       r.created_by ||
       "-";
+    var acao = r.acao || r.action || "Sem ação";
 
     var rawSt = String(r.status || "").toLowerCase();
     var statusUI = formatStatusForDisplay(r.status);
@@ -445,6 +446,7 @@ function augmentEntregadoresFromRows(rows){
       id,
       tsFmt,
       username,
+      acao,
       status: statusUI
     };
   }
@@ -489,7 +491,7 @@ function augmentEntregadoresFromRows(rows){
     if (!tblBody) return;
     if (!rows?.length){
       tblBody.innerHTML =
-        '<tr><td colspan="10" class="text-muted text-center py-4">Sem registros.</td></tr>';
+        '<tr><td colspan="11" class="text-muted text-center py-4">Sem registros.</td></tr>';
       return;
     }
 
@@ -513,6 +515,7 @@ function augmentEntregadoresFromRows(rows){
             <td>${r.tsFmt || ""}</td>
             <td>${r.base || "-"}</td>
             <td>${r.username || "-"}</td>
+            <td>${r.acao || "-"}</td>
             <td>${r.entregador || "-"}</td>
             <td><span class="d-inline-flex align-items-center gap-1">${r.codigo || "-"} <button type="button" class="btn btn-link btn-sm p-0 text-primary" title="Gerar etiqueta" data-etiqueta="${(r.codigo || "").replace(/"/g, "&quot;")}" data-id-saida="${rid || ""}" data-servico="${(r.servico || "").replace(/"/g, "&quot;")}"><i class="ri-printer-line"></i></button></span></td>
             <td><span class="${servicoBadgeClass}">${r.servico || "-"}</span></td>
