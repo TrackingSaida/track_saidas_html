@@ -200,7 +200,9 @@
       didParseCell: function (data) {
         if (data.row.section === "body" && data.row.index === idxTotalFinanceiro) {
           data.cell.styles.fontStyle = "bold";
-          data.cell.styles.fillColor = [245, 245, 245];
+          data.cell.styles.fillColor = [242, 242, 242];
+          data.cell.styles.lineWidth = { top: 0.35, right: 0.1, bottom: 0.1, left: 0.1 };
+          data.cell.styles.lineColor = [140, 140, 140];
         }
       },
       pageBreak: "auto",
