@@ -15,6 +15,15 @@
   const msg    = $("msgArea");
   const tbLast = $("ultimos-rows");
 
+  function normalizeNomeKey(nome){
+    return String(nome || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  }
+
   // ---------- resumo dos últimos registros ----------
 // Elementos para mostrar o total de registros por serviço (Shopee, Mercado Livre, Avulso) e o total geral.
 const sumShopeeEl   = document.getElementById('ult-sum-shopee');
@@ -746,7 +755,12 @@ function createRow(row){
           entregadoresMap.set(String(id), nome);
           return { id, nome };
         })
-        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+        .filter((item, idx, arr) => {
+          const key = normalizeNomeKey(item.nome);
+          if (!key) return false;
+          return arr.findIndex((it) => normalizeNomeKey(it.nome) === key) === idx;
+        });
       if (!selEnt) return;
       selEnt.innerHTML =
         '<option value="" selected disabled>Motoboy obrigatório</option>' +
