@@ -15,6 +15,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const qs = (s) => document.querySelector(s);
 
+  function normalizeNomeKey(nome) {
+    return String(nome || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  }
+
   /** value do select de executores: "e_123" (entregador) ou "m_456" (motoboy) */
   function parseExecutorVal(val) {
     if (!val || typeof val !== "string") return { tipo: null, id: 0 };
@@ -786,7 +795,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (na !== 0) return na;
         return String(a?.executor_key || "").localeCompare(String(b?.executor_key || ""), "pt-BR", { sensitivity: "base" });
       });
-      const opts = arr.map((e) => {
+
+      // Remove duplicidades visuais de nome no filtro:
+      // - mantém apenas uma opção por nome normalizado
+      // - se houver duplicata entre entregador e motoboy, prioriza motoboy
+      const byNome = new Map();
+      arr.forEach((e) => {
+        const nomeKey = normalizeNomeKey(e?.nome || e?.executor_key);
+        if (!nomeKey) return;
+        const current = byNome.get(nomeKey);
+        const incomingIsMotoboy = e?.id_motoboy != null;
+        const currentIsMotoboy = current?.id_motoboy != null;
+        if (!current || (incomingIsMotoboy && !currentIsMotoboy)) {
+          byNome.set(nomeKey, e);
+        }
+      });
+
+      const executoresUnicos = Array.from(byNome.values());
+      const opts = executoresUnicos.map((e) => {
         const val = e.executor_key || (e.id_motoboy != null ? "m_" + e.id_motoboy : "e_" + e.id_entregador);
         const nome = (e.nome || val).replace(/</g, "&lt;").replace(/"/g, "&quot;");
         return `<option value="${val}">${nome}</option>`;

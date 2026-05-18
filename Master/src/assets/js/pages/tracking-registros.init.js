@@ -82,6 +82,15 @@ function normalizeCodigoForFilter(rawInput){
   return raw;
 }
 
+function normalizeNomeKey(nome){
+  return String(nome || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 function parseCodigoFromBusca(rawInput){
   const normalized = normalizeCodigoForFilter(rawInput);
   if (!normalized) return null;
@@ -265,7 +274,13 @@ function loadMotoboys(){
     .catch(function() { motoboysCache = []; return []; });
 }
 function fillEntregadores(nomes){
-  var list = Array.from(new Set(nomes || [])).sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  var uniqueByKey = new Map();
+  (nomes || []).forEach(function(nome){
+    var key = normalizeNomeKey(nome);
+    if (!key || uniqueByKey.has(key)) return;
+    uniqueByKey.set(key, String(nome).trim());
+  });
+  var list = Array.from(uniqueByKey.values()).sort((a,b)=>a.localeCompare(b,"pt-BR"));
 
   // filtro do topo — preserva seleção atual quando possível
   if (f.entregador){
