@@ -9,6 +9,7 @@
   const API_ENTREGADORES = `${API_URL.replace(/\/+$/, "")}/entregadores`;
   const API_PRECOS_GLOBAL = `${API_ENTREGADORES}/precos/global`;
   const API_PRECOS_INDIVIDUAIS = `${API_ENTREGADORES}/precos/individuais`;
+  const API_PRECOS_EXECUTORES = `${API_ENTREGADORES}/precos/executores`;
 
   const qs = (s) => document.querySelector(s);
   const qsa = (s) => Array.from(document.querySelectorAll(s));
@@ -187,14 +188,23 @@
   // ---------- Entregadores (select) ----------
   async function loadEntregadoresSelect() {
     try {
-      const list = await http(`${API_ENTREGADORES}?status=ativo`);
+      const list = await http(`${API_PRECOS_EXECUTORES}?status=ativo`);
       const arr = Array.isArray(list) ? list : [];
       const select = qs("#selectEntregador");
       if (!select) return;
-      const idsComExcecao = CACHE_EXCECÕES.map((e) => e.entregador_id);
-      const ordenados = arr
-        .filter((e) => !idsComExcecao.includes(e.id_entregador))
-        .slice()
+      const idsComExcecao = new Set((CACHE_EXCECÕES || []).map((e) => Number(e.entregador_id)));
+      const unicos = new Map();
+      arr.forEach((e) => {
+        const id = Number(e?.entregador_id ?? e?.id_entregador);
+        if (!Number.isFinite(id) || id <= 0) return;
+        if (idsComExcecao.has(id)) return;
+        const nome = String(e?.nome || id).trim();
+        const key = String(id);
+        if (!unicos.has(key)) {
+          unicos.set(key, { id_entregador: id, nome });
+        }
+      });
+      const ordenados = Array.from(unicos.values())
         .sort((a, b) => String(a?.nome || a?.id_entregador || "").localeCompare(String(b?.nome || b?.id_entregador || ""), "pt-BR", { sensitivity: "base" }));
       select.innerHTML = '<option value="">Selecione o entregador</option>' +
         ordenados
