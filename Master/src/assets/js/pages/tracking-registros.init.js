@@ -208,13 +208,20 @@ function parseCodigoFromBusca(rawInput){
   var sumMercadoEl = qs('#sum-ml');
   var sumAvulsoEl  = qs('#sum-avulso');
   var sumTotalEl   = qs('#sum-total');
+  var regListLoading = document.getElementById("reg-list-loading");
+  var btnFiltroAplicar = document.getElementById("btnFiltroAplicar");
+  var btnFiltroLimpar = document.getElementById("btnFiltroLimpar");
 
   var state = {
     page: 1,
-    pageSize: 200,
+    pageSize: 50,
     total: 0,
     rows: [],
     hasMore: false
+  };
+  var loadingState = {
+    active: false,
+    refreshSeq: 0
   };
 
   // ================== Carregar lista de entregadores ==================
@@ -626,6 +633,17 @@ function setupPagerEvents() {
     state.page = Math.ceil(state.total / state.pageSize);
     refresh();
   };
+
+  if (f.pageSize) {
+    f.pageSize.addEventListener("change", function() {
+      var nextPageSize = parseInt(f.pageSize.value || "50", 10);
+      if (!Number.isFinite(nextPageSize) || nextPageSize <= 0) nextPageSize = 50;
+      if (nextPageSize === state.pageSize) return;
+      state.pageSize = nextPageSize;
+      state.page = 1;
+      refresh();
+    });
+  }
 }
 
 
@@ -643,23 +661,52 @@ function setupPagerEvents() {
       .then(function(user) { if (user) window.__USER__ = user; });
   }
 
+  function setListLoading(show) {
+    loadingState.active = !!show;
+    if (regListLoading) {
+      regListLoading.classList.toggle("d-none", !show);
+      regListLoading.setAttribute("aria-hidden", show ? "false" : "true");
+    }
+    if (btnFiltroAplicar) btnFiltroAplicar.disabled = !!show;
+    if (btnFiltroLimpar) btnFiltroLimpar.disabled = !!show;
+    if (f.pageSize) f.pageSize.disabled = !!show;
+    var btnFirst = qs("#pager-first");
+    var btnPrev  = qs("#pager-prev");
+    var btnNext  = qs("#pager-next");
+    var btnLast  = qs("#pager-last");
+    [btnFirst, btnPrev, btnNext, btnLast].forEach(function(btn){
+      if (!btn) return;
+      if (show) {
+        btn.dataset.prevDisabled = btn.disabled ? "1" : "0";
+        btn.disabled = true;
+      } else {
+        btn.disabled = btn.dataset.prevDisabled === "1";
+        delete btn.dataset.prevDisabled;
+      }
+    });
+  }
+
   // =====================================================================
   // refresh() — busca e atualiza tabela
   // =====================================================================
   function refresh(autoFit){
-    ensureUserForG().then(function() {
-      const params = readFilters();
-      params.limit = state.pageSize;
-      params.offset = (state.page - 1) * state.pageSize;
-
-      TrackAPI.listSaidas(params).then(res => {
+    var seq = ++loadingState.refreshSeq;
+    setListLoading(true);
+    ensureUserForG()
+      .then(function() {
+        const params = readFilters();
+        params.limit = state.pageSize;
+        params.offset = (state.page - 1) * state.pageSize;
+        return TrackAPI.listSaidas(params);
+      })
+      .then(function(res) {
+        if (seq !== loadingState.refreshSeq) return;
         if (!res || res.error){
           notify("Erro ao carregar registros", "error");
           return;
         }
 
         state.rows = (res.rows || res.items || []).map(normalizeRow);
-
         state.total = res.total || 0;
 
         renderTable(state.rows);
@@ -667,8 +714,14 @@ function setupPagerEvents() {
         updateSummaryCards(res);   // <<< resumo 100% do backend
 
         if (autoFit) augmentEntregadoresFromRows(state.rows);
+      })
+      .catch(function() {
+        if (seq !== loadingState.refreshSeq) return;
+        notify("Erro ao carregar registros", "error");
+      })
+      .finally(function() {
+        if (seq === loadingState.refreshSeq) setListLoading(false);
       });
-    });
   }
 
   // =====================================================================
@@ -759,6 +812,7 @@ function setupPagerEvents() {
   var detailHistorical = document.getElementById("reg-detail-historical");
   var detailError = document.getElementById("reg-detail-error");
   var detailCloseBtn = document.getElementById("reg-detail-close");
+  var detailFetchSeq = 0;
 
   function fmtDt(d) {
     if (!d) return "—";
@@ -795,6 +849,7 @@ function setupPagerEvents() {
   }
 
   function openDetailPanel(idSaida) {
+    var detailSeq = ++detailFetchSeq;
     var base = (window.TRACK_API_URL || "").replace(/\/+$/, "");
     var urlDetalhe = base + "/saidas/" + idSaida;
     var urlHistorico = base + "/saidas/" + idSaida + "/historico";
@@ -817,6 +872,7 @@ function setupPagerEvents() {
       fetch(urlDetalhe, { credentials: "include" }).then(function(r) { return r.ok ? r.json() : Promise.reject(r); }),
       fetch(urlHistorico, { credentials: "include" }).then(function(r) { return r.ok ? r.json() : Promise.reject(r); })
     ]).then(async function(results) {
+      if (detailSeq !== detailFetchSeq) return;
       var saida = results[0];
       var historico = Array.isArray(results[1]) ? results[1] : [];
 
@@ -898,6 +954,7 @@ function setupPagerEvents() {
       if (detailLoading) detailLoading.classList.add("d-none");
       if (detailBody) detailBody.classList.remove("d-none");
     }).catch(function(err) {
+      if (detailSeq !== detailFetchSeq) return;
       if (detailLoading) detailLoading.classList.add("d-none");
       if (detailBody) detailBody.classList.add("d-none");
       if (detailError) {
@@ -1396,7 +1453,7 @@ function setupPagerEvents() {
     datePickerInstance = window.initDatePickerDashboard({
       containerId: "registros-date-picker-container",
       prefix: "registros-dp",
-      defaultPreset: "ultimos45",
+      defaultPreset: "ultimos30",
       onApply: function (start, end) {
         if (f.from) f.from.value = start;
         if (f.to) f.to.value = end;
@@ -1416,7 +1473,7 @@ function setupPagerEvents() {
       }
     });
     if (datePickerInstance && datePickerInstance.applyPreset) {
-      datePickerInstance.applyPreset("ultimos45");
+      datePickerInstance.applyPreset("ultimos30");
     }
     const r = datePickerInstance ? datePickerInstance.getResolvedRange() : { start: "", end: "" };
     if (f.from) f.from.value = r.start;
@@ -1426,7 +1483,7 @@ function setupPagerEvents() {
     // fallback: definir período manualmente se date picker não disponível
     const now = new Date();
     const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
-    const start = new Date(y, m, d - 45);
+    const start = new Date(y, m, d - 30);
     const fmt = (x) => x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0");
     if (f.from) f.from.value = fmt(start);
     if (f.to) f.to.value = fmt(now);
@@ -1462,8 +1519,6 @@ function setupPagerEvents() {
     }
   }
 
-  const btnFiltroAplicar = document.getElementById("btnFiltroAplicar");
-  const btnFiltroLimpar = document.getElementById("btnFiltroLimpar");
   const btnFiltroCancelar = document.getElementById("btnFiltroCancelar");
 
   if (btnFiltroAplicar) {
@@ -1482,7 +1537,7 @@ function setupPagerEvents() {
       ativarTodosFiltros();
       if (f.somenteG) f.somenteG.checked = false;
       if (datePickerInstance && datePickerInstance.applyPreset) {
-        datePickerInstance.applyPreset("ultimos45");
+        datePickerInstance.applyPreset("ultimos30");
         const r = datePickerInstance.getResolvedRange();
         if (f.from) f.from.value = r.start;
         if (f.to) f.to.value = r.end;
