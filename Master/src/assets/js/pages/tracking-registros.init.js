@@ -209,8 +209,13 @@ function parseCodigoFromBusca(rawInput){
   var sumAvulsoEl  = qs('#sum-avulso');
   var sumTotalEl   = qs('#sum-total');
   var regListLoading = document.getElementById("reg-list-loading");
+  var topLoadingBadge = document.getElementById("registros-top-loading");
   var btnFiltroAplicar = document.getElementById("btnFiltroAplicar");
   var btnFiltroLimpar = document.getElementById("btnFiltroLimpar");
+  var btnFiltroCancelar = document.getElementById("btnFiltroCancelar");
+  var btnFiltrosIcon = document.getElementById("btnFiltrosIcon");
+  var periodBtnReg = document.getElementById("registros-period-btn");
+  var fltBase = document.getElementById("flt-base");
 
   var state = {
     page: 1,
@@ -271,8 +276,18 @@ function loadMotoboys(){
     })
     .catch(function() { motoboysCache = []; return []; });
 }
+function buildUniqueNames(nomes){
+  var map = new Map();
+  (nomes || []).forEach(function(n){
+    var display = String(n || "").trim();
+    if (!display) return;
+    var key = display.toLocaleLowerCase("pt-BR");
+    if (!map.has(key)) map.set(key, display);
+  });
+  return Array.from(map.values()).sort((a,b)=>a.localeCompare(b,"pt-BR"));
+}
 function fillEntregadores(nomes){
-  var list = Array.from(new Set(nomes || [])).sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  var list = buildUniqueNames(nomes);
 
   // filtro do topo — preserva seleção atual quando possível
   if (f.entregador){
@@ -299,10 +314,9 @@ function augmentEntregadoresFromRows(rows){
   var nomesLista = (rows || [])
     .map(r => r?.entregador)
     .filter(Boolean);
-
-  fillEntregadores(
-    (augmentEntregadoresFromRows._base || []).concat(nomesLista)
-  );
+  var unicos = buildUniqueNames((augmentEntregadoresFromRows._base || []).concat(nomesLista));
+  augmentEntregadoresFromRows._base = unicos;
+  fillEntregadores(unicos);
 }
 
 
@@ -667,8 +681,19 @@ function setupPagerEvents() {
       regListLoading.classList.toggle("d-none", !show);
       regListLoading.setAttribute("aria-hidden", show ? "false" : "true");
     }
+    if (topLoadingBadge) topLoadingBadge.classList.toggle("d-none", !show);
     if (btnFiltroAplicar) btnFiltroAplicar.disabled = !!show;
     if (btnFiltroLimpar) btnFiltroLimpar.disabled = !!show;
+    if (btnFiltroCancelar) btnFiltroCancelar.disabled = !!show;
+    if (btnFiltrosIcon) btnFiltrosIcon.disabled = !!show;
+    if (periodBtnReg) periodBtnReg.disabled = !!show;
+    if (f.localizar) f.localizar.disabled = !!show;
+    if (fltBase) fltBase.disabled = !!show;
+    if (f.entregador) f.entregador.disabled = !!show;
+    if (f.somenteG) f.somenteG.disabled = !!show;
+    (f.servicoToggles || []).forEach(function(el){ el.disabled = !!show; });
+    (f.statusToggles || []).forEach(function(el){ el.disabled = !!show; });
+    (f.acaoToggles || []).forEach(function(el){ el.disabled = !!show; });
     if (f.pageSize) f.pageSize.disabled = !!show;
     var btnFirst = qs("#pager-first");
     var btnPrev  = qs("#pager-prev");
@@ -1445,8 +1470,6 @@ function setupPagerEvents() {
   }
 
   let datePickerInstance = null;
-  const periodBtnReg = document.getElementById("registros-period-btn");
-  const btnFiltrosIcon = document.getElementById("btnFiltrosIcon");
   const filtrosContadorEl = document.getElementById("filtrosContador");
 
   if (typeof window.initDatePickerDashboard === "function") {
@@ -1519,10 +1542,9 @@ function setupPagerEvents() {
     }
   }
 
-  const btnFiltroCancelar = document.getElementById("btnFiltroCancelar");
-
   if (btnFiltroAplicar) {
     btnFiltroAplicar.onclick = () => {
+      if (loadingState.active) return;
       state.page = 1;
       refresh();
       atualizarContadorFiltros();
@@ -1531,6 +1553,7 @@ function setupPagerEvents() {
   }
   if (btnFiltroLimpar) {
     btnFiltroLimpar.onclick = () => {
+      if (loadingState.active) return;
       const fltBase = document.getElementById("flt-base");
       if (fltBase) fltBase.value = "";
       if (f.entregador) f.entregador.value = "";
@@ -1594,7 +1617,7 @@ function setupPagerEvents() {
       var motoboys = results[1] || [];
       var nomesMotoboys = motoboys.map(function(m) { return (m.nome || ("Motoboy " + (m.id_motoboy || m.id))); });
       var todos = (nomesEntregadores).concat(nomesMotoboys);
-      var unicos = Array.from(new Set(todos)).filter(Boolean).sort(function(a, b) { return a.localeCompare(b, "pt-BR"); });
+      var unicos = buildUniqueNames(todos);
       augmentEntregadoresFromRows._base = unicos;
       fillEntregadores(unicos);
     })
