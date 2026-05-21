@@ -171,6 +171,32 @@
     }
   };
 
+  window.TrackAPI.confirmarNovaSaidaMesmoEntregador = async function ({ id_saida, motoboy_id, entregador_id, entregador, origem }) {
+    try {
+      const body = { id_saida };
+      if (motoboy_id != null) body.motoboy_id = motoboy_id;
+      if (entregador_id != null) body.entregador_id = entregador_id;
+      if (entregador != null) body.entregador = entregador;
+      if (origem != null) body.origem = origem;
+      const res = await req("/saidas/confirmar-nova-saida-mesmo-entregador", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      let data = null;
+      try { data = await res.json(); } catch {}
+      return {
+        ok: res.ok,
+        status: res.status,
+        data: data,
+        error: res.ok ? null : (data?.message || data?.error || null),
+        code: data?.code
+      };
+    } catch (err) {
+      return { ok: false, status: 0, error: String(err?.message || err) };
+    }
+  };
+
   // ============================================================
   // REGISTRAR SAÍDA (legado — mantido para compatibilidade)
   // ============================================================

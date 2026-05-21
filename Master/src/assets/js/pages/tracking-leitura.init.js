@@ -618,6 +618,11 @@ function createRow(row){
       ? TrackAPI.lerSaida({ entregador_id, entregador, motoboy_id, codigo, servico, registrar_nao_coletado, qr_payload_raw })
       : Promise.reject(new Error("TrackAPI.lerSaida não disponível"));
   }
+  function apiConfirmarNovaSaidaMesmoEntregador({ id_saida, motoboy_id, entregador_id, entregador, origem }){
+    return window.TrackAPI?.confirmarNovaSaidaMesmoEntregador
+      ? TrackAPI.confirmarNovaSaidaMesmoEntregador({ id_saida, motoboy_id, entregador_id, entregador, origem })
+      : Promise.reject(new Error("TrackAPI.confirmarNovaSaidaMesmoEntregador não disponível"));
+  }
   function apiRegistrarSaida({ entregador_id, entregador, codigo, servico }){
     return window.TrackAPI?.registerSaida
       ? TrackAPI.registerSaida({ entregador_id, entregador, codigo, servico })
@@ -1053,6 +1058,82 @@ async function registrar() {
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
       if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
       return { ok:true, tipo:"troca_entregador", codigo: codigoFinal, backend_processing_ms };
+    }
+
+    if (res.status === 409 && res.code === "LEITURA_DIA_ANTERIOR") {
+      revertOtimista();
+      const idSaida = res.data?.id_saida;
+      const motoboyNome = res.data?.motoboy_nome || entregador || "Motoboy";
+      const dataAnteriorIso = String(res.data?.data_operacional_anterior || "").trim();
+      const dataAnteriorFmt = dataAnteriorIso
+        ? (() => {
+            var p = dataAnteriorIso.split("-");
+            return p.length === 3 ? (p[2] + "/" + p[1] + "/" + p[0]) : dataAnteriorIso;
+          })()
+        : "data anterior";
+      const hoje = new Date();
+      const hojeFmt = String(hoje.getDate()).padStart(2, "0") + "/" + String(hoje.getMonth() + 1).padStart(2, "0") + "/" + hoje.getFullYear();
+      const overlay = document.getElementById("scanFS");
+      const wasActiveOverlay = overlay?.classList.contains("show");
+      if (wasActiveOverlay) {
+        try { window.leituraStopScanner?.(); } catch (_) { overlay.style.display = "none"; }
+      }
+      const confirm = await Swal.fire({
+        icon: "warning",
+        title: "Pedido já lido em data anterior",
+        html: `
+          <p>Este pedido já foi lido em <strong>${dataAnteriorFmt}</strong> para o motoboy <strong>${motoboyNome}</strong>.</p>
+          <p>Deseja confirmar que ele está saindo novamente para entrega hoje, <strong>${hojeFmt}</strong>?</p>
+        `,
+        showCancelButton: true,
+        confirmButtonText: "Confirmar saída hoje",
+        cancelButtonText: "Cancelar",
+        allowOutsideClick: false,
+        backdrop: true
+      });
+      if (!confirm.isConfirmed) {
+        if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
+        return { ok:false, tipo:"leitura_dia_anterior_cancelada", backend_processing_ms };
+      }
+      const confirmResp = await apiConfirmarNovaSaidaMesmoEntregador({
+        id_saida: idSaida,
+        motoboy_id: motoboyId,
+        entregador: entregador,
+        origem: "web"
+      });
+      if (!confirmResp.ok) {
+        const msg = confirmResp.error || "Erro ao confirmar nova saída.";
+        showMsgIcon("erro", msg);
+        Sound.play("err");
+        if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
+        return { ok:false, tipo:"erro_confirmar_nova_saida", detalhe:msg, backend_processing_ms };
+      }
+      const dataConf = confirmResp.data || {};
+      appendOrUpdateRow({
+        tsFmt: new Date().toLocaleString("pt-BR"),
+        entregador,
+        codigo: codigoFinal,
+        servico: dataConf.servico ?? servico,
+        status: dataConf.status ?? "Saiu para entrega",
+        id_saida: dataConf.id_saida ?? idSaida,
+        is_grande: !!dataConf.is_grande,
+        duplicado: false
+      });
+      codigosLidosSessao.add(codigoFinal);
+      updateSummary();
+      showMsgIcon("info", `Nova saída confirmada ✓ ${codigoFinal}`);
+      Sound.play("ok");
+      if (inpCod) { inpCod.value = ""; inpCod.focus(); }
+      if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
+      return { ok:true, tipo:"nova_saida_mesmo_entregador", codigo: codigoFinal, backend_processing_ms };
+    }
+
+    if (res.status === 422 && res.code === "STATUS_FINALIZADO") {
+      revertOtimista();
+      const statusAtual = String(res.data?.status_atual || "FINALIZADO");
+      showMsgIcon("alerta", `Pedido bloqueado: status ${statusAtual}.`);
+      Sound.play("warn");
+      return { ok:false, tipo:"status_finalizado", detalhe:statusAtual, backend_processing_ms };
     }
 
     if (res.status === 422 && res.code === "NAO_COLETADO") {

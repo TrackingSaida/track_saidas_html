@@ -9,6 +9,7 @@
   const API_ENTREGADORES = `${API_URL.replace(/\/+$/, "")}/entregadores`;
   const API_PRECOS_GLOBAL = `${API_ENTREGADORES}/precos/global`;
   const API_PRECOS_INDIVIDUAIS = `${API_ENTREGADORES}/precos/individuais`;
+  const API_PRECOS_EXECUTORES = `${API_ENTREGADORES}/precos/executores`;
 
   const qs = (s) => document.querySelector(s);
   const qsa = (s) => Array.from(document.querySelectorAll(s));
@@ -134,13 +135,13 @@
   }
 
   // ---------- Lista de exceções ----------
-  let CACHE_EXCECÕES = [];
+  let CACHE_EXCECOES = [];
   let SELECTED_ID = null;
   const offcanvasExcecao = new bootstrap.Offcanvas("#oc-excecao");
 
   function buildRow(item) {
-    const id = item.entregador_id;
-    const nome = item.entregador_nome || "-";
+    const id = item.motoboy_id || item.entregador_id;
+    const nome = item.motoboy_nome || item.entregador_nome || "-";
     const shopee = formatMoeda(item.shopee_valor);
     const flex = formatMoeda(item.ml_valor);
     const avulso = formatMoeda(item.avulso_valor);
@@ -160,7 +161,7 @@
     const term = (qs("#search")?.value || "").toLowerCase().trim();
     const filtrados = !term
       ? data
-      : data.filter((i) => (i.entregador_nome || "").toLowerCase().includes(term));
+      : data.filter((i) => String(i.motoboy_nome || i.entregador_nome || "").toLowerCase().includes(term));
     tbody.innerHTML = "";
     if (!filtrados || !filtrados.length) {
       empty?.classList.remove("d-none");
@@ -174,35 +175,44 @@
     try {
       const data = await http(API_PRECOS_INDIVIDUAIS);
       const items = data?.items || [];
-      CACHE_EXCECÕES = items;
+      CACHE_EXCECOES = items;
       renderExcecoes(items);
     } catch (err) {
       console.error(err);
       toast("Falha ao carregar exceções.", false);
-      CACHE_EXCECÕES = [];
+      CACHE_EXCECOES = [];
       renderExcecoes([]);
     }
   }
 
-  // ---------- Entregadores (select) ----------
-  async function loadEntregadoresSelect() {
+  // ---------- Motoboys (select) ----------
+  async function loadMotoboysSelect() {
     try {
-      const list = await http(`${API_ENTREGADORES}?status=ativo`);
+      const list = await http(`${API_PRECOS_EXECUTORES}?status=ativo`);
       const arr = Array.isArray(list) ? list : [];
-      const select = qs("#selectEntregador");
+      const select = qs("#selectMotoboy");
       if (!select) return;
-      const idsComExcecao = CACHE_EXCECÕES.map((e) => e.entregador_id);
-      const ordenados = arr
-        .filter((e) => !idsComExcecao.includes(e.id_entregador))
-        .slice()
-        .sort((a, b) => String(a?.nome || a?.id_entregador || "").localeCompare(String(b?.nome || b?.id_entregador || ""), "pt-BR", { sensitivity: "base" }));
-      select.innerHTML = '<option value="">Selecione o entregador</option>' +
+      const idsComExcecao = new Set((CACHE_EXCECOES || []).map((e) => Number(e.motoboy_id || e.entregador_id)));
+      const unicos = new Map();
+      arr.forEach((e) => {
+        const id = Number(e?.executor_id ?? e?.motoboy_id);
+        if (!Number.isFinite(id) || id <= 0) return;
+        if (idsComExcecao.has(id)) return;
+        const nome = String(e?.nome || id).trim();
+        const key = String(id);
+        if (!unicos.has(key)) {
+          unicos.set(key, { id_motoboy: id, nome });
+        }
+      });
+      const ordenados = Array.from(unicos.values())
+        .sort((a, b) => String(a?.nome || a?.id_motoboy || "").localeCompare(String(b?.nome || b?.id_motoboy || ""), "pt-BR", { sensitivity: "base" }));
+      select.innerHTML = '<option value="">Selecione o motoboy</option>' +
         ordenados
-          .map((e) => `<option value="${e.id_entregador}">${e.nome || e.id_entregador}</option>`)
+          .map((e) => `<option value="${e.id_motoboy}">${e.nome || e.id_motoboy}</option>`)
           .join("");
     } catch (err) {
       console.error(err);
-      toast("Falha ao carregar entregadores.", false);
+      toast("Falha ao carregar motoboys.", false);
     }
   }
 
@@ -213,12 +223,12 @@
     form.classList.remove("was-validated");
     const isEdit = modo === "edit" && item;
     qs("#ocExcecaoLabel").textContent = isEdit ? "Editar Exceção" : "Adicionar Exceção";
-    qs("#excecaoEntregadorId").value = isEdit ? item.entregador_id : "";
+    qs("#excecaoEntregadorId").value = isEdit ? (item.motoboy_id || item.entregador_id) : "";
 
     qs("#groupSelectEntregador").classList.toggle("d-none", isEdit);
     qs("#groupNomeEntregador").classList.toggle("d-none", !isEdit);
     if (isEdit) {
-      qs("#nomeEntregadorEdit").textContent = item.entregador_nome || "-";
+      qs("#nomeEntregadorEdit").textContent = item.motoboy_nome || item.entregador_nome || "-";
     }
 
     qs("#excecaoShopee").value = item ? formatMoedaInput(item.shopee_valor) : "";
@@ -226,7 +236,7 @@
     qs("#excecaoAvulso").value = item ? formatMoedaInput(item.avulso_valor) : "";
 
     if (!isEdit) {
-      loadEntregadoresSelect();
+      loadMotoboysSelect();
     }
     offcanvasExcecao.show();
   }
@@ -246,10 +256,10 @@
     ev.preventDefault();
     const form = ev.currentTarget;
     const idHidden = qs("#excecaoEntregadorId").value.trim();
-    const idSelect = qs("#selectEntregador").value;
-    const idEntregador = idHidden ? idHidden : idSelect;
-    if (!idEntregador) {
-      toast("Selecione um entregador.", false);
+    const idSelect = qs("#selectMotoboy").value;
+    const idMotoboy = idHidden ? idHidden : idSelect;
+    if (!idMotoboy) {
+      toast("Selecione um motoboy.", false);
       return;
     }
     const payload = formExcecaoPayload();
@@ -258,7 +268,7 @@
       return;
     }
     try {
-      await http(`${API_ENTREGADORES}/${idEntregador}/precos`, {
+      await http(`${API_ENTREGADORES}/motoboys/${idMotoboy}/precos`, {
         method: "POST",
         body: JSON.stringify(payload),
       });
@@ -278,7 +288,7 @@
     modal.show();
     qs("#btnConfirmDelete").onclick = async () => {
       try {
-        await http(`${API_ENTREGADORES}/${SELECTED_ID}/precos`, { method: "DELETE" });
+        await http(`${API_ENTREGADORES}/motoboys/${SELECTED_ID}/precos`, { method: "DELETE" });
         toast("Exceção excluída.");
         modal.hide();
         SELECTED_ID = null;
@@ -310,7 +320,7 @@
       qs("#btnHeaderDel").disabled = false;
     });
 
-    qs("#search")?.addEventListener("input", () => renderExcecoes(CACHE_EXCECÕES));
+    qs("#search")?.addEventListener("input", () => renderExcecoes(CACHE_EXCECOES));
 
     qs("#btnAddExcecao")?.addEventListener("click", () => {
       openExcecaoForm("add");
@@ -321,7 +331,7 @@
 
     qs("#btnHeaderEdit")?.addEventListener("click", () => {
       if (!SELECTED_ID) return;
-      const item = CACHE_EXCECÕES.find((i) => String(i.entregador_id) === String(SELECTED_ID));
+      const item = CACHE_EXCECOES.find((i) => String(i.motoboy_id || i.entregador_id) === String(SELECTED_ID));
       if (item) openExcecaoForm("edit", item);
       else toast("Registro não encontrado.", false);
     });
