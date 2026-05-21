@@ -1526,15 +1526,12 @@ function setupPagerEvents() {
     let n = 0;
     if ((document.getElementById("flt-base")?.value || "").trim()) n++;
     if ((f.entregador?.value || "").trim()) n++;
-    var totalServico = (f.servicoToggles || []).length;
-    var totalStatus = (f.statusToggles || []).length;
-    var totalAcao = (f.acaoToggles || []).length;
     var ativosServico = (f.servicoToggles || []).filter(el => el.checked).length;
     var ativosStatus = (f.statusToggles || []).filter(el => el.checked).length;
     var ativosAcao = (f.acaoToggles || []).filter(el => el.checked).length;
-    if (totalServico > 0 && ativosServico !== totalServico) n++;
-    if (totalStatus > 0 && ativosStatus !== totalStatus) n++;
-    if (totalAcao > 0 && ativosAcao !== totalAcao) n++;
+    if (ativosServico > 0) n++;
+    if (ativosStatus > 0) n++;
+    if (ativosAcao > 0) n++;
     if (f.somenteG?.checked) n++;
     if (n > 0) {
       filtrosContadorEl.textContent = String(n);
@@ -1566,7 +1563,7 @@ function setupPagerEvents() {
       const fltBase = document.getElementById("flt-base");
       if (fltBase) fltBase.value = "";
       if (f.entregador) f.entregador.value = "";
-      ativarTodosFiltros();
+      limparFiltrosSelecao();
       if (f.somenteG) f.somenteG.checked = false;
       if (datePickerInstance && datePickerInstance.applyPreset) {
         datePickerInstance.applyPreset("ultimos30");
@@ -1587,31 +1584,17 @@ function setupPagerEvents() {
       .concat(f.servicoToggles || [])
       .concat(f.statusToggles || [])
       .concat(f.acaoToggles || []);
-    function aplicarModo(){
-      var grupos = [f.servicoToggles || [], f.statusToggles || [], f.acaoToggles || []];
-      grupos.forEach(function(grupo){
-        if (grupo.length && !grupo.some(el => el.checked)) {
-          grupo[0].checked = true;
-        }
-      });
-    }
     toggles.forEach(function(el){
       el.addEventListener("change", function(){
-        var parent = el.closest("#flt-servico-toggle, #flt-status-toggle, #flt-acao-toggle");
-        if (!parent) return;
-        var grupo = qsa("input.filtro-toggle-item", parent);
-        if (grupo.length && !grupo.some(function(item){ return item.checked; })) {
-          el.checked = true;
-        }
+        atualizarContadorFiltros();
       });
     });
-    aplicarModo();
   }
 
-  function ativarTodosFiltros(){
-    (f.servicoToggles || []).forEach(el => { el.checked = true; });
-    (f.statusToggles || []).forEach(el => { el.checked = true; });
-    (f.acaoToggles || []).forEach(el => { el.checked = true; });
+  function limparFiltrosSelecao(){
+    (f.servicoToggles || []).forEach(el => { el.checked = false; });
+    (f.statusToggles || []).forEach(el => { el.checked = false; });
+    (f.acaoToggles || []).forEach(el => { el.checked = false; });
   }
   if (btnFiltroCancelar) {
     btnFiltroCancelar.onclick = fecharDropdownFiltros;
@@ -1631,7 +1614,7 @@ function setupPagerEvents() {
       fillEntregadores(unicos);
     })
     .finally(() => {
-      ativarTodosFiltros();
+      limparFiltrosSelecao();
       if (f.pageSize) f.pageSize.value = String(state.pageSize);
       refresh(false);
       updateEditButtonState();
