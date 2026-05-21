@@ -476,10 +476,7 @@ function augmentEntregadoresFromRows(rows){
       "-";
     var seller = r.base || r.seller || "-";
     var acaoRaw = r.acao || r.action || "Sem ação";
-    var acao = acaoRaw;
-    if (String(acaoRaw).toLowerCase() === "nova saída confirmada com mesmo motoboy") {
-      acao = "Nova saída";
-    }
+    var acao = String(acaoRaw || "").trim() || "Sem ação";
 
     var rawSt = String(r.status || "").toLowerCase();
     var statusUI = formatStatusForDisplay(r.status);
@@ -525,6 +522,56 @@ function augmentEntregadoresFromRows(rows){
     return "servico-avulso";
   }
 
+  function escapeHtml(text){
+    return String(text == null ? "" : text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  var ACTION_BADGE_MAP = {
+    "Leu pedido": { category: "neutral", className: "action-neutral" },
+    "Escaneou pedido": { category: "neutral", className: "action-neutral" },
+    "Nova saída": { category: "movement", className: "action-movement" },
+    "Iniciou rota": { category: "movement", className: "action-movement" },
+    "Reatribuiu pedido": { category: "movement", className: "action-movement" },
+    "Reatribuído -> Iniciou rota": { category: "movement", className: "action-movement" },
+    "Finalizou entrega": { category: "success", className: "action-success" },
+    "Registrou ausência": { category: "exception", className: "action-exception" },
+    "Registrou cancelamento": { category: "exception", className: "action-exception" },
+    "Desatribuiu pedido": { category: "exception", className: "action-exception" },
+    "Removeu sem iniciar rota": { category: "exception", className: "action-exception" },
+    "Nova saída confirmada": { category: "confirmation", className: "action-confirmation" },
+    "Nova saída confirmada (mesmo motoboy)": { category: "confirmation", className: "action-confirmation" },
+    "Nova saída confirmada com mesmo motoboy": { category: "confirmation", className: "action-confirmation" },
+    "Sem ação": { category: "neutral", className: "action-neutral" }
+  };
+
+  function getActionBadgeConfig(action){
+    var rawLabel = String(action == null ? "" : action).trim();
+    var label = rawLabel || "Sem ação";
+    var mapped = ACTION_BADGE_MAP[label];
+    if (!mapped) {
+      return {
+        label: label,
+        category: "neutral",
+        className: "action-neutral"
+      };
+    }
+    return {
+      label: label,
+      category: mapped.category,
+      className: mapped.className
+    };
+  }
+
+  function renderActionBadge(action){
+    var cfg = getActionBadgeConfig(action);
+    return '<span class="action-badge ' + cfg.className + '" title="' + escapeHtml(cfg.label) + '">' + escapeHtml(cfg.label) + "</span>";
+  }
+
   function canEditG(){
     try {
       var role = (window.__USER__ && window.__USER__.role != null) ? Number(window.__USER__.role) : null;
@@ -560,7 +607,7 @@ function augmentEntregadoresFromRows(rows){
             <td><span class="d-inline-flex align-items-center gap-1">${r.codigo || "-"} <button type="button" class="btn btn-link btn-sm p-0 text-primary" title="Gerar etiqueta" data-etiqueta="${(r.codigo || "").replace(/"/g, "&quot;")}" data-id-saida="${rid || ""}" data-servico="${(r.servico || "").replace(/"/g, "&quot;")}"><i class="ri-printer-line"></i></button></span></td>
             <td><span class="${servicoBadgeClass}">${r.servico || "-"}</span></td>
             <td><span class="${statusBadgeClass}">${r.status || "-"}</span></td>
-            <td>${r.acao || "-"}</td>
+            <td>${renderActionBadge(r.acao)}</td>
             <td>${r.entregador || "-"}</td>
             <td>${r.tsAcaoFmt || ""}</td>
             <td>${r.tsEntradaFmt || ""}</td>
