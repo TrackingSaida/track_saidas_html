@@ -861,11 +861,23 @@ function setupPagerEvents() {
   }
 
   function buildTimeline(historico) {
-    var eventLabels = { criado: "Criado", lido: "Lido", criado_coleta: "Coleta", em_rota: "Em rota", entregue: "Entregue", ausente: "Ausente", nova_tentativa: "Nova tentativa", scan: "Scan", assumir: "Assumir", reatribuicao: "Reatribuição" };
+    var eventLabels = {
+      criado: "Criado",
+      lido: "Lido",
+      criado_coleta: "Coleta",
+      em_rota: "Em rota",
+      entregue: "Entregue",
+      ausente: "Ausente",
+      nova_tentativa: "Nova tentativa",
+      scan: "Scan",
+      assumir: "Assumir",
+      reatribuicao: "Reatribuição",
+      nova_saida_mesmo_entregador: "Nova saída confirmada pelo mesmo motoboy"
+    };
     if (!historico || historico.length === 0)
       return "<p class=\"text-muted small mb-0\">Nenhum evento registrado.</p>";
     return historico.map(function(item) {
-      var title = eventLabels[item.evento] || item.evento;
+      var title = item.acao_label || eventLabels[item.evento] || item.evento;
       if (item.status_anterior && item.status_novo) title += " (" + formatStatusForDisplay(item.status_anterior) + " → " + formatStatusForDisplay(item.status_novo) + ")";
       var dateLine = fmtDt(item.timestamp);
       if (item.usuario_nome) dateLine += " — por " + item.usuario_nome;
