@@ -475,7 +475,11 @@ function augmentEntregadoresFromRows(rows){
       r.created_by ||
       "-";
     var seller = r.base || r.seller || "-";
-    var acao = r.acao || r.action || "Sem ação";
+    var acaoRaw = r.acao || r.action || "Sem ação";
+    var acao = acaoRaw;
+    if (String(acaoRaw).toLowerCase() === "nova saída confirmada com mesmo motoboy") {
+      acao = "Nova saída";
+    }
 
     var rawSt = String(r.status || "").toLowerCase();
     var statusUI = formatStatusForDisplay(r.status);
