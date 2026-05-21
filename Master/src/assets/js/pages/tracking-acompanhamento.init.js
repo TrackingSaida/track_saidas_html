@@ -15,6 +15,15 @@
     return document.querySelector(s);
   }
 
+  function normalizeNomeKey(nome) {
+    return String(nome || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  }
+
   function todayYMD() {
     const d = new Date();
     const y = d.getFullYear();
@@ -143,7 +152,18 @@
         const lb = String(b?.nome || `Motoboy ${vb || ""}`);
         return la.localeCompare(lb, "pt-BR", { sensitivity: "base" });
       });
-      const opts = sorted.map((m) => {
+
+      // Evita nomes duplicados no filtro (variações de acento/espaço/caixa).
+      const uniqueByNome = new Map();
+      sorted.forEach((m) => {
+        const val = m?.id_motoboy != null ? m.id_motoboy : m?.id;
+        const label = String(m?.nome || `Motoboy ${val || ""}`);
+        const key = normalizeNomeKey(label);
+        if (!key || uniqueByNome.has(key)) return;
+        uniqueByNome.set(key, m);
+      });
+
+      const opts = Array.from(uniqueByNome.values()).map((m) => {
         const val = m.id_motoboy != null ? m.id_motoboy : m.id;
         const label = m.nome || `Motoboy ${val}`;
         return `<option value="${escapeHtml(String(val))}">${escapeHtml(label)}</option>`;

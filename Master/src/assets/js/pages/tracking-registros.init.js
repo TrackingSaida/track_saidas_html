@@ -82,6 +82,15 @@ function normalizeCodigoForFilter(rawInput){
   return raw;
 }
 
+function normalizeNomeKey(nome){
+  return String(nome || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 function parseCodigoFromBusca(rawInput){
   const normalized = normalizeCodigoForFilter(rawInput);
   if (!normalized) return null;
