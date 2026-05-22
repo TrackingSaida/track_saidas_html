@@ -440,56 +440,52 @@
     </div>
     <div class="modal-body">
       <input type="hidden" id="edit-id" />
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label">Entregador</label>
-          <select id="edit-entregador" class="form-control">
-            <option value="">— selecione —</option>
-          </select>
+      <div class="mb-3">
+        <h6 class="fw-semibold mb-2">Dados do pedido</h6>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Código</label>
+            <input id="edit-codigo" class="form-control" readonly />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Serviço</label>
+            <select id="edit-servico" class="form-control">
+              <option value="Shopee">Shopee</option>
+              <option value="Mercado Livre">Mercado Livre</option>
+              <option value="Avulso">Avulso</option>
+            </select>
+          </div>
         </div>
-        <div class="col-md-6">
-          <label class="form-label">Motoboy</label>
-          <select id="edit-motoboy" class="form-control">
-            <option value="">— selecione —</option>
-          </select>
-          <div class="form-text small">Atribuir ao motoboy (app): status será "Saiu para entrega".</div>
+      </div>
+      <div class="mb-3">
+        <h6 class="fw-semibold mb-2">Atribuição</h6>
+        <label class="form-label">Motoboy</label>
+        <select id="edit-motoboy" class="form-control">
+          <option value="">Não alterar</option>
+        </select>
+        <div class="alert alert-info py-2 px-3 small mt-2 mb-0">
+          Alterar o motoboy também mudará o status para "Saiu para entrega".
         </div>
-        <div class="col-md-6">
-          <label class="form-label">Código</label>
-          <input id="edit-codigo" class="form-control" />
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label">Serviço</label>
-          <select id="edit-servico" class="form-control">
-            <option value="Shopee">Shopee</option>
-            <option value="Mercado Livre">Mercado Livre</option>
-            <option value="Avulso">Avulso</option>
-          </select>
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label">Status</label>
-          <select id="edit-status" class="form-control">
-            <option value="Saiu para entrega">Saiu para entrega</option>
-            <option value="Coletado">Coletado</option>
-            <option value="Não Coletado">Não Coletado</option>
-            <option value="Cancelado">Cancelado</option>
-          </select>
-        </div>
-
-        <!-- Base quando "Não Coletado" ou "Coletado" -->
-        <div class="col-md-4 d-none" id="edit-base-group">
-          <label class="form-label" data-owner-term="base">Base</label>
-          <select id="edit-base" class="form-control">
-            <option value="">— selecione —</option>
-          </select>
+      </div>
+      <div>
+        <h6 class="fw-semibold mb-2">Situação</h6>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Status</label>
+            <select id="edit-status" class="form-control"></select>
+          </div>
+          <div class="col-md-6 d-none" id="edit-base-group">
+            <label class="form-label" data-owner-term="base">Base</label>
+            <select id="edit-base" class="form-control">
+              <option value="">— selecione —</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost-secondary" data-bs-dismiss="modal">Fechar</button>
-      <button id="edit-save" class="btn btn-primary">Salvar</button>
+      <button class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancelar</button>
+      <button id="edit-save" class="btn btn-primary" disabled>Salvar alterações</button>
     </div>
   </div></div>
 </div>
@@ -626,78 +622,58 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg">
       <div class="modal-header bg-primary-subtle border-0">
-        <h5 class="modal-title fw-semibold text-primary-emphasis">Editar em Lote</h5>
+        <h5 id="bulk-title" class="modal-title fw-semibold text-primary-emphasis">Editar registros em lote</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body py-4 px-4">
+        <div class="mb-4 p-3 border rounded bg-light-subtle">
+          <div class="fw-semibold mb-2">Resumo da seleção</div>
+          <div class="small mb-1"><strong id="bulk-summary-count">0</strong> pedidos selecionados</div>
+          <div class="small mb-1">Serviço: <span id="bulk-summary-servico">—</span></div>
+          <div class="small mb-1">Status: <span id="bulk-summary-status">—</span></div>
+          <div class="small">Motoboy atual: <span id="bulk-summary-motoboy">—</span></div>
+        </div>
 
-        <p id="bulk-count" class="small text-muted mb-3"></p>
-
-        <!-- Entregador -->
-        <div class="mb-4">
-          <label class="form-label fw-semibold">Entregador <small class="text-secondary">(De → Para)</small></label>
-          <div class="row g-2 align-items-center">
-            <div class="col-md-5">
-              <input id="bulk-entregador-from" type="text" class="form-control text-center bg-light border-0 fw-semibold" readonly>
-            </div>
-            <div class="col-auto">
-              <i class="bi bi-arrow-right text-muted fs-5"></i>
-            </div>
-            <div class="col-md-6">
-              <select id="bulk-entregador" class="form-select">
-                <option value="">(Manter)</option>
-              </select>
-            </div>
+        <div class="mb-2">
+          <div class="fw-semibold mb-2">Alterações</div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Motoboy</label>
+            <select id="bulk-motoboy" class="form-select">
+              <option value="">Não alterar</option>
+            </select>
           </div>
-          <div class="form-text">Troca permitida apenas se todos os registros forem do mesmo entregador/motoboy e status válido para edição em lote.</div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Status</label>
+            <select id="bulk-status" class="form-select">
+              <option value="">Não alterar</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Serviço</label>
+            <select id="bulk-servico" class="form-select">
+              <option value="">Não alterar</option>
+              <option value="Shopee">Shopee</option>
+              <option value="Mercado Livre">Mercado Livre</option>
+              <option value="Avulso">Avulso</option>
+            </select>
+          </div>
         </div>
 
-        <!-- Motoboy (atribuir ao motoboy = Saiu para entrega) -->
-        <div class="mb-4">
-          <label class="form-label fw-semibold">Motoboy</label>
-          <select id="bulk-motoboy" class="form-select">
-            <option value="">(Manter)</option>
-          </select>
-          <div class="form-text">Atribuir ao motoboy (app): status será "Saiu para entrega".</div>
-        </div>
-
-        <!-- Status -->
-        <div class="mb-4">
-          <label class="form-label fw-semibold">Status</label>
-          <select id="bulk-status" class="form-select">
-            <option value="">(Manter)</option>
-            <option value="Saiu para entrega">Saiu para entrega</option>
-            <option value="Coletado">Coletado</option>
-            <option value="Não Coletado">Não Coletado</option>
-            <option value="Cancelado">Cancelado</option>
-          </select>
-        </div>
-
-        <!-- Serviço -->
-        <div class="mb-4">
-          <label class="form-label fw-semibold">Serviço</label>
-          <select id="bulk-servico" class="form-select">
-            <option value="">(Manter)</option>
-            <option value="Shopee">Shopee</option>
-            <option value="Mercado Livre">Mercado Livre</option>
-            <option value="Avulso">Avulso</option>
-          </select>
-        </div>
-
-        <!-- Base -->
         <div class="mb-3 d-none" id="bulk-base-group">
           <label class="form-label fw-semibold" data-owner-term="base">Base</label>
           <select id="bulk-base" class="form-select">
-            <option value="">(Manter)</option>
+            <option value="">Não alterar</option>
           </select>
         </div>
 
-        <p class="text-muted small mb-0">Use apenas os campos que deseja alterar. Os demais serão mantidos.</p>
+        <div class="alert alert-info py-2 px-3 small mb-0">
+          Alterar o motoboy também mudará o status dos pedidos selecionados para "Saiu para entrega".
+        </div>
       </div>
 
       <div class="modal-footer border-0 bg-light-subtle">
-        <button class="btn btn-ghost-secondary px-3" data-bs-dismiss="modal">Fechar</button>
-        <button id="bulk-apply" class="btn btn-primary px-4">Aplicar</button>
+        <button class="btn btn-ghost-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
+        <button id="bulk-apply" class="btn btn-primary px-4" disabled>Aplicar alterações</button>
       </div>
     </div>
   </div>

@@ -273,12 +273,12 @@ function loadMotoboys(){
       });
       var selEdit = document.getElementById("edit-motoboy");
       var selBulk = document.getElementById("bulk-motoboy");
-      var opts = '<option value="">— selecione —</option>' +
+      var opts = '<option value="">Não alterar</option>' +
         ordenados.map(function(m) {
           return '<option value="' + (m.id_motoboy || m.id) + '">' + (m.nome || "Motoboy " + (m.id_motoboy || m.id)) + '</option>';
         }).join("");
       if (selEdit) selEdit.innerHTML = opts;
-      if (selBulk) selBulk.innerHTML = '<option value="">(Manter)</option>' + ordenados.map(function(m) {
+      if (selBulk) selBulk.innerHTML = '<option value="">Não alterar</option>' + ordenados.map(function(m) {
         return '<option value="' + (m.id_motoboy || m.id) + '">' + (m.nome || "Motoboy " + (m.id_motoboy || m.id)) + '</option>';
       }).join("");
       return motoboysCache;
@@ -311,13 +311,6 @@ function fillEntregadores(nomes){
     }
   }
 
-  // modal de edição
-  var selEdit = document.getElementById("edit-entregador");
-  if (selEdit){
-    selEdit.innerHTML =
-      '<option value="">— selecione —</option>' +
-      list.map(n => `<option value="${n}">${n}</option>`).join("");
-  }
 }
 function augmentEntregadoresFromRows(rows){
   var nomesLista = (rows || [])
@@ -552,6 +545,9 @@ function augmentEntregadoresFromRows(rows){
   function getActionBadgeConfig(action){
     var rawLabel = String(action == null ? "" : action).trim();
     var label = rawLabel || "Sem ação";
+    if (label.toLowerCase() === "nova saída confirmada com mesmo motoboy") {
+      label = "Nova saída";
+    }
     var mapped = ACTION_BADGE_MAP[label];
     if (!mapped) {
       return {
@@ -1219,7 +1215,6 @@ function setupPagerEvents() {
   var modal = (window.bootstrap && modalEl) ? new bootstrap.Modal(modalEl) : null;
 
   var eId  = document.getElementById("edit-id");
-  var eEnt = document.getElementById("edit-entregador");
   var eMotoboy = document.getElementById("edit-motoboy");
   var eCod = document.getElementById("edit-codigo");
   var eSrv = document.getElementById("edit-servico");
@@ -1227,6 +1222,40 @@ function setupPagerEvents() {
   var eBaseGrp = document.getElementById("edit-base-group");
   var eBase    = document.getElementById("edit-base");
   var btnSave  = document.getElementById("edit-save");
+  var editInitialState = null;
+
+  var REGISTROS_STATUS_OPTIONS = [
+    { value: "Saiu para entrega", label: "Saiu para entrega", requiresColeta: false },
+    { value: "Cancelado", label: "Cancelado", requiresColeta: false },
+    { value: "Entregue", label: "Entregue", requiresColeta: false },
+    { value: "Ausente", label: "Ausente", requiresColeta: false },
+    { value: "Coletado", label: "Coletado", requiresColeta: true },
+    { value: "Não Coletado", label: "Não Coletado", requiresColeta: true }
+  ];
+
+  function supportsColetaStatus(){
+    var ignorar = (window.__USER__ && window.__USER__.ignorar_coleta === true) || window.IGNORAR_COLETA === true;
+    var modo = (window.__USER__ && window.__USER__.modo_operacao) || window.MODO_OPERACAO || "codigo";
+    if (!ignorar) return true;
+    return modo === "coleta_manual";
+  }
+
+  function getAllowedStatusOptions(){
+    var allowColeta = supportsColetaStatus();
+    return REGISTROS_STATUS_OPTIONS.filter(function(opt){
+      return !opt.requiresColeta || allowColeta;
+    });
+  }
+
+  function fillStatusSelect(selectEl, includeNoChange){
+    if (!selectEl) return;
+    var opts = getAllowedStatusOptions();
+    var html = includeNoChange ? '<option value="">Não alterar</option>' : "";
+    html += opts.map(function(opt){
+      return '<option value="' + opt.value + '">' + opt.label + "</option>";
+    }).join("");
+    selectEl.innerHTML = html;
+  }
 
   if (eSta){
     eSta.addEventListener("change", () => {
@@ -1235,8 +1264,12 @@ function setupPagerEvents() {
       eBaseGrp?.classList.toggle("d-none", !permitirBase);
       if (eBase) eBase.required = exigirBase;
       if (!permitirBase && eBase) eBase.value = "";
+      updateEditSaveState();
     });
   }
+  if (eMotoboy) eMotoboy.addEventListener("change", updateEditSaveState);
+  if (eSrv) eSrv.addEventListener("change", updateEditSaveState);
+  if (eBase) eBase.addEventListener("change", updateEditSaveState);
 
   function normalizeServicoForEdit(rawServico, rawCodigo){
     var srv = String(rawServico || "").trim();
@@ -1251,8 +1284,8 @@ function setupPagerEvents() {
     var row = state.rows.find(r => String(getRowId(r)) === String(id));
     if (!row) return notify("Registro não encontrado.", "error");
 
+    fillStatusSelect(eSta, false);
     if (eId)  eId.value = id;
-    if (eEnt) eEnt.value = row.entregador || "";
     if (eMotoboy) eMotoboy.value = (row.motoboy_id != null && row.motoboy_id !== "") ? String(row.motoboy_id) : "";
     if (eCod) eCod.value = row.codigo || "";
     if (eSrv) eSrv.value = normalizeServicoForEdit(row.servico, row.codigo);
@@ -1260,18 +1293,46 @@ function setupPagerEvents() {
     var uiStatus = (() => {
       var s = (row.status || "").toLowerCase();
       if (s === "saiu" || s === "saiu para entrega") return "Saiu para entrega";
+      if (s === "em_rota" || s === "em rota") return "Saiu para entrega";
       if (s === "coletado") return "Coletado";
       if (s === "nao coletado" || s === "não coletado") return "Não Coletado";
       if (s === "cancelado") return "Cancelado";
+      if (s === "entregue") return "Entregue";
+      if (s === "ausente") return "Ausente";
       return "Saiu para entrega";
     })();
 
-    if (eSta) eSta.value = uiStatus;
-    if (eBase && row.base) eBase.value = row.base;
+    if (eSta) {
+      var statusAllowed = getAllowedStatusOptions().some(function(opt){ return opt.value === uiStatus; });
+      eSta.value = statusAllowed ? uiStatus : "Saiu para entrega";
+    }
+    if (eBase) eBase.value = row.base || "";
 
     eSta?.dispatchEvent(new Event("change"));
+    editInitialState = {
+      motoboy: eMotoboy?.value || "",
+      servico: eSrv?.value || "",
+      status: eSta?.value || "",
+      base: eBase?.value || ""
+    };
+    updateEditSaveState();
 
     modal?.show();
+  }
+
+  function isEditChanged(){
+    if (!editInitialState) return false;
+    return (
+      (eMotoboy?.value || "") !== editInitialState.motoboy ||
+      (eSrv?.value || "") !== editInitialState.servico ||
+      (eSta?.value || "") !== editInitialState.status ||
+      (eBase?.value || "") !== editInitialState.base
+    );
+  }
+
+  function updateEditSaveState(){
+    if (!btnSave) return;
+    btnSave.disabled = !isEditChanged();
   }
 
   if (btnEdit){
@@ -1290,9 +1351,7 @@ function setupPagerEvents() {
     btnSave.addEventListener("click", () => {
       var id = eId?.value;
       if (!id) return notify("ID ausente.", "error");
-
-      if (!eEnt?.value && !eMotoboy?.value)
-        return notify("Selecione um entregador ou um motoboy.", "warning");
+      if (!isEditChanged()) return notify("Nenhuma alteração para salvar.", "info");
 
       if (eSta?.value === "Não Coletado" && eBase && !eBase.value)
         return notify("Base obrigatória para 'Não Coletado'.", "warning");
@@ -1303,6 +1362,8 @@ function setupPagerEvents() {
           v === "Coletado"          ? "coletado" :
           v === "Não Coletado"      ? "Nao Coletado" :
           v === "Cancelado"         ? "cancelado" :
+          v === "Entregue"          ? "entregue" :
+          v === "Ausente"           ? "ausente" :
           "saiu"
         );
       }
@@ -1316,23 +1377,29 @@ function setupPagerEvents() {
       if (eMotoboy?.value) {
         payload.motoboy_id = Number(eMotoboy.value);
       }
-      // Só enviar entregador (nome) quando não há motoboy; entregador_id é provisório, não usar no PATCH
-      if (eEnt?.value && !eMotoboy?.value) {
-        payload.entregador = eEnt.value;
-      }
 
       if ((eSta.value === "Não Coletado" || eSta.value === "Coletado") && eBase?.value)
         payload.base = eBase.value;
 
       if (!TrackAPI?.updateSaida)
         return notify("API de atualização não disponível.", "error");
+      var camposAlterados = [];
+      if ((eMotoboy?.value || "") !== editInitialState.motoboy) camposAlterados.push("Motoboy");
+      if ((eSta?.value || "") !== editInitialState.status) camposAlterados.push("Status");
+      if ((eSrv?.value || "") !== editInitialState.servico) camposAlterados.push("Serviço");
+      if ((eBase?.value || "") !== editInitialState.base) camposAlterados.push("Base");
 
-      Swal?.showLoading();
-
-      TrackAPI.updateSaida(id, payload)
+      var confirmMsg = "Campos alterados: " + (camposAlterados.length ? camposAlterados.join(", ") : "nenhum");
+      confirmDlg(confirmMsg, "Confirmar alterações")
+        .then(function(conf){
+          if (!conf?.isConfirmed) return;
+          if (btnSave) {
+            btnSave.disabled = true;
+            btnSave.dataset.originalText = btnSave.textContent;
+            btnSave.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Salvando...';
+          }
+          return TrackAPI.updateSaida(id, payload)
         .then(r => {
-          Swal?.close();
-
           if (r.status === 200){
             refresh(true);
             modal?.hide();
@@ -1359,8 +1426,14 @@ function setupPagerEvents() {
           notify("Falha ao atualizar.", "error");
         })
         .catch(err => {
-          Swal?.close();
           notify("Erro: " + (err?.message || err), "error");
+        }).finally(function(){
+          if (btnSave) {
+            btnSave.innerHTML = btnSave.dataset.originalText || "Salvar alterações";
+            delete btnSave.dataset.originalText;
+          }
+          updateEditSaveState();
+        });
         });
     });
   }
@@ -1370,15 +1443,18 @@ function setupPagerEvents() {
   // =====================================================================
   var bulkModalEl  = document.getElementById("bulkModal");
   var bulkModal    = (window.bootstrap && bulkModalEl) ? new bootstrap.Modal(bulkModalEl) : null;
-  var bulkCount    = document.getElementById("bulk-count");
-  var bulkEnt      = document.getElementById("bulk-entregador");
-  var bulkFromEl   = document.getElementById("bulk-entregador-from");
+  var bulkTitle    = document.getElementById("bulk-title");
+  var bulkSummaryCount = document.getElementById("bulk-summary-count");
+  var bulkSummaryServico = document.getElementById("bulk-summary-servico");
+  var bulkSummaryStatus = document.getElementById("bulk-summary-status");
+  var bulkSummaryMotoboy = document.getElementById("bulk-summary-motoboy");
   var bulkMotoboy  = document.getElementById("bulk-motoboy");
   var bulkStatus   = document.getElementById("bulk-status");
   var bulkServico  = document.getElementById("bulk-servico");
   var bulkBaseGrp  = document.getElementById("bulk-base-group");
   var bulkBase     = document.getElementById("bulk-base");
   var bulkApplyBtn = document.getElementById("bulk-apply");
+  var bulkCurrentIds = [];
 
   function normalizeStatusForBulk(rawStatus){
     var s = String(rawStatus || "").toLowerCase().trim();
@@ -1403,7 +1479,37 @@ function setupPagerEvents() {
       var show = bulkStatus.value === "Não Coletado" || bulkStatus.value === "Coletado";
       bulkBaseGrp?.classList.toggle("d-none", !show);
       if (!show && bulkBase) bulkBase.value = "";
+      updateBulkApplyState();
     });
+  }
+  if (bulkMotoboy) bulkMotoboy.addEventListener("change", updateBulkApplyState);
+  if (bulkServico) bulkServico.addEventListener("change", updateBulkApplyState);
+  if (bulkBase) bulkBase.addEventListener("change", updateBulkApplyState);
+
+  function uniqueValueOrDifferent(values, emptyLabel){
+    var uniq = Array.from(new Set(values.map(function(v){ return String(v || "").trim(); }).filter(Boolean)));
+    if (!uniq.length) return emptyLabel || "Não definido";
+    return uniq.length === 1 ? uniq[0] : "valores diferentes";
+  }
+
+  function fillBulkStatusOptions(registros){
+    if (!bulkStatus) return;
+    var allowColeta = supportsColetaStatus();
+    var uniqStatus = Array.from(new Set((registros || []).map(function(r){ return normalizeStatusForBulk(r.status); }).filter(Boolean)));
+    var includeColeta = allowColeta && uniqStatus.some(function(s){ return s === "coletado" || s === "não coletado" || s === "nao coletado"; });
+    var opts = [
+      { value: "Saiu para entrega", label: "Saiu para entrega" },
+      { value: "Cancelado", label: "Cancelado" },
+      { value: "Entregue", label: "Entregue" },
+      { value: "Ausente", label: "Ausente" }
+    ];
+    if (includeColeta) {
+      opts.push({ value: "Coletado", label: "Coletado" });
+      opts.push({ value: "Não Coletado", label: "Não Coletado" });
+    }
+    bulkStatus.innerHTML = '<option value="">Não alterar</option>' + opts.map(function(opt){
+      return '<option value="' + opt.value + '">' + opt.label + "</option>";
+    }).join("");
   }
 
   function openBulkModal(ids){
@@ -1413,29 +1519,12 @@ function setupPagerEvents() {
       state.rows.find(r => String(getRowId(r)) === String(id))
     ).filter(Boolean);
 
-    var executores = Array.from(new Set(registros.map(getExecutorKeyForBulk).filter(Boolean)));
-    var statusList = Array.from(new Set(registros.map(r => normalizeStatusForBulk(r.status))));
-    var executorLabel = String(registros[0]?.entregador || "(vazio)").trim() || "(vazio)";
-
-    if (executores.length > 1)
-      return notify("Selecione apenas registros do mesmo entregador/motoboy.", "warning");
-
-    if (statusList.some(s => !["saiu", "em_rota", "entregue", "ausente"].includes(s)))
-      return notify("Todos precisam estar com status Saiu, Em rota, Entregue ou Ausente.", "warning");
-
-    if (bulkFromEl)
-      bulkFromEl.value = executorLabel;
-
-    loadCombosBase().then(nomes => {
-      if (bulkEnt){
-        var nomesMotoboys = (motoboysCache || []).map(function(m) { return m.nome || ("Motoboy " + (m.id_motoboy || m.id)); });
-        var list = Array.from(new Set((nomes || []).concat(nomesMotoboys))).filter(Boolean).sort((a,b)=>a.localeCompare(b,"pt-BR"));
-        bulkEnt.innerHTML = '<option value="">(Manter)</option>' +
-          list.filter(n => n !== executorLabel)
-              .map(n => `<option value="${n}">${n}</option>`)
-              .join("");
-      }
-    });
+    bulkCurrentIds = ids.slice();
+    if (bulkTitle) bulkTitle.textContent = "Editar " + ids.length + " registros em lote";
+    if (bulkSummaryCount) bulkSummaryCount.textContent = String(ids.length);
+    if (bulkSummaryServico) bulkSummaryServico.textContent = uniqueValueOrDifferent(registros.map(function(r){ return r?.servico; }), "Não definido");
+    if (bulkSummaryStatus) bulkSummaryStatus.textContent = uniqueValueOrDifferent(registros.map(function(r){ return r?.status; }), "Não definido");
+    if (bulkSummaryMotoboy) bulkSummaryMotoboy.textContent = uniqueValueOrDifferent(registros.map(function(r){ return r?.entregador; }), "Não definido");
 
     function fillBulkBases(bases){
       if (bulkBase && Array.isArray(bases)){
@@ -1448,14 +1537,15 @@ function setupPagerEvents() {
           var v = b.base || b.slug || b.nome || b.name || b;
           return `<option value="${v}">${v}</option>`;
         }).join("");
-        bulkBase.innerHTML = '<option value="">(Manter)</option>' + opts;
+        bulkBase.innerHTML = '<option value="">Não alterar</option>' + opts;
       }
-      if (bulkCount) bulkCount.textContent = ids.length + " registro(s) selecionado(s).";
+      fillBulkStatusOptions(registros);
       bulkStatus.value = "";
       if (bulkServico) bulkServico.value = "";
       bulkBaseGrp?.classList.add("d-none");
       if (bulkBase) bulkBase.value = "";
       if (bulkMotoboy) bulkMotoboy.value = "";
+      updateBulkApplyState();
       bulkModal?.show();
     }
 
@@ -1475,8 +1565,9 @@ function setupPagerEvents() {
 
   if (bulkApplyBtn){
     bulkApplyBtn.addEventListener("click", function(){
-      var ids = getSelectedIds();
+      var ids = bulkCurrentIds.length ? bulkCurrentIds : getSelectedIds();
       if (!ids.length) return;
+      if (!hasBulkChanges()) return notify("Nada para aplicar.", "info");
 
       function mapStatusToApi(v){
         return (
@@ -1484,30 +1575,39 @@ function setupPagerEvents() {
           v === "Coletado"          ? "coletado" :
           v === "Não Coletado"      ? "Nao Coletado" :
           v === "Cancelado"         ? "cancelado" :
+          v === "Entregue"          ? "entregue" :
+          v === "Ausente"           ? "ausente" :
           ""
         );
       }
 
       var body = {};
-      if (bulkEnt?.value) body.entregador = bulkEnt.value;
       if (bulkMotoboy?.value) body.motoboy_id = Number(bulkMotoboy.value);
       if (bulkStatus?.value) body.status = mapStatusToApi(bulkStatus.value);
       if (bulkServico?.value) body.servico = normalizeServicoForEdit(bulkServico.value, "");
       if ((bulkStatus?.value === "Não Coletado" || bulkStatus?.value === "Coletado") && bulkBase?.value)
         body.base = bulkBase.value;
 
-      if (!Object.keys(body).length)
-        return notify("Nada para aplicar.", "info");
+      var campos = [];
+      if (bulkMotoboy?.value) campos.push("Motoboy");
+      if (bulkStatus?.value) campos.push("Status");
+      if (bulkServico?.value) campos.push("Serviço");
+      if (body.base) campos.push("Base");
 
-      Swal?.showLoading();
-
-      Promise.allSettled(
+      confirmDlg("Aplicar alterações em " + ids.length + " registros?\nCampos: " + campos.join(", "), "Confirmar alterações em lote")
+        .then(function(conf){
+          if (!conf?.isConfirmed) return;
+          if (bulkApplyBtn) {
+            bulkApplyBtn.disabled = true;
+            bulkApplyBtn.dataset.originalText = bulkApplyBtn.textContent;
+            bulkApplyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Aplicando...';
+          }
+          return Promise.allSettled(
         ids.map((id,i) =>
           new Promise(res => setTimeout(res, 50*i))
           .then(() => TrackAPI.updateSaida(id, body))
         )
       ).then(results => {
-        Swal?.close();
         var ok = results.filter(r => r.status==="fulfilled" && (r.value.ok || r.value.status===200)).length;
         var fail = results.length - ok;
 
@@ -1515,8 +1615,24 @@ function setupPagerEvents() {
         notify(`Lote concluído: ${ok} ok, ${fail} falha(s).`, fail ? "warning" : "success");
         refresh(false);
         updateEditButtonState();
+      }).finally(function(){
+        if (bulkApplyBtn) {
+          bulkApplyBtn.innerHTML = bulkApplyBtn.dataset.originalText || "Aplicar alterações";
+          delete bulkApplyBtn.dataset.originalText;
+        }
+        updateBulkApplyState();
       });
+        });
     });
+  }
+
+  function hasBulkChanges(){
+    return !!(bulkMotoboy?.value || bulkStatus?.value || bulkServico?.value || bulkBase?.value);
+  }
+
+  function updateBulkApplyState(){
+    if (!bulkApplyBtn) return;
+    bulkApplyBtn.disabled = !hasBulkChanges();
   }
 
   // =====================================================================
