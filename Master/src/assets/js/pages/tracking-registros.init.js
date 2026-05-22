@@ -467,6 +467,10 @@ function augmentEntregadoresFromRows(rows){
       r.usuario ||
       r.created_by ||
       "-";
+    var executadoPor =
+      r.executado_por ||
+      r.executadoPor ||
+      "—";
     var seller = r.base || r.seller || "-";
     var acaoRaw = r.acao || r.action || "Sem ação";
     var acao = String(acaoRaw || "").trim() || "Sem ação";
@@ -480,6 +484,7 @@ function augmentEntregadoresFromRows(rows){
       tsEntradaFmt,
       tsAcaoFmt,
       username,
+      executado_por: executadoPor,
       seller,
       acao,
       status: statusUI
@@ -607,7 +612,7 @@ function augmentEntregadoresFromRows(rows){
             <td>${r.entregador || "-"}</td>
             <td>${r.tsAcaoFmt || ""}</td>
             <td>${r.tsEntradaFmt || ""}</td>
-            <td>${r.username || "-"}</td>
+            <td>${r.executado_por || "—"}</td>
             <td class="text-muted">${r.seller || "-"}</td>
             <td class="text-center">${gCell}</td>
           </tr>`;
