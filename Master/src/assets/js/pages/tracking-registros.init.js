@@ -550,8 +550,14 @@ function augmentEntregadoresFromRows(rows){
   function getActionBadgeConfig(action){
     var rawLabel = String(action == null ? "" : action).trim();
     var label = rawLabel || "Sem ação";
-    if (label.toLowerCase() === "nova saída confirmada com mesmo motoboy") {
-      label = "Nova saída";
+    var labelLower = label.toLowerCase();
+    if (
+      labelLower === "nova saída confirmada com mesmo motoboy" ||
+      labelLower === "nova saída confirmada com o mesmo motoboy" ||
+      labelLower === "nova saída confirmada (mesmo motoboy)" ||
+      labelLower === "nova saída confirmada pelo mesmo motoboy"
+    ) {
+      label = "Nova saída confirmada";
     }
     var mapped = ACTION_BADGE_MAP[label];
     if (!mapped) {
