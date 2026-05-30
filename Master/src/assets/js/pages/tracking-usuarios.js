@@ -518,6 +518,8 @@ function openCreate() {
     document.getElementById("documento").value = "";
     const cnpjEl = document.getElementById("cnpj");
     if (cnpjEl) cnpjEl.value = "";
+    const chavePixEl = document.getElementById("chavePix");
+    if (chavePixEl) chavePixEl.value = "";
     document.getElementById("cep").value = "";
     document.getElementById("rua").value = "";
     document.getElementById("numero").value = "";
@@ -539,7 +541,7 @@ function openCreate() {
 }
 
 function clearMotoboyValidation() {
-    ["documento", "cnpj", "cep", "rua", "numero", "bairro", "cidade", "username", "email", "password", "passwordConfirm"].forEach(id => {
+    ["documento", "cnpj", "chavePix", "cep", "rua", "numero", "bairro", "cidade", "username", "email", "password", "passwordConfirm"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.remove("is-invalid");
     });
@@ -574,6 +576,8 @@ async function openEdit(id) {
     document.getElementById("documento").value = m.documento || "";
     const cnpjEl = document.getElementById("cnpj");
     if (cnpjEl) cnpjEl.value = m.cnpj || "";
+    const chavePixEl = document.getElementById("chavePix");
+    if (chavePixEl) chavePixEl.value = m.chave_pix || "";
     document.getElementById("cep").value = m.cep || "";
     document.getElementById("rua").value = m.rua || "";
     document.getElementById("numero").value = m.numero || "";
@@ -619,6 +623,7 @@ function renderMotoboyDetail(data) {
     };
     assign("d-documento", m.documento);
     assign("d-cnpj", m.cnpj);
+    assign("d-chave-pix", m.chave_pix);
     assign("d-contato", data.contato ? maskCellphone(data.contato) : null);
     assign("d-rua", m.rua);
     assign("d-numero", m.numero);
@@ -750,6 +755,7 @@ async function saveUser(ev) {
     if (role === 4) {
         payload.documento = (document.getElementById("documento").value || "").replace(/\D/g, "");
         payload.cnpj = (document.getElementById("cnpj").value || "").replace(/\D/g, "");
+        payload.chave_pix = (document.getElementById("chavePix").value || "").trim() || null;
         payload.rua = document.getElementById("rua").value.trim();
         payload.numero = document.getElementById("numero").value.trim();
         payload.complemento = document.getElementById("complemento").value.trim() || null;

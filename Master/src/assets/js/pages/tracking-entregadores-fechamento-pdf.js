@@ -146,6 +146,10 @@
     doc.setFontSize(9.3);
     doc.text(`Código: ${fechamentoCode} | Status: ${statusFechamento} | Entregador: ${entNome}`, M, y);
     y += 4.5;
+    if (fech?.chave_pix) {
+      doc.text(`Chave PIX: ${fech.chave_pix}`, M, y);
+      y += 4.5;
+    }
     doc.text(`Período: ${fmtData(fech.periodo_inicio)} a ${fmtData(fech.periodo_fim)} | Geração: ${new Date().toLocaleString("pt-BR")}`, M, y);
     y += 6;
 
