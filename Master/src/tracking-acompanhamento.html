@@ -18,9 +18,18 @@
               <div class="col-12">
                 <div class="card">
                   <div class="card-body">
+                    <!-- Alternância de visão -->
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                      <span class="text-muted small fw-semibold">Visão</span>
+                      <div class="btn-group btn-group-sm" role="group" aria-label="Alternar visão">
+                        <button type="button" class="btn btn-primary" id="btnViewSaidasDia">Saídas do Dia</button>
+                        <button type="button" class="btn btn-outline-primary" id="btnViewAcompanhamento">Visão Atual</button>
+                      </div>
+                    </div>
+
                     <!-- Toolbar: Data única + Filtros -->
-                    <div class="row g-3 align-items-center mb-3">
-                      <div class="col-md-auto d-flex gap-2 flex-wrap align-items-center">
+                    <div class="row g-3 align-items-center mb-3" id="toolbar-acompanhamento">
+                      <div class="col-md-auto d-flex gap-2 flex-wrap align-items-center" id="wrap-filtro-data">
                         <label class="form-label mb-0 small text-muted">Data</label>
                         <input type="date" id="flt-data" class="form-control form-control-sm" style="width: auto;" title="Selecione o dia" />
                       </div>
@@ -32,7 +41,7 @@
                           </button>
                           <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 280px;">
                             <div class="mb-3">
-                              <label class="form-label small">Motoboy</label>
+                              <label class="form-label small" id="flt-motoboy-label">Motoboy</label>
                               <select id="flt-motoboy" class="form-select form-select-sm">
                                 <option value="">(Todos)</option>
                               </select>
@@ -50,6 +59,38 @@
                       </div>
                     </div>
 
+                    <div id="view-saidas-dia" class="mb-3">
+                      <div class="text-uppercase small text-secondary fw-semibold text-center mb-2" id="monitor-entregador">
+                        Selecione o motoboy
+                      </div>
+                      <div class="text-uppercase small text-secondary fw-semibold text-center">Pendentes Hoje</div>
+                      <div class="display-1 fw-bold text-primary text-center lh-1 mb-4" id="monitor-total">0</div>
+                      <div class="row g-3">
+                        <div class="col-12 col-md-4">
+                          <div class="registros-summary-card card-shopee p-3 text-center rounded-3 shadow-sm">
+                            <span class="registros-summary-label">Shopee</span>
+                            <div class="registros-summary-num" id="monitor-shopee">0</div>
+                          </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <div class="registros-summary-card card-ml p-3 text-center rounded-3 shadow-sm">
+                            <span class="registros-summary-label">Mercado Livre</span>
+                            <div class="registros-summary-num" id="monitor-ml">0</div>
+                          </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <div class="registros-summary-card card-avulso p-3 text-center rounded-3 shadow-sm">
+                            <span class="registros-summary-label">Avulso</span>
+                            <div class="registros-summary-num" id="monitor-avulso">0</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="text-center text-muted mt-3 d-none" id="monitor-empty-state">
+                        Selecione um motoboy para visualizar os pendentes de hoje.
+                      </div>
+                    </div>
+
+                    <div id="view-acompanhamento" class="d-none">
                     <!-- KPIs totalizadores -->
                     <div class="row g-2 mb-3 flex-nowrap">
                       <div class="col flex-fill" style="min-width: 0;">
@@ -112,6 +153,7 @@
                     <!-- Info de registros -->
                     <div class="d-flex justify-content-between align-items-center mt-3">
                       <div id="pager-info" class="text-muted small">Exibindo 0 a 0 de 0 registros</div>
+                    </div>
                     </div>
                   </div>
                 </div>
