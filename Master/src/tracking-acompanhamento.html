@@ -60,33 +60,53 @@
                     </div>
 
                     <div id="view-saidas-dia" class="mb-3">
-                      <div class="text-uppercase small text-secondary fw-semibold text-center mb-2" id="monitor-entregador">
-                        Selecione o motoboy
-                      </div>
-                      <div class="text-uppercase small text-secondary fw-semibold text-center">Pendentes Hoje</div>
-                      <div class="display-1 fw-bold text-primary text-center lh-1 mb-4" id="monitor-total">0</div>
-                      <div class="row g-3">
-                        <div class="col-12 col-md-4">
-                          <div class="registros-summary-card card-shopee p-3 text-center rounded-3 shadow-sm">
-                            <span class="registros-summary-label">Shopee</span>
-                            <div class="registros-summary-num" id="monitor-shopee">0</div>
-                          </div>
-                        </div>
-                        <div class="col-12 col-md-4">
-                          <div class="registros-summary-card card-ml p-3 text-center rounded-3 shadow-sm">
-                            <span class="registros-summary-label">Mercado Livre</span>
-                            <div class="registros-summary-num" id="monitor-ml">0</div>
-                          </div>
-                        </div>
-                        <div class="col-12 col-md-4">
-                          <div class="registros-summary-card card-avulso p-3 text-center rounded-3 shadow-sm">
-                            <span class="registros-summary-label">Avulso</span>
-                            <div class="registros-summary-num" id="monitor-avulso">0</div>
+                      <div class="card mb-3">
+                        <div class="card-body">
+                          <div class="row g-3 align-items-end">
+                            <div class="col-md-4">
+                              <label class="form-label">Selecione Motoboy</label>
+                              <select id="flt-motoboy-monitor" class="form-select rounded-pill" aria-label="Selecionar motoboy">
+                                <option value="" selected>Motoboy obrigatório</option>
+                              </select>
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <div class="text-center text-muted mt-3 d-none" id="monitor-empty-state">
-                        Selecione um motoboy para visualizar os pendentes de hoje.
+
+                      <div id="modo-monitor">
+                        <div class="d-flex flex-column align-items-center modo-monitor-inner py-4 px-2">
+                          <div class="text-center">
+                            <p class="text-muted text-uppercase modo-monitor-section-label mb-1">Entregador selecionado</p>
+                            <p id="monitor-entregador" class="modo-monitor-cliente-valor text-primary mb-0">—</p>
+                          </div>
+                          <div class="text-center">
+                            <p class="text-muted text-uppercase modo-monitor-section-label mb-2">Total de leituras</p>
+                            <p id="monitor-total" class="modo-monitor-total-num text-primary mb-0">0</p>
+                          </div>
+                          <div class="row g-3 g-md-4 w-100 justify-content-center" style="max-width: 1000px;">
+                            <div class="col-4">
+                              <div class="card card-shopee border-0 shadow-sm text-center py-4 modo-monitor-card">
+                                <span class="modo-monitor-card-label text-uppercase d-block">Shopee</span>
+                                <div id="monitor-shopee" class="modo-monitor-card-num mt-1">0</div>
+                              </div>
+                            </div>
+                            <div class="col-4">
+                              <div class="card card-ml border-0 shadow-sm text-center py-4 modo-monitor-card">
+                                <span class="modo-monitor-card-label text-uppercase d-block">Mercado Livre</span>
+                                <div id="monitor-ml" class="modo-monitor-card-num mt-1">0</div>
+                              </div>
+                            </div>
+                            <div class="col-4">
+                              <div class="card card-avulso border-0 shadow-sm text-center py-4 modo-monitor-card">
+                                <span class="modo-monitor-card-label text-uppercase d-block">Avulso</span>
+                                <div id="monitor-avulso" class="modo-monitor-card-num mt-1">0</div>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="text-center text-muted mt-3 d-none" id="monitor-empty-state">
+                            Selecione um motoboy para visualizar os pendentes de hoje.
+                          </div>
+                        </div>
                       </div>
                     </div>
 

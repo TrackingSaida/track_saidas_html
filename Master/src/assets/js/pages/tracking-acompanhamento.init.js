@@ -74,9 +74,12 @@
   function getFilters() {
     const dataEl = qs("#flt-data");
     const motoboyEl = qs("#flt-motoboy");
+    const motoboyMonitorEl = qs("#flt-motoboy-monitor");
+    const useMonitorValue = getCurrentView() === "saidas-dia";
+    const activeMotoboyEl = useMonitorValue ? motoboyMonitorEl : motoboyEl;
     return {
       data: (dataEl && dataEl.value) || todayYMD(),
-      motoboy_id: motoboyEl && motoboyEl.value ? motoboyEl.value : null,
+      motoboy_id: activeMotoboyEl && activeMotoboyEl.value ? activeMotoboyEl.value : null,
     };
   }
 
@@ -100,6 +103,8 @@
     qs("#view-saidas-dia")?.classList.toggle("d-none", !isSaidas);
     qs("#view-acompanhamento")?.classList.toggle("d-none", isSaidas);
     qs("#wrap-filtro-data")?.classList.toggle("d-none", isSaidas);
+    qs("#btnFiltrosIcon")?.classList.toggle("d-none", isSaidas);
+    qs("#btnAtualizar")?.classList.toggle("d-none", isSaidas);
 
     const btnSaidas = qs("#btnViewSaidasDia");
     const btnAcomp = qs("#btnViewAcompanhamento");
@@ -196,6 +201,7 @@
 
   async function loadMotoboys() {
     const select = qs("#flt-motoboy");
+    const selectMonitor = qs("#flt-motoboy-monitor");
     if (!select) return;
     try {
       const list = await fetchWithCreds(API_MOTOBOYS);
@@ -223,6 +229,9 @@
         return `<option value="${escapeHtml(String(val))}">${escapeHtml(label)}</option>`;
       }).join("");
       select.innerHTML = '<option value="">(Todos)</option>' + opts;
+      if (selectMonitor) {
+        selectMonitor.innerHTML = '<option value="">Motoboy obrigatório</option>' + opts;
+      }
     } catch (e) {
       console.warn("Acompanhamento: falha ao carregar motoboys", e);
     }
@@ -300,7 +309,7 @@
   function countActiveFilters() {
     const motoboyEl = qs("#flt-motoboy");
     let n = 0;
-    if (motoboyEl && motoboyEl.value) n += 1;
+    if (getCurrentView() === "acompanhamento" && motoboyEl && motoboyEl.value) n += 1;
     return n;
   }
 
@@ -370,6 +379,11 @@
         const bsDropdown = window.bootstrap?.Dropdown?.getInstance(dd.querySelector("[data-bs-toggle=dropdown]"));
         if (bsDropdown) bsDropdown.hide();
       }
+    });
+
+    qs("#flt-motoboy-monitor")?.addEventListener("change", () => {
+      if (getCurrentView() !== "saidas-dia") return;
+      refreshSaidasDia();
     });
   }
 
