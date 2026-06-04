@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-br" data-layout="vertical" data-topbar="dark" data-sidebar="dark" data-sidebar-size="lg">
+  <head>
+    @@include("partials/title-meta.html", {"title": "Campos obrigatórios por serviço"})
+    @@include("partials/head-css.html")
+  </head>
+  <body>
+    <script>
+      if (!window.TRACK_API_URL) window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+    </script>
+    <div id="layout-wrapper">
+      @@include("partials/menu.html")
+
+      <div class="main-content">
+        <div class="page-content">
+          <div class="container-fluid">
+            @@include("partials/page-title.html", {"pagetitle": "Configuração", "title": "Campos obrigatórios por serviço", "withSubtitle": false, "ownerTerm": ""})
+
+            <div class="card">
+              <div class="card-header d-flex align-items-center justify-content-between">
+                <div class="d-flex gap-2">
+                  <button class="btn btn-primary" id="btnAddRule">
+                    <i class="ri-add-line align-bottom me-1"></i> Nova regra
+                  </button>
+                  <button class="btn btn-soft-primary" id="btnEditRule" disabled>
+                    <i class="ri-edit-2-line align-bottom me-1"></i> Editar
+                  </button>
+                  <button class="btn btn-soft-danger" id="btnDeleteRule" disabled>
+                    <i class="ri-delete-bin-6-line align-bottom me-1"></i> Excluir
+                  </button>
+                </div>
+                <div class="search-box" style="max-width: 360px;">
+                  <input type="text" id="searchRule" class="form-control" placeholder="Buscar por serviço ou contexto...">
+                  <i class="ri-search-line search-icon"></i>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table align-middle table-nowrap">
+                    <thead class="table-light">
+                      <tr>
+                        <th style="width:56px;">Sel.</th>
+                        <th>Serviço</th>
+                        <th>Contexto</th>
+                        <th>Campos obrigatórios</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbody-rules"></tbody>
+                  </table>
+                </div>
+                <div id="emptyRules" class="text-center text-muted py-4 d-none">Nenhuma regra cadastrada.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        @@include("partials/footer.html")
+      </div>
+    </div>
+
+    @@include("partials/customizer.html")
+    @@include("partials/vendor-scripts.html")
+
+    <div class="offcanvas offcanvas-end offcanvas-form" tabindex="-1" id="oc-rule" aria-labelledby="ocRuleLabel" style="width: 460px">
+      <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title" id="ocRuleLabel">Nova regra</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+      </div>
+      <form id="formRule" class="d-flex flex-column h-100" novalidate>
+        <div class="offcanvas-body">
+          <input type="hidden" id="ruleId" />
+          <div class="mb-3">
+            <label for="ruleServico" class="form-label">Serviço</label>
+            <select id="ruleServico" class="form-select"></select>
+          </div>
+          <div class="mb-3">
+            <label for="ruleContexto" class="form-label">Contexto</label>
+            <select id="ruleContexto" class="form-select"></select>
+          </div>
+          <div class="mb-3">
+            <label for="ruleCampos" class="form-label">Campos obrigatórios</label>
+            <select id="ruleCampos" class="form-select" multiple size="6"></select>
+            <div class="form-text">Use Ctrl/Cmd para selecionar mais de um campo.</div>
+          </div>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="ruleAtivo" checked>
+            <label class="form-check-label" for="ruleAtivo">Regra ativa</label>
+          </div>
+        </div>
+        <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body">
+          <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+
+    <script src="assets/js/app.js"></script>
+    <script src="assets/js/pages/tracking-campos-obrigatorios-servico.init.js"></script>
+  </body>
+</html>
