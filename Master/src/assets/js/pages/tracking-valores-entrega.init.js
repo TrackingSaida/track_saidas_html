@@ -89,6 +89,8 @@
       qs("#globalShopeeVal").textContent = formatMoedaGrid(data?.shopee_valor);
       qs("#globalMlVal").textContent = formatMoedaGrid(data?.ml_valor);
       qs("#globalAvulsoVal").textContent = formatMoedaGrid(data?.avulso_valor);
+      const chk = qs("#editGlobalPacoteGAdicional");
+      if (chk) chk.checked = !!data?.considerar_pacote_g_adicional;
     } catch (err) {
       console.error(err);
       toast("Falha ao carregar valores globais.", false);
@@ -100,6 +102,8 @@
       qs("#editGlobalShopee").value = formatMoedaInput(data?.shopee_valor);
       qs("#editGlobalMl").value = formatMoedaInput(data?.ml_valor);
       qs("#editGlobalAvulso").value = formatMoedaInput(data?.avulso_valor);
+      const chk = qs("#editGlobalPacoteGAdicional");
+      if (chk) chk.checked = !!data?.considerar_pacote_g_adicional;
       offcanvasGlobal.show();
     }).catch((err) => {
       console.error(err);
@@ -112,14 +116,12 @@
     const shopee = parseMoeda(qs("#editGlobalShopee").value);
     const ml = parseMoeda(qs("#editGlobalMl").value);
     const avulso = parseMoeda(qs("#editGlobalAvulso").value);
+    const considerarPacoteG = !!qs("#editGlobalPacoteGAdicional")?.checked;
     const payload = {};
     if (shopee != null) payload.shopee_valor = shopee;
     if (ml != null) payload.ml_valor = ml;
     if (avulso != null) payload.avulso_valor = avulso;
-    if (Object.keys(payload).length === 0) {
-      toast("Informe ao menos um valor.", false);
-      return;
-    }
+    payload.considerar_pacote_g_adicional = considerarPacoteG;
     try {
       await http(API_PRECOS_GLOBAL, {
         method: "PATCH",
