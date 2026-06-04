@@ -1036,6 +1036,14 @@ async function registrar() {
         ? await TrackAPI.updateSaida(idSaida, { status: "Saiu para entrega", motoboy_id: motoboyId, entregador })
         : { ok: false, error: "TrackAPI.updateSaida não disponível" };
       if (!patchResp.ok) {
+        const patchCode = patchResp?.data?.code || patchResp?.data?.detail?.code;
+        if (patchResp.status === 422 && patchCode === "STATUS_FINALIZADO") {
+          const statusAtual = String(patchResp?.data?.status_atual || patchResp?.data?.detail?.status_atual || "FINALIZADO");
+          showMsgIcon("alerta", `Pedido bloqueado: status ${statusAtual}.`);
+          Sound.play("warn");
+          if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
+          return { ok:false, tipo:"status_finalizado_patch_troca", detalhe:statusAtual, backend_processing_ms };
+        }
         const msg = patchResp.error || "";
         showMsgIcon("erro", msg || "Erro ao alterar entregador.");
         Sound.play("err");
