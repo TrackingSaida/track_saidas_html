@@ -51,12 +51,31 @@
       return;
     }
     empty.classList.add("d-none");
+    const badgeServico = (servico) => {
+      const s = String(servico || "").toLowerCase();
+      if (s.includes("shopee")) return '<span class="badge bg-warning-subtle text-warning">Shopee</span>';
+      if (s.includes("mercado") || s.includes("livre") || s.includes("ml") || s.includes("flex")) {
+        return '<span class="badge bg-info-subtle text-info">Mercado Livre</span>';
+      }
+      return '<span class="badge bg-secondary-subtle text-secondary">Avulso</span>';
+    };
+    const badgeContexto = (ctx) => {
+      const c = String(ctx || "").toUpperCase();
+      if (c === "ENTREGUE") return '<span class="badge bg-success-subtle text-success">Entregue</span>';
+      if (c === "AUSENTE") return '<span class="badge bg-danger-subtle text-danger">Ausente</span>';
+      return '<span class="badge bg-primary-subtle text-primary">Ambos</span>';
+    };
+    const badgeCampos = (campos) => {
+      const arr = Array.isArray(campos) ? campos : [];
+      if (!arr.length) return "—";
+      return arr.map((c) => `<span class="badge bg-light text-body me-1 mb-1">${c}</span>`).join("");
+    };
     tbody.innerHTML = filtered.map((r) => `
       <tr data-id="${r.id}" class="row-selectable">
         <td class="text-center"><input class="form-check-input sel-row" type="radio" name="sel-rule" value="${r.id}"></td>
-        <td>${r.servico}</td>
-        <td>${r.contexto}</td>
-        <td>${(r.campos_obrigatorios || []).join(", ") || "—"}</td>
+        <td>${badgeServico(r.servico)}</td>
+        <td>${badgeContexto(r.contexto)}</td>
+        <td>${badgeCampos(r.campos_obrigatorios)}</td>
         <td>${r.ativo ? '<span class="badge bg-success-subtle text-success">Ativo</span>' : '<span class="badge bg-secondary-subtle text-secondary">Inativo</span>'}</td>
       </tr>
     `).join("");
@@ -65,7 +84,13 @@
   function fillFormOptions() {
     qs("#ruleServico").innerHTML = (CACHE_META.servicos || []).map((s) => `<option value="${s}">${s}</option>`).join("");
     qs("#ruleContexto").innerHTML = (CACHE_META.contextos || []).map((c) => `<option value="${c}">${c}</option>`).join("");
-    qs("#ruleCampos").innerHTML = (CACHE_META.campos || []).map((c) => `<option value="${c}">${c}</option>`).join("");
+    const checklist = qs("#ruleCamposChecklist");
+    checklist.innerHTML = (CACHE_META.campos || []).map((c) => `
+      <div class="form-check mb-1">
+        <input class="form-check-input rule-campo-check" type="checkbox" value="${c}" id="campo_${c}">
+        <label class="form-check-label" for="campo_${c}">${c}</label>
+      </div>
+    `).join("");
   }
 
   function getSelectedRule() {
@@ -79,7 +104,11 @@
     qs("#ruleServico").value = isEdit ? (rule.servico || "") : (CACHE_META.servicos[0] || "");
     qs("#ruleContexto").value = isEdit ? (rule.contexto || "") : (CACHE_META.contextos[0] || "");
     const selected = new Set((isEdit ? (rule.campos_obrigatorios || []) : []));
-    Array.from(qs("#ruleCampos").options).forEach((op) => { op.selected = selected.has(op.value); });
+    document.querySelectorAll(".rule-campo-check").forEach((el) => {
+      if (el instanceof HTMLInputElement) {
+        el.checked = selected.has(el.value);
+      }
+    });
     qs("#ruleAtivo").checked = isEdit ? !!rule.ativo : true;
     offcanvasRule.show();
   }
@@ -98,7 +127,9 @@
     const payload = {
       servico: qs("#ruleServico").value,
       contexto: qs("#ruleContexto").value,
-      campos_obrigatorios: Array.from(qs("#ruleCampos").selectedOptions).map((o) => o.value),
+      campos_obrigatorios: Array.from(document.querySelectorAll(".rule-campo-check"))
+        .filter((el) => el instanceof HTMLInputElement && el.checked)
+        .map((el) => el.value),
       ativo: !!qs("#ruleAtivo").checked,
     };
     if (!payload.servico || !payload.contexto) {
