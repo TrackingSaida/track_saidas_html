@@ -153,8 +153,22 @@
           <div class="form-check form-switch mt-2">
             <input class="form-check-input" type="checkbox" id="editGlobalPacoteGAdicional">
             <label class="form-check-label" for="editGlobalPacoteGAdicional">
-              Considerar Pacote G como adicional no fechamento
+              Aplicar adicional para Pacotes Grandes (G)
             </label>
+            <button
+              type="button"
+              class="btn btn-sm btn-link text-muted p-0 ms-2 align-baseline"
+              id="helpPacoteGAdicional"
+              data-bs-toggle="tooltip"
+              data-bs-placement="top"
+              title="Quando ativado, cada pedido marcado como Pacote G soma um adicional igual ao valor do serviço no fechamento do motoboy. O cálculo prioriza o preço de exceção do motoboy; se não houver exceção, usa o preço global do serviço."
+              aria-label="Informações sobre adicional de Pacote G"
+            >
+              <i class="ri-information-line"></i>
+            </button>
+            <div class="form-text mt-1">
+              Pacote G adiciona +1x o valor do serviço (exceção do motoboy &gt; preço global).
+            </div>
           </div>
         </div>
         <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body">

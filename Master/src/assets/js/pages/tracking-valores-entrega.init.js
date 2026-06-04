@@ -310,6 +310,10 @@
 
     qs("#btnEditarGlobal")?.addEventListener("click", openGlobalEdit);
     qs("#formGlobal")?.addEventListener("submit", savePrecosGlobal);
+    const helpEl = qs("#helpPacoteGAdicional");
+    if (helpEl && window.bootstrap?.Tooltip) {
+      new bootstrap.Tooltip(helpEl);
+    }
 
     const tbody = qs("#tbody-excecoes");
     tbody?.addEventListener("click", (e) => {
