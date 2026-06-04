@@ -222,6 +222,26 @@
     }
   };
 
+  window.TrackAPI.lancarAvulso = async function ({ identificacao, quantidade, motoboy_id, entregador_id, entregador }) {
+    try {
+      const body = { quantidade };
+      if (identificacao != null) body.identificacao = identificacao;
+      if (motoboy_id != null) body.motoboy_id = motoboy_id;
+      if (entregador_id != null) body.entregador_id = entregador_id;
+      if (entregador != null) body.entregador = entregador;
+      const res = await req("/pedidos/lancar-avulso", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      let data = null;
+      try { data = await res.json(); } catch {}
+      return { ok: res.ok, status: res.status, data, error: data?.error, code: data?.code };
+    } catch (err) {
+      return { ok: false, status: 0, error: String(err?.message || err) };
+    }
+  };
+
   // ============================================================
   // BUSCAR POR CÓDIGO
   // ============================================================

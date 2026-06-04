@@ -12,6 +12,7 @@
   const selEnt = $("entregador");
   const inpCod = $("codigo");
   const btnReg = $("btnRegistrar");
+  const btnLancarAvulso = $("btnLancarAvulso");
   const msg    = $("msgArea");
   const tbLast = $("ultimos-rows");
 
@@ -627,6 +628,11 @@ function createRow(row){
     return window.TrackAPI?.registerSaida
       ? TrackAPI.registerSaida({ entregador_id, entregador, codigo, servico })
       : Promise.reject(new Error("TrackAPI.registerSaida não disponível"));
+  }
+  function apiLancarAvulso({ motoboy_id, entregador, identificacao, quantidade }){
+    return window.TrackAPI?.lancarAvulso
+      ? TrackAPI.lancarAvulso({ motoboy_id, entregador, identificacao, quantidade })
+      : Promise.reject(new Error("TrackAPI.lancarAvulso não disponível"));
   }
 
   // Detecta conflito de duplicidade (409) — sem retry automático.
@@ -1451,6 +1457,78 @@ inpCod?.addEventListener("keydown", (e) => {
     e.preventDefault();
     registrarComLog("teclado");
   }
+});
+btnLancarAvulso?.addEventListener("click", async (e) => {
+  e.preventDefault();
+  const motoboyIdRaw = selEnt?.value?.trim() || "";
+  if (!motoboyIdRaw) {
+    showMsgIcon("erro", "Selecione o motoboy.");
+    Sound.play("err");
+    return;
+  }
+  const motoboyId = parseInt(motoboyIdRaw, 10);
+  const entregador = selEnt?.options[selEnt.selectedIndex]?.text?.trim() || entregadoresMap.get(motoboyIdRaw) || "";
+  const modal = await Swal.fire({
+    title: "Lançar Avulso",
+    html: `
+      <div class="text-start">
+        <label class="form-label mb-1">Identificação do avulso (opcional)</label>
+        <input id="avulso-identificacao" class="form-control mb-3" placeholder="Ex.: Cliente João" />
+        <label class="form-label mb-1">Quantidade</label>
+        <input id="avulso-quantidade" type="number" min="1" step="1" class="form-control" value="1" />
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: "Confirmar",
+    cancelButtonText: "Cancelar",
+    focusConfirm: false,
+    preConfirm: () => {
+      const identificacaoEl = document.getElementById("avulso-identificacao");
+      const quantidadeEl = document.getElementById("avulso-quantidade");
+      const identificacaoVal = identificacaoEl ? String(identificacaoEl.value || "").trim() : "";
+      const quantidadeVal = quantidadeEl ? parseInt(String(quantidadeEl.value || "").trim(), 10) : 1;
+      if (!Number.isFinite(quantidadeVal) || quantidadeVal < 1) {
+        Swal.showValidationMessage("Quantidade mínima é 1.");
+        return null;
+      }
+      return { identificacao: identificacaoVal, quantidade: quantidadeVal };
+    },
+  });
+  if (!modal.isConfirmed || !modal.value) return;
+  const identificacao = modal.value.identificacao || "";
+  const quantidade = modal.value.quantidade;
+  if (!Number.isFinite(quantidade) || quantidade < 1) {
+    showMsgIcon("erro", "Quantidade mínima é 1.");
+    Sound.play("err");
+    return;
+  }
+  const res = await apiLancarAvulso({
+    motoboy_id: motoboyId,
+    entregador,
+    identificacao: identificacao.trim() || null,
+    quantidade,
+  });
+  if (!res?.ok) {
+    showMsgIcon("erro", res?.error || "Erro ao lançar avulso.");
+    Sound.play("err");
+    return;
+  }
+  const saidas = Array.isArray(res?.data?.saidas) ? res.data.saidas : [];
+  for (const s of saidas) {
+    appendOrUpdateRow({
+      tsFmt: new Date().toLocaleString("pt-BR"),
+      entregador,
+      codigo: s.codigo,
+      servico: s.servico || "Avulso",
+      status: s.status || "Saiu",
+      id_saida: s.id_saida,
+      duplicado: false,
+    });
+    codigosLidosSessao.add(String(s.codigo || ""));
+  }
+  updateSummary();
+  showMsgIcon("info", res?.data?.mensagem || `${saidas.length} avulsos lançados com sucesso.`);
+  Sound.play("ok");
 });
 
 })(); 
