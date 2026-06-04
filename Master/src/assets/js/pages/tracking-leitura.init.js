@@ -1527,8 +1527,9 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     codigosLidosSessao.add(String(s.codigo || ""));
   }
   updateSummary();
-  showMsgIcon("info", res?.data?.mensagem || `${saidas.length} avulsos lançados com sucesso.`);
+  showMsgIcon("ok", res?.data?.mensagem || `${saidas.length} avulsos lançados com sucesso.`);
   Sound.play("ok");
+  try { window.leituraStartScanner?.(); } catch (_) {}
 });
 
 })(); 
