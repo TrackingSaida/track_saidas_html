@@ -1007,6 +1007,8 @@ async function registrar() {
       const idSaida = res.data?.id_saida;
       const entregadorAtual = res.data?.entregador_atual || "Desconhecido";
       const usuarioRegistro = res.data?.username || "Desconhecido";
+      const statusAtualRaw = String(res.data?.status_atual || "").toLowerCase();
+      const pedidoEntregue = statusAtualRaw.indexOf("entregue") !== -1;
       const overlay = document.getElementById("scanFS");
       const wasActiveOverlay = overlay?.classList.contains("show");
       if (wasActiveOverlay) {
@@ -1014,8 +1016,15 @@ async function registrar() {
       }
       const confirm = await Swal.fire({
         icon: "warning",
-        title: "Código já saiu para entrega",
-        html: `
+        title: pedidoEntregue ? "Pedido já entregue" : "Código já saiu para entrega",
+        html: pedidoEntregue
+          ? `
+          <p>O pacote <strong>${codigoFinal}</strong> já está <strong>Entregue</strong>.</p>
+          <p>Entregador atual: <strong>${entregadorAtual}</strong></p>
+          <hr>
+          <p>Deseja reatribuir para <strong>${entregador}</strong> e colocar <strong>Em rota</strong>?</p>
+        `
+          : `
           <p>O pacote <strong>${codigoFinal}</strong> já foi registrado como <strong>Saiu para entrega.</strong></p>
           <p>Registrado por: <strong>${usuarioRegistro}</strong></p>
           <p>Entregador atual: <strong>${entregadorAtual}</strong></p>
@@ -1023,7 +1032,7 @@ async function registrar() {
           <p>Deseja alterar para: <strong>${entregador}</strong>?</p>
         `,
         showCancelButton: true,
-        confirmButtonText: "Sim, alterar entregador",
+        confirmButtonText: pedidoEntregue ? "Sim, reatribuir" : "Sim, alterar entregador",
         cancelButtonText: "Não",
         allowOutsideClick: false,
         backdrop: true
@@ -1032,8 +1041,11 @@ async function registrar() {
         if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
         return { ok:false, tipo:"ja_saiu", backend_processing_ms };
       }
+      const patchBody = pedidoEntregue
+        ? { motoboy_id: motoboyId, entregador }
+        : { status: "Saiu para entrega", motoboy_id: motoboyId, entregador };
       const patchResp = window.TrackAPI?.updateSaida
-        ? await TrackAPI.updateSaida(idSaida, { status: "Saiu para entrega", motoboy_id: motoboyId, entregador })
+        ? await TrackAPI.updateSaida(idSaida, patchBody)
         : { ok: false, error: "TrackAPI.updateSaida não disponível" };
       if (!patchResp.ok) {
         const patchCode = patchResp?.data?.code || patchResp?.data?.detail?.code;
@@ -1050,18 +1062,21 @@ async function registrar() {
         if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
         return { ok:false, tipo:"erro_patch_troca_entregador", detalhe:msg, backend_processing_ms };
       }
+      const statusLinha = pedidoEntregue ? "Em rota" : "Saiu para entrega";
       appendOrUpdateRow({
         tsFmt: new Date().toLocaleString("pt-BR"),
         entregador,
         codigo: codigoFinal,
         servico,
-        status: "Saiu para entrega",
+        status: statusLinha,
         id_saida: idSaida,
         duplicado: false
       });
       codigosLidosSessao.add(codigoFinal);
       updateSummary();
-      showMsgIcon("info", `Entregador alterado ✓ ${codigoFinal}`);
+      showMsgIcon("info", pedidoEntregue
+        ? `Reatribuído — Em rota ✓ ${codigoFinal}`
+        : `Entregador alterado ✓ ${codigoFinal}`);
       Sound.play("ok");
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
       if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }

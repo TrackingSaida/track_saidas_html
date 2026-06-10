@@ -1319,6 +1319,13 @@ function setupPagerEvents() {
     }
     if (eBase) eBase.value = row.base || "";
 
+    var editMotoboyHint = document.getElementById("edit-motoboy-hint");
+    if (editMotoboyHint) {
+      editMotoboyHint.textContent = uiStatus === "Entregue"
+        ? "Ao alterar o motoboy, o pedido será reatribuído e colocado Em rota no novo motoboy."
+        : "Alterar o motoboy também mudará o status para \"Saiu para entrega\".";
+    }
+
     eSta?.dispatchEvent(new Event("change"));
     editInitialState = {
       motoboy: eMotoboy?.value || "",
@@ -1346,6 +1353,20 @@ function setupPagerEvents() {
     btnSave.disabled = !isEditChanged();
   }
 
+  function validateBulkHomogeneity(ids){
+    var registros = ids.map(function(id){
+      return state.rows.find(function(r){ return String(getRowId(r)) === String(id); });
+    }).filter(Boolean);
+    if (!registros.length) return false;
+    var statuses = Array.from(new Set(registros.map(function(r){ return normalizeStatusForBulk(r.status); })));
+    var executors = Array.from(new Set(registros.map(function(r){ return getExecutorKeyForBulk(r); })));
+    if (statuses.length > 1 || executors.length > 1){
+      notify("Para edição em lote, selecione pedidos com o mesmo status e o mesmo motoboy.", "warning");
+      return false;
+    }
+    return true;
+  }
+
   if (btnEdit){
     btnEdit.addEventListener("click", () => {
       var ids = getSelectedIds();
@@ -1354,6 +1375,7 @@ function setupPagerEvents() {
       if (ids.length === 1)
         return openEditModal(ids[0]);
 
+      if (!validateBulkHomogeneity(ids)) return;
       return openBulkModal(ids);
     });
   }
@@ -1379,14 +1401,19 @@ function setupPagerEvents() {
         );
       }
 
+      var motoboyChanged = (eMotoboy?.value || "") !== (editInitialState?.motoboy || "");
+      var statusChanged = (eSta?.value || "") !== (editInitialState?.status || "");
+      var cohortEntregue = (editInitialState?.status || "") === "Entregue";
+
       var payload = {
         codigo:     eCod.value,
         servico:    normalizeServicoForEdit(eSrv?.value, eCod?.value),
-        status:     mapStatusToApi(eSta.value)
       };
-      // Correto é pelo id_motoboy (tela de users); quando tem motoboy não enviar entregador (nome) para evitar resolução por nome
-      if (eMotoboy?.value) {
-        payload.motoboy_id = Number(eMotoboy.value);
+      if (cohortEntregue && motoboyChanged && !statusChanged) {
+        if (eMotoboy?.value) payload.motoboy_id = Number(eMotoboy.value);
+      } else {
+        payload.status = mapStatusToApi(eSta.value);
+        if (eMotoboy?.value) payload.motoboy_id = Number(eMotoboy.value);
       }
 
       if ((eSta.value === "Não Coletado" || eSta.value === "Coletado") && eBase?.value)
@@ -1401,7 +1428,15 @@ function setupPagerEvents() {
       if ((eBase?.value || "") !== editInitialState.base) camposAlterados.push("Base");
 
       var confirmMsg = "Campos alterados: " + (camposAlterados.length ? camposAlterados.join(", ") : "nenhum");
-      confirmDlg(confirmMsg, "Confirmar alterações")
+      var confirmTitle = "Confirmar alterações";
+      if (cohortEntregue && eSta?.value === "Cancelado" && statusChanged) {
+        confirmTitle = "Cancelar pedido entregue";
+        confirmMsg = "Este pedido já foi entregue. Deseja cancelar?\n\n" + confirmMsg;
+      } else if (cohortEntregue && motoboyChanged && !statusChanged) {
+        confirmTitle = "Reatribuir pedido entregue";
+        confirmMsg = "O pedido será reatribuído e colocado Em rota no novo motoboy.\n\n" + confirmMsg;
+      }
+      confirmDlg(confirmMsg, confirmTitle)
         .then(function(conf){
           if (!conf?.isConfirmed) return;
           if (btnSave) {
@@ -1466,6 +1501,7 @@ function setupPagerEvents() {
   var bulkBase     = document.getElementById("bulk-base");
   var bulkApplyBtn = document.getElementById("bulk-apply");
   var bulkCurrentIds = [];
+  var bulkCurrentCohortStatus = "";
 
   function normalizeStatusForBulk(rawStatus){
     var s = String(rawStatus || "").toLowerCase().trim();
@@ -1531,6 +1567,7 @@ function setupPagerEvents() {
     ).filter(Boolean);
 
     bulkCurrentIds = ids.slice();
+    bulkCurrentCohortStatus = normalizeStatusForBulk(registros[0]?.status || "");
     if (bulkTitle) bulkTitle.textContent = "Editar " + ids.length + " registros em lote";
     if (bulkSummaryCount) bulkSummaryCount.textContent = String(ids.length);
     if (bulkSummaryServico) bulkSummaryServico.textContent = uniqueValueOrDifferent(registros.map(function(r){ return r?.servico; }), "Não definido");
@@ -1556,6 +1593,12 @@ function setupPagerEvents() {
       bulkBaseGrp?.classList.add("d-none");
       if (bulkBase) bulkBase.value = "";
       if (bulkMotoboy) bulkMotoboy.value = "";
+      var bulkMotoboyHint = document.getElementById("bulk-motoboy-hint");
+      if (bulkMotoboyHint) {
+        bulkMotoboyHint.textContent = bulkCurrentCohortStatus === "entregue"
+          ? "Ao alterar o motoboy, os pedidos entregues serão reatribuídos e colocados Em rota no novo motoboy."
+          : "Alterar o motoboy também mudará o status dos pedidos selecionados para \"Saiu para entrega\".";
+      }
       updateBulkApplyState();
       bulkModal?.show();
     }
@@ -1595,6 +1638,9 @@ function setupPagerEvents() {
       var body = {};
       if (bulkMotoboy?.value) body.motoboy_id = Number(bulkMotoboy.value);
       if (bulkStatus?.value) body.status = mapStatusToApi(bulkStatus.value);
+      if (bulkCurrentCohortStatus === "entregue" && bulkMotoboy?.value && !bulkStatus?.value) {
+        delete body.status;
+      }
       if (bulkServico?.value) body.servico = normalizeServicoForEdit(bulkServico.value, "");
       if ((bulkStatus?.value === "Não Coletado" || bulkStatus?.value === "Coletado") && bulkBase?.value)
         body.base = bulkBase.value;
@@ -1605,7 +1651,18 @@ function setupPagerEvents() {
       if (bulkServico?.value) campos.push("Serviço");
       if (body.base) campos.push("Base");
 
-      confirmDlg("Aplicar alterações em " + ids.length + " registros?\nCampos: " + campos.join(", "), "Confirmar alterações em lote")
+      var bulkConfirmTitle = "Confirmar alterações em lote";
+      var bulkConfirmMsg = "Aplicar alterações em " + ids.length + " registros?\nCampos: " + campos.join(", ");
+      if (bulkCurrentCohortStatus === "entregue" && bulkStatus?.value === "Cancelado") {
+        bulkConfirmTitle = "Cancelar pedidos entregues";
+        bulkConfirmMsg = "Cancelar " + ids.length + " pedidos já entregues?\n\n" + bulkConfirmMsg;
+      } else if (bulkCurrentCohortStatus === "entregue" && bulkMotoboy?.value && !bulkStatus?.value) {
+        var motoboyLabel = bulkMotoboy?.options?.[bulkMotoboy.selectedIndex]?.text || "novo motoboy";
+        bulkConfirmTitle = "Reatribuir pedidos entregues";
+        bulkConfirmMsg = "Reatribuir " + ids.length + " pedidos entregues a " + motoboyLabel + " (Em rota)?\n\n" + bulkConfirmMsg;
+      }
+
+      confirmDlg(bulkConfirmMsg, bulkConfirmTitle)
         .then(function(conf){
           if (!conf?.isConfirmed) return;
           if (bulkApplyBtn) {
