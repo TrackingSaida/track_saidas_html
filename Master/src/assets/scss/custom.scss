@@ -774,3 +774,99 @@
   }
 }
 
+/* ——— Acompanhamento do Dia — Visão Atual operacional ——— */
+#view-acompanhamento {
+  .acom-sla-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+  }
+  .acom-sla-bar__fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    &--success { background-color: #198754; }
+    &--warning { background-color: #ffc107; }
+    &--orange { background-color: #fd7e14; }
+    &--danger { background-color: #dc3545; }
+    &--neutral { background-color: #6c757d; }
+  }
+
+  .acom-sla-badge {
+    display: inline-block;
+    padding: 0.2em 0.55em;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    &--success { background: rgba(25, 135, 84, 0.15); color: #198754; }
+    &--warning { background: rgba(255, 193, 7, 0.2); color: #997404; }
+    &--orange { background: rgba(253, 126, 20, 0.15); color: #c85a0a; }
+    &--danger { background: rgba(220, 53, 69, 0.15); color: #dc3545; }
+    &--neutral { background: rgba(108, 117, 125, 0.12); color: #6c757d; }
+  }
+
+  .acom-badge {
+    display: inline-block;
+    padding: 0.25em 0.6em;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+    &--sem_entrega { background: rgba(220, 53, 69, 0.12); color: #dc3545; }
+    &--critico { background: rgba(253, 126, 20, 0.15); color: #c85a0a; }
+    &--finalizado { background: rgba(25, 135, 84, 0.12); color: #198754; }
+    &--em_andamento { background: rgba(13, 110, 253, 0.12); color: #0d6efd; }
+  }
+
+  .acom-ultima {
+    font-size: 0.875rem;
+    font-weight: 600;
+    &--success { color: #198754; }
+    &--warning { color: #997404; }
+    &--danger { color: #dc3545; }
+    &--neutral { color: #6c757d; }
+  }
+
+  .acom-row-clickable {
+    cursor: pointer;
+  }
+  .acom-row--done { background-color: rgba(25, 135, 84, 0.06); }
+  .acom-row--zero { background-color: rgba(220, 53, 69, 0.06); }
+  .acom-row--critical { background-color: rgba(253, 126, 20, 0.07); }
+  .acom-row--finished { background-color: rgba(25, 135, 84, 0.04); }
+
+  .acom-alerts-ok {
+    background: rgba(25, 135, 84, 0.06);
+  }
+
+  .acom-alert-pill {
+    border: 1px solid rgba(253, 126, 20, 0.35);
+    background: rgba(253, 126, 20, 0.08);
+    color: #9a4f00;
+    &:hover {
+      background: rgba(253, 126, 20, 0.16);
+    }
+  }
+
+  .acom-ranking-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+  .acom-ranking-list {
+    font-size: 0.85rem;
+  }
+  .acom-ranking-item {
+    padding: 0.25rem 0;
+    cursor: pointer;
+    border-radius: 4px;
+    &:hover {
+      background: rgba(0, 0, 0, 0.04);
+    }
+  }
+  .acom-ranking-rank {
+    font-weight: 700;
+    color: #6c757d;
+  }
+}
+
