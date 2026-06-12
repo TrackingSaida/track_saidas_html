@@ -13,9 +13,22 @@
   const API_SAIDAS_DIA = `${API_URL}/acompanhamento/saidas-dia`;
   const API_MOTOBOYS = `${API_URL}/users/motoboys`;
   const VIEW_KEY = "acompanhamentoModo";
+  const TABLE_COLSPAN = 11;
+
+  const Op = window.AcompOperational || {};
+
+  let cachedItems = [];
+  let cachedItemsById = {};
+  let activeQuickFilter = "todos";
+  let selectedDetailRow = null;
+  let detailOffcanvas = null;
 
   function qs(s) {
     return document.querySelector(s);
+  }
+
+  function qsa(s) {
+    return Array.from(document.querySelectorAll(s));
   }
 
   function normalizeNomeKey(nome) {
@@ -40,22 +53,6 @@
     const parts = String(ymd).split("-");
     if (parts.length !== 3) return ymd;
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
-  }
-
-  function fmtUltimaEntrega(isoStr) {
-    if (!isoStr) return "—";
-    try {
-      const d = new Date(isoStr);
-      if (isNaN(d.getTime())) return "—";
-      return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    } catch (_) {
-      return "—";
-    }
-  }
-
-  function fmtSLA(val) {
-    if (val == null || val === undefined) return "—";
-    return `${Number(val).toFixed(1)}%`;
   }
 
   async function fetchWithCreds(url) {
@@ -97,7 +94,7 @@
     try {
       localStorage.setItem(VIEW_KEY, view);
     } catch (_) {
-      // sem persistência disponível, segue com estado em memória
+      // sem persistência disponível
     }
     const isSaidas = view === "saidas-dia";
     qs("#view-saidas-dia")?.classList.toggle("d-none", !isSaidas);
@@ -117,50 +114,216 @@
     if (motoboyLabel) motoboyLabel.textContent = isSaidas ? "Motoboy obrigatório" : "Motoboy";
   }
 
+  function escapeHtml(s) {
+    if (s == null) return "";
+    const div = document.createElement("div");
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
   function updateKPIs(totais) {
     if (!totais) return;
     const set = (id, val) => {
       const el = qs("#" + id);
       if (el) el.textContent = val;
     };
-    set("kpi-pedidos", String(totais.pedidos ?? 0));
-    set("kpi-entregues", String(totais.entregues ?? 0));
+    const pedidos = totais.pedidos ?? 0;
+    const entregues = totais.entregues ?? 0;
+    const sla = totais.sla != null ? Number(totais.sla) : null;
+
+    set("kpi-pedidos", String(pedidos));
+    set("kpi-entregues", String(entregues));
     set("kpi-em-rota", String(totais.em_rota ?? 0));
     set("kpi-ausente", String(totais.ausente_ou_ocorrencias ?? 0));
-    set("kpi-sla", totais.sla != null ? fmtSLA(totais.sla) : "—");
+    set("kpi-sla-ratio", `${entregues} / ${pedidos} entregues`);
+    set("kpi-sla-pct", sla != null ? Op.fmtSLA(sla) : "—");
+
+    const bar = qs("#kpi-sla-bar");
+    if (bar) {
+      const pct = sla != null ? Math.min(100, Math.max(0, sla)) : 0;
+      bar.style.width = pct + "%";
+      const tier = Op.slaTier ? Op.slaTier(sla) : "neutral";
+      bar.className = "acom-sla-bar__fill acom-sla-bar__fill--" + tier;
+    }
+  }
+
+  function setQuickFilter(filter) {
+    activeQuickFilter = filter || "todos";
+    qsa(".acom-quick-filter").forEach((btn) => {
+      const isActive = btn.getAttribute("data-filter") === activeQuickFilter;
+      btn.classList.toggle("btn-primary", isActive);
+      btn.classList.toggle("btn-outline-secondary", !isActive);
+    });
+    renderTableView();
+  }
+
+  function renderAlerts(items) {
+    const container = qs("#operational-alerts");
+    if (!container) return;
+
+    const alerts = Op.computeAlerts ? Op.computeAlerts(items, new Date()) : [];
+    if (!alerts.length) {
+      container.innerHTML =
+        '<div class="acom-alerts-ok border rounded px-3 py-2 small text-success">' +
+        '<i class="ri-checkbox-circle-line me-1"></i> Operação sem alertas críticos' +
+        "</div>";
+      return;
+    }
+
+    container.innerHTML =
+      '<div class="d-flex flex-wrap gap-2">' +
+      alerts
+        .map(
+          (a) =>
+            `<button type="button" class="btn btn-sm acom-alert-pill acom-alert-pill--${escapeHtml(a.id)}" data-alert-filter="${escapeHtml(a.filter)}">` +
+            `<i class="ri-error-warning-line me-1"></i>${escapeHtml(a.text)}` +
+            "</button>"
+        )
+        .join("") +
+      "</div>";
+  }
+
+  function formatRankingLine(row, index) {
+    const sla = row.sla != null ? Op.fmtSLA(row.sla) : "—";
+    return (
+      `<li class="acom-ranking-item" data-motoboy-id="${escapeHtml(String(row.motoboy_id))}" role="button" tabindex="0">` +
+      `<span class="acom-ranking-rank">${index + 1}.</span> ` +
+      `${escapeHtml(row.motoboy_nome || "")} — ${row.entregues || 0}/${row.pedidos || 0} — ${sla}` +
+      "</li>"
+    );
+  }
+
+  function renderRanking(items) {
+    const wrap = qs("#operational-ranking");
+    const topEl = qs("#ranking-top");
+    const attEl = qs("#ranking-attention");
+    if (!wrap || !topEl || !attEl) return;
+
+    const ranking = Op.computeRanking ? Op.computeRanking(items) : { top: [], attention: [] };
+    const hasContent = ranking.top.length > 0 || ranking.attention.length > 0;
+    wrap.classList.toggle("d-none", !hasContent);
+
+    topEl.innerHTML = ranking.top.length
+      ? ranking.top.map((r, i) => formatRankingLine(r, i)).join("")
+      : '<li class="text-muted small">Nenhum dado</li>';
+
+    attEl.innerHTML = ranking.attention.length
+      ? ranking.attention.map((r, i) => formatRankingLine(r, i)).join("")
+      : '<li class="text-muted small">Nenhum alerta</li>';
+  }
+
+  function renderStatusBadge(row, now) {
+    const status = Op.deriveStatus ? Op.deriveStatus(row, now) : { key: "em_andamento", label: "Em andamento" };
+    const cls = Op.statusBadgeClass ? Op.statusBadgeClass(status.key) : "acom-badge";
+    return `<span class="${cls}">${escapeHtml(status.label)}</span>`;
+  }
+
+  function renderSlaBadge(row) {
+    if (row.sla == null) return "—";
+    const cls = Op.slaBadgeClass ? Op.slaBadgeClass(row.sla) : "acom-sla-badge";
+    return `<span class="${cls}">${Op.fmtSLA(row.sla)}</span>`;
+  }
+
+  function renderUltimaCell(row, now) {
+    const ult = Op.fmtUltimaEntrega ? Op.fmtUltimaEntrega(row.ultima_entrega, now) : { text: "—", tier: "neutral" };
+    return `<span class="acom-ultima acom-ultima--${ult.tier}">${escapeHtml(ult.text)}</span>`;
   }
 
   function renderTable(items) {
     const tbody = qs("#tbody-acompanhamento");
     if (!tbody) return;
 
+    const now = new Date();
+
     if (!items || items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">Nenhum registro para a data selecionada.</td></tr>';
+      tbody.innerHTML =
+        `<tr><td colspan="${TABLE_COLSPAN}" class="text-center text-muted py-4">Nenhum registro para os filtros selecionados.</td></tr>`;
       return;
     }
 
-    const rows = items.map((r) => {
-      const data = fmtData(r.data);
-      const ultima = fmtUltimaEntrega(r.ultima_entrega);
-      const sla = fmtSLA(r.sla);
-      const distTempo = r.distancia_tempo || "—";
-      return (
-        "<tr>" +
-        `<td>${data}</td>` +
-        `<td>${escapeHtml(r.motoboy_nome || "")}</td>` +
-        `<td class="text-center">${r.pedidos}</td>` +
-        `<td class="text-center">${r.entregues}</td>` +
-        `<td class="text-center">${r.em_rota}</td>` +
-        `<td class="text-center">${r.ausente_ou_ocorrencias}</td>` +
-        `<td class="text-center">${escapeHtml(r.rota || "SEM ROTA")}</td>` +
-        `<td class="text-center">${escapeHtml(distTempo)}</td>` +
-        `<td class="text-center">${ultima}</td>` +
-        `<td class="text-center">${sla}</td>` +
-        "</tr>"
-      );
-    }).join("");
+    const rows = items
+      .map((r) => {
+        const data = fmtData(r.data);
+        const distTempo = r.distancia_tempo || "—";
+        const rowClass = Op.rowHighlightClass ? Op.rowHighlightClass(r, now) : "";
+        const motoboyId = r.motoboy_id != null ? String(r.motoboy_id) : "";
+        return (
+          `<tr class="acom-row-clickable ${rowClass}" data-motoboy-id="${escapeHtml(motoboyId)}" role="button" tabindex="0">` +
+          `<td>${data}</td>` +
+          `<td>${escapeHtml(r.motoboy_nome || "")}</td>` +
+          `<td class="text-center">${renderStatusBadge(r, now)}</td>` +
+          `<td class="text-center">${r.pedidos}</td>` +
+          `<td class="text-center">${r.entregues}</td>` +
+          `<td class="text-center">${r.em_rota}</td>` +
+          `<td class="text-center">${r.ausente_ou_ocorrencias}</td>` +
+          `<td class="text-center">${escapeHtml(r.rota || "SEM ROTA")}</td>` +
+          `<td class="text-center">${escapeHtml(distTempo)}</td>` +
+          `<td class="text-center">${renderUltimaCell(r, now)}</td>` +
+          `<td class="text-center">${renderSlaBadge(r)}</td>` +
+          "</tr>"
+        );
+      })
+      .join("");
 
     tbody.innerHTML = rows;
+  }
+
+  function renderTableView() {
+    const filtered = Op.applyQuickFilter
+      ? Op.applyQuickFilter(cachedItems, activeQuickFilter, new Date())
+      : cachedItems;
+    renderTable(filtered);
+    updatePagerInfo(filtered.length, cachedItems.length);
+  }
+
+  function indexCachedItems(items) {
+    cachedItemsById = {};
+    (items || []).forEach((row) => {
+      if (row && row.motoboy_id != null) {
+        cachedItemsById[String(row.motoboy_id)] = row;
+      }
+    });
+  }
+
+  function renderOperationalPanels(items) {
+    cachedItems = items || [];
+    indexCachedItems(cachedItems);
+    renderAlerts(cachedItems);
+    renderRanking(cachedItems);
+    renderTableView();
+  }
+
+  function openMotoboyDetail(row) {
+    if (!row) return;
+    selectedDetailRow = row;
+    const now = new Date();
+    const status = Op.deriveStatus ? Op.deriveStatus(row, now) : { key: "em_andamento", label: "Em andamento" };
+    const ult = Op.fmtUltimaEntrega ? Op.fmtUltimaEntrega(row.ultima_entrega, now) : { text: "—", tier: "neutral" };
+    const body = qs("#ocMotoboyDetailBody");
+    const title = qs("#ocMotoboyDetailLabel");
+    if (title) title.textContent = row.motoboy_nome || "Detalhe do motoboy";
+
+    if (body) {
+      body.innerHTML =
+        `<dl class="row mb-0">` +
+        `<dt class="col-sm-5">Data</dt><dd class="col-sm-7">${escapeHtml(fmtData(row.data))}</dd>` +
+        `<dt class="col-sm-5">Pedidos</dt><dd class="col-sm-7">${row.pedidos ?? 0}</dd>` +
+        `<dt class="col-sm-5">Entregues</dt><dd class="col-sm-7">${row.entregues ?? 0}</dd>` +
+        `<dt class="col-sm-5">Em rota</dt><dd class="col-sm-7">${row.em_rota ?? 0}</dd>` +
+        `<dt class="col-sm-5">Ausências/Ocorrências</dt><dd class="col-sm-7">${row.ausente_ou_ocorrencias ?? 0}</dd>` +
+        `<dt class="col-sm-5">SLA</dt><dd class="col-sm-7">${renderSlaBadge(row)}</dd>` +
+        `<dt class="col-sm-5">Última entrega</dt><dd class="col-sm-7"><span class="acom-ultima acom-ultima--${ult.tier}">${escapeHtml(ult.text)}</span></dd>` +
+        `<dt class="col-sm-5">Rota</dt><dd class="col-sm-7">${escapeHtml(row.rota || "SEM ROTA")}</dd>` +
+        `<dt class="col-sm-5">Distância / Tempo</dt><dd class="col-sm-7">${escapeHtml(row.distancia_tempo || "—")}</dd>` +
+        `<dt class="col-sm-5">Status</dt><dd class="col-sm-7">${renderStatusBadge(row, now)}</dd>` +
+        `</dl>`;
+    }
+
+    if (!detailOffcanvas && window.bootstrap) {
+      const el = qs("#ocMotoboyDetail");
+      if (el) detailOffcanvas = new window.bootstrap.Offcanvas(el);
+    }
+    detailOffcanvas?.show();
   }
 
   function updateMonitorCards(data) {
@@ -182,20 +345,16 @@
     empty.classList.toggle("d-none", !show);
   }
 
-  function escapeHtml(s) {
-    if (s == null) return "";
-    const div = document.createElement("div");
-    div.textContent = s;
-    return div.innerHTML;
-  }
-
-  function updatePagerInfo(n) {
+  function updatePagerInfo(filteredCount, totalCount) {
     const el = qs("#pager-info");
     if (!el) return;
-    if (n === 0) {
-      el.textContent = "Exibindo 0 a 0 de 0 registros";
+    const total = totalCount != null ? totalCount : filteredCount;
+    if (filteredCount === 0) {
+      el.textContent = total > 0 ? `Exibindo 0 a 0 de ${total} registros (filtrado)` : "Exibindo 0 a 0 de 0 registros";
+    } else if (filteredCount === total) {
+      el.textContent = `Exibindo 1 a ${filteredCount} de ${filteredCount} registros`;
     } else {
-      el.textContent = `Exibindo 1 a ${n} de ${n} registros`;
+      el.textContent = `Exibindo 1 a ${filteredCount} de ${total} registros (filtrado)`;
     }
   }
 
@@ -213,7 +372,6 @@
         return la.localeCompare(lb, "pt-BR", { sensitivity: "base" });
       });
 
-      // Evita nomes duplicados no filtro (variações de acento/espaço/caixa).
       const uniqueByNome = new Map();
       sorted.forEach((m) => {
         const val = m?.id_motoboy != null ? m.id_motoboy : m?.id;
@@ -223,11 +381,13 @@
         uniqueByNome.set(key, m);
       });
 
-      const opts = Array.from(uniqueByNome.values()).map((m) => {
-        const val = m.id_motoboy != null ? m.id_motoboy : m.id;
-        const label = m.nome || `Motoboy ${val}`;
-        return `<option value="${escapeHtml(String(val))}">${escapeHtml(label)}</option>`;
-      }).join("");
+      const opts = Array.from(uniqueByNome.values())
+        .map((m) => {
+          const val = m.id_motoboy != null ? m.id_motoboy : m.id;
+          const label = m.nome || `Motoboy ${val}`;
+          return `<option value="${escapeHtml(String(val))}">${escapeHtml(label)}</option>`;
+        })
+        .join("");
       select.innerHTML = '<option value="">(Todos)</option>' + opts;
       if (selectMonitor) {
         selectMonitor.innerHTML = '<option value="">Motoboy obrigatório</option>' + opts;
@@ -244,7 +404,7 @@
 
     const tbody = qs("#tbody-acompanhamento");
     if (tbody) {
-      tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">Carregando...</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="${TABLE_COLSPAN}" class="text-center text-muted py-4">Carregando...</td></tr>`;
     }
 
     try {
@@ -253,13 +413,17 @@
       const totais = data.totais || {};
 
       updateKPIs(totais);
-      renderTable(items);
-      updatePagerInfo(items.length);
+      renderOperationalPanels(items);
     } catch (e) {
+      cachedItems = [];
+      cachedItemsById = {};
       if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger py-4">Erro ao carregar: ' + escapeHtml(e.message) + "</td></tr>";
+        tbody.innerHTML =
+          `<tr><td colspan="${TABLE_COLSPAN}" class="text-center text-danger py-4">Erro ao carregar: ${escapeHtml(e.message)}</td></tr>`;
       }
-      updatePagerInfo(0);
+      qs("#operational-alerts") && (qs("#operational-alerts").innerHTML = "");
+      qs("#operational-ranking")?.classList.add("d-none");
+      updatePagerInfo(0, 0);
       updateKPIs({ pedidos: 0, entregues: 0, em_rota: 0, ausente_ou_ocorrencias: 0, sla: null });
     }
   }
@@ -325,11 +489,68 @@
     }
   }
 
+  function scrollToTable() {
+    qs("#tbl-acompanhamento")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function bindOperationalEvents() {
+    qsa(".acom-quick-filter").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setQuickFilter(btn.getAttribute("data-filter") || "todos");
+      });
+    });
+
+    qs("#operational-alerts")?.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("[data-alert-filter]");
+      if (!btn) return;
+      setQuickFilter(btn.getAttribute("data-alert-filter"));
+      scrollToTable();
+    });
+
+    function handleRankingClick(ev) {
+      const item = ev.target.closest("[data-motoboy-id]");
+      if (!item) return;
+      const id = item.getAttribute("data-motoboy-id");
+      const row = cachedItemsById[id];
+      if (!row) return;
+      if (item.closest("#ranking-attention")) {
+        if ((row.entregues || 0) === 0) setQuickFilter("sem_entrega");
+        else setQuickFilter("criticos");
+        scrollToTable();
+        return;
+      }
+      openMotoboyDetail(row);
+    }
+
+    qs("#ranking-top")?.addEventListener("click", handleRankingClick);
+    qs("#ranking-attention")?.addEventListener("click", handleRankingClick);
+
+    qs("#tbody-acompanhamento")?.addEventListener("click", (ev) => {
+      const tr = ev.target.closest("tr[data-motoboy-id]");
+      if (!tr) return;
+      const id = tr.getAttribute("data-motoboy-id");
+      const row = cachedItemsById[id];
+      if (row) openMotoboyDetail(row);
+    });
+
+    qs("#btnDetailVerFiltro")?.addEventListener("click", () => {
+      if (!selectedDetailRow || selectedDetailRow.motoboy_id == null) return;
+      const motoboyEl = qs("#flt-motoboy");
+      if (motoboyEl) motoboyEl.value = String(selectedDetailRow.motoboy_id);
+      detailOffcanvas?.hide();
+      updateFiltrosBadge();
+      refresh();
+    });
+  }
+
   function init() {
     const fltData = qs("#flt-data");
     if (fltData && !fltData.value) {
       fltData.value = todayYMD();
     }
+
+    bindOperationalEvents();
+    setQuickFilter("todos");
 
     loadMotoboys().then(() => {
       updateFiltrosBadge();

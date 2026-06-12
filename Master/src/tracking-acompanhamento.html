@@ -115,34 +115,66 @@
                     <div class="row g-2 mb-3 flex-nowrap">
                       <div class="col flex-fill" style="min-width: 0;">
                         <div class="p-3 rounded text-center bg-light border">
-                          <span class="text-uppercase small text-secondary fw-semibold d-block">Total Pedidos</span>
+                          <span class="small text-secondary fw-semibold d-block">Total pedidos</span>
                           <span class="fs-5 fw-bold" id="kpi-pedidos">0</span>
                         </div>
                       </div>
                       <div class="col flex-fill" style="min-width: 0;">
                         <div class="p-3 rounded text-center bg-success bg-opacity-10 border border-success border-opacity-25">
-                          <span class="text-uppercase small text-secondary fw-semibold d-block">Entregues</span>
+                          <span class="small text-secondary fw-semibold d-block">Entregues</span>
                           <span class="fs-5 fw-bold text-success" id="kpi-entregues">0</span>
                         </div>
                       </div>
                       <div class="col flex-fill" style="min-width: 0;">
                         <div class="p-3 rounded text-center bg-primary bg-opacity-10 border border-primary border-opacity-25">
-                          <span class="text-uppercase small text-secondary fw-semibold d-block">Em Rota</span>
+                          <span class="small text-secondary fw-semibold d-block">Em rota</span>
                           <span class="fs-5 fw-bold text-primary" id="kpi-em-rota">0</span>
                         </div>
                       </div>
                       <div class="col flex-fill" style="min-width: 0;">
                         <div class="p-3 rounded text-center bg-warning bg-opacity-10 border border-warning border-opacity-25">
-                          <span class="text-uppercase small text-secondary fw-semibold d-block">Ausente / Ocorrências</span>
+                          <span class="small text-secondary fw-semibold d-block">Ausências/Ocorrências</span>
                           <span class="fs-5 fw-bold text-warning" id="kpi-ausente">0</span>
                         </div>
                       </div>
-                      <div class="col flex-fill" style="min-width: 0;">
-                        <div class="p-3 rounded text-center bg-info bg-opacity-10 border border-info border-opacity-25">
-                          <span class="text-uppercase small text-secondary fw-semibold d-block">SLA (%)</span>
-                          <span class="fs-5 fw-bold text-info" id="kpi-sla">—</span>
+                      <div class="col flex-fill" style="min-width: 140px;">
+                        <div class="p-3 rounded bg-info bg-opacity-10 border border-info border-opacity-25 h-100">
+                          <span class="small text-secondary fw-semibold d-block text-center">SLA geral</span>
+                          <div class="small text-muted text-center mb-1" id="kpi-sla-ratio">0 / 0 entregues</div>
+                          <div class="acom-sla-bar mb-1">
+                            <div class="acom-sla-bar__fill acom-sla-bar__fill--neutral" id="kpi-sla-bar" style="width: 0%;"></div>
+                          </div>
+                          <div class="fw-bold text-info text-center" id="kpi-sla-pct">—</div>
                         </div>
                       </div>
+                    </div>
+
+                    <!-- Alertas operacionais -->
+                    <div id="operational-alerts" class="mb-3"></div>
+
+                    <!-- Ranking compacto -->
+                    <div id="operational-ranking" class="row g-2 mb-3 d-none">
+                      <div class="col-md-6">
+                        <div class="acom-ranking-card border rounded p-3 h-100">
+                          <div class="acom-ranking-title text-success mb-2"><i class="ri-trophy-line me-1"></i> Top desempenho</div>
+                          <ul class="acom-ranking-list list-unstyled mb-0" id="ranking-top"></ul>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="acom-ranking-card border rounded p-3 h-100">
+                          <div class="acom-ranking-title text-warning mb-2"><i class="ri-alert-line me-1"></i> Atenção</div>
+                          <ul class="acom-ranking-list list-unstyled mb-0" id="ranking-attention"></ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Filtros rápidos -->
+                    <div class="d-flex flex-wrap gap-2 mb-3" id="quick-filters" role="group" aria-label="Filtros rápidos">
+                      <button type="button" class="btn btn-sm btn-primary acom-quick-filter" data-filter="todos">Todos</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary acom-quick-filter" data-filter="criticos">Críticos</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary acom-quick-filter" data-filter="sem_entrega">Sem entrega</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary acom-quick-filter" data-filter="finalizados">Finalizados</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary acom-quick-filter" data-filter="em_andamento">Em andamento</button>
                     </div>
 
                     <!-- Tabela -->
@@ -152,19 +184,20 @@
                           <tr>
                             <th>Data</th>
                             <th>Motoboy</th>
+                            <th class="text-center">Status</th>
                             <th class="text-center">Pedidos</th>
                             <th class="text-center">Entregues</th>
-                            <th class="text-center">Em Rota</th>
-                            <th class="text-center">Ausente / Ocorrências</th>
+                            <th class="text-center">Em rota</th>
+                            <th class="text-center">Ausências/Ocorrências</th>
                             <th class="text-center">Rota</th>
                             <th class="text-center">Distância / Tempo</th>
-                            <th class="text-center">Última Entrega</th>
+                            <th class="text-center">Última entrega</th>
                             <th class="text-center">SLA</th>
                           </tr>
                         </thead>
                         <tbody id="tbody-acompanhamento">
                           <tr>
-                            <td colspan="10" class="text-center text-muted py-4">Selecione uma data e clique em Atualizar.</td>
+                            <td colspan="11" class="text-center text-muted py-4">Selecione uma data e clique em Atualizar.</td>
                           </tr>
                         </tbody>
                       </table>
@@ -186,6 +219,19 @@
       </div>
     </div>
 
+    <!-- Detalhe do motoboy -->
+    <div class="offcanvas offcanvas-end offcanvas-form" tabindex="-1" id="ocMotoboyDetail" aria-labelledby="ocMotoboyDetailLabel">
+      <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title" id="ocMotoboyDetailLabel">Detalhe do motoboy</h5>
+        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
+      </div>
+      <div class="offcanvas-body" id="ocMotoboyDetailBody"></div>
+      <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body">
+        <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="offcanvas">Fechar</button>
+        <button type="button" class="btn btn-primary" id="btnDetailVerFiltro">Ver no filtro</button>
+      </div>
+    </div>
+
     <div class="vertical-overlay"></div>
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
@@ -193,6 +239,7 @@
     <script>
       if (!window.TRACK_API_URL) window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
     </script>
+    <script src="assets/js/pages/acompanhamento-operational.utils.js"></script>
     <script src="assets/js/pages/tracking-acompanhamento.init.js"></script>
     <script src="assets/js/app.js"></script>
   </body>
