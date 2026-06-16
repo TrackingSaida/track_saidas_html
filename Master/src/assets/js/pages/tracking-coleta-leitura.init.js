@@ -284,14 +284,70 @@ function isCodigoShopee(codigo) {
   return /^BR(\d{13}|\d{12}[A-Z])$/.test(c);
 }
 
+const DDD_VALIDOS = new Set([
+  11, 12, 13, 14, 15, 16, 17, 18, 19,
+  21, 22, 24, 27, 28,
+  31, 32, 33, 34, 35, 37, 38,
+  41, 42, 43, 44, 45, 46, 47, 48, 49,
+  51, 53, 54, 55,
+  61, 62, 63, 64, 65, 66, 67, 68, 69,
+  71, 73, 74, 75, 77, 79,
+  81, 82, 83, 84, 85, 86, 87, 88, 89,
+  91, 92, 93, 94, 95, 96, 97, 98, 99,
+]);
+
+function normalizeShopeeCodigo(raw, allDigits) {
+  const text = toAsciiDigits(String(raw || "")).toUpperCase().trim();
+  if (isCodigoShopee(text)) return text;
+  const sh = text.match(/(?:^|[^A-Z0-9])(BR(?:\d{13}|\d{12}[A-Z]))(?=$|[^A-Z0-9])/i);
+  if (sh) return sh[1].toUpperCase();
+  const digits = String(allDigits || text.replace(/\D+/g, ""));
+  if ((digits.length === 12 || digits.length === 13) && /^\d+$/.test(digits)) {
+    const candidate = "BR" + digits;
+    if (isCodigoShopee(candidate)) return candidate;
+  }
+  return null;
+}
+
+function isAvulsoGerado(raw) {
+  return /^AVULSO(-[A-Z0-9-]+)?$/i.test(toAsciiDigits(String(raw || "")).toUpperCase().trim());
+}
+
+function isTelefoneBrasil(raw, allDigits) {
+  let digits = String(allDigits != null ? allDigits : toAsciiDigits(String(raw || "")).replace(/\D+/g, ""));
+  if (!digits) return null;
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
+    digits = digits.slice(2);
+  }
+  if (digits.length !== 10 && digits.length !== 11) return null;
+  const ddd = parseInt(digits.slice(0, 2), 10);
+  if (!DDD_VALIDOS.has(ddd)) return null;
+  if (digits.length === 11) {
+    if (digits[2] !== "9") return null;
+  } else if (digits[2] === "9") {
+    return null;
+  }
+  return digits;
+}
+
+function classifyCodigoText(codigoRaw) {
+  const raw = toAsciiDigits(String(codigoRaw || "")).toUpperCase().trim();
+  const allDigits = raw.replace(/\D+/g, "");
+  const shopee = normalizeShopeeCodigo(raw, allDigits);
+  if (shopee) return { ok: true, servico: "Shopee", codigo: shopee };
+  const mlRun = allDigits.match(/4[5-9]\d{9,}/);
+  if (mlRun) return { ok: true, servico: "Mercado Livre", codigo: mlRun[0].slice(0, 11) };
+  if (isAvulsoGerado(raw)) return { ok: true, servico: "Avulso", codigo: raw.trim().toUpperCase() };
+  const phone = isTelefoneBrasil(raw, allDigits);
+  if (phone) return { ok: true, servico: "Avulso", codigo: phone };
+  return { ok: false, motivo: "Padrão não configurado" };
+}
+
 function classifyCodigo(rawInput){
   const rawInputStr = String(rawInput || "").trim();
   const raw = toAsciiDigits(rawInputStr).toUpperCase().trim();
   const allDigits = raw.replace(/\D+/g, "");
 
-  // ===========================================================
-  // PRIORIDADE 0 — Mercado Livre JSON (id, sender_id, hash_code)
-  // ===========================================================
   try {
     if (rawInputStr.startsWith("{") && rawInputStr.trim().endsWith("}")) {
       const obj = JSON.parse(rawInputStr);
@@ -302,99 +358,41 @@ function classifyCodigo(rawInput){
     }
   } catch(_) {}
 
-  // ===========================================================
-  // PRIORIDADE 1 — QRCode JSON com external_order_id
-  // ===========================================================
   try {
     if (raw.startsWith("{") && raw.endsWith("}")) {
       const obj = JSON.parse(raw);
       if (typeof obj.external_order_id === "string") {
-        const codigo = obj.external_order_id.toUpperCase().trim();
-        const servico = isCodigoShopee(codigo) ? "Shopee" : "Avulso";
-        return { ok:true, servico, codigo };
+        return classifyCodigoText(obj.external_order_id);
       }
     }
   } catch(_) {}
 
-  // ===========================================================
-  // PRIORIDADE 2 — external_order_id fora de JSON
-  // ===========================================================
   const extMatch = raw.match(/external_order_id["']?\s*[:=]\s*["']?([\w-]+)/i);
   if (extMatch) {
-    const codigo = extMatch[1].toUpperCase();
-    const servico = isCodigoShopee(codigo) ? "Shopee" : "Avulso";
-    return { ok:true, servico, codigo };
+    return classifyCodigoText(extMatch[1]);
   }
 
-  // ===========================================================
-  // PRIORIDADE 3 — MAGALU (external_grouper_code)
-  // ===========================================================
-  const magaluMatch = raw.match(/external_grouper_code\^Ç\^(\d{10,})\^/i);
-  if (magaluMatch) {
-    return { ok:true, servico:"Avulso", codigo: magaluMatch[1] };
-  }
-
-  // ===========================================================
-  // PRIORIDADE 4 — LMxxxx é sempre Avulso
-  // ===========================================================
-  if (/^LM[\w\d-]+$/i.test(raw)) {
-    return { ok:true, servico:"Avulso", codigo: raw };
-  }
-
-  // ===========================================================
-  // 🚫 NF-e (44 dígitos)
-  // ===========================================================
   if (/^\d{44}$/.test(allDigits)) {
     return { ok:false, motivo:"NF-e (44 dígitos)" };
   }
 
-  // ===========================================================
-  // Shopee
-  // ===========================================================
-  const sh = raw.match(/(?:^|[^A-Z0-9])(BR(?:\d{13}|\d{12}[A-Z]))(?=$|[^A-Z0-9])/i);
-  if (sh) {
-    return { ok:true, servico:"Shopee", codigo: sh[1].toUpperCase() };
+  const shopee = normalizeShopeeCodigo(raw, allDigits);
+  if (shopee) {
+    return { ok:true, servico:"Shopee", codigo: shopee };
   }
 
-  // ===========================================================
-  // Mercado Livre (45–49 → 11 dígitos) — guarda raw para etiqueta
-  // ===========================================================
   const mlRun = allDigits.match(/4[5-9]\d{9,}/);
   if (mlRun) {
     return { ok:true, servico:"Mercado Livre", codigo: mlRun[0].slice(0, 11), qr_payload_raw: rawInputStr };
   }
 
-  // ===========================================================
-  // AVULSO — CEP (8 dígitos)
-  // ===========================================================
-  if (/^\d{8}$/.test(allDigits)) {
-    return { ok:true, servico:"Avulso", codigo: allDigits };
+  if (isAvulsoGerado(raw)) {
+    return { ok:true, servico:"Avulso", codigo: raw.trim().toUpperCase() };
   }
 
-  // ===========================================================
-  // AVULSO — EVAS (7 dígitos)
-  // ===========================================================
-  if (/^\d{7}$/.test(allDigits)) {
-    return { ok:true, servico:"Avulso", codigo: allDigits };
-  }
-
-  // ===========================================================
-  // AVULSO — padrões antigos
-  // ===========================================================
-  if (
-    /^CP\d{3,}/.test(raw) ||
-    /^TIME\d{6}$/i.test(raw)
-  ) {
-    return { ok:true, servico:"Avulso", codigo: raw };
-  }
-
-  // ===========================================================
-  // Avulso — telefone
-  // ===========================================================
-  const phone = raw.match(/0?(\d{2})[-\s]?(\d{4,5})[-\s]?(\d{4})/);
+  const phone = isTelefoneBrasil(raw, allDigits);
   if (phone) {
-    const cod = `${phone[1]}${phone[2]}${phone[3]}`;
-    return { ok:true, servico:"Avulso", codigo: cod };
+    return { ok:true, servico:"Avulso", codigo: phone };
   }
 
   return { ok:false, motivo:"Padrão não configurado" };
