@@ -248,7 +248,9 @@
   window.TrackAPI.getSaidaPorCodigo = async function (codigo) {
     if (!codigo) return null;
     try {
-      const res = await req("/saidas/listar?codigo=" + encodeURIComponent(codigo));
+      const res = await req(
+        "/saidas/listar?codigo=" + encodeURIComponent(codigo) + "&codigo_exato=true"
+      );
       let data = null; try { data = await res.json(); } catch {}
       if (Array.isArray(data) && data.length > 0) return data[0];
       if (Array.isArray(data?.data) && data.data.length > 0) return data.data[0];
