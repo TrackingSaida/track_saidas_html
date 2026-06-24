@@ -41,6 +41,18 @@
     });
   }
 
+  function formatPersonName(value) {
+    if (!value || !String(value).trim()) return "—";
+    return String(value).trim().split(/\s+/).map(function (w) {
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    }).join(" ");
+  }
+
+  function formatPersonNameOrDash(value) {
+    if (!value || !String(value).trim()) return "-";
+    return formatPersonName(value);
+  }
+
 // ======================================================
 // Normalização de código PARA FILTRO (sem classificar)
 // ======================================================
@@ -615,7 +627,7 @@ function augmentEntregadoresFromRows(rows){
             <td><span class="${servicoBadgeClass}">${r.servico || "-"}</span></td>
             <td><span class="${statusBadgeClass}">${r.status || "-"}</span></td>
             <td>${renderActionBadge(r.acao)}</td>
-            <td>${r.entregador || "-"}</td>
+            <td>${formatPersonNameOrDash(r.entregador)}</td>
             <td>${r.tsAcaoFmt || ""}</td>
             <td>${r.tsEntradaFmt || ""}</td>
             <td>${r.executado_por || "—"}</td>
@@ -985,9 +997,25 @@ function setupPagerEvents() {
       var d = saida.detail || {};
       var statusClass = getStatusClass(saida.status);
       var statusText = formatStatusForDisplay(saida.status);
-      var entregador = saida.entregador || "—";
+      var statusLower = (saida.status || "").toLowerCase();
+      var isAusente = statusLower === "ausente";
+      var entregador = formatPersonName(saida.entregador);
       var entregueEv = historico.filter(function(h) { return (h.evento || "").toLowerCase() === "entregue" || (h.status_novo || "").toLowerCase() === "entregue"; }).pop();
-      var dataEntrega = entregueEv && entregueEv.timestamp ? fmtDt(entregueEv.timestamp) : (saida.data_hora_entrega ? fmtDt(saida.data_hora_entrega) : "—");
+      var ausenteEv = historico.filter(function(h) {
+        var ev = (h.evento || "").toLowerCase();
+        return ev === "ausente" || ev === "ausente_lote";
+      }).pop();
+      var dataLabel = isAusente ? "Data da ocorrência" : "Data Entrega";
+      var dataEntrega = isAusente
+        ? (ausenteEv && ausenteEv.timestamp ? fmtDt(ausenteEv.timestamp) : (saida.data_hora_entrega ? fmtDt(saida.data_hora_entrega) : "—"))
+        : (entregueEv && entregueEv.timestamp ? fmtDt(entregueEv.timestamp) : (saida.data_hora_entrega ? fmtDt(saida.data_hora_entrega) : "—"));
+      var motivoAusencia = (d.motivo_ocorrencia && d.motivo_ocorrencia.trim()) ? d.motivo_ocorrencia.trim() : "";
+      var obsAusencia = (d.observacao_ocorrencia && d.observacao_ocorrencia.trim()) ? d.observacao_ocorrencia.trim() : "";
+      var ocorrenciaHtml = isAusente
+        ? '<h6 class="mt-3 mb-2">Ocorrência</h6>' +
+          '<p><strong>Motivo:</strong> ' + (motivoAusencia || "—") + '</p>' +
+          (obsAusencia ? '<p><strong>Observação:</strong> ' + obsAusencia + '</p>' : '')
+        : "";
       var tipoRecebedor = (d.tipo_recebedor && d.tipo_recebedor.trim()) ? d.tipo_recebedor : "—";
       var recebedor = (d.nome_recebedor && d.nome_recebedor.trim()) ? d.nome_recebedor : "—";
       var endParts = [d.dest_rua, d.dest_numero, d.dest_complemento, d.dest_bairro, d.dest_cidade, d.dest_estado, d.dest_cep].filter(Boolean);
@@ -1039,11 +1067,12 @@ function setupPagerEvents() {
             '<div class="pedido-card">' +
               '<h5>Informações da Entrega</h5>' +
               '<p><strong>Entregador:</strong> ' + entregador + '</p>' +
-              '<p><strong>Data Entrega:</strong> ' + dataEntrega + '</p>' +
+              '<p><strong>' + dataLabel + ':</strong> ' + dataEntrega + '</p>' +
               '<p><strong>Tipo do recebedor:</strong> ' + tipoRecebedor + '</p>' +
               '<p><strong>Recebedor:</strong> ' + recebedor + '</p>' +
               '<p><strong>Destino:</strong> ' + enderecoCompleto + '</p>' +
               (destContato ? '<p><strong>Contato destino:</strong> ' + destContato + '</p>' : '') +
+              ocorrenciaHtml +
             '</div>' +
             photoCardHtml +
             '<div class="pedido-card historico-card">' +
