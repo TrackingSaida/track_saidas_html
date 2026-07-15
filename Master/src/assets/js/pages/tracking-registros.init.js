@@ -801,6 +801,12 @@ function setupPagerEvents() {
     });
   }
 
+  function bustListCache() {
+    if (window.TrackAPI && typeof TrackAPI.invalidateListSaidasCache === "function") {
+      TrackAPI.invalidateListSaidasCache();
+    }
+  }
+
   // =====================================================================
   // refresh() — busca e atualiza tabela
   // =====================================================================
@@ -1487,6 +1493,7 @@ function setupPagerEvents() {
           return TrackAPI.updateSaida(id, payload)
         .then(r => {
           if (r.status === 200){
+            bustListCache();
             refresh(true);
             modal?.hide();
             notify("Atualizado com sucesso.", "success");
@@ -1721,6 +1728,7 @@ function setupPagerEvents() {
 
         bulkModal?.hide();
         notify(`Lote concluído: ${ok} ok, ${fail} falha(s).`, fail ? "warning" : "success");
+        bustListCache();
         refresh(false);
         updateEditButtonState();
       }).finally(function(){
