@@ -247,8 +247,14 @@ function parseCodigoFromBusca(rawInput){
   };
   var loadingState = {
     active: false,
-    refreshSeq: 0
+    refreshSeq: 0,
+    combosReady: false
   };
+
+  function syncEntregadorDisabled() {
+    if (!f.entregador) return;
+    f.entregador.disabled = !!loadingState.active || !loadingState.combosReady;
+  }
 
   // ================== Carregar lista de entregadores ==================
 function loadCombosBase(){
@@ -747,6 +753,11 @@ function setupPagerEvents() {
   // =====================================================================
   function ensureUserForG() {
     if (window.__USER__ != null) return Promise.resolve();
+    if (typeof window.ensureAuthUser === "function") {
+      return window.ensureAuthUser().then(function(user) {
+        if (user) window.__USER__ = user;
+      });
+    }
     var api = (window.TRACK_API_URL || "").replace(/\/+$/, "");
     if (!api.endsWith("/api")) api += "/api";
     return fetch(api + "/auth/me", { credentials: "include", headers: { Accept: "application/json" } })
@@ -768,7 +779,7 @@ function setupPagerEvents() {
     if (periodBtnReg) periodBtnReg.disabled = !!show;
     if (f.localizar) f.localizar.disabled = !!show;
     if (fltBase) fltBase.disabled = !!show;
-    if (f.entregador) f.entregador.disabled = !!show;
+    syncEntregadorDisabled();
     if (f.somenteG) f.somenteG.disabled = !!show;
     (f.servicoToggles || []).forEach(function(el){ el.disabled = !!show; });
     (f.statusToggles || []).forEach(function(el){ el.disabled = !!show; });
@@ -1879,6 +1890,16 @@ function setupPagerEvents() {
   // =====================================================================
   // INIT
   // =====================================================================
+  // Combos não bloqueiam a primeira listagem (Etapa 5A).
+  syncEntregadorDisabled();
+  limparFiltrosSelecao();
+  if (f.pageSize) f.pageSize.value = String(state.pageSize);
+  refresh(false);
+  updateEditButtonState();
+  if (typeof atualizarContadorFiltros === "function") atualizarContadorFiltros();
+  setupModoSelecao();
+  if (typeof window.applyOwnerLabels === "function") window.applyOwnerLabels();
+
   Promise.all([loadCombosBase(), loadMotoboys()])
     .then(function(results) {
       var nomesEntregadores = results[0] || [];
@@ -1889,14 +1910,9 @@ function setupPagerEvents() {
       augmentEntregadoresFromRows._base = unicos;
       fillEntregadores(unicos);
     })
-    .finally(() => {
-      limparFiltrosSelecao();
-      if (f.pageSize) f.pageSize.value = String(state.pageSize);
-      refresh(false);
-      updateEditButtonState();
-      if (typeof atualizarContadorFiltros === "function") atualizarContadorFiltros();
-      setupModoSelecao();
-      if (typeof window.applyOwnerLabels === "function") window.applyOwnerLabels();
+    .finally(function() {
+      loadingState.combosReady = true;
+      syncEntregadorDisabled();
     });
 
 })();  // fim do IIFE
