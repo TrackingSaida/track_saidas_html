@@ -115,94 +115,123 @@
   })();
 
   // ==========================================================
-  // LOAD LOGGED USER (/auth/me)
+  // LOAD LOGGED USER (/auth/me) — promessa compartilhada (Etapa 5B)
   // ==========================================================
-  async function carregarUsuarioLogado() {
-    try {
-      const resp = await fetch(`${API_ORIGIN}/api/auth/me`, {
-        credentials: "include",
-        headers: { Accept: "application/json" },
-      });
+  let authUserPromise = null;
 
-      if (resp.status === 401) {
-        redirectToLogin("session_expired");
-        return;
-      }
+  function applyUsuarioLogado(user) {
+    if (!user) return null;
+    window.__USER__ = user;
 
-      if (resp.status === 403) {
-        redirectToLogin("owner_blocked");
-        return;
-      }
-
-      if (!resp.ok) return;
-
-      const user = await resp.json();
-      window.__USER__ = user;
-
-      // ----------------------------
-      // Troca de senha obrigatória: bloquear acesso às demais páginas até trocar
-      // ----------------------------
-      if (user && user.must_change_password === true && !isOnProfileSettingsPage()) {
-        window.location.replace(
-          window.location.pathname.replace(/[^/]+$/, "profile-settings-tracking.html") +
-            "?force_password_change=1"
-        );
-        return;
-      }
-
-      // ----------------------------
-      // IGNORAR_COLETA, MODO_OPERACAO e TIPO_OWNER (vem do JWT)
-      // ----------------------------
-      window.IGNORAR_COLETA = !!user?.ignorar_coleta;
-      window.MODO_OPERACAO = user?.modo_operacao || "codigo";
-      window.TIPO_OWNER = (user?.tipo_owner || "subbase").toLowerCase();
-      try {
-        localStorage.setItem(
-          "ignorar_coleta",
-          window.IGNORAR_COLETA ? "1" : "0"
-        );
-      } catch (_) {}
-
-      // ----------------------------
-      // UI
-      // ----------------------------
-      const nome =
-        (user.username || "").trim() ||
-        (user.email || "").trim() ||
-        "Usuário";
-
-      document
-        .querySelectorAll(".user-name-text, .sidebar-user-name-text")
-        .forEach((el) => (el.textContent = nome));
-
-      const ddHeader = document.querySelector(
-        ".dropdown-menu .dropdown-header"
+    // Troca de senha obrigatória: bloquear acesso às demais páginas até trocar
+    if (user.must_change_password === true && !isOnProfileSettingsPage()) {
+      window.location.replace(
+        window.location.pathname.replace(/[^/]+$/, "profile-settings-tracking.html") +
+          "?force_password_change=1"
       );
-      if (ddHeader) ddHeader.textContent = `Bem-vindo(a) ${nome}!`;
-
-      if (typeof window.applyOwnerLabels === "function") {
-        window.applyOwnerLabels();
-      }
-    } catch (e) {
-      // Não logar falhas de rede/API indisponível para reduzir ruído no console
-      const isNetworkError =
-        e?.name === "TypeError" &&
-        (e?.message?.includes("fetch") || e?.message?.includes("Failed to fetch") || e?.message?.includes("NetworkError"));
-      if (!isNetworkError) {
-        console.error("[auth] erro ao carregar usuário:", e);
-      }
+      return user;
     }
+
+    window.IGNORAR_COLETA = !!user?.ignorar_coleta;
+    window.MODO_OPERACAO = user?.modo_operacao || "codigo";
+    window.TIPO_OWNER = (user?.tipo_owner || "subbase").toLowerCase();
+    try {
+      localStorage.setItem(
+        "ignorar_coleta",
+        window.IGNORAR_COLETA ? "1" : "0"
+      );
+    } catch (_) {}
+
+    const nome =
+      (user.username || "").trim() ||
+      (user.email || "").trim() ||
+      "Usuário";
+
+    document
+      .querySelectorAll(".user-name-text, .sidebar-user-name-text")
+      .forEach((el) => (el.textContent = nome));
+
+    const ddHeader = document.querySelector(
+      ".dropdown-menu .dropdown-header"
+    );
+    if (ddHeader) ddHeader.textContent = `Bem-vindo(a) ${nome}!`;
+
+    if (typeof window.applyOwnerLabels === "function") {
+      window.applyOwnerLabels();
+    }
+    return user;
   }
+
+  /**
+   * Deduplica /auth/me entre user.js e páginas (ex.: Registros).
+   * force=true ignora cache em memória (ex.: focus da janela).
+   */
+  async function ensureAuthUser(options) {
+    const force = !!(options && options.force);
+    if (!force && window.__USER__) {
+      return window.__USER__;
+    }
+    if (!force && authUserPromise) {
+      return authUserPromise;
+    }
+
+    const pending = (async () => {
+      try {
+        const resp = await fetch(`${API_ORIGIN}/api/auth/me`, {
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        });
+
+        if (resp.status === 401) {
+          redirectToLogin("session_expired");
+          return null;
+        }
+
+        if (resp.status === 403) {
+          redirectToLogin("owner_blocked");
+          return null;
+        }
+
+        if (!resp.ok) return null;
+
+        const user = await resp.json();
+        return applyUsuarioLogado(user);
+      } catch (e) {
+        const isNetworkError =
+          e?.name === "TypeError" &&
+          (e?.message?.includes("fetch") ||
+            e?.message?.includes("Failed to fetch") ||
+            e?.message?.includes("NetworkError"));
+        if (!isNetworkError) {
+          console.error("[auth] erro ao carregar usuário:", e);
+        }
+        return null;
+      } finally {
+        if (authUserPromise === pending) {
+          authUserPromise = null;
+        }
+      }
+    })();
+
+    authUserPromise = pending;
+    return pending;
+  }
+
+  async function carregarUsuarioLogado(force) {
+    return ensureAuthUser({ force: !!force });
+  }
+
+  window.ensureAuthUser = ensureAuthUser;
 
   // ==========================================================
   // BOOT
   // ==========================================================
   document.addEventListener("DOMContentLoaded", () => {
-    if (!isOnLoginPage()) carregarUsuarioLogado();
+    if (!isOnLoginPage()) carregarUsuarioLogado(false);
   });
 
   window.addEventListener("focus", () => {
-    if (!isOnLoginPage()) carregarUsuarioLogado();
+    if (!isOnLoginPage()) carregarUsuarioLogado(true);
   });
 
 })();

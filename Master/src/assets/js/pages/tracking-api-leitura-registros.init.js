@@ -19,7 +19,21 @@
 
   // ============================================================
   // LISTAR SAÍDAS (limit + offset, compatível com backend novo)
+  // Cache em memória da aba: TTL curto, chave por filtros+página.
   // ============================================================
+  var LISTAR_CACHE_TTL_MS = 45000;
+  var listarCache = new Map();
+  var listarInflight = new Map();
+
+  function listarCacheKey(q) {
+    return q.toString();
+  }
+
+  window.TrackAPI.invalidateListSaidasCache = function () {
+    listarCache.clear();
+    listarInflight.clear();
+  };
+
   window.TrackAPI.listSaidas = async function (params) {
     const limit  = Number(params?.limit  || params?.pageSize || 200);
     const offset = Number(params?.offset || 0);
@@ -53,59 +67,80 @@
     q.set("limit",  String(limit));
     q.set("offset", String(offset));
 
-    try {
-      const res = await req("/saidas/listar?" + q);
-      const ok  = res.ok;
+    const cacheKey = listarCacheKey(q);
+    const bypassCache = !!(params?.codigo || params?.localizar || params?.forceRefresh);
 
-      // total vindo do backend (header)
-      let total = null;
-      const hTotal = res.headers.get("X-Total-Count") || res.headers.get("x-total-count");
-      if (hTotal != null) total = Number(hTotal);
-
-      let data = null;
-      try { data = await res.json(); } catch {}
-
-      let rows = [];
-      if (Array.isArray(data)) rows = data;
-      else if (Array.isArray(data?.items)) { rows = data.items; if (typeof data.total === 'number') total = data.total; }
-      else if (Array.isArray(data?.rows))  { rows = data.rows;  if (typeof data.total === 'number') total = data.total; }
-      else if (Array.isArray(data?.data))  { rows = data.data;  if (typeof data.total === 'number') total = data.total; }
-
-      // fallback caso backend não envie total
-      if (total == null) total = offset + rows.length;
-
-      const hasMore = rows.length === limit;
-
-      // Extrair somas/aggregados com tolerância a diferentes nomes de campo
-      const sumCandidates = (d, keys) => {
-        for (const k of keys) {
-          if (d && typeof d[k] !== 'undefined') return d[k];
-        }
-        return undefined;
-      };
-
-      const sumShopee = sumCandidates(data, ['sumShopee', 'sum_shopee', 'shopee']) ?? data?.sums?.shopee ?? data?.meta?.sumShopee;
-      const sumMercado = sumCandidates(data, ['sumMercado', 'sum_mercado', 'mercado']) ?? data?.sums?.mercado ?? data?.meta?.sumMercado;
-      const sumAvulso = sumCandidates(data, ['sumAvulso', 'sum_avulso', 'avulso']) ?? data?.sums?.avulso ?? data?.meta?.sumAvulso;
-
-      return {
-        ok,
-        status: res.status,
-        rows,
-        total,
-        limit,
-        offset,
-        hasMore,
-        // apenas repassa valores se backend enviar; se undefined, o front pode computar ou exibir fallback
-        sumShopee: typeof sumShopee === 'number' ? sumShopee : undefined,
-        sumMercado: typeof sumMercado === 'number' ? sumMercado : undefined,
-        sumAvulso: typeof sumAvulso === 'number' ? sumAvulso : undefined
-      };
-
-
-    } catch (err) {
-      return { ok: false, status: 0, error: String(err?.message || err) };
+    if (!bypassCache) {
+      const hit = listarCache.get(cacheKey);
+      if (hit && (Date.now() - hit.ts) < LISTAR_CACHE_TTL_MS) {
+        return Object.assign({}, hit.data, { fromCache: true });
+      }
+      if (listarInflight.has(cacheKey)) {
+        return listarInflight.get(cacheKey);
+      }
     }
+
+    const fetchPromise = (async function () {
+      try {
+        const res = await req("/saidas/listar?" + q);
+        const ok  = res.ok;
+
+        let total = null;
+        const hTotal = res.headers.get("X-Total-Count") || res.headers.get("x-total-count");
+        if (hTotal != null) total = Number(hTotal);
+
+        let data = null;
+        try { data = await res.json(); } catch {}
+
+        let rows = [];
+        if (Array.isArray(data)) rows = data;
+        else if (Array.isArray(data?.items)) { rows = data.items; if (typeof data.total === 'number') total = data.total; }
+        else if (Array.isArray(data?.rows))  { rows = data.rows;  if (typeof data.total === 'number') total = data.total; }
+        else if (Array.isArray(data?.data))  { rows = data.data;  if (typeof data.total === 'number') total = data.total; }
+
+        if (total == null) total = offset + rows.length;
+
+        const hasMore = rows.length === limit;
+
+        const sumCandidates = (d, keys) => {
+          for (const k of keys) {
+            if (d && typeof d[k] !== 'undefined') return d[k];
+          }
+          return undefined;
+        };
+
+        const sumShopee = sumCandidates(data, ['sumShopee', 'sum_shopee', 'shopee']) ?? data?.sums?.shopee ?? data?.meta?.sumShopee;
+        const sumMercado = sumCandidates(data, ['sumMercado', 'sum_mercado', 'mercado']) ?? data?.sums?.mercado ?? data?.meta?.sumMercado;
+        const sumAvulso = sumCandidates(data, ['sumAvulso', 'sum_avulso', 'avulso']) ?? data?.sums?.avulso ?? data?.meta?.sumAvulso;
+
+        const result = {
+          ok,
+          status: res.status,
+          rows,
+          total,
+          limit,
+          offset,
+          hasMore,
+          sumShopee: typeof sumShopee === 'number' ? sumShopee : undefined,
+          sumMercado: typeof sumMercado === 'number' ? sumMercado : undefined,
+          sumAvulso: typeof sumAvulso === 'number' ? sumAvulso : undefined
+        };
+
+        if (ok && !bypassCache) {
+          listarCache.set(cacheKey, { ts: Date.now(), data: result });
+        }
+        return result;
+      } catch (err) {
+        return { ok: false, status: 0, error: String(err?.message || err) };
+      } finally {
+        listarInflight.delete(cacheKey);
+      }
+    })();
+
+    if (!bypassCache) {
+      listarInflight.set(cacheKey, fetchPromise);
+    }
+    return fetchPromise;
   };
 
   // Timeout para POST /saidas/ler: não adiciona delay em respostas normais; só aborta se travar (rede/servidor).

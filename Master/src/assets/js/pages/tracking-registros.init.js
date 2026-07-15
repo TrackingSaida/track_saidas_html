@@ -41,6 +41,18 @@
     });
   }
 
+  function formatPersonName(value) {
+    if (!value || !String(value).trim()) return "—";
+    return String(value).trim().split(/\s+/).map(function (w) {
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    }).join(" ");
+  }
+
+  function formatPersonNameOrDash(value) {
+    if (!value || !String(value).trim()) return "-";
+    return formatPersonName(value);
+  }
+
 // ======================================================
 // Normalização de código PARA FILTRO (sem classificar)
 // ======================================================
@@ -235,8 +247,14 @@ function parseCodigoFromBusca(rawInput){
   };
   var loadingState = {
     active: false,
-    refreshSeq: 0
+    refreshSeq: 0,
+    combosReady: false
   };
+
+  function syncEntregadorDisabled() {
+    if (!f.entregador) return;
+    f.entregador.disabled = !!loadingState.active || !loadingState.combosReady;
+  }
 
   // ================== Carregar lista de entregadores ==================
 function loadCombosBase(){
@@ -615,7 +633,7 @@ function augmentEntregadoresFromRows(rows){
             <td><span class="${servicoBadgeClass}">${r.servico || "-"}</span></td>
             <td><span class="${statusBadgeClass}">${r.status || "-"}</span></td>
             <td>${renderActionBadge(r.acao)}</td>
-            <td>${r.entregador || "-"}</td>
+            <td>${formatPersonNameOrDash(r.entregador)}</td>
             <td>${r.tsAcaoFmt || ""}</td>
             <td>${r.tsEntradaFmt || ""}</td>
             <td>${r.executado_por || "—"}</td>
@@ -735,6 +753,11 @@ function setupPagerEvents() {
   // =====================================================================
   function ensureUserForG() {
     if (window.__USER__ != null) return Promise.resolve();
+    if (typeof window.ensureAuthUser === "function") {
+      return window.ensureAuthUser().then(function(user) {
+        if (user) window.__USER__ = user;
+      });
+    }
     var api = (window.TRACK_API_URL || "").replace(/\/+$/, "");
     if (!api.endsWith("/api")) api += "/api";
     return fetch(api + "/auth/me", { credentials: "include", headers: { Accept: "application/json" } })
@@ -756,7 +779,7 @@ function setupPagerEvents() {
     if (periodBtnReg) periodBtnReg.disabled = !!show;
     if (f.localizar) f.localizar.disabled = !!show;
     if (fltBase) fltBase.disabled = !!show;
-    if (f.entregador) f.entregador.disabled = !!show;
+    syncEntregadorDisabled();
     if (f.somenteG) f.somenteG.disabled = !!show;
     (f.servicoToggles || []).forEach(function(el){ el.disabled = !!show; });
     (f.statusToggles || []).forEach(function(el){ el.disabled = !!show; });
@@ -776,6 +799,12 @@ function setupPagerEvents() {
         delete btn.dataset.prevDisabled;
       }
     });
+  }
+
+  function bustListCache() {
+    if (window.TrackAPI && typeof TrackAPI.invalidateListSaidasCache === "function") {
+      TrackAPI.invalidateListSaidasCache();
+    }
   }
 
   // =====================================================================
@@ -985,9 +1014,25 @@ function setupPagerEvents() {
       var d = saida.detail || {};
       var statusClass = getStatusClass(saida.status);
       var statusText = formatStatusForDisplay(saida.status);
-      var entregador = saida.entregador || "—";
+      var statusLower = (saida.status || "").toLowerCase();
+      var isAusente = statusLower === "ausente";
+      var entregador = formatPersonName(saida.entregador);
       var entregueEv = historico.filter(function(h) { return (h.evento || "").toLowerCase() === "entregue" || (h.status_novo || "").toLowerCase() === "entregue"; }).pop();
-      var dataEntrega = entregueEv && entregueEv.timestamp ? fmtDt(entregueEv.timestamp) : (saida.data_hora_entrega ? fmtDt(saida.data_hora_entrega) : "—");
+      var ausenteEv = historico.filter(function(h) {
+        var ev = (h.evento || "").toLowerCase();
+        return ev === "ausente" || ev === "ausente_lote";
+      }).pop();
+      var dataLabel = isAusente ? "Data da ocorrência" : "Data Entrega";
+      var dataEntrega = isAusente
+        ? (ausenteEv && ausenteEv.timestamp ? fmtDt(ausenteEv.timestamp) : (saida.data_hora_entrega ? fmtDt(saida.data_hora_entrega) : "—"))
+        : (entregueEv && entregueEv.timestamp ? fmtDt(entregueEv.timestamp) : (saida.data_hora_entrega ? fmtDt(saida.data_hora_entrega) : "—"));
+      var motivoAusencia = (d.motivo_ocorrencia && d.motivo_ocorrencia.trim()) ? d.motivo_ocorrencia.trim() : "";
+      var obsAusencia = (d.observacao_ocorrencia && d.observacao_ocorrencia.trim()) ? d.observacao_ocorrencia.trim() : "";
+      var ocorrenciaHtml = isAusente
+        ? '<h6 class="mt-3 mb-2">Ocorrência</h6>' +
+          '<p><strong>Motivo:</strong> ' + (motivoAusencia || "—") + '</p>' +
+          (obsAusencia ? '<p><strong>Observação:</strong> ' + obsAusencia + '</p>' : '')
+        : "";
       var tipoRecebedor = (d.tipo_recebedor && d.tipo_recebedor.trim()) ? d.tipo_recebedor : "—";
       var recebedor = (d.nome_recebedor && d.nome_recebedor.trim()) ? d.nome_recebedor : "—";
       var endParts = [d.dest_rua, d.dest_numero, d.dest_complemento, d.dest_bairro, d.dest_cidade, d.dest_estado, d.dest_cep].filter(Boolean);
@@ -1039,11 +1084,12 @@ function setupPagerEvents() {
             '<div class="pedido-card">' +
               '<h5>Informações da Entrega</h5>' +
               '<p><strong>Entregador:</strong> ' + entregador + '</p>' +
-              '<p><strong>Data Entrega:</strong> ' + dataEntrega + '</p>' +
+              '<p><strong>' + dataLabel + ':</strong> ' + dataEntrega + '</p>' +
               '<p><strong>Tipo do recebedor:</strong> ' + tipoRecebedor + '</p>' +
               '<p><strong>Recebedor:</strong> ' + recebedor + '</p>' +
               '<p><strong>Destino:</strong> ' + enderecoCompleto + '</p>' +
               (destContato ? '<p><strong>Contato destino:</strong> ' + destContato + '</p>' : '') +
+              ocorrenciaHtml +
             '</div>' +
             photoCardHtml +
             '<div class="pedido-card historico-card">' +
@@ -1447,6 +1493,7 @@ function setupPagerEvents() {
           return TrackAPI.updateSaida(id, payload)
         .then(r => {
           if (r.status === 200){
+            bustListCache();
             refresh(true);
             modal?.hide();
             notify("Atualizado com sucesso.", "success");
@@ -1681,6 +1728,7 @@ function setupPagerEvents() {
 
         bulkModal?.hide();
         notify(`Lote concluído: ${ok} ok, ${fail} falha(s).`, fail ? "warning" : "success");
+        bustListCache();
         refresh(false);
         updateEditButtonState();
       }).finally(function(){
@@ -1850,6 +1898,16 @@ function setupPagerEvents() {
   // =====================================================================
   // INIT
   // =====================================================================
+  // Combos não bloqueiam a primeira listagem (Etapa 5A).
+  syncEntregadorDisabled();
+  limparFiltrosSelecao();
+  if (f.pageSize) f.pageSize.value = String(state.pageSize);
+  refresh(false);
+  updateEditButtonState();
+  if (typeof atualizarContadorFiltros === "function") atualizarContadorFiltros();
+  setupModoSelecao();
+  if (typeof window.applyOwnerLabels === "function") window.applyOwnerLabels();
+
   Promise.all([loadCombosBase(), loadMotoboys()])
     .then(function(results) {
       var nomesEntregadores = results[0] || [];
@@ -1860,14 +1918,9 @@ function setupPagerEvents() {
       augmentEntregadoresFromRows._base = unicos;
       fillEntregadores(unicos);
     })
-    .finally(() => {
-      limparFiltrosSelecao();
-      if (f.pageSize) f.pageSize.value = String(state.pageSize);
-      refresh(false);
-      updateEditButtonState();
-      if (typeof atualizarContadorFiltros === "function") atualizarContadorFiltros();
-      setupModoSelecao();
-      if (typeof window.applyOwnerLabels === "function") window.applyOwnerLabels();
+    .finally(function() {
+      loadingState.combosReady = true;
+      syncEntregadorDisabled();
     });
 
 })();  // fim do IIFE
