@@ -120,6 +120,12 @@ function parseCodigoFromBusca(rawInput){
   // Códigos avulsos costumam ser alfanuméricos sem espaços.
   if (/^[A-Z0-9][A-Z0-9-]{7,}$/.test(codigo) && /\d/.test(codigo)) return codigo;
 
+  // Fallback para QR/câmera: token único longo o bastante para ser código operacional.
+  // Sem isso, a busca cai em localizar+ILIKE no D-15 (muito lento no celular).
+  if (/^[A-Z0-9][A-Z0-9._-]{5,}$/.test(codigo) && (/\d/.test(codigo) || codigo.length >= 10)) {
+    return codigo;
+  }
+
   return null;
 }
 
@@ -243,7 +249,9 @@ function parseCodigoFromBusca(rawInput){
     pageSize: 50,
     total: 0,
     rows: [],
-    hasMore: false
+    hasMore: false,
+    // Após scan pela câmera: força GET codigo_exato sem D-15 (evita ILIKE lento).
+    forceCodigoExato: null
   };
   var loadingState = {
     active: false,
@@ -394,7 +402,8 @@ function augmentEntregadoresFromRows(rows){
   const de  = (from && from.trim()) ? from.trim() : "";
   const ate = (to && to.trim()) ? to.trim() : (de ? de : "");
 
-  const codigoBusca = parseCodigoFromBusca(localizar);
+  const codigoBusca = parseCodigoFromBusca(localizar)
+    || (state.forceCodigoExato ? String(state.forceCodigoExato).toUpperCase().trim() : null);
 
   const params = {
     de,
@@ -424,6 +433,9 @@ function augmentEntregadoresFromRows(rows){
     delete params.de;
     delete params.ate;
   }
+
+  // Consome flag de scan (só vale para a próxima leitura de filtros).
+  state.forceCodigoExato = null;
 
   // APENAS REMOVE SE REALMENTE ESTIVER VAZIO
   Object.keys(params).forEach(k => {
@@ -1210,6 +1222,7 @@ function setupPagerEvents() {
             }
 
             state.page = 1;
+            state.forceCodigoExato = normalizeCodigoForFilter(raw) || String(raw || "").trim();
             stopScanner();
             setTimeout(() => refresh(true), 150);
           });
@@ -1242,6 +1255,7 @@ function setupPagerEvents() {
         }
 
         state.page = 1;
+        state.forceCodigoExato = normalizeCodigoForFilter(raw) || String(raw || "").trim();
         stopScanner();
         setTimeout(() => refresh(true), 150);
 
