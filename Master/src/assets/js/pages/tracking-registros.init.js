@@ -1111,9 +1111,24 @@ function setupPagerEvents() {
       var cd = res.headers.get("Content-Disposition") || "";
       var match = /filename=\"?([^\";]+)\"?/i.exec(cd);
       if (match && match[1]) filename = match[1];
+      var codigo = (res.headers.get("X-Comprovante-Codigo") || "").trim();
+      var statusLabel = (res.headers.get("X-Comprovante-Status") || "").trim();
+      var dataHora = (res.headers.get("X-Comprovante-Data") || "").trim();
+      var recebedor = (res.headers.get("X-Comprovante-Recebedor") || "").trim();
+      var captionParts = [
+        statusLabel ? ("Comprovante — " + statusLabel) : "Comprovante de entrega",
+        codigo ? ("Código: " + codigo) : null,
+        dataHora ? ("Data/hora: " + dataHora) : null,
+        recebedor ? ("Recebido por: " + recebedor) : null
+      ].filter(Boolean);
+      var caption = captionParts.join("\n");
       var file = new File([blob], filename, { type: blob.type || "image/jpeg" });
       if (navigator.share && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: "Comprovante de entrega" });
+        await navigator.share({
+          files: [file],
+          title: statusLabel ? ("Comprovante — " + statusLabel) : "Comprovante de entrega",
+          text: caption
+        });
         return;
       }
       var objectUrl = URL.createObjectURL(blob);
