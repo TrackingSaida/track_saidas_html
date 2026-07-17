@@ -1115,11 +1115,14 @@ function setupPagerEvents() {
       var statusLabel = (res.headers.get("X-Comprovante-Status") || "").trim();
       var dataHora = (res.headers.get("X-Comprovante-Data") || "").trim();
       var recebedor = (res.headers.get("X-Comprovante-Recebedor") || "").trim();
+      var entregador = (res.headers.get("X-Comprovante-Entregador") || "").trim();
+      var labelEntregador = (String(statusLabel || "").toLowerCase() === "entregue") ? "Entregue por" : "Motoboy";
       var captionParts = [
         statusLabel ? ("Comprovante — " + statusLabel) : "Comprovante de entrega",
         codigo ? ("Código: " + codigo) : null,
         dataHora ? ("Data/hora: " + dataHora) : null,
-        recebedor ? ("Recebido por: " + recebedor) : null
+        recebedor ? ("Recebido por: " + recebedor) : null,
+        entregador ? (labelEntregador + ": " + entregador) : null
       ].filter(Boolean);
       var caption = captionParts.join("\n");
       var file = new File([blob], filename, { type: blob.type || "image/jpeg" });
