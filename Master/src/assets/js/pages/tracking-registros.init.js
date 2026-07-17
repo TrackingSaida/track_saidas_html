@@ -559,6 +559,88 @@ function augmentEntregadoresFromRows(rows){
       .replace(/'/g, "&#39;");
   }
 
+  function parseApiDetailMessage(payload, fallback) {
+    var detail = payload && payload.detail != null ? payload.detail : null;
+    if (typeof detail === "string" && detail.trim()) return detail.trim();
+    if (detail && typeof detail === "object" && typeof detail.message === "string") return detail.message.trim();
+    if (typeof payload === "string" && payload.trim()) return payload.trim();
+    return fallback || "Erro na operação.";
+  }
+
+  var EVENTO_HISTORICO_LABELS = {
+    scan: "Pedido adicionado",
+    lido: "Pedido adicionado",
+    leitura: "Pedido adicionado",
+    lancar_avulso: "Pedido adicionado",
+    em_rota: "Saiu para entrega",
+    saiu: "Saiu para entrega",
+    entregue: "Entrega realizada",
+    entregue_lote: "Entrega realizada",
+    ausente: "Destinatário ausente",
+    ausente_lote: "Destinatário ausente",
+    cancelado: "Pedido cancelado",
+    nova_tentativa: "Nova tentativa liberada",
+    liberacao_ausencias: "Nova tentativa liberada pela operação",
+    coleta: "Pacote coletado",
+    criado_coleta: "Pacote coletado",
+    reatribuido: "Entregador reatribuído",
+    reatribuicao: "Entregador reatribuído",
+    assumir: "Entregador reatribuído",
+    assumido: "Entregador reatribuído",
+    reatribuido_em_rota: "Entregador reatribuído em rota",
+    nova_saida_mesmo_entregador: "Nova saída confirmada",
+    desatribuido: "Pacote desatribuído",
+    removido_sem_inicio: "Removido antes de iniciar rota",
+    endereco_atualizado: "Endereço atualizado",
+    rota_criada: "Inserido na rota",
+    rota_recalculada: "Rota recalculada"
+  };
+
+  function normalizeEventoKey(evento) {
+    var raw = String(evento || "").trim().toLowerCase().replace(/\s+/g, "_");
+    if (!raw) return "unknown";
+    if (Object.prototype.hasOwnProperty.call(EVENTO_HISTORICO_LABELS, raw)) return raw;
+    if (raw.indexOf("entregue") !== -1) return "entregue";
+    if (raw.indexOf("ausente") !== -1) return "ausente";
+    if (raw.indexOf("cancel") !== -1) return "cancelado";
+    if (raw.indexOf("endereco") !== -1) return "endereco_atualizado";
+    if (raw.indexOf("recalcul") !== -1) return "rota_recalculada";
+    if (raw.indexOf("rota_criada") !== -1 || raw === "rota_criada") return "rota_criada";
+    if (raw.indexOf("rota") !== -1 || raw === "saiu") return raw === "saiu" ? "saiu" : "em_rota";
+    if (raw.indexOf("scan") !== -1 || raw.indexOf("escane") !== -1) return "scan";
+    if (raw.indexOf("lido") !== -1 || raw.indexOf("leitura") !== -1) return "lido";
+    if (raw.indexOf("coleta") !== -1) return "coleta";
+    if (raw.indexOf("reatrib") !== -1) return "reatribuido";
+    return "unknown";
+  }
+
+  function labelEventoHistorico(evento, acaoLabel) {
+    var key = normalizeEventoKey(evento);
+    var mapped = EVENTO_HISTORICO_LABELS[key];
+    if (mapped) return mapped;
+    var fallback = String(acaoLabel || "").trim();
+    if (fallback) return fallback;
+    return "Movimentação registrada";
+  }
+
+  function isEventoEntrega(evento) {
+    var key = normalizeEventoKey(evento);
+    return key === "entregue" || key === "entregue_lote";
+  }
+
+  function isEventoAusencia(evento) {
+    var key = normalizeEventoKey(evento);
+    return key === "ausente" || key === "ausente_lote";
+  }
+
+  function findLastHistoricoIndexByKeys(historico, matcher) {
+    var last = -1;
+    (historico || []).forEach(function(item, index) {
+      if (matcher(item.evento)) last = index;
+    });
+    return last;
+  }
+
   var ACTION_BADGE_MAP = {
     "Leu pedido": { category: "neutral", className: "action-neutral" },
     "Escaneou pedido": { category: "neutral", className: "action-neutral" },
@@ -955,30 +1037,120 @@ function setupPagerEvents() {
     } catch (_) { return "—"; }
   }
 
-  function buildTimeline(historico) {
-    var eventLabels = {
-      criado: "Criado",
-      lido: "Lido",
-      criado_coleta: "Coleta",
-      em_rota: "Em rota",
-      entregue: "Entregue",
-      ausente: "Ausente",
-      nova_tentativa: "Nova tentativa",
-      scan: "Scan",
-      assumir: "Assumir",
-      reatribuicao: "Reatribuição",
-      nova_saida_mesmo_entregador: "Nova saída confirmada pelo mesmo motoboy"
-    };
+  function buildTimeline(historico, ctx) {
+    ctx = ctx || {};
+    var detailNested = ctx.detailNested || {};
+    var photoThumbUrls = Array.isArray(ctx.photoThumbUrls) ? ctx.photoThumbUrls : [];
     if (!historico || historico.length === 0)
       return "<p class=\"text-muted small mb-0\">Nenhum evento registrado.</p>";
-    return historico.map(function(item) {
-      var title = item.acao_label || eventLabels[item.evento] || item.evento;
-      if (item.status_anterior && item.status_novo) title += " (" + formatStatusForDisplay(item.status_anterior) + " → " + formatStatusForDisplay(item.status_novo) + ")";
+
+    var lastEntregaIndex = findLastHistoricoIndexByKeys(historico, isEventoEntrega);
+    var lastAusenciaIndex = findLastHistoricoIndexByKeys(historico, isEventoAusencia);
+    var motivoAusencia = String(detailNested.motivo_ocorrencia || "").trim();
+    var obsAusencia = String(detailNested.observacao_ocorrencia || "").trim();
+    var tentativaNum = detailNested.tentativa;
+
+    return historico.map(function(item, index) {
+      var title = labelEventoHistorico(item.evento, item.acao_label);
       var dateLine = fmtDt(item.timestamp);
-      if (item.usuario_nome) dateLine += " — por " + item.usuario_nome;
-      else if (item.user_id) dateLine += " — user " + item.user_id;
-      return "<div class=\"timeline-item\"><div class=\"timeline-dot\"></div><div class=\"timeline-content\"><div class=\"timeline-title\">" + title + "</div><div class=\"timeline-date\">" + dateLine + "</div></div></div>";
+      if (item.usuario_nome) dateLine += " — por " + escapeHtml(item.usuario_nome);
+
+      var extrasHtml = "";
+      if (isEventoAusencia(item.evento) && index === lastAusenciaIndex) {
+        extrasHtml += "<div class=\"timeline-extras small text-muted mt-1\">";
+        if (motivoAusencia) extrasHtml += "<div><strong>Motivo:</strong> " + escapeHtml(motivoAusencia) + "</div>";
+        if (obsAusencia) extrasHtml += "<div><strong>Observação:</strong> " + escapeHtml(obsAusencia) + "</div>";
+        if (tentativaNum != null && tentativaNum !== "") {
+          extrasHtml += "<div><strong>Nª tentativa:</strong> " + escapeHtml(String(tentativaNum)) + "</div>";
+        }
+        extrasHtml += "</div>";
+      }
+
+      var showThumb =
+        photoThumbUrls.length > 0 &&
+        ((isEventoEntrega(item.evento) && index === lastEntregaIndex) ||
+          (isEventoAusencia(item.evento) && index === lastAusenciaIndex));
+      var thumbHtml = "";
+      if (showThumb) {
+        thumbHtml = "<div class=\"timeline-thumbs d-flex flex-wrap gap-2 mt-2\">" +
+          photoThumbUrls.map(function(url, photoIndex) {
+            return "<a href=\"" + escapeHtml(url) + "\" target=\"_blank\" rel=\"noopener\" class=\"timeline-thumb-link\">" +
+              "<img src=\"" + escapeHtml(url) + "\" alt=\"Comprovante " + (photoIndex + 1) + "\" class=\"rounded border\" style=\"width:80px;height:80px;object-fit:cover;\" />" +
+              "</a>";
+          }).join("") +
+          "</div>";
+      }
+
+      return "<div class=\"timeline-item\"><div class=\"timeline-dot\"></div><div class=\"timeline-content\">" +
+        "<div class=\"timeline-title\">" + escapeHtml(title) + "</div>" +
+        "<div class=\"timeline-date\">" + dateLine + "</div>" +
+        extrasHtml +
+        thumbHtml +
+        "</div></div>";
     }).join("");
+  }
+
+  async function baixarOuCompartilharComprovante(idSaida, index) {
+    var base = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+    var url = base + "/upload/saida/" + encodeURIComponent(String(idSaida)) + "/comprovante-export";
+    try {
+      var res = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ index: Number.isFinite(index) ? index : 0 })
+      });
+      if (!res.ok) {
+        var errBody = null;
+        try { errBody = await res.json(); } catch (_) {}
+        notify(parseApiDetailMessage(errBody, "Erro ao exportar comprovante."), "error");
+        return;
+      }
+      var blob = await res.blob();
+      var filename = "comprovante-" + idSaida + ".jpg";
+      var cd = res.headers.get("Content-Disposition") || "";
+      var match = /filename=\"?([^\";]+)\"?/i.exec(cd);
+      if (match && match[1]) filename = match[1];
+      var file = new File([blob], filename, { type: blob.type || "image/jpeg" });
+      if (navigator.share && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Comprovante de entrega" });
+        return;
+      }
+      var objectUrl = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function() { URL.revokeObjectURL(objectUrl); }, 1000);
+    } catch (err) {
+      notify(err && err.message ? err.message : "Erro ao exportar comprovante.", "error");
+    }
+  }
+
+  async function liberarNovaTentativa(idSaida) {
+    var base = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+    var confirm = await confirmDlg("Deseja liberar nova tentativa para este pedido?", "Liberar nova tentativa");
+    if (!confirm || !confirm.isConfirmed) return false;
+    try {
+      var res = await fetch(base + "/saidas/" + encodeURIComponent(String(idSaida)) + "/liberar-nova-tentativa", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Accept": "application/json" }
+      });
+      var body = null;
+      try { body = await res.json(); } catch (_) {}
+      if (!res.ok) {
+        notify(parseApiDetailMessage(body, "Erro ao liberar nova tentativa."), "error");
+        return false;
+      }
+      notify((body && body.message) || "Nova tentativa liberada.", "success");
+      return true;
+    } catch (err) {
+      notify(err && err.message ? err.message : "Erro ao liberar nova tentativa.", "error");
+      return false;
+    }
   }
 
   function closeDetailPanel() {
@@ -1028,6 +1200,8 @@ function setupPagerEvents() {
       var statusText = formatStatusForDisplay(saida.status);
       var statusLower = (saida.status || "").toLowerCase();
       var isAusente = statusLower === "ausente";
+      var bloqueadoAusencias = !!saida.bloqueado_ausencias;
+      var podeLiberar = canEditG() && bloqueadoAusencias;
       var entregador = formatPersonName(saida.entregador);
       var entregueEv = historico.filter(function(h) { return (h.evento || "").toLowerCase() === "entregue" || (h.status_novo || "").toLowerCase() === "entregue"; }).pop();
       var ausenteEv = historico.filter(function(h) {
@@ -1042,16 +1216,14 @@ function setupPagerEvents() {
       var obsAusencia = (d.observacao_ocorrencia && d.observacao_ocorrencia.trim()) ? d.observacao_ocorrencia.trim() : "";
       var ocorrenciaHtml = isAusente
         ? '<h6 class="mt-3 mb-2">Ocorrência</h6>' +
-          '<p><strong>Motivo:</strong> ' + (motivoAusencia || "—") + '</p>' +
-          (obsAusencia ? '<p><strong>Observação:</strong> ' + obsAusencia + '</p>' : '')
+          '<p><strong>Motivo:</strong> ' + escapeHtml(motivoAusencia || "—") + '</p>' +
+          (obsAusencia ? '<p><strong>Observação:</strong> ' + escapeHtml(obsAusencia) + '</p>' : '')
         : "";
       var tipoRecebedor = (d.tipo_recebedor && d.tipo_recebedor.trim()) ? d.tipo_recebedor : "—";
       var recebedor = (d.nome_recebedor && d.nome_recebedor.trim()) ? d.nome_recebedor : "—";
       var endParts = [d.dest_rua, d.dest_numero, d.dest_complemento, d.dest_bairro, d.dest_cidade, d.dest_estado, d.dest_cep].filter(Boolean);
       var enderecoCompleto = endParts.length ? endParts.join(", ") : (d.endereco_formatado || "—");
       var destContato = (d.dest_contato && d.dest_contato.trim()) ? d.dest_contato : "";
-
-      var timelineHtml = buildTimeline(historico);
 
       var downloadUrls = [];
       var fotoUrls = d.foto_urls && Array.isArray(d.foto_urls) ? d.foto_urls : [];
@@ -1072,6 +1244,26 @@ function setupPagerEvents() {
         }
       }
 
+      var timelineHtml = buildTimeline(historico, {
+        detailNested: d,
+        photoThumbUrls: downloadUrls
+      });
+
+      var bloqueioBadgeHtml = bloqueadoAusencias
+        ? '<span class="badge bg-danger ms-2 align-middle">Bloqueado por ausências</span>'
+        : "";
+      var acoesHtml = "";
+      if (podeLiberar || fotoUrls.length > 0) {
+        acoesHtml = '<div class="pedido-actions d-flex flex-wrap gap-2 mt-3 mb-2">';
+        if (podeLiberar) {
+          acoesHtml += '<button type="button" class="btn btn-sm btn-warning" id="btn-liberar-nova-tentativa">Liberar nova tentativa</button>';
+        }
+        if (fotoUrls.length > 0) {
+          acoesHtml += '<button type="button" class="btn btn-sm btn-outline-primary" id="btn-export-comprovante">Baixar / compartilhar comprovante</button>';
+        }
+        acoesHtml += "</div>";
+      }
+
       var photoCardTitle = (saida.status || "").toLowerCase() === "entregue" ? "Comprovante de Entrega" : "Registro (Ausente)";
       var photoCardHtml = "";
       if (downloadUrls.length > 0) {
@@ -1089,18 +1281,19 @@ function setupPagerEvents() {
       var pedidoHtml =
         '<div class="pedido-detail-container">' +
           '<div class="pedido-header">' +
-            '<div class="pedido-codigo">' + (saida.codigo || idSaida) + '</div>' +
-            '<div class="pedido-status status-badge ' + statusClass + '">' + statusText + '</div>' +
+            '<div class="pedido-codigo">' + escapeHtml(saida.codigo || idSaida) + bloqueioBadgeHtml + '</div>' +
+            '<div class="pedido-status status-badge ' + statusClass + '">' + escapeHtml(statusText) + '</div>' +
           '</div>' +
+          acoesHtml +
           '<div class="pedido-grid">' +
             '<div class="pedido-card">' +
               '<h5>Informações da Entrega</h5>' +
-              '<p><strong>Entregador:</strong> ' + entregador + '</p>' +
-              '<p><strong>' + dataLabel + ':</strong> ' + dataEntrega + '</p>' +
-              '<p><strong>Tipo do recebedor:</strong> ' + tipoRecebedor + '</p>' +
-              '<p><strong>Recebedor:</strong> ' + recebedor + '</p>' +
-              '<p><strong>Destino:</strong> ' + enderecoCompleto + '</p>' +
-              (destContato ? '<p><strong>Contato destino:</strong> ' + destContato + '</p>' : '') +
+              '<p><strong>Entregador:</strong> ' + escapeHtml(entregador) + '</p>' +
+              '<p><strong>' + escapeHtml(dataLabel) + ':</strong> ' + escapeHtml(dataEntrega) + '</p>' +
+              '<p><strong>Tipo do recebedor:</strong> ' + escapeHtml(tipoRecebedor) + '</p>' +
+              '<p><strong>Recebedor:</strong> ' + escapeHtml(recebedor) + '</p>' +
+              '<p><strong>Destino:</strong> ' + escapeHtml(enderecoCompleto) + '</p>' +
+              (destContato ? '<p><strong>Contato destino:</strong> ' + escapeHtml(destContato) + '</p>' : '') +
               ocorrenciaHtml +
             '</div>' +
             photoCardHtml +
@@ -1112,6 +1305,25 @@ function setupPagerEvents() {
         '</div>';
 
       if (detailContent) detailContent.innerHTML = pedidoHtml;
+
+      var btnLiberar = document.getElementById("btn-liberar-nova-tentativa");
+      if (btnLiberar) {
+        btnLiberar.addEventListener("click", async function() {
+          btnLiberar.disabled = true;
+          var ok = await liberarNovaTentativa(idSaida);
+          btnLiberar.disabled = false;
+          if (ok) openDetailPanel(idSaida);
+        });
+      }
+      var btnExport = document.getElementById("btn-export-comprovante");
+      if (btnExport) {
+        btnExport.addEventListener("click", function() {
+          btnExport.disabled = true;
+          baixarOuCompartilharComprovante(idSaida, 0).finally(function() {
+            btnExport.disabled = false;
+          });
+        });
+      }
 
       if (detailLoading) detailLoading.classList.add("d-none");
       if (detailBody) detailBody.classList.remove("d-none");

@@ -529,6 +529,7 @@ function openCreate() {
     document.getElementById("estado").value = "";
     document.getElementById("podeLerColeta").checked = false;
     document.getElementById("podeLerSaida").checked = true;
+    document.getElementById("podeDigitarCodigoManual").checked = false;
 
     document.getElementById("groupPassword").classList.remove("d-none");
     document.getElementById("groupPasswordConfirm").classList.remove("d-none");
@@ -587,6 +588,7 @@ async function openEdit(id) {
     document.getElementById("estado").value = m.estado || "";
     document.getElementById("podeLerColeta").checked = !!m.pode_ler_coleta;
     document.getElementById("podeLerSaida").checked = m.pode_ler_saida !== false;
+    document.getElementById("podeDigitarCodigoManual").checked = !!m.pode_digitar_codigo_manual;
 
     document.getElementById("groupPassword").classList.add("d-none");
     document.getElementById("groupPasswordConfirm").classList.add("d-none");
@@ -633,6 +635,7 @@ function renderMotoboyDetail(data) {
     assign("d-cep", m.cep);
     assign("d-pode-coleta", m.pode_ler_coleta ? "Sim" : "Não");
     assign("d-pode-saida", m.pode_ler_saida !== false ? "Sim" : "Não");
+    assign("d-pode-codigo-manual", m.pode_digitar_codigo_manual ? "Sim" : "Não");
 
     wrap.classList.remove("d-none");
     document.getElementById("motoboy-empty")?.classList.add("d-none");
@@ -765,6 +768,7 @@ async function saveUser(ev) {
         payload.cep = (document.getElementById("cep").value || "").replace(/\D/g, "");
         payload.pode_ler_coleta = document.getElementById("podeLerColeta").checked;
         payload.pode_ler_saida = document.getElementById("podeLerSaida").checked;
+        payload.pode_digitar_codigo_manual = document.getElementById("podeDigitarCodigoManual").checked;
     }
 
     try {
