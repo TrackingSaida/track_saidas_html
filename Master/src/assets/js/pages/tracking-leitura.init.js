@@ -637,6 +637,22 @@ function createRow(row){
       : Promise.reject(new Error("TrackAPI.lancarAvulso não disponível"));
   }
 
+  function parseApiDetailError(res, fallback) {
+    const data = res && typeof res === "object" ? (res.data || res) : null;
+    const detail = (res && res.detail != null) ? res.detail : (data && data.detail);
+    if (typeof detail === "string" && detail.trim()) return detail.trim();
+    if (detail && typeof detail === "object" && typeof detail.message === "string" && detail.message.trim()) {
+      return detail.message.trim();
+    }
+    if (typeof res?.error === "string" && res.error.trim()) return res.error.trim();
+    if (res?.error && typeof res.error === "object") {
+      const nested = res.error.detail ?? res.error.message;
+      if (typeof nested === "string" && nested.trim()) return nested.trim();
+      if (nested && typeof nested === "object" && typeof nested.message === "string") return nested.message;
+    }
+    return fallback || "Erro ao lançar avulso.";
+  }
+
   // Detecta conflito de duplicidade (409) — sem retry automático.
   function isDupConflict(res) {
     const code = res?.code ?? res?.data?.code ?? res?.data?.detail?.code;
@@ -1489,10 +1505,12 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     title: "Lançar Avulso",
     html: `
       <div class="text-start">
-        <label class="form-label mb-1">Identificação do avulso (opcional)</label>
-        <input id="avulso-identificacao" class="form-control mb-3" placeholder="Ex.: Cliente João" />
-        <label class="form-label mb-1">Quantidade</label>
-        <input id="avulso-quantidade" type="number" min="1" step="1" class="form-control" value="1" />
+        <label class="form-label mb-1" for="avulso-identificacao">Identificação do avulso (opcional)</label>
+        <input id="avulso-identificacao" class="form-control mb-1" maxlength="32" placeholder="Ex.: Cliente João" />
+        <div class="form-text mb-3">Opcional. Até 32 caracteres para identificar o lote na operação.</div>
+        <label class="form-label mb-1" for="avulso-quantidade">Quantidade</label>
+        <input id="avulso-quantidade" type="number" min="1" max="50" step="1" class="form-control mb-1" value="1" />
+        <div class="form-text">Informe entre 1 e 50 pacotes por lançamento.</div>
       </div>
     `,
     showCancelButton: true,
@@ -1502,10 +1520,19 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     preConfirm: () => {
       const identificacaoEl = document.getElementById("avulso-identificacao");
       const quantidadeEl = document.getElementById("avulso-quantidade");
-      const identificacaoVal = identificacaoEl ? String(identificacaoEl.value || "").trim() : "";
-      const quantidadeVal = quantidadeEl ? parseInt(String(quantidadeEl.value || "").trim(), 10) : 1;
+      const identificacaoVal = identificacaoEl ? String(identificacaoEl.value || "").trim().slice(0, 32) : "";
+      const quantidadeRaw = quantidadeEl ? String(quantidadeEl.value || "").trim() : "1";
+      const quantidadeVal = parseInt(quantidadeRaw, 10);
+      if (identificacaoVal.length > 32) {
+        Swal.showValidationMessage("Identificação deve ter no máximo 32 caracteres.");
+        return null;
+      }
       if (!Number.isFinite(quantidadeVal) || quantidadeVal < 1) {
         Swal.showValidationMessage("Quantidade mínima é 1.");
+        return null;
+      }
+      if (quantidadeVal > 50) {
+        Swal.showValidationMessage("Quantidade máxima é 50.");
         return null;
       }
       return { identificacao: identificacaoVal, quantidade: quantidadeVal };
@@ -1514,8 +1541,13 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
   if (!modal.isConfirmed || !modal.value) return;
   const identificacao = modal.value.identificacao || "";
   const quantidade = modal.value.quantidade;
-  if (!Number.isFinite(quantidade) || quantidade < 1) {
-    showMsgIcon("erro", "Quantidade mínima é 1.");
+  if (identificacao.length > 32) {
+    showMsgIcon("erro", "Identificação deve ter no máximo 32 caracteres.");
+    Sound.play("err");
+    return;
+  }
+  if (!Number.isFinite(quantidade) || quantidade < 1 || quantidade > 50) {
+    showMsgIcon("erro", "Quantidade deve estar entre 1 e 50.");
     Sound.play("err");
     return;
   }
@@ -1526,7 +1558,7 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     quantidade,
   });
   if (!res?.ok) {
-    showMsgIcon("erro", res?.error || "Erro ao lançar avulso.");
+    showMsgIcon("erro", parseApiDetailError(res, "Erro ao lançar avulso."));
     Sound.play("err");
     return;
   }

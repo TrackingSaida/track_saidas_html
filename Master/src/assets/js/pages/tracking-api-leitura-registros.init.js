@@ -271,7 +271,15 @@
       });
       let data = null;
       try { data = await res.json(); } catch {}
-      return { ok: res.ok, status: res.status, data, error: data?.error, code: data?.code };
+      const errDetail = data?.detail;
+      const error = res.ok ? null : (
+        (typeof errDetail === "string" ? errDetail : null) ||
+        (errDetail && typeof errDetail === "object" ? errDetail.message : null) ||
+        data?.message ||
+        data?.error ||
+        null
+      );
+      return { ok: res.ok, status: res.status, data, error, code: data?.code };
     } catch (err) {
       return { ok: false, status: 0, error: String(err?.message || err) };
     }

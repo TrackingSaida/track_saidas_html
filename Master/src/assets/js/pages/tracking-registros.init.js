@@ -559,6 +559,88 @@ function augmentEntregadoresFromRows(rows){
       .replace(/'/g, "&#39;");
   }
 
+  function parseApiDetailMessage(payload, fallback) {
+    var detail = payload && payload.detail != null ? payload.detail : null;
+    if (typeof detail === "string" && detail.trim()) return detail.trim();
+    if (detail && typeof detail === "object" && typeof detail.message === "string") return detail.message.trim();
+    if (typeof payload === "string" && payload.trim()) return payload.trim();
+    return fallback || "Erro na operação.";
+  }
+
+  var EVENTO_HISTORICO_LABELS = {
+    scan: "Pedido adicionado",
+    lido: "Pedido adicionado",
+    leitura: "Pedido adicionado",
+    lancar_avulso: "Pedido adicionado",
+    em_rota: "Saiu para entrega",
+    saiu: "Saiu para entrega",
+    entregue: "Entrega realizada",
+    entregue_lote: "Entrega realizada",
+    ausente: "Destinatário ausente",
+    ausente_lote: "Destinatário ausente",
+    cancelado: "Pedido cancelado",
+    nova_tentativa: "Nova tentativa liberada",
+    liberacao_ausencias: "Nova tentativa liberada pela operação",
+    coleta: "Pacote coletado",
+    criado_coleta: "Pacote coletado",
+    reatribuido: "Entregador reatribuído",
+    reatribuicao: "Entregador reatribuído",
+    assumir: "Entregador reatribuído",
+    assumido: "Entregador reatribuído",
+    reatribuido_em_rota: "Entregador reatribuído em rota",
+    nova_saida_mesmo_entregador: "Nova saída confirmada",
+    desatribuido: "Pacote desatribuído",
+    removido_sem_inicio: "Removido antes de iniciar rota",
+    endereco_atualizado: "Endereço atualizado",
+    rota_criada: "Inserido na rota",
+    rota_recalculada: "Rota recalculada"
+  };
+
+  function normalizeEventoKey(evento) {
+    var raw = String(evento || "").trim().toLowerCase().replace(/\s+/g, "_");
+    if (!raw) return "unknown";
+    if (Object.prototype.hasOwnProperty.call(EVENTO_HISTORICO_LABELS, raw)) return raw;
+    if (raw.indexOf("entregue") !== -1) return "entregue";
+    if (raw.indexOf("ausente") !== -1) return "ausente";
+    if (raw.indexOf("cancel") !== -1) return "cancelado";
+    if (raw.indexOf("endereco") !== -1) return "endereco_atualizado";
+    if (raw.indexOf("recalcul") !== -1) return "rota_recalculada";
+    if (raw.indexOf("rota_criada") !== -1 || raw === "rota_criada") return "rota_criada";
+    if (raw.indexOf("rota") !== -1 || raw === "saiu") return raw === "saiu" ? "saiu" : "em_rota";
+    if (raw.indexOf("scan") !== -1 || raw.indexOf("escane") !== -1) return "scan";
+    if (raw.indexOf("lido") !== -1 || raw.indexOf("leitura") !== -1) return "lido";
+    if (raw.indexOf("coleta") !== -1) return "coleta";
+    if (raw.indexOf("reatrib") !== -1) return "reatribuido";
+    return "unknown";
+  }
+
+  function labelEventoHistorico(evento, acaoLabel) {
+    var key = normalizeEventoKey(evento);
+    var mapped = EVENTO_HISTORICO_LABELS[key];
+    if (mapped) return mapped;
+    var fallback = String(acaoLabel || "").trim();
+    if (fallback) return fallback;
+    return "Movimentação registrada";
+  }
+
+  function isEventoEntrega(evento) {
+    var key = normalizeEventoKey(evento);
+    return key === "entregue" || key === "entregue_lote";
+  }
+
+  function isEventoAusencia(evento) {
+    var key = normalizeEventoKey(evento);
+    return key === "ausente" || key === "ausente_lote";
+  }
+
+  function findLastHistoricoIndexByKeys(historico, matcher) {
+    var last = -1;
+    (historico || []).forEach(function(item, index) {
+      if (matcher(item.evento)) last = index;
+    });
+    return last;
+  }
+
   var ACTION_BADGE_MAP = {
     "Leu pedido": { category: "neutral", className: "action-neutral" },
     "Escaneou pedido": { category: "neutral", className: "action-neutral" },
@@ -955,30 +1037,325 @@ function setupPagerEvents() {
     } catch (_) { return "—"; }
   }
 
-  function buildTimeline(historico) {
-    var eventLabels = {
-      criado: "Criado",
-      lido: "Lido",
-      criado_coleta: "Coleta",
-      em_rota: "Em rota",
-      entregue: "Entregue",
-      ausente: "Ausente",
-      nova_tentativa: "Nova tentativa",
-      scan: "Scan",
-      assumir: "Assumir",
-      reatribuicao: "Reatribuição",
-      nova_saida_mesmo_entregador: "Nova saída confirmada pelo mesmo motoboy"
-    };
+  /** Tentativa vigente no momento do evento (1 + liberações anteriores). */
+  function tentativaNoMomento(historico, eventIndex) {
+    var n = 1;
+    for (var i = 0; i < eventIndex; i++) {
+      var ev = String((historico[i] && historico[i].evento) || "").toLowerCase();
+      if (ev.indexOf("nova_tentativa") !== -1 || ev.indexOf("liberacao_ausencias") !== -1) n += 1;
+    }
+    return n;
+  }
+
+  function grupoFotoKey(evento, tentativa) {
+    return String(evento || "legacy").toLowerCase() + ":" + String(tentativa || 1);
+  }
+
+  /**
+   * Monta mapa evento:tentativa -> [{ url, globalIndex, createdAt, ... }].
+   * fotosTipadas: [{ key, evento, tentativa, created_at }]; urlsByKey: { key: url }.
+   */
+  function buildPhotoGroups(fotosTipadas, urlsByKey, fotoKeysOrder) {
+    var groups = {};
+    var list = Array.isArray(fotosTipadas) && fotosTipadas.length
+      ? fotosTipadas
+      : (fotoKeysOrder || []).map(function(key) {
+          return { key: key, evento: "legacy", tentativa: 1 };
+        });
+    list.forEach(function(item, idx) {
+      var key = String((item && item.key) || "").trim();
+      if (!key) return;
+      var url = urlsByKey[key];
+      if (!url) return;
+      var ev = String((item && item.evento) || "legacy").toLowerCase();
+      var tent = Number(item && item.tentativa) || 1;
+      var gkey = grupoFotoKey(ev, tent);
+      var globalIndex = Array.isArray(fotoKeysOrder) ? fotoKeysOrder.indexOf(key) : -1;
+      if (globalIndex < 0) globalIndex = idx;
+      if (!groups[gkey]) groups[gkey] = [];
+      groups[gkey].push({
+        url: url,
+        globalIndex: globalIndex,
+        key: key,
+        evento: ev,
+        tentativa: tent,
+        createdAt: (item && (item.created_at || item.createdAt)) || null
+      });
+    });
+    return groups;
+  }
+
+  function flattenPhotoGroups(groups, kind) {
+    var photos = [];
+    var prefix = kind + ":";
+    Object.keys(groups || {}).forEach(function(k) {
+      if (k.indexOf(prefix) !== 0) return;
+      (groups[k] || []).forEach(function(p) { photos.push(p); });
+    });
+    return photos;
+  }
+
+  function resolveEventIndexForPhoto(historico, eventIndexes, photo) {
+    if (!eventIndexes.length) return -1;
+    var photoTs = photo && photo.createdAt ? Date.parse(photo.createdAt) : NaN;
+    if (!isNaN(photoTs)) {
+      // Foto costuma ser enviada antes do registro da ausência: liga à 1ª ausência com horário >= foto.
+      for (var j = 0; j < eventIndexes.length; j++) {
+        var evIdx = eventIndexes[j];
+        var evTs = Date.parse((historico[evIdx] && historico[evIdx].timestamp) || "");
+        if (!isNaN(evTs) && evTs >= photoTs) return evIdx;
+      }
+      return eventIndexes[eventIndexes.length - 1];
+    }
+    var tent = Number(photo && photo.tentativa) || 1;
+    for (var k = 0; k < eventIndexes.length; k++) {
+      if (tentativaNoMomento(historico, eventIndexes[k]) === tent) return eventIndexes[k];
+    }
+    // Fallback posicional pelo número da tentativa (1-based).
+    var byOrdinal = eventIndexes[tent - 1];
+    return typeof byOrdinal === "number" ? byOrdinal : eventIndexes[eventIndexes.length - 1];
+  }
+
+  /**
+   * Associa cada foto ao evento de ausência/entrega correspondente.
+   * Prioriza created_at (corrige tentativa duplicada) e cai para tentativa do momento.
+   */
+  function mapPhotosToEventIndexes(historico, groups, kind) {
+    var eventIndexes = [];
+    historico.forEach(function(item, i) {
+      if (kind === "ausente" ? isEventoAusencia(item.evento) : isEventoEntrega(item.evento)) {
+        eventIndexes.push(i);
+      }
+    });
+    var map = {};
+    if (!eventIndexes.length) return map;
+    flattenPhotoGroups(groups, kind).forEach(function(photo) {
+      var target = resolveEventIndexForPhoto(historico, eventIndexes, photo);
+      if (target < 0) return;
+      if (!map[target]) map[target] = [];
+      map[target].push(photo);
+    });
+    return map;
+  }
+
+  function buildEventPhotoMaps(historico, groups) {
+    var ausenciaMap = mapPhotosToEventIndexes(historico, groups, "ausente");
+    var entregaMap = mapPhotosToEventIndexes(historico, groups, "entregue");
+    var legacy = groups[grupoFotoKey("legacy", 1)] || [];
+    if (legacy.length) {
+      legacy.forEach(function(photo) {
+        var lastEntrega = findLastHistoricoIndexByKeys(historico, isEventoEntrega);
+        var lastAusencia = findLastHistoricoIndexByKeys(historico, isEventoAusencia);
+        var absIndexes = [];
+        var entIndexes = [];
+        historico.forEach(function(item, i) {
+          if (isEventoAusencia(item.evento)) absIndexes.push(i);
+          if (isEventoEntrega(item.evento)) entIndexes.push(i);
+        });
+        var target = -1;
+        if (photo.createdAt && (absIndexes.length || entIndexes.length)) {
+          var all = absIndexes.concat(entIndexes).sort(function(a, b) { return a - b; });
+          target = resolveEventIndexForPhoto(historico, all, photo);
+        } else {
+          target = lastEntrega >= 0 ? lastEntrega : lastAusencia;
+        }
+        if (target < 0) return;
+        if (isEventoEntrega(historico[target].evento)) {
+          if (!entregaMap[target]) entregaMap[target] = [];
+          entregaMap[target].push(photo);
+        } else if (isEventoAusencia(historico[target].evento)) {
+          if (!ausenciaMap[target]) ausenciaMap[target] = [];
+          ausenciaMap[target].push(photo);
+        }
+      });
+    }
+    return { ausenciaMap: ausenciaMap, entregaMap: entregaMap };
+  }
+
+  /** Índice global da 1ª foto do último evento com comprovante (para export/share). */
+  function indexExportUltimoEvento(historico, groups) {
+    var maps = buildEventPhotoMaps(historico, groups);
+    for (var i = historico.length - 1; i >= 0; i--) {
+      var fotos = maps.entregaMap[i] || maps.ausenciaMap[i] || [];
+      if (fotos.length) return fotos[0].globalIndex;
+    }
+    return 0;
+  }
+
+  function buildTimeline(historico, ctx) {
+    ctx = ctx || {};
+    var detailNested = ctx.detailNested || {};
+    var photoGroups = ctx.photoGroups || {};
     if (!historico || historico.length === 0)
       return "<p class=\"text-muted small mb-0\">Nenhum evento registrado.</p>";
-    return historico.map(function(item) {
-      var title = item.acao_label || eventLabels[item.evento] || item.evento;
-      if (item.status_anterior && item.status_novo) title += " (" + formatStatusForDisplay(item.status_anterior) + " → " + formatStatusForDisplay(item.status_novo) + ")";
+
+    var lastAusenciaIndex = findLastHistoricoIndexByKeys(historico, isEventoAusencia);
+    var motivoDetail = String(detailNested.motivo_ocorrencia || "").trim();
+    var obsDetail = String(detailNested.observacao_ocorrencia || "").trim();
+    var maps = buildEventPhotoMaps(historico, photoGroups);
+    var ausenciaOrdinal = {};
+    var ausenciaCount = 0;
+    historico.forEach(function(hItem, hIdx) {
+      if (isEventoAusencia(hItem.evento)) {
+        ausenciaCount += 1;
+        ausenciaOrdinal[hIdx] = ausenciaCount;
+      }
+    });
+
+    return historico.map(function(item, index) {
+      var title = labelEventoHistorico(item.evento, item.acao_label);
       var dateLine = fmtDt(item.timestamp);
-      if (item.usuario_nome) dateLine += " — por " + item.usuario_nome;
-      else if (item.user_id) dateLine += " — user " + item.user_id;
-      return "<div class=\"timeline-item\"><div class=\"timeline-dot\"></div><div class=\"timeline-content\"><div class=\"timeline-title\">" + title + "</div><div class=\"timeline-date\">" + dateLine + "</div></div></div>";
+      if (item.usuario_nome) dateLine += " — por " + escapeHtml(item.usuario_nome);
+
+      var eventPhotos = [];
+      if (isEventoAusencia(item.evento)) eventPhotos = maps.ausenciaMap[index] || [];
+      else if (isEventoEntrega(item.evento)) eventPhotos = maps.entregaMap[index] || [];
+
+      var extrasHtml = "";
+      if (isEventoAusencia(item.evento)) {
+        // Ordem da ausência no histórico (1ª, 2ª…), não o contador interno atual do pedido.
+        var tentEvento = ausenciaOrdinal[index] || Number(item.tentativa) || tentativaNoMomento(historico, index);
+        var motivoEvento = String(item.motivo_ocorrencia || "").trim();
+        var obsEvento = String(item.observacao_ocorrencia || "").trim();
+        // Retrocompat: eventos antigos sem payload só têm motivo no detalhe atual.
+        if (!motivoEvento && index === lastAusenciaIndex) motivoEvento = motivoDetail;
+        if (!obsEvento && index === lastAusenciaIndex) obsEvento = obsDetail;
+        extrasHtml += "<div class=\"timeline-extras small text-muted mt-1\">";
+        extrasHtml += "<div><strong>Nª tentativa:</strong> " + escapeHtml(String(tentEvento)) + "</div>";
+        if (motivoEvento) extrasHtml += "<div><strong>Motivo:</strong> " + escapeHtml(motivoEvento) + "</div>";
+        if (obsEvento) extrasHtml += "<div><strong>Observação:</strong> " + escapeHtml(obsEvento) + "</div>";
+        extrasHtml += "</div>";
+      }
+
+      var thumbHtml = "";
+      if (eventPhotos.length) {
+        thumbHtml = "<div class=\"timeline-thumbs d-flex flex-wrap gap-2 mt-2\">" +
+          eventPhotos.map(function(photo, photoIndex) {
+            return "<button type=\"button\" class=\"timeline-thumb-btn border-0 p-0 bg-transparent\" data-photo-url=\"" +
+              escapeHtml(photo.url) +
+              "\" title=\"Ampliar comprovante\">" +
+              "<img src=\"" + escapeHtml(photo.url) + "\" alt=\"Comprovante " + (photoIndex + 1) +
+              "\" class=\"rounded border timeline-thumb-img\" />" +
+              "</button>";
+          }).join("") +
+          "</div>";
+      }
+
+      return "<div class=\"timeline-item\"><div class=\"timeline-dot\"></div><div class=\"timeline-content\">" +
+        "<div class=\"timeline-title\">" + escapeHtml(title) + "</div>" +
+        "<div class=\"timeline-date\">" + dateLine + "</div>" +
+        extrasHtml +
+        thumbHtml +
+        "</div></div>";
     }).join("");
+  }
+
+  async function baixarOuCompartilharComprovante(idSaida, index) {
+    var base = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+    var url = base + "/upload/saida/" + encodeURIComponent(String(idSaida)) + "/comprovante-export";
+    try {
+      var res = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ index: Number.isFinite(index) ? index : 0 })
+      });
+      if (!res.ok) {
+        var errBody = null;
+        try { errBody = await res.json(); } catch (_) {}
+        notify(parseApiDetailMessage(errBody, "Erro ao exportar comprovante."), "error");
+        return;
+      }
+      var blob = await res.blob();
+      var filename = "comprovante-" + idSaida + ".jpg";
+      var cd = res.headers.get("Content-Disposition") || "";
+      var match = /filename=\"?([^\";]+)\"?/i.exec(cd);
+      if (match && match[1]) filename = match[1];
+      var codigo = (res.headers.get("X-Comprovante-Codigo") || "").trim();
+      var statusLabel = (res.headers.get("X-Comprovante-Status") || "").trim();
+      var dataHora = (res.headers.get("X-Comprovante-Data") || "").trim();
+      var recebedor = (res.headers.get("X-Comprovante-Recebedor") || "").trim();
+      var entregador = (res.headers.get("X-Comprovante-Entregador") || "").trim();
+      var labelEntregador = (String(statusLabel || "").toLowerCase() === "entregue") ? "Entregue por" : "Motoboy";
+      var captionParts = [
+        statusLabel ? ("Comprovante — " + statusLabel) : "Comprovante de entrega",
+        codigo ? ("Código: " + codigo) : null,
+        dataHora ? ("Data/hora: " + dataHora) : null,
+        recebedor ? ("Recebido por: " + recebedor) : null,
+        entregador ? (labelEntregador + ": " + entregador) : null
+      ].filter(Boolean);
+      var caption = captionParts.join("\n");
+      var file = new File([blob], filename, { type: blob.type || "image/jpeg" });
+      if (navigator.share && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: statusLabel ? ("Comprovante — " + statusLabel) : "Comprovante de entrega",
+          text: caption
+        });
+        return;
+      }
+      var objectUrl = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function() { URL.revokeObjectURL(objectUrl); }, 1000);
+    } catch (err) {
+      notify(err && err.message ? err.message : "Erro ao exportar comprovante.", "error");
+    }
+  }
+
+  async function liberarNovaTentativa(idSaida) {
+    var base = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+    var confirm = await confirmDlg("Deseja liberar nova tentativa para este pedido?", "Liberar nova tentativa");
+    if (!confirm || !confirm.isConfirmed) return false;
+    try {
+      var res = await fetch(base + "/saidas/" + encodeURIComponent(String(idSaida)) + "/liberar-nova-tentativa", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Accept": "application/json" }
+      });
+      var body = null;
+      try { body = await res.json(); } catch (_) {}
+      if (!res.ok) {
+        notify(parseApiDetailMessage(body, "Erro ao liberar nova tentativa."), "error");
+        return false;
+      }
+      notify((body && body.message) || "Nova tentativa liberada.", "success");
+      return true;
+    } catch (err) {
+      notify(err && err.message ? err.message : "Erro ao liberar nova tentativa.", "error");
+      return false;
+    }
+  }
+
+  async function cancelarPedido(idSaida) {
+    var confirm = await confirmDlg(
+      "Deseja cancelar este pedido? Ele deixará de contar na cobrança.",
+      "Cancelar pedido"
+    );
+    if (!confirm || !confirm.isConfirmed) return false;
+    if (!window.TrackAPI || typeof window.TrackAPI.updateSaida !== "function") {
+      notify("API de atualização não disponível.", "error");
+      return false;
+    }
+    try {
+      var r = await window.TrackAPI.updateSaida(idSaida, { status: "cancelado" });
+      if (r && r.status === 200) {
+        notify("Pedido cancelado.", "success");
+        return true;
+      }
+      var msg = (r && r.data && (r.data.detail || r.data.message)) || (r && r.error) || "";
+      if (typeof msg === "object" && msg !== null && msg.message) msg = msg.message;
+      else if (Array.isArray(msg)) msg = msg.map(function(d){ return d.msg || d.message; }).join("; ");
+      notify(String(msg || "Erro ao cancelar pedido."), "error");
+      return false;
+    } catch (err) {
+      notify(err && err.message ? err.message : "Erro ao cancelar pedido.", "error");
+      return false;
+    }
   }
 
   function closeDetailPanel() {
@@ -1028,6 +1405,10 @@ function setupPagerEvents() {
       var statusText = formatStatusForDisplay(saida.status);
       var statusLower = (saida.status || "").toLowerCase();
       var isAusente = statusLower === "ausente";
+      var bloqueadoAusencias = !!saida.bloqueado_ausencias;
+      var podeLiberar = canEditG() && bloqueadoAusencias;
+      var statusJaCancelado = statusLower === "cancelado";
+      var podeCancelar = canEditG() && !statusJaCancelado;
       var entregador = formatPersonName(saida.entregador);
       var entregueEv = historico.filter(function(h) { return (h.evento || "").toLowerCase() === "entregue" || (h.status_novo || "").toLowerCase() === "entregue"; }).pop();
       var ausenteEv = historico.filter(function(h) {
@@ -1042,8 +1423,8 @@ function setupPagerEvents() {
       var obsAusencia = (d.observacao_ocorrencia && d.observacao_ocorrencia.trim()) ? d.observacao_ocorrencia.trim() : "";
       var ocorrenciaHtml = isAusente
         ? '<h6 class="mt-3 mb-2">Ocorrência</h6>' +
-          '<p><strong>Motivo:</strong> ' + (motivoAusencia || "—") + '</p>' +
-          (obsAusencia ? '<p><strong>Observação:</strong> ' + obsAusencia + '</p>' : '')
+          '<p><strong>Motivo:</strong> ' + escapeHtml(motivoAusencia || "—") + '</p>' +
+          (obsAusencia ? '<p><strong>Observação:</strong> ' + escapeHtml(obsAusencia) + '</p>' : '')
         : "";
       var tipoRecebedor = (d.tipo_recebedor && d.tipo_recebedor.trim()) ? d.tipo_recebedor : "—";
       var recebedor = (d.nome_recebedor && d.nome_recebedor.trim()) ? d.nome_recebedor : "—";
@@ -1051,10 +1432,9 @@ function setupPagerEvents() {
       var enderecoCompleto = endParts.length ? endParts.join(", ") : (d.endereco_formatado || "—");
       var destContato = (d.dest_contato && d.dest_contato.trim()) ? d.dest_contato : "";
 
-      var timelineHtml = buildTimeline(historico);
-
-      var downloadUrls = [];
       var fotoUrls = d.foto_urls && Array.isArray(d.foto_urls) ? d.foto_urls : [];
+      var fotosTipadas = d.fotos && Array.isArray(d.fotos) ? d.fotos : [];
+      var urlsByKey = {};
       if (fotoUrls.length > 0) {
         try {
           var presignRes = await fetch(base + "/upload/presign-get", {
@@ -1065,53 +1445,131 @@ function setupPagerEvents() {
           });
           if (presignRes.ok) {
             var presignData = await presignRes.json();
-            downloadUrls = presignData.download_urls || (presignData.download_url ? [presignData.download_url] : []);
+            var downloadUrls = presignData.download_urls || (presignData.download_url ? [presignData.download_url] : []);
+            fotoUrls.forEach(function(key, i) {
+              if (downloadUrls[i]) urlsByKey[key] = downloadUrls[i];
+            });
           }
         } catch (e) {
-          downloadUrls = [];
+          urlsByKey = {};
         }
       }
 
-      var photoCardTitle = (saida.status || "").toLowerCase() === "entregue" ? "Comprovante de Entrega" : "Registro (Ausente)";
-      var photoCardHtml = "";
-      if (downloadUrls.length > 0) {
-        photoCardHtml = '<div class="pedido-card">' +
-          '<h5>' + photoCardTitle + '</h5>' +
-          downloadUrls.map(function(url) {
-            return '<div class="mb-2">' +
-              '<img src="' + url + '" class="img-fluid rounded border" style="max-height:480px; object-fit:contain;" alt="Comprovante">' +
-              '<br><a href="' + url + '" target="_blank" rel="noopener">Abrir em nova aba</a>' +
-              '</div>';
-          }).join('') +
-          '</div>';
+      var photoGroups = buildPhotoGroups(fotosTipadas, urlsByKey, fotoUrls);
+      var exportIndex = indexExportUltimoEvento(historico, photoGroups);
+      var hasPhotos = Object.keys(photoGroups).some(function(k) { return photoGroups[k] && photoGroups[k].length; });
+
+      var timelineHtml = buildTimeline(historico, {
+        detailNested: d,
+        photoGroups: photoGroups
+      });
+
+      var bloqueioBadgeHtml = bloqueadoAusencias
+        ? '<span class="badge bg-danger ms-2 align-middle">Bloqueado por ausências</span>'
+        : "";
+      var acoesHtml = "";
+      if (podeLiberar || podeCancelar || hasPhotos) {
+        acoesHtml = '<div class="pedido-actions d-flex flex-wrap gap-2 mt-3 mb-2">';
+        if (podeLiberar) {
+          acoesHtml += '<button type="button" class="btn btn-sm btn-warning" id="btn-liberar-nova-tentativa">Liberar nova tentativa</button>';
+        }
+        if (podeCancelar) {
+          acoesHtml += '<button type="button" class="btn btn-sm btn-outline-danger" id="btn-cancelar-pedido">Cancelar pedido</button>';
+        }
+        if (hasPhotos) {
+          acoesHtml += '<button type="button" class="btn btn-sm btn-outline-primary" id="btn-export-comprovante">Baixar / compartilhar comprovante</button>';
+        }
+        acoesHtml += "</div>";
       }
 
       var pedidoHtml =
         '<div class="pedido-detail-container">' +
           '<div class="pedido-header">' +
-            '<div class="pedido-codigo">' + (saida.codigo || idSaida) + '</div>' +
-            '<div class="pedido-status status-badge ' + statusClass + '">' + statusText + '</div>' +
+            '<div class="pedido-codigo">' + escapeHtml(saida.codigo || idSaida) + bloqueioBadgeHtml + '</div>' +
+            '<div class="pedido-status status-badge ' + statusClass + '">' + escapeHtml(statusText) + '</div>' +
           '</div>' +
-          '<div class="pedido-grid">' +
+          acoesHtml +
+          '<div class="pedido-grid pedido-grid-2">' +
             '<div class="pedido-card">' +
               '<h5>Informações da Entrega</h5>' +
-              '<p><strong>Entregador:</strong> ' + entregador + '</p>' +
-              '<p><strong>' + dataLabel + ':</strong> ' + dataEntrega + '</p>' +
-              '<p><strong>Tipo do recebedor:</strong> ' + tipoRecebedor + '</p>' +
-              '<p><strong>Recebedor:</strong> ' + recebedor + '</p>' +
-              '<p><strong>Destino:</strong> ' + enderecoCompleto + '</p>' +
-              (destContato ? '<p><strong>Contato destino:</strong> ' + destContato + '</p>' : '') +
+              '<p><strong>Entregador:</strong> ' + escapeHtml(entregador) + '</p>' +
+              '<p><strong>' + escapeHtml(dataLabel) + ':</strong> ' + escapeHtml(dataEntrega) + '</p>' +
+              '<p><strong>Tipo do recebedor:</strong> ' + escapeHtml(tipoRecebedor) + '</p>' +
+              '<p><strong>Recebedor:</strong> ' + escapeHtml(recebedor) + '</p>' +
+              '<p><strong>Destino:</strong> ' + escapeHtml(enderecoCompleto) + '</p>' +
+              (destContato ? '<p><strong>Contato destino:</strong> ' + escapeHtml(destContato) + '</p>' : '') +
               ocorrenciaHtml +
             '</div>' +
-            photoCardHtml +
             '<div class="pedido-card historico-card">' +
               '<h5>Histórico</h5>' +
+              '<p class="text-muted small mb-2">Miniaturas por evento. Clique para ampliar.</p>' +
               '<div class="timeline">' + timelineHtml + '</div>' +
             '</div>' +
           '</div>' +
+        '</div>' +
+        '<div id="reg-photo-lightbox" class="reg-photo-lightbox d-none" role="dialog" aria-modal="true">' +
+          '<button type="button" class="reg-photo-lightbox-close" aria-label="Fechar">&times;</button>' +
+          '<img id="reg-photo-lightbox-img" alt="Comprovante ampliado" />' +
         '</div>';
 
       if (detailContent) detailContent.innerHTML = pedidoHtml;
+
+      var btnLiberar = document.getElementById("btn-liberar-nova-tentativa");
+      if (btnLiberar) {
+        btnLiberar.addEventListener("click", async function() {
+          btnLiberar.disabled = true;
+          var ok = await liberarNovaTentativa(idSaida);
+          btnLiberar.disabled = false;
+          if (ok) openDetailPanel(idSaida);
+        });
+      }
+      var btnCancelar = document.getElementById("btn-cancelar-pedido");
+      if (btnCancelar) {
+        btnCancelar.addEventListener("click", async function() {
+          btnCancelar.disabled = true;
+          var ok = await cancelarPedido(idSaida);
+          btnCancelar.disabled = false;
+          if (ok) {
+            if (typeof bustListCache === "function") bustListCache();
+            if (typeof refresh === "function") refresh(true);
+            openDetailPanel(idSaida);
+          }
+        });
+      }
+      var btnExport = document.getElementById("btn-export-comprovante");
+      if (btnExport) {
+        btnExport.addEventListener("click", function() {
+          btnExport.disabled = true;
+          baixarOuCompartilharComprovante(idSaida, exportIndex).finally(function() {
+            btnExport.disabled = false;
+          });
+        });
+      }
+
+      var lightbox = document.getElementById("reg-photo-lightbox");
+      var lightboxImg = document.getElementById("reg-photo-lightbox-img");
+      function closeLightbox() {
+        if (!lightbox) return;
+        lightbox.classList.add("d-none");
+        if (lightboxImg) lightboxImg.removeAttribute("src");
+      }
+      if (lightbox) {
+        var closeBtn = lightbox.querySelector(".reg-photo-lightbox-close");
+        if (closeBtn) closeBtn.addEventListener("click", closeLightbox);
+        lightbox.addEventListener("click", function(ev) {
+          if (ev.target === lightbox) closeLightbox();
+        });
+      }
+      if (detailContent) {
+        detailContent.querySelectorAll(".timeline-thumb-btn").forEach(function(btn) {
+          btn.addEventListener("click", function() {
+            var url = btn.getAttribute("data-photo-url");
+            if (!url || !lightbox || !lightboxImg) return;
+            lightboxImg.src = url;
+            lightbox.classList.remove("d-none");
+          });
+        });
+      }
 
       if (detailLoading) detailLoading.classList.add("d-none");
       if (detailBody) detailBody.classList.remove("d-none");
@@ -1473,7 +1931,10 @@ function setupPagerEvents() {
         if (eMotoboy?.value) payload.motoboy_id = Number(eMotoboy.value);
       } else {
         payload.status = mapStatusToApi(eSta.value);
-        if (eMotoboy?.value) payload.motoboy_id = Number(eMotoboy.value);
+        // Ao cancelar, não enviar motoboy_id (evita reabertura/reatribuição indevida).
+        if (eSta.value !== "Cancelado" && eMotoboy?.value) {
+          payload.motoboy_id = Number(eMotoboy.value);
+        }
       }
 
       if ((eSta.value === "Não Coletado" || eSta.value === "Coletado") && eBase?.value)
@@ -1697,8 +2158,11 @@ function setupPagerEvents() {
       }
 
       var body = {};
-      if (bulkMotoboy?.value) body.motoboy_id = Number(bulkMotoboy.value);
       if (bulkStatus?.value) body.status = mapStatusToApi(bulkStatus.value);
+      // Ao cancelar, não enviar motoboy_id (evita bloqueio de ausências / reabertura).
+      if (bulkMotoboy?.value && bulkStatus?.value !== "Cancelado") {
+        body.motoboy_id = Number(bulkMotoboy.value);
+      }
       if (bulkCurrentCohortStatus === "entregue" && bulkMotoboy?.value && !bulkStatus?.value) {
         delete body.status;
       }
