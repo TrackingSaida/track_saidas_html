@@ -529,7 +529,7 @@ function openCreate() {
     document.getElementById("estado").value = "";
     document.getElementById("podeLerColeta").checked = false;
     document.getElementById("podeLerSaida").checked = true;
-    document.getElementById("podeDigitarCodigoManual").checked = false;
+    document.getElementById("podeDigitarCodigoManual").checked = true;
 
     document.getElementById("groupPassword").classList.remove("d-none");
     document.getElementById("groupPasswordConfirm").classList.remove("d-none");
