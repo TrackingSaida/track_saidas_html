@@ -1052,8 +1052,8 @@ function setupPagerEvents() {
   }
 
   /**
-   * Monta mapa evento:tentativa -> [{ url, globalIndex }].
-   * fotosTipadas: [{ key, evento, tentativa }]; urlsByKey: { key: url }.
+   * Monta mapa evento:tentativa -> [{ url, globalIndex, createdAt, ... }].
+   * fotosTipadas: [{ key, evento, tentativa, created_at }]; urlsByKey: { key: url }.
    */
   function buildPhotoGroups(fotosTipadas, urlsByKey, fotoKeysOrder) {
     var groups = {};
@@ -1070,15 +1070,55 @@ function setupPagerEvents() {
       var ev = String((item && item.evento) || "legacy").toLowerCase();
       var tent = Number(item && item.tentativa) || 1;
       var gkey = grupoFotoKey(ev, tent);
+      var globalIndex = Array.isArray(fotoKeysOrder) ? fotoKeysOrder.indexOf(key) : -1;
+      if (globalIndex < 0) globalIndex = idx;
       if (!groups[gkey]) groups[gkey] = [];
-      groups[gkey].push({ url: url, globalIndex: idx, key: key, evento: ev, tentativa: tent });
+      groups[gkey].push({
+        url: url,
+        globalIndex: globalIndex,
+        key: key,
+        evento: ev,
+        tentativa: tent,
+        createdAt: (item && (item.created_at || item.createdAt)) || null
+      });
     });
     return groups;
   }
 
+  function flattenPhotoGroups(groups, kind) {
+    var photos = [];
+    var prefix = kind + ":";
+    Object.keys(groups || {}).forEach(function(k) {
+      if (k.indexOf(prefix) !== 0) return;
+      (groups[k] || []).forEach(function(p) { photos.push(p); });
+    });
+    return photos;
+  }
+
+  function resolveEventIndexForPhoto(historico, eventIndexes, photo) {
+    if (!eventIndexes.length) return -1;
+    var photoTs = photo && photo.createdAt ? Date.parse(photo.createdAt) : NaN;
+    if (!isNaN(photoTs)) {
+      // Foto costuma ser enviada antes do registro da ausência: liga à 1ª ausência com horário >= foto.
+      for (var j = 0; j < eventIndexes.length; j++) {
+        var evIdx = eventIndexes[j];
+        var evTs = Date.parse((historico[evIdx] && historico[evIdx].timestamp) || "");
+        if (!isNaN(evTs) && evTs >= photoTs) return evIdx;
+      }
+      return eventIndexes[eventIndexes.length - 1];
+    }
+    var tent = Number(photo && photo.tentativa) || 1;
+    for (var k = 0; k < eventIndexes.length; k++) {
+      if (tentativaNoMomento(historico, eventIndexes[k]) === tent) return eventIndexes[k];
+    }
+    // Fallback posicional pelo número da tentativa (1-based).
+    var byOrdinal = eventIndexes[tent - 1];
+    return typeof byOrdinal === "number" ? byOrdinal : eventIndexes[eventIndexes.length - 1];
+  }
+
   /**
-   * Associa grupos de foto (por tentativa) aos eventos na ordem cronológica.
-   * Evita desalinhamento quando detail.tentativa já não começa em 1.
+   * Associa cada foto ao evento de ausência/entrega correspondente.
+   * Prioriza created_at (corrige tentativa duplicada) e cai para tentativa do momento.
    */
   function mapPhotosToEventIndexes(historico, groups, kind) {
     var eventIndexes = [];
@@ -1087,15 +1127,13 @@ function setupPagerEvents() {
         eventIndexes.push(i);
       }
     });
-    var prefix = kind + ":";
-    var tentKeys = Object.keys(groups)
-      .filter(function(k) { return k.indexOf(prefix) === 0; })
-      .sort(function(a, b) {
-        return (Number(a.split(":")[1]) || 0) - (Number(b.split(":")[1]) || 0);
-      });
     var map = {};
-    eventIndexes.forEach(function(evIdx, i) {
-      if (tentKeys[i] && groups[tentKeys[i]]) map[evIdx] = groups[tentKeys[i]];
+    if (!eventIndexes.length) return map;
+    flattenPhotoGroups(groups, kind).forEach(function(photo) {
+      var target = resolveEventIndexForPhoto(historico, eventIndexes, photo);
+      if (target < 0) return;
+      if (!map[target]) map[target] = [];
+      map[target].push(photo);
     });
     return map;
   }
@@ -1105,15 +1143,31 @@ function setupPagerEvents() {
     var entregaMap = mapPhotosToEventIndexes(historico, groups, "entregue");
     var legacy = groups[grupoFotoKey("legacy", 1)] || [];
     if (legacy.length) {
-      var lastEntrega = findLastHistoricoIndexByKeys(historico, isEventoEntrega);
-      var lastAusencia = findLastHistoricoIndexByKeys(historico, isEventoAusencia);
-      var target = lastEntrega >= 0 ? lastEntrega : lastAusencia;
-      if (target >= 0) {
-        var existing = ausenciaMap[target] || entregaMap[target] || [];
-        var merged = existing.concat(legacy);
-        if (isEventoEntrega(historico[target].evento)) entregaMap[target] = merged;
-        else ausenciaMap[target] = merged;
-      }
+      legacy.forEach(function(photo) {
+        var lastEntrega = findLastHistoricoIndexByKeys(historico, isEventoEntrega);
+        var lastAusencia = findLastHistoricoIndexByKeys(historico, isEventoAusencia);
+        var absIndexes = [];
+        var entIndexes = [];
+        historico.forEach(function(item, i) {
+          if (isEventoAusencia(item.evento)) absIndexes.push(i);
+          if (isEventoEntrega(item.evento)) entIndexes.push(i);
+        });
+        var target = -1;
+        if (photo.createdAt && (absIndexes.length || entIndexes.length)) {
+          var all = absIndexes.concat(entIndexes).sort(function(a, b) { return a - b; });
+          target = resolveEventIndexForPhoto(historico, all, photo);
+        } else {
+          target = lastEntrega >= 0 ? lastEntrega : lastAusencia;
+        }
+        if (target < 0) return;
+        if (isEventoEntrega(historico[target].evento)) {
+          if (!entregaMap[target]) entregaMap[target] = [];
+          entregaMap[target].push(photo);
+        } else if (isEventoAusencia(historico[target].evento)) {
+          if (!ausenciaMap[target]) ausenciaMap[target] = [];
+          ausenciaMap[target].push(photo);
+        }
+      });
     }
     return { ausenciaMap: ausenciaMap, entregaMap: entregaMap };
   }
@@ -1136,8 +1190,8 @@ function setupPagerEvents() {
       return "<p class=\"text-muted small mb-0\">Nenhum evento registrado.</p>";
 
     var lastAusenciaIndex = findLastHistoricoIndexByKeys(historico, isEventoAusencia);
-    var motivoAusencia = String(detailNested.motivo_ocorrencia || "").trim();
-    var obsAusencia = String(detailNested.observacao_ocorrencia || "").trim();
+    var motivoDetail = String(detailNested.motivo_ocorrencia || "").trim();
+    var obsDetail = String(detailNested.observacao_ocorrencia || "").trim();
     var maps = buildEventPhotoMaps(historico, photoGroups);
     var ausenciaOrdinal = {};
     var ausenciaCount = 0;
@@ -1160,13 +1214,16 @@ function setupPagerEvents() {
       var extrasHtml = "";
       if (isEventoAusencia(item.evento)) {
         // Ordem da ausência no histórico (1ª, 2ª…), não o contador interno atual do pedido.
-        var tentEvento = ausenciaOrdinal[index] || tentativaNoMomento(historico, index);
+        var tentEvento = ausenciaOrdinal[index] || Number(item.tentativa) || tentativaNoMomento(historico, index);
+        var motivoEvento = String(item.motivo_ocorrencia || "").trim();
+        var obsEvento = String(item.observacao_ocorrencia || "").trim();
+        // Retrocompat: eventos antigos sem payload só têm motivo no detalhe atual.
+        if (!motivoEvento && index === lastAusenciaIndex) motivoEvento = motivoDetail;
+        if (!obsEvento && index === lastAusenciaIndex) obsEvento = obsDetail;
         extrasHtml += "<div class=\"timeline-extras small text-muted mt-1\">";
         extrasHtml += "<div><strong>Nª tentativa:</strong> " + escapeHtml(String(tentEvento)) + "</div>";
-        if (index === lastAusenciaIndex) {
-          if (motivoAusencia) extrasHtml += "<div><strong>Motivo:</strong> " + escapeHtml(motivoAusencia) + "</div>";
-          if (obsAusencia) extrasHtml += "<div><strong>Observação:</strong> " + escapeHtml(obsAusencia) + "</div>";
-        }
+        if (motivoEvento) extrasHtml += "<div><strong>Motivo:</strong> " + escapeHtml(motivoEvento) + "</div>";
+        if (obsEvento) extrasHtml += "<div><strong>Observação:</strong> " + escapeHtml(obsEvento) + "</div>";
         extrasHtml += "</div>";
       }
 
