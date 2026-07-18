@@ -1274,6 +1274,33 @@ function setupPagerEvents() {
     }
   }
 
+  async function cancelarPedido(idSaida) {
+    var confirm = await confirmDlg(
+      "Deseja cancelar este pedido? Ele deixará de contar na cobrança.",
+      "Cancelar pedido"
+    );
+    if (!confirm || !confirm.isConfirmed) return false;
+    if (!window.TrackAPI || typeof window.TrackAPI.updateSaida !== "function") {
+      notify("API de atualização não disponível.", "error");
+      return false;
+    }
+    try {
+      var r = await window.TrackAPI.updateSaida(idSaida, { status: "cancelado" });
+      if (r && r.status === 200) {
+        notify("Pedido cancelado.", "success");
+        return true;
+      }
+      var msg = (r && r.data && (r.data.detail || r.data.message)) || (r && r.error) || "";
+      if (typeof msg === "object" && msg !== null && msg.message) msg = msg.message;
+      else if (Array.isArray(msg)) msg = msg.map(function(d){ return d.msg || d.message; }).join("; ");
+      notify(String(msg || "Erro ao cancelar pedido."), "error");
+      return false;
+    } catch (err) {
+      notify(err && err.message ? err.message : "Erro ao cancelar pedido.", "error");
+      return false;
+    }
+  }
+
   function closeDetailPanel() {
     if (detailOverlay) detailOverlay.classList.remove("show");
     if (detailPanel) detailPanel.classList.remove("open");
@@ -1323,6 +1350,8 @@ function setupPagerEvents() {
       var isAusente = statusLower === "ausente";
       var bloqueadoAusencias = !!saida.bloqueado_ausencias;
       var podeLiberar = canEditG() && bloqueadoAusencias;
+      var statusJaCancelado = statusLower === "cancelado";
+      var podeCancelar = canEditG() && !statusJaCancelado;
       var entregador = formatPersonName(saida.entregador);
       var entregueEv = historico.filter(function(h) { return (h.evento || "").toLowerCase() === "entregue" || (h.status_novo || "").toLowerCase() === "entregue"; }).pop();
       var ausenteEv = historico.filter(function(h) {
@@ -1382,10 +1411,13 @@ function setupPagerEvents() {
         ? '<span class="badge bg-danger ms-2 align-middle">Bloqueado por ausências</span>'
         : "";
       var acoesHtml = "";
-      if (podeLiberar || hasPhotos) {
+      if (podeLiberar || podeCancelar || hasPhotos) {
         acoesHtml = '<div class="pedido-actions d-flex flex-wrap gap-2 mt-3 mb-2">';
         if (podeLiberar) {
           acoesHtml += '<button type="button" class="btn btn-sm btn-warning" id="btn-liberar-nova-tentativa">Liberar nova tentativa</button>';
+        }
+        if (podeCancelar) {
+          acoesHtml += '<button type="button" class="btn btn-sm btn-outline-danger" id="btn-cancelar-pedido">Cancelar pedido</button>';
         }
         if (hasPhotos) {
           acoesHtml += '<button type="button" class="btn btn-sm btn-outline-primary" id="btn-export-comprovante">Baixar / compartilhar comprovante</button>';
@@ -1432,6 +1464,19 @@ function setupPagerEvents() {
           var ok = await liberarNovaTentativa(idSaida);
           btnLiberar.disabled = false;
           if (ok) openDetailPanel(idSaida);
+        });
+      }
+      var btnCancelar = document.getElementById("btn-cancelar-pedido");
+      if (btnCancelar) {
+        btnCancelar.addEventListener("click", async function() {
+          btnCancelar.disabled = true;
+          var ok = await cancelarPedido(idSaida);
+          btnCancelar.disabled = false;
+          if (ok) {
+            if (typeof bustListCache === "function") bustListCache();
+            if (typeof refresh === "function") refresh(true);
+            openDetailPanel(idSaida);
+          }
         });
       }
       var btnExport = document.getElementById("btn-export-comprovante");
@@ -1829,7 +1874,10 @@ function setupPagerEvents() {
         if (eMotoboy?.value) payload.motoboy_id = Number(eMotoboy.value);
       } else {
         payload.status = mapStatusToApi(eSta.value);
-        if (eMotoboy?.value) payload.motoboy_id = Number(eMotoboy.value);
+        // Ao cancelar, não enviar motoboy_id (evita reabertura/reatribuição indevida).
+        if (eSta.value !== "Cancelado" && eMotoboy?.value) {
+          payload.motoboy_id = Number(eMotoboy.value);
+        }
       }
 
       if ((eSta.value === "Não Coletado" || eSta.value === "Coletado") && eBase?.value)
@@ -2053,8 +2101,11 @@ function setupPagerEvents() {
       }
 
       var body = {};
-      if (bulkMotoboy?.value) body.motoboy_id = Number(bulkMotoboy.value);
       if (bulkStatus?.value) body.status = mapStatusToApi(bulkStatus.value);
+      // Ao cancelar, não enviar motoboy_id (evita bloqueio de ausências / reabertura).
+      if (bulkMotoboy?.value && bulkStatus?.value !== "Cancelado") {
+        body.motoboy_id = Number(bulkMotoboy.value);
+      }
       if (bulkCurrentCohortStatus === "entregue" && bulkMotoboy?.value && !bulkStatus?.value) {
         delete body.status;
       }
