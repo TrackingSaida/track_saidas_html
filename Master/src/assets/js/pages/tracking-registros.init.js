@@ -1037,46 +1037,149 @@ function setupPagerEvents() {
     } catch (_) { return "—"; }
   }
 
+  /** Tentativa vigente no momento do evento (1 + liberações anteriores). */
+  function tentativaNoMomento(historico, eventIndex) {
+    var n = 1;
+    for (var i = 0; i < eventIndex; i++) {
+      var ev = String((historico[i] && historico[i].evento) || "").toLowerCase();
+      if (ev.indexOf("nova_tentativa") !== -1 || ev.indexOf("liberacao_ausencias") !== -1) n += 1;
+    }
+    return n;
+  }
+
+  function grupoFotoKey(evento, tentativa) {
+    return String(evento || "legacy").toLowerCase() + ":" + String(tentativa || 1);
+  }
+
+  /**
+   * Monta mapa evento:tentativa -> [{ url, globalIndex }].
+   * fotosTipadas: [{ key, evento, tentativa }]; urlsByKey: { key: url }.
+   */
+  function buildPhotoGroups(fotosTipadas, urlsByKey, fotoKeysOrder) {
+    var groups = {};
+    var list = Array.isArray(fotosTipadas) && fotosTipadas.length
+      ? fotosTipadas
+      : (fotoKeysOrder || []).map(function(key) {
+          return { key: key, evento: "legacy", tentativa: 1 };
+        });
+    list.forEach(function(item, idx) {
+      var key = String((item && item.key) || "").trim();
+      if (!key) return;
+      var url = urlsByKey[key];
+      if (!url) return;
+      var ev = String((item && item.evento) || "legacy").toLowerCase();
+      var tent = Number(item && item.tentativa) || 1;
+      var gkey = grupoFotoKey(ev, tent);
+      if (!groups[gkey]) groups[gkey] = [];
+      groups[gkey].push({ url: url, globalIndex: idx, key: key, evento: ev, tentativa: tent });
+    });
+    return groups;
+  }
+
+  /**
+   * Associa grupos de foto (por tentativa) aos eventos na ordem cronológica.
+   * Evita desalinhamento quando detail.tentativa já não começa em 1.
+   */
+  function mapPhotosToEventIndexes(historico, groups, kind) {
+    var eventIndexes = [];
+    historico.forEach(function(item, i) {
+      if (kind === "ausente" ? isEventoAusencia(item.evento) : isEventoEntrega(item.evento)) {
+        eventIndexes.push(i);
+      }
+    });
+    var prefix = kind + ":";
+    var tentKeys = Object.keys(groups)
+      .filter(function(k) { return k.indexOf(prefix) === 0; })
+      .sort(function(a, b) {
+        return (Number(a.split(":")[1]) || 0) - (Number(b.split(":")[1]) || 0);
+      });
+    var map = {};
+    eventIndexes.forEach(function(evIdx, i) {
+      if (tentKeys[i] && groups[tentKeys[i]]) map[evIdx] = groups[tentKeys[i]];
+    });
+    return map;
+  }
+
+  function buildEventPhotoMaps(historico, groups) {
+    var ausenciaMap = mapPhotosToEventIndexes(historico, groups, "ausente");
+    var entregaMap = mapPhotosToEventIndexes(historico, groups, "entregue");
+    var legacy = groups[grupoFotoKey("legacy", 1)] || [];
+    if (legacy.length) {
+      var lastEntrega = findLastHistoricoIndexByKeys(historico, isEventoEntrega);
+      var lastAusencia = findLastHistoricoIndexByKeys(historico, isEventoAusencia);
+      var target = lastEntrega >= 0 ? lastEntrega : lastAusencia;
+      if (target >= 0) {
+        var existing = ausenciaMap[target] || entregaMap[target] || [];
+        var merged = existing.concat(legacy);
+        if (isEventoEntrega(historico[target].evento)) entregaMap[target] = merged;
+        else ausenciaMap[target] = merged;
+      }
+    }
+    return { ausenciaMap: ausenciaMap, entregaMap: entregaMap };
+  }
+
+  /** Índice global da 1ª foto do último evento com comprovante (para export/share). */
+  function indexExportUltimoEvento(historico, groups) {
+    var maps = buildEventPhotoMaps(historico, groups);
+    for (var i = historico.length - 1; i >= 0; i--) {
+      var fotos = maps.entregaMap[i] || maps.ausenciaMap[i] || [];
+      if (fotos.length) return fotos[0].globalIndex;
+    }
+    return 0;
+  }
+
   function buildTimeline(historico, ctx) {
     ctx = ctx || {};
     var detailNested = ctx.detailNested || {};
-    var photoThumbUrls = Array.isArray(ctx.photoThumbUrls) ? ctx.photoThumbUrls : [];
+    var photoGroups = ctx.photoGroups || {};
     if (!historico || historico.length === 0)
       return "<p class=\"text-muted small mb-0\">Nenhum evento registrado.</p>";
 
-    var lastEntregaIndex = findLastHistoricoIndexByKeys(historico, isEventoEntrega);
     var lastAusenciaIndex = findLastHistoricoIndexByKeys(historico, isEventoAusencia);
     var motivoAusencia = String(detailNested.motivo_ocorrencia || "").trim();
     var obsAusencia = String(detailNested.observacao_ocorrencia || "").trim();
-    var tentativaNum = detailNested.tentativa;
+    var maps = buildEventPhotoMaps(historico, photoGroups);
+    var ausenciaOrdinal = {};
+    var ausenciaCount = 0;
+    historico.forEach(function(hItem, hIdx) {
+      if (isEventoAusencia(hItem.evento)) {
+        ausenciaCount += 1;
+        ausenciaOrdinal[hIdx] = ausenciaCount;
+      }
+    });
 
     return historico.map(function(item, index) {
       var title = labelEventoHistorico(item.evento, item.acao_label);
       var dateLine = fmtDt(item.timestamp);
       if (item.usuario_nome) dateLine += " — por " + escapeHtml(item.usuario_nome);
 
+      var eventPhotos = [];
+      if (isEventoAusencia(item.evento)) eventPhotos = maps.ausenciaMap[index] || [];
+      else if (isEventoEntrega(item.evento)) eventPhotos = maps.entregaMap[index] || [];
+
       var extrasHtml = "";
-      if (isEventoAusencia(item.evento) && index === lastAusenciaIndex) {
+      if (isEventoAusencia(item.evento)) {
+        // Ordem da ausência no histórico (1ª, 2ª…), não o contador interno atual do pedido.
+        var tentEvento = ausenciaOrdinal[index] || tentativaNoMomento(historico, index);
         extrasHtml += "<div class=\"timeline-extras small text-muted mt-1\">";
-        if (motivoAusencia) extrasHtml += "<div><strong>Motivo:</strong> " + escapeHtml(motivoAusencia) + "</div>";
-        if (obsAusencia) extrasHtml += "<div><strong>Observação:</strong> " + escapeHtml(obsAusencia) + "</div>";
-        if (tentativaNum != null && tentativaNum !== "") {
-          extrasHtml += "<div><strong>Nª tentativa:</strong> " + escapeHtml(String(tentativaNum)) + "</div>";
+        extrasHtml += "<div><strong>Nª tentativa:</strong> " + escapeHtml(String(tentEvento)) + "</div>";
+        if (index === lastAusenciaIndex) {
+          if (motivoAusencia) extrasHtml += "<div><strong>Motivo:</strong> " + escapeHtml(motivoAusencia) + "</div>";
+          if (obsAusencia) extrasHtml += "<div><strong>Observação:</strong> " + escapeHtml(obsAusencia) + "</div>";
         }
         extrasHtml += "</div>";
       }
 
-      var showThumb =
-        photoThumbUrls.length > 0 &&
-        ((isEventoEntrega(item.evento) && index === lastEntregaIndex) ||
-          (isEventoAusencia(item.evento) && index === lastAusenciaIndex));
       var thumbHtml = "";
-      if (showThumb) {
+      if (eventPhotos.length) {
         thumbHtml = "<div class=\"timeline-thumbs d-flex flex-wrap gap-2 mt-2\">" +
-          photoThumbUrls.map(function(url, photoIndex) {
-            return "<a href=\"" + escapeHtml(url) + "\" target=\"_blank\" rel=\"noopener\" class=\"timeline-thumb-link\">" +
-              "<img src=\"" + escapeHtml(url) + "\" alt=\"Comprovante " + (photoIndex + 1) + "\" class=\"rounded border\" style=\"width:80px;height:80px;object-fit:cover;\" />" +
-              "</a>";
+          eventPhotos.map(function(photo, photoIndex) {
+            return "<button type=\"button\" class=\"timeline-thumb-btn border-0 p-0 bg-transparent\" data-photo-url=\"" +
+              escapeHtml(photo.url) +
+              "\" title=\"Ampliar comprovante\">" +
+              "<img src=\"" + escapeHtml(photo.url) + "\" alt=\"Comprovante " + (photoIndex + 1) +
+              "\" class=\"rounded border timeline-thumb-img\" />" +
+              "</button>";
           }).join("") +
           "</div>";
       }
@@ -1243,8 +1346,9 @@ function setupPagerEvents() {
       var enderecoCompleto = endParts.length ? endParts.join(", ") : (d.endereco_formatado || "—");
       var destContato = (d.dest_contato && d.dest_contato.trim()) ? d.dest_contato : "";
 
-      var downloadUrls = [];
       var fotoUrls = d.foto_urls && Array.isArray(d.foto_urls) ? d.foto_urls : [];
+      var fotosTipadas = d.fotos && Array.isArray(d.fotos) ? d.fotos : [];
+      var urlsByKey = {};
       if (fotoUrls.length > 0) {
         try {
           var presignRes = await fetch(base + "/upload/presign-get", {
@@ -1255,45 +1359,38 @@ function setupPagerEvents() {
           });
           if (presignRes.ok) {
             var presignData = await presignRes.json();
-            downloadUrls = presignData.download_urls || (presignData.download_url ? [presignData.download_url] : []);
+            var downloadUrls = presignData.download_urls || (presignData.download_url ? [presignData.download_url] : []);
+            fotoUrls.forEach(function(key, i) {
+              if (downloadUrls[i]) urlsByKey[key] = downloadUrls[i];
+            });
           }
         } catch (e) {
-          downloadUrls = [];
+          urlsByKey = {};
         }
       }
 
+      var photoGroups = buildPhotoGroups(fotosTipadas, urlsByKey, fotoUrls);
+      var exportIndex = indexExportUltimoEvento(historico, photoGroups);
+      var hasPhotos = Object.keys(photoGroups).some(function(k) { return photoGroups[k] && photoGroups[k].length; });
+
       var timelineHtml = buildTimeline(historico, {
         detailNested: d,
-        photoThumbUrls: downloadUrls
+        photoGroups: photoGroups
       });
 
       var bloqueioBadgeHtml = bloqueadoAusencias
         ? '<span class="badge bg-danger ms-2 align-middle">Bloqueado por ausências</span>'
         : "";
       var acoesHtml = "";
-      if (podeLiberar || fotoUrls.length > 0) {
+      if (podeLiberar || hasPhotos) {
         acoesHtml = '<div class="pedido-actions d-flex flex-wrap gap-2 mt-3 mb-2">';
         if (podeLiberar) {
           acoesHtml += '<button type="button" class="btn btn-sm btn-warning" id="btn-liberar-nova-tentativa">Liberar nova tentativa</button>';
         }
-        if (fotoUrls.length > 0) {
+        if (hasPhotos) {
           acoesHtml += '<button type="button" class="btn btn-sm btn-outline-primary" id="btn-export-comprovante">Baixar / compartilhar comprovante</button>';
         }
         acoesHtml += "</div>";
-      }
-
-      var photoCardTitle = (saida.status || "").toLowerCase() === "entregue" ? "Comprovante de Entrega" : "Registro (Ausente)";
-      var photoCardHtml = "";
-      if (downloadUrls.length > 0) {
-        photoCardHtml = '<div class="pedido-card">' +
-          '<h5>' + photoCardTitle + '</h5>' +
-          downloadUrls.map(function(url) {
-            return '<div class="mb-2">' +
-              '<img src="' + url + '" class="img-fluid rounded border" style="max-height:480px; object-fit:contain;" alt="Comprovante">' +
-              '<br><a href="' + url + '" target="_blank" rel="noopener">Abrir em nova aba</a>' +
-              '</div>';
-          }).join('') +
-          '</div>';
       }
 
       var pedidoHtml =
@@ -1303,7 +1400,7 @@ function setupPagerEvents() {
             '<div class="pedido-status status-badge ' + statusClass + '">' + escapeHtml(statusText) + '</div>' +
           '</div>' +
           acoesHtml +
-          '<div class="pedido-grid">' +
+          '<div class="pedido-grid pedido-grid-2">' +
             '<div class="pedido-card">' +
               '<h5>Informações da Entrega</h5>' +
               '<p><strong>Entregador:</strong> ' + escapeHtml(entregador) + '</p>' +
@@ -1314,12 +1411,16 @@ function setupPagerEvents() {
               (destContato ? '<p><strong>Contato destino:</strong> ' + escapeHtml(destContato) + '</p>' : '') +
               ocorrenciaHtml +
             '</div>' +
-            photoCardHtml +
             '<div class="pedido-card historico-card">' +
               '<h5>Histórico</h5>' +
+              '<p class="text-muted small mb-2">Miniaturas por evento. Clique para ampliar.</p>' +
               '<div class="timeline">' + timelineHtml + '</div>' +
             '</div>' +
           '</div>' +
+        '</div>' +
+        '<div id="reg-photo-lightbox" class="reg-photo-lightbox d-none" role="dialog" aria-modal="true">' +
+          '<button type="button" class="reg-photo-lightbox-close" aria-label="Fechar">&times;</button>' +
+          '<img id="reg-photo-lightbox-img" alt="Comprovante ampliado" />' +
         '</div>';
 
       if (detailContent) detailContent.innerHTML = pedidoHtml;
@@ -1337,8 +1438,33 @@ function setupPagerEvents() {
       if (btnExport) {
         btnExport.addEventListener("click", function() {
           btnExport.disabled = true;
-          baixarOuCompartilharComprovante(idSaida, 0).finally(function() {
+          baixarOuCompartilharComprovante(idSaida, exportIndex).finally(function() {
             btnExport.disabled = false;
+          });
+        });
+      }
+
+      var lightbox = document.getElementById("reg-photo-lightbox");
+      var lightboxImg = document.getElementById("reg-photo-lightbox-img");
+      function closeLightbox() {
+        if (!lightbox) return;
+        lightbox.classList.add("d-none");
+        if (lightboxImg) lightboxImg.removeAttribute("src");
+      }
+      if (lightbox) {
+        var closeBtn = lightbox.querySelector(".reg-photo-lightbox-close");
+        if (closeBtn) closeBtn.addEventListener("click", closeLightbox);
+        lightbox.addEventListener("click", function(ev) {
+          if (ev.target === lightbox) closeLightbox();
+        });
+      }
+      if (detailContent) {
+        detailContent.querySelectorAll(".timeline-thumb-btn").forEach(function(btn) {
+          btn.addEventListener("click", function() {
+            var url = btn.getAttribute("data-photo-url");
+            if (!url || !lightbox || !lightboxImg) return;
+            lightboxImg.src = url;
+            lightbox.classList.remove("d-none");
           });
         });
       }
