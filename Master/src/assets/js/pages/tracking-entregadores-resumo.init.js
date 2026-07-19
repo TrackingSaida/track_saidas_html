@@ -12,6 +12,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   const API_RESUMO = _base + "/entregadores/resumo";
   const API_ENTREGADORES = _base + "/entregadores";
   const API_FECHAMENTOS = _base + "/entregadores/fechamentos";
+  const API_FECHAMENTOS_CONFIG = API_FECHAMENTOS + "/config";
+
+  const MODO_LABELS = {
+    operacional: "Por saída operacional",
+    confirmacao_entrega: "Por confirmação de entrega",
+  };
 
   const qs = (s) => document.querySelector(s);
 
@@ -71,7 +77,121 @@ document.addEventListener("DOMContentLoaded", async () => {
     contextoFechamento: null, // { status, id_fechamento, periodo_inicio, periodo_fim, entregador_nome } quando um único entregador
     entregadoresParaReajuste: [], // quando status GERADO sem entregador no filtro: lista de { entregador_id, entregador_nome, id_fechamento, periodo_inicio, periodo_fim }
     modalFechamentoFecharConfirmado: false, // true ao fechar por Salvar com sucesso; evita "Descartar alterações?" nesse caso
+    modoCriterio: "operacional",
+    criterioDataLabel: "Data da operação",
+    modosDisponiveis: [],
   };
+
+  function aplicarCriterioNaUi(modo, dataLabel) {
+    state.modoCriterio = modo || "operacional";
+    state.criterioDataLabel = dataLabel || (state.modoCriterio === "confirmacao_entrega" ? "Data da entrega" : "Data da operação");
+    const labelModo = MODO_LABELS[state.modoCriterio] || state.modoCriterio;
+    const elModo = qs("#criterioFechamentoLabel");
+    const elData = qs("#criterioDataLabel");
+    const th = qs("#th-data-criterio");
+    if (elModo) elModo.textContent = labelModo;
+    if (elData) elData.textContent = state.criterioDataLabel;
+    if (th) {
+      th.textContent = state.criterioDataLabel;
+      th.title = state.modoCriterio === "confirmacao_entrega"
+        ? "Dia em que a entrega foi confirmada no app."
+        : "Dia em que o pacote foi lido/atribuído ao motoboy.";
+    }
+  }
+
+  async function carregarConfigCriterio() {
+    try {
+      const res = await fetch(API_FECHAMENTOS_CONFIG, { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      state.modosDisponiveis = Array.isArray(data.modos_disponiveis) ? data.modos_disponiveis : [];
+      aplicarCriterioNaUi(data.modo, data.criterio_data_label);
+    } catch (err) {
+      console.warn("Não foi possível carregar critério de fechamento:", err);
+    }
+  }
+
+  async function alterarCriterioFechamento() {
+    const opcoes = (state.modosDisponiveis || []).map((m) => ({
+      value: m.valor,
+      label: (m.label || m.valor) + (m.descricao ? " — " + m.descricao : ""),
+    }));
+    if (!opcoes.length) {
+      opcoes.push(
+        { value: "operacional", label: "Por saída operacional" },
+        { value: "confirmacao_entrega", label: "Por confirmação de entrega" },
+      );
+    }
+    if (!window.Swal) {
+      alert("Altere o critério pela API /entregadores/fechamentos/config");
+      return;
+    }
+    const inputOptions = {};
+    opcoes.forEach((o) => { inputOptions[o.value] = o.label; });
+    const result = await Swal.fire({
+      title: "Critério de fechamento",
+      text: "A alteração vale para os próximos fechamentos. Fechamentos já gerados não mudam.",
+      input: "radio",
+      inputOptions,
+      inputValue: state.modoCriterio || "operacional",
+      showCancelButton: true,
+      confirmButtonText: "Salvar",
+      cancelButtonText: "Cancelar",
+    });
+    if (!result.isConfirmed || !result.value) return;
+    try {
+      const res = await fetch(API_FECHAMENTOS_CONFIG, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modo: result.value }),
+      });
+      if (!res.ok) {
+        let msg = "Não foi possível salvar o critério.";
+        try {
+          const err = await res.json();
+          if (typeof err.detail === "string") msg = err.detail;
+        } catch (_) { /* ignore */ }
+        throw new Error(msg);
+      }
+      const data = await res.json();
+      aplicarCriterioNaUi(data.modo, data.criterio_data_label);
+      await carregarResumo();
+      Swal.fire({ icon: "success", title: "Critério atualizado", timer: 1800, showConfirmButton: false });
+    } catch (err) {
+      Swal.fire({ icon: "error", title: "Erro", text: err.message || "Falha ao salvar." });
+    }
+  }
+
+  function renderPreviaModal(previa, modo) {
+    const wrap = qs("#fech-previa-wrap");
+    const tbodyPrev = qs("#fech-previa-tbody");
+    const resumo = qs("#fech-previa-resumo");
+    if (!wrap || !tbodyPrev) return;
+    if (!previa || modo !== "confirmacao_entrega") {
+      wrap.classList.add("d-none");
+      return;
+    }
+    const grupos = [
+      ["incluido", "Incluídos no fechamento"],
+      ["outra_quinzena", "Entregues em outra quinzena"],
+      ["ausente", "Ausentes (não pagos)"],
+      ["sem_confirmacao", "Sem confirmação de entrega"],
+      ["reaberto", "Reabertos por reatribuição"],
+    ];
+    const rows = [];
+    let totalInc = 0;
+    grupos.forEach(([key, label]) => {
+      const qtde = Array.isArray(previa[key]) ? previa[key].length : 0;
+      if (key === "incluido") totalInc = qtde;
+      if (qtde > 0 || key === "incluido") {
+        rows.push("<tr><td>" + label + "</td><td class=\"text-end\">" + qtde + "</td></tr>");
+      }
+    });
+    tbodyPrev.innerHTML = rows.join("");
+    if (resumo) resumo.textContent = totalInc + " pedido(s) elegível(is) neste período.";
+    wrap.classList.remove("d-none");
+  }
 
   const fltDataInicio = qs("#flt-data-inicio");
   const fltDataFim = qs("#flt-data-fim");
@@ -472,6 +592,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const alertDiverg = qs("#fechamentoAlertaDivergencia");
     if (alertDiverg) alertDiverg.classList.add("d-none");
 
+    renderPreviaModal(null, null);
+    const criterioElInit = qs("#fech-criterio-label");
+    if (criterioElInit) criterioElInit.textContent = MODO_LABELS[state.modoCriterio] || state.modoCriterio;
+
     if (state.modoEdicao && idFech) {
       try {
         const res = await fetch(`${API_FECHAMENTOS}/${idFech}`, { credentials: "include" });
@@ -479,6 +603,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         const data = await res.json();
         state.fechModal.valorBase = Number(data.valor_base || 0);
         qs("#fech-valor-base").value = formatarMoeda(data.valor_base);
+        if (criterioElInit) {
+          const modoF = data.modo_criterio || state.modoCriterio;
+          criterioElInit.textContent = (MODO_LABELS[modoF] || modoF) +
+            (data.criterio_data_label ? " · " + data.criterio_data_label : "");
+        }
         if ((data.valor_adicao || 0) > 0) state.ajustesFechamento.push({ tipo: "ADIÇÃO", valor: data.valor_adicao, motivo: data.motivo_adicao || "" });
         if ((data.valor_subtracao || 0) > 0) state.ajustesFechamento.push({ tipo: "SUBTRAÇÃO", valor: data.valor_subtracao, motivo: data.motivo_subtracao || "" });
         if (data.divergencia_valor_base && data.valor_base_recalculado != null) {
@@ -523,6 +652,23 @@ document.addEventListener("DOMContentLoaded", async () => {
           qs("#fech-valor-base").value = formatarMoeda(data.valor_base);
           state.fechModal.g_por_servico = data.g_por_servico || { shopee: 0, ml: 0, avulso: 0 };
           state.fechModal.g_total = data.g_total ?? 0;
+          const modoCalc = data.modo_criterio || state.modoCriterio;
+          const criterioEl = qs("#fech-criterio-label");
+          if (criterioEl) {
+            criterioEl.textContent = (MODO_LABELS[modoCalc] || modoCalc) +
+              (data.criterio_data_label ? " · " + data.criterio_data_label : "");
+          }
+          renderPreviaModal(data.previa, modoCalc);
+          if (Array.isArray(data.itens_ja_fechados) && data.itens_ja_fechados.length) {
+            const amostra = data.itens_ja_fechados.slice(0, 5).map((x) => x.codigo || x.id_saida).join(", ");
+            if (window.Swal) {
+              await Swal.fire({
+                icon: "warning",
+                title: "Pedidos já fechados",
+                text: "Há pedidos deste período em outro fechamento. Exemplos: " + amostra,
+              });
+            }
+          }
         } else {
           let mensagem = "Erro ao calcular fechamento.";
           try {
@@ -920,6 +1066,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.contextoFechamento = temExecutor && dataInicio && dataFim ? { status: "PENDENTE", id_fechamento: null, periodo_inicio: dataInicio, periodo_fim: dataFim, entregador_nome: label } : null;
       }
 
+      if (data.modo_criterio || data.criterio_data_label) {
+        aplicarCriterioNaUi(data.modo_criterio || state.modoCriterio, data.criterio_data_label || state.criterioDataLabel);
+      }
       updateCards(data);
       renderTable(state.items);
       updatePager();
@@ -1053,6 +1202,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   pagerNext?.addEventListener("click", () => { if (state.page < state.totalPages) { state.page++; carregarResumo(); } });
   pagerLast?.addEventListener("click", () => { state.page = state.totalPages; carregarResumo(); });
 
+  qs("#btnAlterarCriterioFechamento")?.addEventListener("click", alterarCriterioFechamento);
+
+  await carregarConfigCriterio();
   await carregarExecutores();
   state.entregadorLabel = "Todos";
   atualizarBtnGerarFechamento();

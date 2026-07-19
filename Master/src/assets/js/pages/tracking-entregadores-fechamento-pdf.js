@@ -151,6 +151,13 @@
       y += 4.5;
     }
     doc.text(`Período: ${fmtData(fech.periodo_inicio)} a ${fmtData(fech.periodo_fim)} | Geração: ${new Date().toLocaleString("pt-BR")}`, M, y);
+    y += 4.5;
+    const modoPdf = String(fech.modo_criterio || "operacional");
+    const modoPdfLabel = modoPdf === "confirmacao_entrega"
+      ? "Por confirmação de entrega"
+      : "Por saída operacional";
+    const dataPdfLabel = fech.criterio_data_label || (modoPdf === "confirmacao_entrega" ? "Data da entrega" : "Data da operação");
+    doc.text(`Critério: ${modoPdfLabel} | ${dataPdfLabel}`, M, y);
     y += 6;
 
     y = ensureSpace(y, 14);
