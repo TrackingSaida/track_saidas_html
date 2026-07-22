@@ -540,8 +540,8 @@ function augmentEntregadoresFromRows(rows){
     var s = String(status).replace(/_/g, " ").trim();
     var lower = s.toLowerCase();
     if (lower === "saiu" || lower === "saiu para entrega") return "SAIU PARA ENTREGA";
-    if (lower === "encerrado sistema" || lower === "encerrado pelo sistema" || lower === "encerrado_sistema") {
-      return "Encerrado pelo sistema";
+    if (lower === "encerrado sistema" || lower === "encerrado pelo sistema" || lower === "encerrado_sistema" || lower === "encerrado") {
+      return "Encerrado";
     }
     return s.toUpperCase();
   }
@@ -606,12 +606,14 @@ function augmentEntregadoresFromRows(rows){
     var raw = String(evento || "").trim().toLowerCase().replace(/\s+/g, "_");
     if (!raw) return "unknown";
     if (Object.prototype.hasOwnProperty.call(EVENTO_HISTORICO_LABELS, raw)) return raw;
+    if (raw.indexOf("encerrado") !== -1) return "encerrado_sistema";
     if (raw.indexOf("entregue") !== -1) return "entregue";
     if (raw.indexOf("ausente") !== -1) return "ausente";
     if (raw.indexOf("cancel") !== -1) return "cancelado";
     if (raw.indexOf("endereco") !== -1) return "endereco_atualizado";
     if (raw.indexOf("recalcul") !== -1) return "rota_recalculada";
     if (raw.indexOf("rota_criada") !== -1 || raw === "rota_criada") return "rota_criada";
+    if (raw === "rota_cancelada" || raw.indexOf("rota_cancel") !== -1) return "rota_cancelada";
     if (raw.indexOf("rota") !== -1 || raw === "saiu") return raw === "saiu" ? "saiu" : "em_rota";
     if (raw.indexOf("scan") !== -1 || raw.indexOf("escane") !== -1) return "scan";
     if (raw.indexOf("lido") !== -1 || raw.indexOf("leitura") !== -1) return "lido";
@@ -1834,18 +1836,18 @@ function setupPagerEvents() {
       if (s === "cancelado") return "Cancelado";
       if (s === "entregue") return "Entregue";
       if (s === "ausente") return "Ausente";
-      if (s.indexOf("encerrado") !== -1) return "Encerrado pelo sistema";
+      if (s.indexOf("encerrado") !== -1) return "Encerrado";
       return "Saiu para entrega";
     })();
 
     if (eSta) {
       // Encerrado não é escolhível; só aparece se for o status atual (exibição).
-      if (uiStatus === "Encerrado pelo sistema") {
+      if (uiStatus === "Encerrado") {
         var hasEnc = Array.from(eSta.options || []).some(function(o){ return o.value === uiStatus; });
         if (!hasEnc) {
           var optEnc = document.createElement("option");
-          optEnc.value = "Encerrado pelo sistema";
-          optEnc.textContent = "Encerrado pelo sistema";
+          optEnc.value = "Encerrado";
+          optEnc.textContent = "Encerrado";
           eSta.insertBefore(optEnc, eSta.firstChild);
         }
         eSta.value = uiStatus;
@@ -1934,7 +1936,7 @@ function setupPagerEvents() {
           v === "Cancelado"         ? "cancelado" :
           v === "Entregue"          ? "entregue" :
           v === "Ausente"           ? "ausente" :
-          v === "Encerrado pelo sistema" ? "ENCERRADO_SISTEMA" :
+          v === "Encerrado" ? "ENCERRADO_SISTEMA" :
           "saiu"
         );
       }
