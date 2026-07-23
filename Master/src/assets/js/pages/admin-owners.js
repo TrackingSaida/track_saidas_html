@@ -315,6 +315,7 @@ function openEdit(o) {
     document.getElementById("ownerValor").value = Number(o.valor).toFixed(2);
 
     document.getElementById("ownerIgnorarToggle").checked = o.ignorar_coleta;
+    document.getElementById("ownerDevolucaoToggle").checked = !!o.devolucao_sub_base_habilitada;
     document.getElementById("ownerModoOperacao").value = o.modo_operacao || "codigo";
     document.getElementById("ownerTesteToggle").checked = !!o.teste;
     document.getElementById("ownerAtivoToggle").checked = o.ativo;
@@ -342,6 +343,7 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
         valor: Number(document.getElementById("ownerValor").value),
         modo_operacao: document.getElementById("ownerModoOperacao").value || "codigo",
         ignorar_coleta: document.getElementById("ownerIgnorarToggle").checked,
+        devolucao_sub_base_habilitada: document.getElementById("ownerDevolucaoToggle").checked,
         teste: document.getElementById("ownerTesteToggle").checked,
         ativo: document.getElementById("ownerAtivoToggle").checked,
         tipo_owner: (document.getElementById("ownerTipo").value || "subbase").toLowerCase()
