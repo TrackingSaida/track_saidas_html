@@ -1,0 +1,273 @@
+@@include("partials/main.html")
+
+<head>
+  @@include("partials/title-meta.html", {"title": "Política de Privacidade"})
+  @@include("partials/head-css.html")
+  <meta name="robots" content="index,follow" />
+  <meta name="description" content="Política de Privacidade do aplicativo e sistema Tracking Saídas." />
+  <style>
+    .privacy-wrap { max-width: 860px; }
+    .privacy-wrap h2 { font-size: 1.25rem; margin-top: 2rem; margin-bottom: .75rem; }
+    .privacy-wrap h3 { font-size: 1.05rem; margin-top: 1.25rem; margin-bottom: .5rem; }
+    .privacy-wrap p, .privacy-wrap li { color: #495057; line-height: 1.65; }
+    .privacy-wrap ul { padding-left: 1.2rem; }
+    .privacy-meta { font-size: .9rem; color: #6c757d; }
+    .privacy-table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .92rem; }
+    .privacy-table th, .privacy-table td { border: 1px solid #dee2e6; padding: .65rem .75rem; vertical-align: top; text-align: left; }
+    .privacy-table th { background: #f8f9fa; }
+    .privacy-note { background: #f8f9fa; border-left: 4px solid #0d6efd; padding: .85rem 1rem; border-radius: .25rem; }
+  </style>
+</head>
+
+<body>
+  <div class="layout-wrapper landing">
+    <nav class="navbar navbar-expand-lg navbar-landing fixed-top bg-white border-bottom" id="navbar">
+      <div class="container">
+        <a class="navbar-brand" href="landing-tracking.html">
+          <img src="assets/images/logo-light.png" alt="Tracking Saídas" height="40">
+        </a>
+        <div class="d-flex gap-2">
+          <a href="landing-tracking.html" class="btn btn-link fw-medium text-decoration-none">Início</a>
+          <a href="auth-signin-tracking-v2.html" class="btn btn-primary btn-sm">Entrar</a>
+        </div>
+      </div>
+    </nav>
+
+    <section class="section" style="padding-top: 7rem;">
+      <div class="container privacy-wrap">
+        <h1 class="fw-bold mb-2">Política de Privacidade</h1>
+        <p class="privacy-meta mb-4">
+          Última atualização: 27 de julho de 2026<br>
+          Aplicativo Android: Tracking Saídas (<code>br.com.trackingsaidas.mobile</code>)<br>
+          Site e sistema web: Tracking Saídas
+        </p>
+
+        <div class="privacy-note mb-4">
+          Esta política descreve como o Tracking Saídas trata dados no aplicativo móvel e no sistema web
+          associados à operação de entregas. Dados cadastrais do responsável legal (razão social e CNPJ)
+          devem ser complementados pelo controlador do serviço quando disponíveis.
+        </div>
+
+        <h2>1. Identificação do serviço</h2>
+        <p>
+          O <strong>Tracking Saídas</strong> é um sistema operacional de entregas last-mile, utilizado por
+          bases, operadores e entregadores para registro de coletas e saídas, preparação de rotas,
+          navegação, registro de entrega e ausência, comprovantes, consulta e histórico de pacotes.
+        </p>
+
+        <h2>2. Responsável pelo tratamento</h2>
+        <p>
+          O tratamento dos dados é realizado pelo controlador do serviço Tracking Saídas.
+          Para solicitações relacionadas a privacidade, utilize o canal oficial de atendimento:
+        </p>
+        <ul>
+          <li>
+            WhatsApp comercial/atendimento:
+            <a href="https://wa.me/5511970485792" rel="noopener noreferrer" target="_blank">+55 11 97048-5792</a>
+          </li>
+        </ul>
+        <p class="privacy-meta">
+          Razão social, CNPJ e e-mail dedicado de privacidade serão informados nesta página assim que
+          formalizados pelo responsável.
+        </p>
+
+        <h2>3. Dados coletados</h2>
+        <p>Conforme o uso do aplicativo e da API, podem ser tratados:</p>
+        <table class="privacy-table">
+          <thead>
+            <tr>
+              <th>Categoria</th>
+              <th>Exemplos</th>
+              <th>Observação</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Identificação / conta</td>
+              <td>Usuário/login, identificadores de sessão, sub-base</td>
+              <td>Autenticação e isolamento multi-tenant</td>
+            </tr>
+            <tr>
+              <td>Credenciais</td>
+              <td>Senha no login; tokens no dispositivo</td>
+              <td>Opção de “lembrar” credenciais, se ativada</td>
+            </tr>
+            <tr>
+              <td>Localização aproximada</td>
+              <td>Cidade/região para sugestões e mapa</td>
+              <td>Em primeiro plano, com permissão</td>
+            </tr>
+            <tr>
+              <td>Localização exata</td>
+              <td>Coordenadas para mapa e navegação</td>
+              <td>Em primeiro plano, com permissão</td>
+            </tr>
+            <tr>
+              <td>Localização em segundo plano</td>
+              <td>Coordenadas durante rota ativa</td>
+              <td>Somente após divulgação e permissão; uso no aparelho para andamento da rota</td>
+            </tr>
+            <tr>
+              <td>Fotos</td>
+              <td>Comprovantes de entrega e ausência</td>
+              <td>Câmera/galeria; envio ao backend/armazenamento</td>
+            </tr>
+            <tr>
+              <td>Dados de entregas</td>
+              <td>Códigos, status, eventos, comprovantes</td>
+              <td>Operação e histórico</td>
+            </tr>
+            <tr>
+              <td>Endereços e destinatários</td>
+              <td>Endereços e dados operacionais da entrega</td>
+              <td>Necessários à execução das rotas</td>
+            </tr>
+            <tr>
+              <td>Dados técnicos</td>
+              <td>Informações mínimas de dispositivo/rede quando necessárias ao funcionamento</td>
+              <td>Sem venda de dados; analytics de marketing não é finalidade do app</td>
+            </tr>
+          </tbody>
+        </table>
+        <p><strong>Não vendemos dados pessoais.</strong></p>
+
+        <h2>4. Finalidades</h2>
+        <ul>
+          <li>autenticação e manutenção de sessão;</li>
+          <li>seleção de sub-base e isolamento operacional;</li>
+          <li>preparação, otimização e execução de rotas;</li>
+          <li>navegação e acompanhamento da rota ativa;</li>
+          <li>registro de entrega e de ausência;</li>
+          <li>comprovantes fotográficos;</li>
+          <li>sincronização com o backend quando houver conexão;</li>
+          <li>suporte e segurança da conta (alteração de senha, biometria opcional).</li>
+        </ul>
+
+        <h2>5. Localização (incluindo segundo plano)</h2>
+        <ul>
+          <li>A localização em primeiro plano pode ser solicitada para mapa, cidade de busca e navegação.</li>
+          <li>
+            A localização em <strong>segundo plano</strong> é usada <strong>somente durante uma rota ativa</strong>,
+            após ação clara do usuário (iniciar/retomar rota) e após divulgação destacada no aplicativo,
+            seguida da permissão do sistema.
+          </li>
+          <li>O rastreamento em segundo plano é encerrado ao <strong>finalizar</strong> ou <strong>cancelar</strong> a rota.</li>
+          <li>
+            No comportamento atual do aplicativo, as coordenadas da rota ativa são utilizadas
+            <strong>no dispositivo</strong> para navegação e andamento da rota. Não afirmamos transmissão
+            contínua da localização ao servidor; se isso mudar, esta política será atualizada.
+          </li>
+          <li>
+            Se a permissão de segundo plano for negada ou adiada (“Agora não”), a rota pode continuar,
+            porém sem rastreamento em segundo plano.
+          </li>
+        </ul>
+
+        <h2>6. Fotos e comprovantes</h2>
+        <ul>
+          <li>O usuário pode capturar ou selecionar fotos para comprovante de entrega ou ausência.</li>
+          <li>
+            As imagens são enviadas à infraestrutura do serviço (backend e armazenamento de objetos),
+            vinculadas à entrega correspondente.
+          </li>
+          <li>
+            Prazos de retenção e exclusão de arquivos seguem a necessidade operacional da base e as
+            solicitações do titular feitas pelos canais oficiais.
+          </li>
+        </ul>
+
+        <h2>7. Compartilhamento e provedores</h2>
+        <p>
+          Os dados podem ser processados por provedores de infraestrutura necessários à operação,
+          incluindo, conforme aplicável:
+        </p>
+        <ul>
+          <li>hospedagem da API;</li>
+          <li>armazenamento de arquivos/comprovantes;</li>
+          <li>mapas e geocodificação (por exemplo, Google Maps e serviços de mapa usados no app);</li>
+          <li>reconhecimento de fala do sistema operacional, quando o usuário usar ditado.</li>
+        </ul>
+        <p>
+          Esses provedores processam dados para viabilizar o serviço. Não compartilhamos dados para
+          marketing de terceiros.
+        </p>
+
+        <h2>8. Segurança</h2>
+        <ul>
+          <li>Comunicação com a API via HTTPS.</li>
+          <li>Tokens e preferências sensíveis no dispositivo via armazenamento seguro, conforme implementação atual.</li>
+          <li>Controles de acesso por autenticação e escopo de sub-base.</li>
+        </ul>
+
+        <h2>9. Retenção</h2>
+        <p>
+          Dados operacionais, logs e comprovantes são mantidos enquanto necessários à operação,
+          cumprimento de obrigações e exercício de direitos. Dados locais (tokens, preferências,
+          rascunhos) permanecem no aparelho até logout, exclusão do aplicativo ou limpeza pelo usuário.
+        </p>
+
+        <h2>10. Exclusão e direitos do titular</h2>
+        <p>
+          O aplicativo permite logout e limpeza de sessão no dispositivo. Para solicitar exclusão,
+          correção ou informações sobre dados tratados no backend:
+        </p>
+        <ol>
+          <li>Contate o canal oficial (WhatsApp acima).</li>
+          <li>Informe usuário/login e, se possível, a sub-base.</li>
+          <li>O responsável avaliará a solicitação conforme a legislação aplicável, incluindo a LGPD, quando cabível.</li>
+        </ol>
+
+        <h2>11. Direitos do titular</h2>
+        <p>
+          Na medida aplicável à legislação vigente, o titular pode solicitar: confirmação de tratamento,
+          acesso, correção, anonimização, portabilidade, informação sobre compartilhamentos e revogação
+          de consentimento quando o tratamento se basear em consentimento.
+        </p>
+
+        <h2>12. Uso por menores</h2>
+        <p>
+          O aplicativo é destinado a uso profissional por entregadores e operadores.
+          Não é direcionado a menores de 13 anos.
+        </p>
+
+        <h2>13. Alterações desta política</h2>
+        <p>
+          Podemos atualizar esta política para refletir mudanças no aplicativo ou na legislação.
+          A data de vigência será atualizada nesta página. Alterações relevantes poderão ser
+          comunicadas pelo aplicativo, e-mail ou pela URL publicada.
+        </p>
+
+        <h2>14. Contato</h2>
+        <ul>
+          <li>
+            Privacidade / suporte:
+            <a href="https://wa.me/5511970485792" rel="noopener noreferrer" target="_blank">WhatsApp +55 11 97048-5792</a>
+          </li>
+          <li>Site: <a href="https://tracking-saidas.com.br/">https://tracking-saidas.com.br/</a></li>
+        </ul>
+
+        <p class="mt-4 mb-5">
+          <a href="landing-tracking.html" class="btn btn-outline-primary">Voltar ao início</a>
+        </p>
+      </div>
+    </section>
+
+    <footer class="bg-dark text-white py-4">
+      <div class="container">
+        <div class="row align-items-center">
+          <div class="col-lg-6">
+            <p class="mb-0">&copy; <span id="current-year"></span> Tracking Saídas. Todos os direitos reservados.</p>
+          </div>
+          <div class="col-lg-6 text-lg-end">
+            <a href="politica-de-privacidade.html" class="text-white-50 small text-decoration-none">Política de Privacidade</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  @@include("partials/vendor-scripts.html")
+  <script>document.getElementById('current-year')&&(document.getElementById('current-year').textContent=new Date().getFullYear());</script>
+</body>
+
+</html>
