@@ -39,6 +39,10 @@
                             <button class="btn btn-soft-danger" id="btnHeaderDel" disabled>
                                 <i class="ri-delete-bin-line align-bottom me-1"></i> Excluir
                             </button>
+
+                            <button class="btn btn-soft-secondary" id="btnPermAvulsoLote" title="Aplicar permissão de lançar avulso a todos os motoboys da base">
+                                <i class="ri-group-line align-bottom me-1"></i> Avulso (todos)
+                            </button>
                         </div>
 
                         <!-- Filtros direita -->
@@ -184,6 +188,10 @@
                             <div class="col-md-6">
                                 <label class="form-label text-primary fw-medium mb-1">Pode digitar código manual</label>
                                 <div id="d-pode-codigo-manual">—</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-primary fw-medium mb-1">Pode lançar avulso</label>
+                                <div id="d-pode-lancar-avulso">—</div>
                             </div>
                         </div>
                     </div>
@@ -397,6 +405,15 @@
                                     <input class="form-check-input" type="checkbox" id="podeDigitarCodigoManual" checked>
                                     <label class="form-check-label" for="podeDigitarCodigoManual">Pode digitar código manualmente</label>
                                     <div class="form-text">Ativo por padrão. Desmarque só se precisar bloquear este entregador.</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="podeLancarAvulso" checked>
+                                    <label class="form-check-label" for="podeLancarAvulso">Pode lançar avulso</label>
+                                    <div class="form-text">Ativo por padrão. Desmarque para bloquear o lançamento de avulso no app deste entregador.</div>
                                 </div>
                             </div>
                         </div>
