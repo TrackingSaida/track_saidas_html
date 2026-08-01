@@ -116,10 +116,29 @@
     if (ok) updateResumo(data);
   }
 
+  const SCAN_DEBOUNCE_MS = 1500;
+  const recentCodes = new Map();
+  function isRecentlyScanned(codigo) {
+    const key = String(codigo || "").trim();
+    if (!key) return true;
+    const ts = recentCodes.get(key) || 0;
+    return Date.now() - ts < SCAN_DEBOUNCE_MS;
+  }
+  function markScanned(codigo) {
+    const key = String(codigo || "").trim();
+    if (key) recentCodes.set(key, Date.now());
+  }
+
   async function registrarCodigo(raw, origem) {
     const codigo = String(raw || "").trim();
-    if (!codigo || busy) return;
+    if (!codigo || busy) return { ok: false, tipo: "busy" };
+
+    if (origem === "camera" && isRecentlyScanned(codigo)) {
+      return { ok: false, tipo: "debounce" };
+    }
+
     busy = true;
+    markScanned(codigo);
     try {
       const { ok, data, status } = await req("/entradas/ler", {
         method: "POST",
@@ -128,27 +147,28 @@
 
       if (status === 401) {
         showMsg("erro", "Sessão expirada. Faça login novamente.");
-        return;
+        return { ok: false, tipo: "auth" };
       }
       if (status === 403) {
         const msg = data?.detail?.message || data?.detail || "Acesso negado.";
         showMsg("erro", typeof msg === "string" ? msg : "Acesso negado.");
-        return;
+        return { ok: false, tipo: "forbidden" };
       }
       if (status === 409 && (data?.code === "JA_NA_BASE" || data?.detail?.code === "JA_NA_BASE")) {
         showMsg("alerta", data?.message || data?.detail?.message || "Pacote já teve entrada na base.");
-        return;
+        return { ok: false, tipo: "duplicado" };
       }
       if (!ok) {
         const msg = data?.message || data?.detail?.message || data?.detail || "Falha ao registrar entrada.";
         showMsg("erro", typeof msg === "string" ? msg : "Falha ao registrar entrada.");
-        return;
+        return { ok: false, tipo: "erro" };
       }
 
       setUltima(data.codigo || codigo, data.servico || "");
       showMsg("info", `Entrada registrada ✓ ${data.codigo || codigo}`);
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
       await refreshResumo();
+      return { ok: true, tipo: "ok" };
     } finally {
       busy = false;
     }
@@ -205,7 +225,7 @@
     await refreshResumo();
   });
 
-  // Scanner câmera (BarcodeDetector quando disponível)
+  // Scanner câmera sequencial (mesmo padrão de Registrar Saídas)
   (function scanner() {
     const btnScan = $("btnScan");
     const overlay = $("scanFS");
@@ -216,19 +236,53 @@
 
     let stream = null;
     let timer = null;
-    let locked = false;
+    let scanLocked = false;
+    let zxingReader = null;
 
     async function stop() {
-      locked = false;
+      scanLocked = false;
       if (timer) { clearInterval(timer); timer = null; }
+      if (zxingReader) {
+        try { zxingReader.reset(); } catch (_) {}
+        zxingReader = null;
+      }
       if (stream) {
         stream.getTracks().forEach((t) => t.stop());
         stream = null;
       }
       video.srcObject = null;
       overlay.classList.remove("show");
+      overlay.classList.remove("scan-lock");
       overlay.style.display = "none";
       inpCod?.focus();
+    }
+
+    async function processarCodigo(text) {
+      const codigo = String(text || "").trim();
+      if (!codigo || scanLocked || busy) return;
+      if (isRecentlyScanned(codigo)) return;
+
+      scanLocked = true;
+      overlay.classList.add("scan-lock");
+      if (hud) hud.textContent = "Processando…";
+      if (inpCod) inpCod.value = codigo;
+
+      try {
+        const result = await registrarCodigo(codigo, "camera");
+        if (result?.ok) {
+          if (hud) hud.textContent = "OK — próximo código";
+        } else if (result?.tipo === "duplicado") {
+          if (hud) hud.textContent = "Já na base — próximo";
+        } else if (result?.tipo !== "debounce") {
+          if (hud) hud.textContent = "Erro — tente outro";
+        }
+      } finally {
+        overlay.classList.remove("scan-lock");
+        setTimeout(() => {
+          scanLocked = false;
+          if (hud) hud.textContent = "Aponte para o código";
+        }, 200);
+      }
     }
 
     async function start() {
@@ -244,30 +298,48 @@
         if (hud) hud.textContent = "Aponte para o código";
 
         if ("BarcodeDetector" in window) {
-          const detector = new BarcodeDetector({ formats: ["qr_code", "code_128", "ean_13", "code_39"] });
-          timer = setInterval(async () => {
-            if (locked || busy) return;
-            try {
-              const codes = await detector.detect(video);
-              if (!codes?.length) return;
-              const raw = codes[0].rawValue;
-              if (!raw) return;
-              locked = true;
-              if (hud) hud.textContent = "Lendo…";
-              await registrarCodigo(raw, "camera");
-              setTimeout(() => { locked = false; if (hud) hud.textContent = "Aponte para o código"; }, 900);
-            } catch (_) {}
-          }, 350);
+          try {
+            const detector = new BarcodeDetector({
+              formats: ["qr_code", "ean_13", "code_128", "code_39", "itf", "upc_a", "upc_e"],
+            });
+            timer = setInterval(async () => {
+              if (scanLocked || busy) return;
+              try {
+                const barcodes = await detector.detect(video);
+                if (barcodes.length) processarCodigo(barcodes[0].rawValue || "");
+              } catch (_) {}
+            }, 120);
+            return;
+          } catch (_) {}
+        }
+
+        if (window.ZXingBrowser) {
+          zxingReader = new ZXingBrowser.BrowserMultiFormatReader();
+          try {
+            await zxingReader.decodeFromVideoDevice(null, video, (result) => {
+              if (result) processarCodigo(result.getText());
+            });
+          } catch (_) {
+            if (hud) hud.textContent = "Leitor não suportado. Use bipe USB.";
+          }
         } else if (hud) {
-          hud.textContent = "Câmera sem detector nativo. Digite o código ou use bipe USB.";
+          hud.textContent = "Câmera sem detector. Digite o código ou use bipe USB.";
         }
       } catch (e) {
         await Swal.fire({ icon: "error", title: "Câmera", text: "Não foi possível acessar a câmera." });
       }
     }
 
-    btnScan.addEventListener("click", () => start());
-    closeBtn?.addEventListener("click", () => stop());
+    btnScan.addEventListener("click", (e) => {
+      e.preventDefault();
+      start();
+    });
+    closeBtn?.addEventListener("click", (e) => {
+      e.preventDefault();
+      stop();
+    });
+    window.entradaStartScanner = start;
+    window.entradaStopScanner = stop;
   })();
 
   applyModo();
