@@ -147,6 +147,10 @@ function initUsers() {
     if (btnReset) {
         btnReset.addEventListener("click", resetPasswordFromSelection);
     }
+    const btnPermAvulso = document.getElementById("btnPermAvulsoLote");
+    if (btnPermAvulso) {
+        btnPermAvulso.addEventListener("click", aplicarPermissaoAvulsoLote);
+    }
 
     document.getElementById("toggleAtivos").addEventListener("change", applyFilters);
     document.getElementById("search").addEventListener("input", applyFilters);
@@ -530,6 +534,8 @@ function openCreate() {
     document.getElementById("podeLerColeta").checked = false;
     document.getElementById("podeLerSaida").checked = true;
     document.getElementById("podeDigitarCodigoManual").checked = true;
+    const podeAvulsoCreate = document.getElementById("podeLancarAvulso");
+    if (podeAvulsoCreate) podeAvulsoCreate.checked = true;
 
     document.getElementById("groupPassword").classList.remove("d-none");
     document.getElementById("groupPasswordConfirm").classList.remove("d-none");
@@ -589,6 +595,8 @@ async function openEdit(id) {
     document.getElementById("podeLerColeta").checked = !!m.pode_ler_coleta;
     document.getElementById("podeLerSaida").checked = m.pode_ler_saida !== false;
     document.getElementById("podeDigitarCodigoManual").checked = !!m.pode_digitar_codigo_manual;
+    const podeAvulsoEdit = document.getElementById("podeLancarAvulso");
+    if (podeAvulsoEdit) podeAvulsoEdit.checked = m.pode_lancar_avulso !== false;
 
     document.getElementById("groupPassword").classList.add("d-none");
     document.getElementById("groupPasswordConfirm").classList.add("d-none");
@@ -636,6 +644,7 @@ function renderMotoboyDetail(data) {
     assign("d-pode-coleta", m.pode_ler_coleta ? "Sim" : "Não");
     assign("d-pode-saida", m.pode_ler_saida !== false ? "Sim" : "Não");
     assign("d-pode-codigo-manual", m.pode_digitar_codigo_manual ? "Sim" : "Não");
+    assign("d-pode-lancar-avulso", m.pode_lancar_avulso !== false ? "Sim" : "Não");
 
     wrap.classList.remove("d-none");
     document.getElementById("motoboy-empty")?.classList.add("d-none");
@@ -769,6 +778,8 @@ async function saveUser(ev) {
         payload.pode_ler_coleta = document.getElementById("podeLerColeta").checked;
         payload.pode_ler_saida = document.getElementById("podeLerSaida").checked;
         payload.pode_digitar_codigo_manual = document.getElementById("podeDigitarCodigoManual").checked;
+        const podeAvulsoEl = document.getElementById("podeLancarAvulso");
+        if (podeAvulsoEl) payload.pode_lancar_avulso = podeAvulsoEl.checked;
     }
 
     try {
@@ -958,6 +969,71 @@ async function resetPasswordFromSelection() {
             icon: "error",
             title: "Erro inesperado",
             text: err.message || "Falha ao resetar senha.",
+        });
+    }
+}
+
+async function aplicarPermissaoAvulsoLote() {
+    const escolha = await Swal.fire({
+        icon: "question",
+        title: "Lançar avulso — todos os motoboys",
+        html: `
+            <p class="mb-2">Aplica a permissão a <strong>todos os entregadores</strong> desta base.</p>
+            <p class="text-muted small mb-0">Motoboys precisarão entrar novamente no app para o token refletir a mudança.</p>
+        `,
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: "Liberar para todos",
+        denyButtonText: "Bloquear para todos",
+        cancelButtonText: "Cancelar",
+    });
+
+    if (!escolha.isConfirmed && !escolha.isDenied) return;
+
+    const liberar = !!escolha.isConfirmed;
+    try {
+        const resp = await fetch(`${API}/motoboys/permissoes-lote`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pode_lancar_avulso: liberar }),
+        });
+
+        if (!resp.ok) {
+            if (resp.status === 401) {
+                await Swal.fire({
+                    icon: "warning",
+                    title: "Sessão expirada",
+                    text: "Faça login novamente para continuar.",
+                });
+                location.href = "login.html";
+                return;
+            }
+            let mensagem = "Erro ao atualizar permissões.";
+            try {
+                const json = await resp.json();
+                if (json.detail) {
+                    mensagem = typeof json.detail === "string" ? json.detail : JSON.stringify(json.detail);
+                }
+            } catch {}
+            await Swal.fire({ icon: "error", title: "Falha", text: mensagem });
+            return;
+        }
+
+        const data = await resp.json().catch(() => ({}));
+        await Swal.fire({
+            icon: "success",
+            title: liberar ? "Avulso liberado" : "Avulso bloqueado",
+            text: `${data.atualizados ?? 0} entregador(es) atualizado(s).`,
+            timer: 2200,
+            showConfirmButton: false,
+        });
+        loadUsers();
+    } catch (err) {
+        await Swal.fire({
+            icon: "error",
+            title: "Erro inesperado",
+            text: err.message || "Falha ao atualizar permissões.",
         });
     }
 }

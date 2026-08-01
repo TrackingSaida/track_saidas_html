@@ -111,6 +111,26 @@
                     </div>
 
                     <div id="view-acompanhamento" class="d-none">
+                    <!-- Card Entradas x Saídas (visível quando entrada obrigatória) -->
+                    <div id="card-entrada-saida" class="card mb-3 d-none">
+                      <div class="card-body">
+                        <div class="row g-2 text-center">
+                          <div class="col-md-4">
+                            <span class="small text-secondary fw-semibold d-block">Entradas do dia</span>
+                            <span class="fs-4 fw-bold" id="kpi-entradas">0</span>
+                          </div>
+                          <div class="col-md-4">
+                            <span class="small text-secondary fw-semibold d-block">Saídas do dia</span>
+                            <span class="fs-4 fw-bold" id="kpi-saidas-entrada">0</span>
+                          </div>
+                          <div class="col-md-4">
+                            <span class="small text-secondary fw-semibold d-block">% saída / entrada</span>
+                            <span class="fs-4 fw-bold text-primary" id="kpi-pct-entrada">—</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <!-- KPIs totalizadores -->
                     <div class="row g-2 mb-3 flex-nowrap">
                       <div class="col flex-fill" style="min-width: 0;">

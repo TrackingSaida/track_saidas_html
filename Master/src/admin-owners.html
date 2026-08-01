@@ -189,6 +189,22 @@
                         </div>
 
                         <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="ownerEntradaToggle">
+                                <label class="form-check-label">Exigir entrada na base antes da saída</label>
+                            </div>
+                            <small class="text-muted d-block mt-1">Quando ativo, o operador registra entrada e a saída só é permitida com entrada prévia.</small>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="ownerConferenciaToggle">
+                                <label class="form-check-label">Habilitar conferência de saída</label>
+                            </div>
+                            <small class="text-muted d-block mt-1">Quando ativo, após o motoboy começar a entrega a saída fica pendente de conferência operacional.</small>
+                        </div>
+
+                        <div class="col-12">
                             <label class="form-label">Modo de Operação</label>
                             <select id="ownerModoOperacao" class="form-select">
                                 <option value="codigo">Coletas e Saída via código</option>

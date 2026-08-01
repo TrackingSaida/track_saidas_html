@@ -145,6 +145,18 @@
       const tier = Op.slaTier ? Op.slaTier(sla) : "neutral";
       bar.className = "acom-sla-bar__fill acom-sla-bar__fill--" + tier;
     }
+
+    const cardEntrada = qs("#card-entrada-saida");
+    if (cardEntrada) {
+      const habilitada = !!totais.entrada_habilitada;
+      cardEntrada.classList.toggle("d-none", !habilitada);
+      if (habilitada) {
+        set("kpi-entradas", String(totais.entradas ?? 0));
+        set("kpi-saidas-entrada", String(totais.saidas ?? 0));
+        const pctEnt = totais.pct_saida_sobre_entrada;
+        set("kpi-pct-entrada", pctEnt != null ? `${Number(pctEnt).toFixed(1)}%` : "—");
+      }
+    }
   }
 
   function setQuickFilter(filter) {

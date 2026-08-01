@@ -67,6 +67,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       valorBase: 0,
       g_por_servico: { shopee: 0, ml: 0, avulso: 0 },
       g_total: 0,
+      conferencia_habilitada: false,
+      conferencia_por_dia: [],
     },
     contextoFechamento: null, // { status, id_fechamento, periodo_inicio, periodo_fim, entregador_nome } quando um único entregador
     entregadoresParaReajuste: [], // quando status GERADO sem entregador no filtro: lista de { entregador_id, entregador_nome, id_fechamento, periodo_inicio, periodo_fim }
@@ -438,6 +440,37 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  function formatarDataYmd(ymd) {
+    if (!ymd) return "—";
+    const [y, m, d] = String(ymd).split("-");
+    return d && m && y ? `${d}/${m}/${y}` : String(ymd);
+  }
+
+  function renderConferenciaBox(lista, habilitada) {
+    const box = qs("#fech-conferencia-box");
+    const tbodyConf = qs("#fech-conferencia-tbody");
+    if (!box || !tbodyConf) return;
+    const rows = Array.isArray(lista) ? lista : [];
+    if (!habilitada) {
+      box.classList.add("d-none");
+      tbodyConf.innerHTML = "";
+      return;
+    }
+    box.classList.remove("d-none");
+    if (!rows.length) {
+      tbodyConf.innerHTML = '<tr><td colspan="2" class="text-muted small">Sem dias com conferência no período.</td></tr>';
+      return;
+    }
+    tbodyConf.innerHTML = rows
+      .map((r) => {
+        const dataBr = formatarDataYmd(r.data);
+        const label = r.label || (r.status === "conferida" ? "Conferido" : "Não conferido");
+        const cls = r.status === "conferida" ? "text-success" : "text-danger";
+        return `<tr><td class="text-nowrap">${dataBr}</td><td class="${cls} fw-semibold">${label}</td></tr>`;
+      })
+      .join("");
+  }
+
   async function abrirModalFechamento(modoEdicao, idFech, executorTipo, executorId, periodoInicio, periodoFim, entNome) {
     state.modoEdicao = !!modoEdicao;
     state.divergenciaValorBase = false;
@@ -471,6 +504,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const alertDiverg = qs("#fechamentoAlertaDivergencia");
     if (alertDiverg) alertDiverg.classList.add("d-none");
+    state.fechModal.conferencia_habilitada = false;
+    state.fechModal.conferencia_por_dia = [];
+    renderConferenciaBox([], false);
 
     if (state.modoEdicao && idFech) {
       try {
@@ -523,6 +559,11 @@ document.addEventListener("DOMContentLoaded", async () => {
           qs("#fech-valor-base").value = formatarMoeda(data.valor_base);
           state.fechModal.g_por_servico = data.g_por_servico || { shopee: 0, ml: 0, avulso: 0 };
           state.fechModal.g_total = data.g_total ?? 0;
+          state.fechModal.conferencia_habilitada = !!data.conferencia_habilitada;
+          state.fechModal.conferencia_por_dia = Array.isArray(data.conferencia_por_dia)
+            ? data.conferencia_por_dia
+            : [];
+          renderConferenciaBox(state.fechModal.conferencia_por_dia, state.fechModal.conferencia_habilitada);
         } else {
           let mensagem = "Erro ao calcular fechamento.";
           try {
@@ -642,6 +683,39 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (a.motivo) motivoSubtracao += (motivoSubtracao ? " | " : "") + a.motivo;
       }
     });
+
+    if (!state.modoEdicao && !idFech && state.fechModal.conferencia_habilitada) {
+      const naoConferidos = (state.fechModal.conferencia_por_dia || []).filter(
+        (d) => d && d.status !== "conferida"
+      );
+      if (naoConferidos.length > 0) {
+        const datas = naoConferidos
+          .map((d) => formatarDataYmd(d.data))
+          .filter(Boolean)
+          .join(", ");
+        if (window.Swal) {
+          const conf = await Swal.fire({
+            icon: "warning",
+            title: "Há dia(s) sem conferência de saída",
+            html:
+              `<p class="mb-2">Dias não conferidos: <strong>${datas || "—"}</strong></p>` +
+              `<p class="mb-0">Deseja continuar e gerar o fechamento mesmo assim?</p>`,
+            showCancelButton: true,
+            confirmButtonText: "Gerar mesmo assim",
+            cancelButtonText: "Cancelar",
+            confirmButtonColor: "#0d6efd",
+          });
+          if (!conf.isConfirmed) return;
+        } else {
+          const ok = confirm(
+            "Há dia(s) sem conferência de saída (" +
+              (datas || "—") +
+              "). Deseja gerar o fechamento mesmo assim?"
+          );
+          if (!ok) return;
+        }
+      }
+    }
 
     if (!state.modoEdicao && !idFech && (state.fechModal.g_total || 0) > 0 && state.ajustesFechamento.length === 0) {
       if (window.Swal) {

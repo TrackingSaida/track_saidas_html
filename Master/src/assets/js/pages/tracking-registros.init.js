@@ -599,7 +599,10 @@ function augmentEntregadoresFromRows(rows){
     rota_criada: "Inserido na rota",
     rota_recalculada: "Rota recalculada",
     encerrado_sistema: "Encerrado pelo sistema",
-    rota_cancelada: "Rota cancelada"
+    rota_cancelada: "Rota cancelada",
+    entrada_base: "Entrada na base",
+    saida_conferida: "Saída conferida",
+    saida_reconferida: "Saída reconferida"
   };
 
   function normalizeEventoKey(evento) {
@@ -619,6 +622,9 @@ function augmentEntregadoresFromRows(rows){
     if (raw.indexOf("lido") !== -1 || raw.indexOf("leitura") !== -1) return "lido";
     if (raw.indexOf("coleta") !== -1) return "coleta";
     if (raw.indexOf("reatrib") !== -1) return "reatribuido";
+    if (raw.indexOf("entrada") !== -1) return "entrada_base";
+    if (raw.indexOf("reconferid") !== -1) return "saida_reconferida";
+    if (raw.indexOf("conferid") !== -1) return "saida_conferida";
     return "unknown";
   }
 
@@ -664,6 +670,9 @@ function augmentEntregadoresFromRows(rows){
     "Nova saída confirmada": { category: "confirmation", className: "action-confirmation" },
     "Nova saída confirmada (mesmo motoboy)": { category: "confirmation", className: "action-confirmation" },
     "Nova saída confirmada com mesmo motoboy": { category: "confirmation", className: "action-confirmation" },
+    "Entrada na base": { category: "neutral", className: "action-neutral" },
+    "Saída conferida": { category: "confirmation", className: "action-confirmation" },
+    "Saída reconferida": { category: "confirmation", className: "action-confirmation" },
     "Sem ação": { category: "neutral", className: "action-neutral" }
   };
 
