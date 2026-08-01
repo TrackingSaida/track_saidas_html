@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    @@include("partials/title-meta.html", {"title": "TrackSaídas — Avisos da Base"})
+    @@include("partials/head-css.html")
+  </head>
+  <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
+    <div id="layout-wrapper">
+      @@include("partials/menu.html")
+
+      <div class="main-content">
+        <div class="page-content">
+          <div class="container-fluid">
+            @@include("partials/page-title.html", {"pagetitle": "Operação", "title": "Avisos da Base", "withSubtitle": true, "ownerTerm": ""})
+
+            <div class="row">
+              <div class="col-lg-5">
+                <div class="card">
+                  <div class="card-header">
+                    <h5 class="card-title mb-0">Novo aviso</h5>
+                  </div>
+                  <div class="card-body">
+                    <div class="mb-3">
+                      <label class="form-label">Título</label>
+                      <input type="text" id="aviso-titulo" class="form-control" maxlength="120" placeholder="Ex.: Atenção à base" />
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">Mensagem</label>
+                      <textarea id="aviso-mensagem" class="form-control" rows="4" maxlength="500" placeholder="Escreva o aviso..."></textarea>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                      <input class="form-check-input" type="checkbox" id="aviso-urgente" />
+                      <label class="form-check-label" for="aviso-urgente">Urgente (motoboy é obrigado a abrir no app)</label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                      <input class="form-check-input" type="checkbox" id="aviso-todos" />
+                      <label class="form-check-label" for="aviso-todos">Todos os motoboys ativos</label>
+                    </div>
+                    <div id="wrap-motoboys" class="mb-3">
+                      <label class="form-label">Motoboys</label>
+                      <select id="aviso-motoboys" class="form-select" multiple size="8"></select>
+                      <div class="form-text">Segure Ctrl/Cmd para selecionar vários.</div>
+                    </div>
+                    <button type="button" id="btn-enviar-aviso" class="btn btn-primary w-100">
+                      <i class="ri-send-plane-line me-1"></i> Enviar aviso
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-7">
+                <div class="card">
+                  <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Histórico recente</h5>
+                    <button type="button" id="btn-atualizar-avisos" class="btn btn-sm btn-soft-primary">Atualizar</button>
+                  </div>
+                  <div class="card-body">
+                    <div class="table-responsive">
+                      <table class="table table-sm align-middle mb-0">
+                        <thead>
+                          <tr>
+                            <th>Quando</th>
+                            <th>Título</th>
+                            <th>Prioridade</th>
+                            <th>Destinatários</th>
+                          </tr>
+                        </thead>
+                        <tbody id="avisos-tbody">
+                          <tr><td colspan="4" class="text-muted text-center py-4">Carregando…</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        @@include("partials/footer.html")
+      </div>
+    </div>
+    @@include("partials/vendor-scripts.html")
+    <script src="assets/js/app.js"></script>
+    <script src="assets/js/pages/tracking-avisos.init.js"></script>
+  </body>
+</html>
