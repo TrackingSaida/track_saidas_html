@@ -33,14 +33,23 @@
                       <label class="form-check-label" for="aviso-urgente">Urgente (motoboy é obrigado a abrir no app)</label>
                     </div>
                     <div class="form-check form-switch mb-3">
-                      <input class="form-check-input" type="checkbox" id="aviso-todos" />
+                      <input class="form-check-input" type="checkbox" id="aviso-todos" checked />
                       <label class="form-check-label" for="aviso-todos">Todos os motoboys ativos</label>
                     </div>
-                    <div id="wrap-motoboys" class="mb-3">
+                    <div id="wrap-motoboys" class="mb-3" style="display: none;">
                       <label class="form-label">Motoboys</label>
-                      <select id="aviso-motoboys" class="form-select" multiple size="8"></select>
-                      <div class="form-text">Segure Ctrl/Cmd para selecionar vários.</div>
+                      <div
+                        id="aviso-motoboys-list"
+                        class="border rounded px-2 py-2"
+                        style="max-height: 260px; overflow-y: auto; background: var(--vz-secondary-bg, #f8f9fa);"
+                      >
+                        <div class="text-muted small py-2 text-center">Carregando…</div>
+                      </div>
+                      <div class="form-text">Por padrão todos ficam desligados — ligue só quem deve receber.</div>
                     </div>
+                    <p class="form-text text-muted mb-3">
+                      O comunicado fica disponível no app do motoboy por 12 horas.
+                    </p>
                     <button type="button" id="btn-enviar-aviso" class="btn btn-primary w-100">
                       <i class="ri-send-plane-line me-1"></i> Enviar aviso
                     </button>
@@ -79,6 +88,9 @@
       </div>
     </div>
     @@include("partials/vendor-scripts.html")
+    <script>
+      if (!window.TRACK_API_URL) window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+    </script>
     <script src="assets/js/app.js"></script>
     <script src="assets/js/pages/tracking-avisos.init.js"></script>
   </body>
