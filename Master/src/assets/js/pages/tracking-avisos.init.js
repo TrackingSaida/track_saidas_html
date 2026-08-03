@@ -85,7 +85,7 @@
           return {
             id,
             nome: m.nome || "Motoboy " + id,
-            enabled: true,
+            enabled: false,
           };
         })
         .filter(Boolean)
@@ -131,8 +131,8 @@
     const wrap = qs("#wrap-motoboys");
     if (wrap) wrap.style.display = todos ? "none" : "";
     if (!todos) {
-      // Ao abrir a lista, todos começam habilitados
-      motoboysState = motoboysState.map((m) => ({ ...m, enabled: true }));
+      // Ao abrir a lista, cada motoboy começa desligado — habilitar manualmente
+      motoboysState = motoboysState.map((m) => ({ ...m, enabled: false }));
       renderMotoboysList();
     }
   }
