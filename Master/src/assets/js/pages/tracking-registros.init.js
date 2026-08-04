@@ -1112,6 +1112,18 @@ function setupPagerEvents() {
     return photos;
   }
 
+  /** Lista plana ordenada por globalIndex para galeria do lightbox. */
+  function flattenAllPhotos(photoGroups) {
+    var photos = [];
+    Object.keys(photoGroups || {}).forEach(function(k) {
+      (photoGroups[k] || []).forEach(function(p) { photos.push(p); });
+    });
+    photos.sort(function(a, b) {
+      return (Number(a.globalIndex) || 0) - (Number(b.globalIndex) || 0);
+    });
+    return photos;
+  }
+
   function resolveEventIndexForPhoto(historico, eventIndexes, photo) {
     if (!eventIndexes.length) return -1;
     var photoTs = photo && photo.createdAt ? Date.parse(photo.createdAt) : NaN;
@@ -1155,14 +1167,31 @@ function setupPagerEvents() {
     return map;
   }
 
+  function isEventoLancarAvulso(ev) {
+    return String(ev || "").toLowerCase().replace(/\s+/g, "_") === "lancar_avulso";
+  }
+
   function buildEventPhotoMaps(historico, groups) {
     var ausenciaMap = mapPhotosToEventIndexes(historico, groups, "ausente");
     var entregaMap = mapPhotosToEventIndexes(historico, groups, "entregue");
+    var avulsoMap = {};
+    var avulsoIndexes = [];
+    historico.forEach(function(item, i) {
+      if (isEventoLancarAvulso(item.evento)) avulsoIndexes.push(i);
+    });
+    flattenPhotoGroups(groups, "lancar_avulso").forEach(function(photo) {
+      var target = resolveEventIndexForPhoto(historico, avulsoIndexes, photo);
+      if (target < 0 && avulsoIndexes.length) target = avulsoIndexes[avulsoIndexes.length - 1];
+      if (target < 0) return;
+      if (!avulsoMap[target]) avulsoMap[target] = [];
+      avulsoMap[target].push(photo);
+    });
     var legacy = groups[grupoFotoKey("legacy", 1)] || [];
     if (legacy.length) {
       legacy.forEach(function(photo) {
         var lastEntrega = findLastHistoricoIndexByKeys(historico, isEventoEntrega);
         var lastAusencia = findLastHistoricoIndexByKeys(historico, isEventoAusencia);
+        var lastAvulso = findLastHistoricoIndexByKeys(historico, isEventoLancarAvulso);
         var absIndexes = [];
         var entIndexes = [];
         historico.forEach(function(item, i) {
@@ -1174,7 +1203,7 @@ function setupPagerEvents() {
           var all = absIndexes.concat(entIndexes).sort(function(a, b) { return a - b; });
           target = resolveEventIndexForPhoto(historico, all, photo);
         } else {
-          target = lastEntrega >= 0 ? lastEntrega : lastAusencia;
+          target = lastEntrega >= 0 ? lastEntrega : (lastAusencia >= 0 ? lastAusencia : lastAvulso);
         }
         if (target < 0) return;
         if (isEventoEntrega(historico[target].evento)) {
@@ -1183,10 +1212,13 @@ function setupPagerEvents() {
         } else if (isEventoAusencia(historico[target].evento)) {
           if (!ausenciaMap[target]) ausenciaMap[target] = [];
           ausenciaMap[target].push(photo);
+        } else if (isEventoLancarAvulso(historico[target].evento)) {
+          if (!avulsoMap[target]) avulsoMap[target] = [];
+          avulsoMap[target].push(photo);
         }
       });
     }
-    return { ausenciaMap: ausenciaMap, entregaMap: entregaMap };
+    return { ausenciaMap: ausenciaMap, entregaMap: entregaMap, avulsoMap: avulsoMap };
   }
 
   /** Índice global da 1ª foto do último evento com comprovante (para export/share). */
@@ -1227,6 +1259,7 @@ function setupPagerEvents() {
       var eventPhotos = [];
       if (isEventoAusencia(item.evento)) eventPhotos = maps.ausenciaMap[index] || [];
       else if (isEventoEntrega(item.evento)) eventPhotos = maps.entregaMap[index] || [];
+      else if (isEventoLancarAvulso(item.evento)) eventPhotos = maps.avulsoMap[index] || [];
 
       var extrasHtml = "";
       if (isEventoAusencia(item.evento)) {
@@ -1248,8 +1281,8 @@ function setupPagerEvents() {
       if (eventPhotos.length) {
         thumbHtml = "<div class=\"timeline-thumbs d-flex flex-wrap gap-2 mt-2\">" +
           eventPhotos.map(function(photo, photoIndex) {
-            return "<button type=\"button\" class=\"timeline-thumb-btn border-0 p-0 bg-transparent\" data-photo-url=\"" +
-              escapeHtml(photo.url) +
+            return "<button type=\"button\" class=\"timeline-thumb-btn border-0 p-0 bg-transparent\" data-photo-index=\"" +
+              String(photo.globalIndex != null ? photo.globalIndex : photoIndex) +
               "\" title=\"Ampliar comprovante\">" +
               "<img src=\"" + escapeHtml(photo.url) + "\" alt=\"Comprovante " + (photoIndex + 1) +
               "\" class=\"rounded border timeline-thumb-img\" />" +
@@ -1473,6 +1506,7 @@ function setupPagerEvents() {
       }
 
       var photoGroups = buildPhotoGroups(fotosTipadas, urlsByKey, fotoUrls);
+      var galleryPhotos = flattenAllPhotos(photoGroups);
       var exportIndex = indexExportUltimoEvento(historico, photoGroups);
       var hasPhotos = Object.keys(photoGroups).some(function(k) { return photoGroups[k] && photoGroups[k].length; });
 
@@ -1526,6 +1560,9 @@ function setupPagerEvents() {
         '</div>' +
         '<div id="reg-photo-lightbox" class="reg-photo-lightbox d-none" role="dialog" aria-modal="true">' +
           '<button type="button" class="reg-photo-lightbox-close" aria-label="Fechar">&times;</button>' +
+          '<button type="button" class="reg-photo-lightbox-nav reg-photo-lightbox-prev" aria-label="Anterior">&lsaquo;</button>' +
+          '<button type="button" class="reg-photo-lightbox-nav reg-photo-lightbox-next" aria-label="Próxima">&rsaquo;</button>' +
+          '<span class="reg-photo-lightbox-counter" aria-live="polite"></span>' +
           '<img id="reg-photo-lightbox-img" alt="Comprovante ampliado" />' +
         '</div>';
 
@@ -1565,25 +1602,98 @@ function setupPagerEvents() {
 
       var lightbox = document.getElementById("reg-photo-lightbox");
       var lightboxImg = document.getElementById("reg-photo-lightbox-img");
+      var lightboxCounter = lightbox ? lightbox.querySelector(".reg-photo-lightbox-counter") : null;
+      var lightboxPrev = lightbox ? lightbox.querySelector(".reg-photo-lightbox-prev") : null;
+      var lightboxNext = lightbox ? lightbox.querySelector(".reg-photo-lightbox-next") : null;
+      var galleryIndex = 0;
+      var touchStartX = null;
+
+      function updateLightboxView() {
+        if (!lightboxImg || !galleryPhotos.length) return;
+        galleryIndex = Math.max(0, Math.min(galleryIndex, galleryPhotos.length - 1));
+        lightboxImg.src = galleryPhotos[galleryIndex].url;
+        if (lightboxCounter) {
+          lightboxCounter.textContent = (galleryIndex + 1) + " / " + galleryPhotos.length;
+        }
+        var single = galleryPhotos.length <= 1;
+        if (lightboxPrev) lightboxPrev.classList.toggle("d-none", single);
+        if (lightboxNext) lightboxNext.classList.toggle("d-none", single);
+      }
+
+      function onLightboxKeydown(ev) {
+        if (!lightbox || lightbox.classList.contains("d-none")) return;
+        if (ev.key === "Escape") {
+          ev.preventDefault();
+          closeLightbox();
+        } else if (ev.key === "ArrowLeft") {
+          ev.preventDefault();
+          navLightbox(-1);
+        } else if (ev.key === "ArrowRight") {
+          ev.preventDefault();
+          navLightbox(1);
+        }
+      }
+
+      function navLightbox(delta) {
+        if (!galleryPhotos.length || galleryPhotos.length <= 1) return;
+        galleryIndex = (galleryIndex + delta + galleryPhotos.length) % galleryPhotos.length;
+        updateLightboxView();
+      }
+
+      function openLightboxAt(index) {
+        if (!lightbox || !galleryPhotos.length) return;
+        var idx = Number(index);
+        if (!Number.isFinite(idx) || idx < 0) idx = 0;
+        galleryIndex = idx;
+        updateLightboxView();
+        lightbox.classList.remove("d-none");
+        document.addEventListener("keydown", onLightboxKeydown);
+      }
+
       function closeLightbox() {
         if (!lightbox) return;
         lightbox.classList.add("d-none");
         if (lightboxImg) lightboxImg.removeAttribute("src");
+        document.removeEventListener("keydown", onLightboxKeydown);
+        touchStartX = null;
       }
+
       if (lightbox) {
         var closeBtn = lightbox.querySelector(".reg-photo-lightbox-close");
         if (closeBtn) closeBtn.addEventListener("click", closeLightbox);
+        if (lightboxPrev) {
+          lightboxPrev.addEventListener("click", function(ev) {
+            ev.stopPropagation();
+            navLightbox(-1);
+          });
+        }
+        if (lightboxNext) {
+          lightboxNext.addEventListener("click", function(ev) {
+            ev.stopPropagation();
+            navLightbox(1);
+          });
+        }
         lightbox.addEventListener("click", function(ev) {
           if (ev.target === lightbox) closeLightbox();
         });
+        lightbox.addEventListener("touchstart", function(ev) {
+          if (!ev.touches || !ev.touches.length) return;
+          touchStartX = ev.touches[0].clientX;
+        }, { passive: true });
+        lightbox.addEventListener("touchend", function(ev) {
+          if (touchStartX == null || !ev.changedTouches || !ev.changedTouches.length) return;
+          var deltaX = ev.changedTouches[0].clientX - touchStartX;
+          touchStartX = null;
+          if (Math.abs(deltaX) < 40) return;
+          navLightbox(deltaX > 0 ? -1 : 1);
+        }, { passive: true });
       }
       if (detailContent) {
         detailContent.querySelectorAll(".timeline-thumb-btn").forEach(function(btn) {
           btn.addEventListener("click", function() {
-            var url = btn.getAttribute("data-photo-url");
-            if (!url || !lightbox || !lightboxImg) return;
-            lightboxImg.src = url;
-            lightbox.classList.remove("d-none");
+            var idx = parseInt(btn.getAttribute("data-photo-index"), 10);
+            if (!Number.isFinite(idx)) idx = 0;
+            openLightboxAt(idx);
           });
         });
       }

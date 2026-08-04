@@ -605,7 +605,8 @@
     position: fixed; inset: 0; z-index: 2100;
     background: rgba(15, 23, 42, 0.82);
     display: flex; align-items: center; justify-content: center;
-    padding: 24px;
+    padding: 24px 56px;
+    touch-action: pan-y pinch-zoom;
   }
   .reg-photo-lightbox.d-none { display: none !important; }
   .reg-photo-lightbox img {
@@ -619,6 +620,24 @@
     position: absolute; top: 16px; right: 20px;
     border: 0; background: transparent; color: #fff;
     font-size: 36px; line-height: 1; cursor: pointer;
+    z-index: 2;
+  }
+  .reg-photo-lightbox-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    border: 0; background: rgba(255, 255, 255, 0.15); color: #fff;
+    width: 44px; height: 44px; border-radius: 50%;
+    font-size: 28px; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2;
+  }
+  .reg-photo-lightbox-nav:hover { background: rgba(255, 255, 255, 0.28); }
+  .reg-photo-lightbox-prev { left: 16px; }
+  .reg-photo-lightbox-next { right: 16px; }
+  .reg-photo-lightbox-counter {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    color: #fff; font-size: 14px; font-weight: 600;
+    background: rgba(0, 0, 0, 0.45); padding: 6px 14px; border-radius: 20px;
+    z-index: 2;
   }
   .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
   .status-success { background: #e6f7ee; color: #28a745; }

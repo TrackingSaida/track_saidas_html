@@ -631,10 +631,54 @@ function createRow(row){
       ? TrackAPI.registerSaida({ entregador_id, entregador, codigo, servico })
       : Promise.reject(new Error("TrackAPI.registerSaida não disponível"));
   }
-  function apiLancarAvulso({ motoboy_id, entregador, identificacao, quantidade }){
+  function apiLancarAvulso({ motoboy_id, entregador, identificacao, quantidade, foto_object_key, photo_id }){
     return window.TrackAPI?.lancarAvulso
-      ? TrackAPI.lancarAvulso({ motoboy_id, entregador, identificacao, quantidade })
+      ? TrackAPI.lancarAvulso({ motoboy_id, entregador, identificacao, quantidade, foto_object_key, photo_id })
       : Promise.reject(new Error("TrackAPI.lancarAvulso não disponível"));
+  }
+
+  function getApiBaseUrl() {
+    let base = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+    if (!base.endsWith("/api")) base += "/api";
+    return base;
+  }
+
+  function newPhotoId() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    return "web-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10);
+  }
+
+  async function uploadAvulsoPhoto(file) {
+    const photoId = newPhotoId();
+    const contentType = (file && file.type) ? file.type : "image/jpeg";
+    const filename = (file && file.name) ? file.name : "avulso.jpg";
+    const presignRes = await fetch(getApiBaseUrl() + "/upload/presign", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        filename,
+        tipo: "lancar_avulso",
+        content_type: contentType,
+        photo_id: photoId,
+      }),
+    });
+    let presignData = null;
+    try { presignData = await presignRes.json(); } catch (_) {}
+    if (!presignRes.ok) {
+      const msg = (presignData && presignData.detail) || "Erro ao preparar upload da foto.";
+      throw new Error(typeof msg === "string" ? msg : "Erro ao preparar upload da foto.");
+    }
+    const uploadUrl = presignData.upload_url;
+    const objectKey = presignData.object_key;
+    const headers = Object.assign({ "Content-Type": contentType }, presignData.headers || {});
+    const putRes = await fetch(uploadUrl, { method: "PUT", headers, body: file });
+    if (!putRes.ok) {
+      throw new Error("Falha ao enviar foto (" + putRes.status + ").");
+    }
+    return { foto_object_key: objectKey, photo_id: photoId };
   }
 
   function parseApiDetailError(res, fallback) {
@@ -770,18 +814,23 @@ function createRow(row){
   }
 
   // ---------- carregar motoboys (users role=4) ----------
-  // Cache id_motoboy -> nome para lookups
+  // Cache id_motoboy -> nome para lookups; meta inclui avulso_exige_foto quando a API retornar.
   let entregadoresMap = new Map(); // id_motoboy -> nome (mantido para compat.)
+  let motoboysMetaMap = new Map(); // id_motoboy -> { avulso_exige_foto }
   function loadMotoboys(){
     return apiGetMotoboys().then(res => {
       const raw = Array.isArray(res) ? res : (res?.data ?? []);
       entregadoresMap = new Map();
+      motoboysMetaMap = new Map();
       const opts = raw
         .filter(e => e && (e.id_motoboy != null || e.id != null))
         .map(e => {
           const id = e.id_motoboy ?? e.id;
           const nome = (e?.nome || e?.name || String(id)).trim() || String(id);
           entregadoresMap.set(String(id), nome);
+          motoboysMetaMap.set(String(id), {
+            avulso_exige_foto: !!e.avulso_exige_foto,
+          });
           return { id, nome };
         })
         .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
@@ -1501,6 +1550,14 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
   }
   const motoboyId = parseInt(motoboyIdRaw, 10);
   const entregador = selEnt?.options[selEnt.selectedIndex]?.text?.trim() || entregadoresMap.get(motoboyIdRaw) || "";
+  const exigeFoto = !!(motoboysMetaMap.get(motoboyIdRaw)?.avulso_exige_foto);
+  const fotoFieldHtml = exigeFoto
+    ? `
+        <label class="form-label mb-1" for="avulso-foto">Foto do lote <span class="text-danger">*</span></label>
+        <input id="avulso-foto" type="file" accept="image/*" capture="environment" class="form-control mb-1" />
+        <div class="form-text mb-3">Este entregador exige foto ao lançar avulso.</div>
+      `
+    : "";
   const modal = await Swal.fire({
     title: "Lançar Avulso",
     html: `
@@ -1510,7 +1567,8 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
         <div class="form-text mb-3">Opcional. Até 32 caracteres para identificar o lote na operação.</div>
         <label class="form-label mb-1" for="avulso-quantidade">Quantidade</label>
         <input id="avulso-quantidade" type="number" min="1" max="50" step="1" class="form-control mb-1" value="1" />
-        <div class="form-text">Informe entre 1 e 50 pacotes por lançamento.</div>
+        <div class="form-text ${exigeFoto ? "mb-3" : ""}">Informe entre 1 e 50 pacotes por lançamento.</div>
+        ${fotoFieldHtml}
       </div>
     `,
     showCancelButton: true,
@@ -1520,9 +1578,11 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     preConfirm: () => {
       const identificacaoEl = document.getElementById("avulso-identificacao");
       const quantidadeEl = document.getElementById("avulso-quantidade");
+      const fotoEl = document.getElementById("avulso-foto");
       const identificacaoVal = identificacaoEl ? String(identificacaoEl.value || "").trim().slice(0, 32) : "";
       const quantidadeRaw = quantidadeEl ? String(quantidadeEl.value || "").trim() : "1";
       const quantidadeVal = parseInt(quantidadeRaw, 10);
+      const fotoFile = fotoEl && fotoEl.files && fotoEl.files[0] ? fotoEl.files[0] : null;
       if (identificacaoVal.length > 32) {
         Swal.showValidationMessage("Identificação deve ter no máximo 32 caracteres.");
         return null;
@@ -1535,12 +1595,17 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
         Swal.showValidationMessage("Quantidade máxima é 50.");
         return null;
       }
-      return { identificacao: identificacaoVal, quantidade: quantidadeVal };
+      if (exigeFoto && !fotoFile) {
+        Swal.showValidationMessage("Foto obrigatória para este entregador.");
+        return null;
+      }
+      return { identificacao: identificacaoVal, quantidade: quantidadeVal, fotoFile };
     },
   });
   if (!modal.isConfirmed || !modal.value) return;
   const identificacao = modal.value.identificacao || "";
   const quantidade = modal.value.quantidade;
+  const fotoFile = modal.value.fotoFile || null;
   if (identificacao.length > 32) {
     showMsgIcon("erro", "Identificação deve ter no máximo 32 caracteres.");
     Sound.play("err");
@@ -1551,11 +1616,28 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     Sound.play("err");
     return;
   }
+  if (exigeFoto && !fotoFile) {
+    showMsgIcon("erro", "Foto obrigatória para este entregador.");
+    Sound.play("err");
+    return;
+  }
+  let fotoPayload = {};
+  if (fotoFile) {
+    try {
+      fotoPayload = await uploadAvulsoPhoto(fotoFile);
+    } catch (uploadErr) {
+      showMsgIcon("erro", uploadErr?.message || "Erro ao enviar foto.");
+      Sound.play("err");
+      return;
+    }
+  }
   const res = await apiLancarAvulso({
     motoboy_id: motoboyId,
     entregador,
     identificacao: identificacao.trim() || null,
     quantidade,
+    foto_object_key: fotoPayload.foto_object_key,
+    photo_id: fotoPayload.photo_id,
   });
   if (!res?.ok) {
     showMsgIcon("erro", parseApiDetailError(res, "Erro ao lançar avulso."));

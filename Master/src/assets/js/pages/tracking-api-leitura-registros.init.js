@@ -257,13 +257,15 @@
     }
   };
 
-  window.TrackAPI.lancarAvulso = async function ({ identificacao, quantidade, motoboy_id, entregador_id, entregador }) {
+  window.TrackAPI.lancarAvulso = async function ({ identificacao, quantidade, motoboy_id, entregador_id, entregador, foto_object_key, photo_id }) {
     try {
       const body = { quantidade };
       if (identificacao != null) body.identificacao = identificacao;
       if (motoboy_id != null) body.motoboy_id = motoboy_id;
       if (entregador_id != null) body.entregador_id = entregador_id;
       if (entregador != null) body.entregador = entregador;
+      if (foto_object_key) body.foto_object_key = foto_object_key;
+      if (photo_id) body.photo_id = photo_id;
       const res = await req("/pedidos/lancar-avulso", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
