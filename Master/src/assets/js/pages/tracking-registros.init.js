@@ -1491,7 +1491,7 @@ function setupPagerEvents() {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ foto_urls: fotoUrls })
+            body: JSON.stringify({ foto_urls: fotoUrls, id_saida: Number(idSaida) || undefined })
           });
           if (presignRes.ok) {
             var presignData = await presignRes.json();
