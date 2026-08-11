@@ -152,13 +152,25 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const err = new Error(
-        typeof data.detail === "string"
-          ? data.detail
-          : data.detail?.message || data.message || `HTTP ${res.status}`
-      );
+      let msg = data.message || `HTTP ${res.status}`;
+      const detail = data.detail;
+      if (typeof detail === "string") {
+        msg = detail;
+      } else if (detail && typeof detail === "object" && !Array.isArray(detail) && detail.message) {
+        msg = detail.message;
+      } else if (Array.isArray(detail) && detail.length) {
+        msg = detail
+          .map((item) => {
+            if (typeof item === "string") return item;
+            const loc = Array.isArray(item.loc) ? item.loc.filter((x) => x !== "body" && x !== "query").join(".") : "";
+            const text = item.msg || item.message || JSON.stringify(item);
+            return loc ? `${loc}: ${text}` : text;
+          })
+          .join(" | ");
+      }
+      const err = new Error(msg);
       err.status = res.status;
-      err.detail = data.detail;
+      err.detail = detail;
       throw err;
     }
     return data;
