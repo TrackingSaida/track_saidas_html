@@ -335,7 +335,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
       if (data.aviso_pendentes && avisoFechamentos && avisoFechamentosTexto) {
         avisoFechamentos.classList.remove("d-none");
-        avisoFechamentosTexto.textContent = "Há saídas no período sem fechamento GERADO/REAJUSTADO. Essas saídas já entram como \"Despesas pendentes\" e são consideradas no total, no lucro e na margem. Para convertê-las em despesas confirmadas, gere o fechamento na página Fechamento de Motoboys.";
+        avisoFechamentosTexto.textContent = "Há saídas no período sem fechamento GERADO/REAJUSTADO/PAGO. Essas saídas já entram como \"Despesas pendentes\" e são consideradas no total, no lucro e na margem. Para convertê-las em despesas confirmadas, gere o fechamento na página Fechamento de Motoboys.";
       } else if (avisoFechamentos) {
         avisoFechamentos.classList.add("d-none");
       }
