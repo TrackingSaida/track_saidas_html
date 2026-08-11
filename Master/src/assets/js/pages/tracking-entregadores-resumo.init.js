@@ -91,6 +91,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     PENDENTE: "Sem fechamento para o período",
     GERADO: "Fechamento gerado",
     REAJUSTADO: "Fechamento reajustado",
+    PAGO: "Pagamento confirmado",
   };
 
   function formatarCodigoFechamento(r) {
@@ -140,11 +141,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (idFech) {
         html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF · ' + (codigoFech || "") + '" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
       }
+    } else if (st === "PAGO") {
+      html = '<span class="badge bg-primary-subtle text-primary" title="' + (STATUS_TOOLTIPS.PAGO || "Pago") + (codigoFech ? " · " + codigoFech : "") + '">Pago</span>';
+      if (idFech) {
+        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF · ' + (codigoFech || "") + '" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
+      }
+      if (r.alerta_pos_pago) {
+        html += ' <span class="badge bg-secondary-subtle text-secondary" title="Valor base mudou após o pagamento">Alerta</span>';
+      }
     } else {
       html = '<span class="badge bg-info-subtle text-info" title="' + (STATUS_TOOLTIPS.REAJUSTADO || "Reajustado") + (codigoFech ? " · " + codigoFech : "") + '">🔵 REAJUSTADO</span>';
       if (idFech) {
         html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF · ' + (codigoFech || "") + '" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
       }
+    }
+    if (r.pode_reajustar) {
+      html += ' <span class="badge bg-warning text-dark" title="Valor base divergente — gere o reajuste">Gerar reajuste</span>';
     }
     return html;
   }
@@ -267,18 +279,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     const ctx = state.contextoFechamento;
     const listaReajuste = state.entregadoresParaReajuste || [];
     const statusFiltro = (fltStatus?.value || "").trim().toUpperCase();
-    // Reajustar habilitado só por status GERADO: um contexto único ou vários entregadores para escolher
-    const podeReajustarSóStatus = statusFiltro === "GERADO" && (ctx?.id_fechamento || listaReajuste.length > 0);
+    // Reajustar quando filtro GERADO ou REAJUSTADO e há fechamento(s) no contexto
+    const podeReajustarSóStatus =
+      (statusFiltro === "GERADO" || statusFiltro === "REAJUSTADO") &&
+      (ctx?.id_fechamento || listaReajuste.length > 0);
     const status = podeReajustarSóStatus ? "GERADO" : "PENDENTE";
 
     if (!temPeriodo && !podeReajustarSóStatus) {
       btn.disabled = true;
       btn.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
       wrap.title = "Selecione um período para gerar ou reajustar o fechamento.";
-    } else if (status === "REAJUSTADO") {
+    } else if (statusFiltro === "PAGO") {
       btn.disabled = true;
-      btn.innerHTML = '<i class="ri-check-double-line me-1"></i> Reajustado';
-      wrap.title = "Este fechamento já foi reajustado.";
+      btn.innerHTML = '<i class="ri-checkbox-circle-line me-1"></i> Pago';
+      wrap.title = "Fechamentos pagos não podem ser reajustados.";
     } else if (status === "GERADO") {
       btn.disabled = false;
       btn.innerHTML = '<i class="ri-edit-line me-1"></i> Reajustar';
@@ -306,7 +320,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         opcoes.forEach((o) => { inputOptions[o.key] = o.nome; });
         const { value: selecionado } = await window.Swal.fire({
           title: "Selecione o motoboy",
-          html: "Há mais de um motoboy com fechamento GERADO. Escolha qual deseja reajustar.",
+          html: "Há mais de um motoboy com fechamento elegível. Escolha qual deseja reajustar.",
           showCancelButton: true,
           cancelButtonText: "Cancelar",
           confirmButtonText: "Reajustar",
@@ -412,9 +426,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         const valorCancelados = r.valor_cancelados != null ? formatarMoeda(r.valor_cancelados) : "—";
         const valorTotal = r.valor_total != null ? formatarMoeda(r.valor_total) : (r.total_dia != null ? formatarMoeda(r.total_dia) : "—");
         const celFech = celulaFechamento(r);
+        const rowClass = r.pode_reajustar ? "table-warning" : r.alerta_pos_pago ? "table-secondary" : "";
 
         return (
-          "<tr>" +
+          "<tr class=\"" + rowClass + "\">" +
           "<td class=\"text-nowrap\">" + formatarData(r.data) + "</td>" +
           "<td>" + (r.entregador_nome || "—") + "</td>" +
           '<td class="text-center">' + flexQtde + "</td>" +
@@ -961,7 +976,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           executorTipo: executor.tipo,
           executorId: executor.tipo === "e" ? primeiro.entregador_id : primeiro.motoboy_id,
         };
-      } else if (!temExecutor && statusFiltro === "GERADO" && state.items.length > 0) {
+      } else if (!temExecutor && (statusFiltro === "GERADO" || statusFiltro === "REAJUSTADO") && state.items.length > 0) {
         const seen = new Set();
         const lista = [];
         state.items.forEach((i) => {
@@ -985,10 +1000,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.entregadoresParaReajuste = lista.filter((e) => e.id_fechamento != null);
         if (lista.length === 1 && state.entregadoresParaReajuste.length === 1) {
           const u = state.entregadoresParaReajuste[0];
-          state.contextoFechamento = { status: "GERADO", id_fechamento: u.id_fechamento, periodo_inicio: u.periodo_inicio, periodo_fim: u.periodo_fim, entregador_nome: u.entregador_nome, executorTipo: u.executorTipo, executorId: u.executorId };
+          state.contextoFechamento = {
+            status: statusFiltro,
+            id_fechamento: u.id_fechamento,
+            periodo_inicio: u.periodo_inicio,
+            periodo_fim: u.periodo_fim,
+            entregador_nome: u.entregador_nome,
+            executorTipo: u.executorTipo,
+            executorId: u.executorId,
+          };
           state.entregadoresParaReajuste = [];
         } else {
-          state.contextoFechamento = state.entregadoresParaReajuste.length > 0 ? { status: "GERADO", id_fechamento: null, periodo_inicio: dataInicio, periodo_fim: dataFim, entregador_nome: "" } : null;
+          state.contextoFechamento = state.entregadoresParaReajuste.length > 0
+            ? { status: statusFiltro, id_fechamento: null, periodo_inicio: dataInicio, periodo_fim: dataFim, entregador_nome: "" }
+            : null;
         }
       } else {
         state.contextoFechamento = temExecutor && dataInicio && dataFim ? { status: "PENDENTE", id_fechamento: null, periodo_inicio: dataInicio, periodo_fim: dataFim, entregador_nome: label } : null;
@@ -1086,7 +1111,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusFiltro = (fltStatus?.value || "").trim().toUpperCase();
     const ctx = state.contextoFechamento;
     const listaReajuste = state.entregadoresParaReajuste || [];
-    const podeReajustar = statusFiltro === "GERADO" && (ctx?.id_fechamento || listaReajuste.length > 0);
+    const podeReajustar =
+      (statusFiltro === "GERADO" || statusFiltro === "REAJUSTADO") &&
+      (ctx?.id_fechamento || listaReajuste.length > 0);
     const acao = podeReajustar ? "reajustar" : "gerar";
     await executarAcaoFechamento(acao);
   });
