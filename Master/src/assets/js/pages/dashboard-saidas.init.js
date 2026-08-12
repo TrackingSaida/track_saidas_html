@@ -97,19 +97,27 @@
     const shopee = items.find(function (x) { return x.nome === "Shopee"; });
     const ml = items.find(function (x) { return x.nome === "Mercado Livre"; });
     const avulso = items.find(function (x) { return x.nome === "Avulso"; });
+    const entradaOn = !!(data && data.entrada_habilitada && data.entrada);
 
     function renderOne(item, prefix) {
       if (!item) return;
       const pct = item.pct ?? 0;
       setText("card-marketplace-" + prefix + "-qty", item.qty ?? 0);
-      setText("card-marketplace-" + prefix + "-pct", pct + "% do total");
+      setText("card-marketplace-" + prefix + "-pct", pct + "% das saídas");
       setText("card-marketplace-" + prefix + "-valor", formatMoeda(item.valor));
       const bar = document.getElementById("bar-marketplace-" + prefix);
       if (bar) bar.style.width = pct + "%";
+      const saidaLabel = document.getElementById("mp-" + prefix + "-saida-label");
+      if (saidaLabel) saidaLabel.textContent = entradaOn ? "Saídas" : "Total";
     }
     renderOne(shopee, "shopee");
     renderOne(ml, "ml");
     renderOne(avulso, "avulso");
+  }
+
+  function fmtDiaCurto(iso) {
+    if (!iso || iso.length < 10) return iso || "";
+    return iso.substr(8, 2) + "/" + iso.substr(5, 2);
   }
 
   function renderEntrada(data) {
@@ -117,6 +125,10 @@
     const subtitle = document.getElementById("saidas-evolucao-subtitle");
     const enabled = !!(data && data.entrada_habilitada && data.entrada);
     if (section) section.classList.toggle("d-none", !enabled);
+    ["shopee", "ml", "avulso"].forEach(function (prefix) {
+      const wrap = document.getElementById("mp-" + prefix + "-entrada-wrap");
+      if (wrap) wrap.classList.toggle("d-none", !enabled);
+    });
     if (subtitle) {
       subtitle.textContent = enabled
         ? "Volume por serviço, entradas e custo acumulado"
@@ -130,21 +142,28 @@
     setText("card-taxa-saida", (e.taxa_saida_pct ?? 0) + "%");
     setText("card-gap-entrada-saida", formatGap(e.gap_entrada_saida));
 
+    const detalheEl = document.getElementById("card-ainda-na-base-detalhe");
+    if (detalheEl) {
+      const detalhe = e.ainda_na_base_detalhe || [];
+      if (!detalhe.length) {
+        detalheEl.textContent = "Nenhum pacote aguardando saída";
+      } else {
+        const top = detalhe.slice(0, 4);
+        detalheEl.innerHTML = top.map(function (d) {
+          return "<div><strong>" + escapeHtml(fmtDiaCurto(d.date)) + "</strong>: " + (d.qty || 0) + " pacote(s)</div>";
+        }).join("") + (detalhe.length > 4
+          ? "<div class='mt-1'>e mais " + (detalhe.length - 4) + " dia(s)</div>"
+          : "");
+      }
+    }
+
     const items = e.por_marketplace || [];
     const shopee = items.find(function (x) { return x.nome === "Shopee"; });
     const ml = items.find(function (x) { return x.nome === "Mercado Livre"; });
     const avulso = items.find(function (x) { return x.nome === "Avulso"; });
-
-    function renderOne(item, prefix) {
-      const pct = item ? (item.pct ?? 0) : 0;
-      setText("card-entrada-" + prefix + "-qty", item ? (item.qty ?? 0) : 0);
-      setText("card-entrada-" + prefix + "-pct", pct + "% do total");
-      const bar = document.getElementById("bar-entrada-" + prefix);
-      if (bar) bar.style.width = pct + "%";
-    }
-    renderOne(shopee, "shopee");
-    renderOne(ml, "ml");
-    renderOne(avulso, "avulso");
+    setText("card-entrada-shopee-qty", shopee ? (shopee.qty ?? 0) : 0);
+    setText("card-entrada-ml-qty", ml ? (ml.qty ?? 0) : 0);
+    setText("card-entrada-avulso-qty", avulso ? (avulso.qty ?? 0) : 0);
   }
 
   function renderCancelamentos(data) {
@@ -305,29 +324,33 @@
     const top = items.slice(0, 3);
     const rest = items.slice(3);
     const leaderVol = (items[0] && items[0].volume) || 1;
-    // Ordem visual: 2º | 1º | 3º
-    const order = [];
-    if (top[1]) order.push({ item: top[1], place: 2 });
-    if (top[0]) order.push({ item: top[0], place: 1 });
-    if (top[2]) order.push({ item: top[2], place: 3 });
+    // Ordem visual: 2º | 1º | 3º — com degraus (pódio)
+    const slots = [
+      { item: top[1], place: 2, stepH: 56, cardPad: "py-3", mt: 36 },
+      { item: top[0], place: 1, stepH: 88, cardPad: "py-4", mt: 0 },
+      { item: top[2], place: 3, stepH: 40, cardPad: "py-3", mt: 52 },
+    ].filter(function (s) { return !!s.item; });
 
-    var html = "<div class='row g-3 align-items-stretch mb-3 justify-content-center'>";
-    order.forEach(function (entry) {
+    var html = "<div class='row g-3 align-items-end mb-2 justify-content-center'>";
+    slots.forEach(function (entry) {
       const r = entry.item;
       const place = entry.place;
       const isFirst = place === 1;
       const medal = PODIUM_MEDALS[place - 1];
       html +=
         "<div class='col-md-4'>" +
-          "<div class='card h-100 border-0 shadow-sm' style='border-top:4px solid " + medal + " !important'>" +
-            "<div class='card-body text-center " + (isFirst ? "py-4" : "py-3") + "'>" +
-              "<div class='rounded-circle d-inline-flex align-items-center justify-content-center mb-2' style='width:" + (isFirst ? 48 : 40) + "px;height:" + (isFirst ? 48 : 40) + "px;background:" + medal + ";color:#fff;font-weight:800'>" + place + "</div>" +
-              "<div class='fw-semibold mb-1' style='font-size:" + (isFirst ? "16px" : "14px") + "'>" + escapeHtml(r.nome) + "</div>" +
-              "<div class='fw-bold text-primary' style='font-size:" + (isFirst ? "28px" : "22px") + "'>" + (r.volume || 0) + "</div>" +
-              "<div class='text-muted mb-2'>" + formatMoeda(r.custo) + "</div>" +
-              "<div class='d-flex flex-wrap justify-content-center gap-1 mb-2'>" + serviceBadges(r) + "</div>" +
-              serviceBar(r) +
+          "<div class='d-flex flex-column' style='margin-top:" + entry.mt + "px'>" +
+            "<div class='card border-0 shadow-sm mb-0' style='border-top:4px solid " + medal + " !important'>" +
+              "<div class='card-body text-center " + entry.cardPad + "'>" +
+                "<div class='rounded-circle d-inline-flex align-items-center justify-content-center mb-2' style='width:" + (isFirst ? 52 : 40) + "px;height:" + (isFirst ? 52 : 40) + "px;background:" + medal + ";color:#fff;font-weight:800;font-size:" + (isFirst ? "18px" : "14px") + "'>" + place + "º</div>" +
+                "<div class='fw-semibold mb-1 px-1' style='font-size:" + (isFirst ? "16px" : "14px") + ";min-height:2.4em'>" + escapeHtml(r.nome) + "</div>" +
+                "<div class='fw-bold text-primary' style='font-size:" + (isFirst ? "32px" : "24px") + ";line-height:1.1'>" + (r.volume || 0) + "</div>" +
+                "<div class='text-muted mb-2'>" + formatMoeda(r.custo) + "</div>" +
+                "<div class='d-flex flex-wrap justify-content-center gap-1 mb-2'>" + serviceBadges(r) + "</div>" +
+                serviceBar(r) +
+              "</div>" +
             "</div>" +
+            "<div class='rounded-bottom text-center text-white fw-bold d-flex align-items-center justify-content-center' style='height:" + entry.stepH + "px;background:" + medal + ";opacity:.92;letter-spacing:.04em'>" + place + "º</div>" +
           "</div>" +
         "</div>";
     });
@@ -335,7 +358,7 @@
 
     if (rest.length) {
       html +=
-        "<div class='mt-2'>" +
+        "<div class='mt-3'>" +
           "<div class='text-muted small mb-2 fw-semibold text-uppercase'>Demais entregadores</div>" +
           renderRankingList(rest, 4, leaderVol) +
         "</div>";
