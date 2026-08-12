@@ -331,7 +331,7 @@
   // LISTA ENTREGADORES (legado)
   // ============================================================
   window.TrackAPI.getEntregadores = async function () {
-    const res = await req("/entregadores");
+    const res = await req("/entregadores?status=ativo");
     let data = null; try { data = await res.json(); } catch {}
     return data;
   };

@@ -879,9 +879,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       const res = await fetch(`${API_ENTREGADORES}/executores?status=ativo`, { credentials: "include" });
       if (!res.ok) return;
       const list = await res.json();
-      const arr = (Array.isArray(list) ? list : []).slice().sort((a, b) => {
-        const na = String(a?.nome || a?.executor_key || "").localeCompare(String(b?.nome || b?.executor_key || ""), "pt-BR", { sensitivity: "base" });
-        if (na !== 0) return na;
+      const arr = (Array.isArray(list) ? list : []).map((e) => {
+        const nomeRaw = e?.nome || e?.executor_key || "";
+        return {
+          ...e,
+          nome: (typeof window.formatPersonName === "function")
+            ? window.formatPersonName(nomeRaw)
+            : nomeRaw,
+        };
+      }).sort((a, b) => {
+        const cmp = (typeof window.comparePersonNames === "function")
+          ? window.comparePersonNames(a?.nome, b?.nome)
+          : String(a?.nome || "").localeCompare(String(b?.nome || ""), "pt-BR", { sensitivity: "base" });
+        if (cmp !== 0) return cmp;
         return String(a?.executor_key || "").localeCompare(String(b?.executor_key || ""), "pt-BR", { sensitivity: "base" });
       });
 
@@ -890,7 +900,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       // - se houver duplicata entre entregador e motoboy, prioriza motoboy
       const byNome = new Map();
       arr.forEach((e) => {
-        const nomeKey = normalizeNomeKey(e?.nome || e?.executor_key);
+        const nomeKey = (typeof window.personNameKey === "function")
+          ? window.personNameKey(e?.nome || e?.executor_key)
+          : normalizeNomeKey(e?.nome || e?.executor_key);
         if (!nomeKey) return;
         const current = byNome.get(nomeKey);
         const incomingIsMotoboy = e?.id_motoboy != null;

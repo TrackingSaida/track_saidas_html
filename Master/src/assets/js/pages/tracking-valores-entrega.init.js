@@ -200,14 +200,19 @@
         const id = Number(e?.executor_id ?? e?.motoboy_id);
         if (!Number.isFinite(id) || id <= 0) return;
         if (idsComExcecao.has(id)) return;
-        const nome = String(e?.nome || id).trim();
+        const nomeRaw = String(e?.nome || id).trim();
+        const nome = (typeof window.formatPersonName === "function")
+          ? window.formatPersonName(nomeRaw)
+          : nomeRaw;
         const key = String(id);
         if (!unicos.has(key)) {
           unicos.set(key, { id_motoboy: id, nome });
         }
       });
       const ordenados = Array.from(unicos.values())
-        .sort((a, b) => String(a?.nome || a?.id_motoboy || "").localeCompare(String(b?.nome || b?.id_motoboy || ""), "pt-BR", { sensitivity: "base" }));
+        .sort((a, b) => (typeof window.comparePersonNames === "function"
+          ? window.comparePersonNames(a?.nome, b?.nome)
+          : String(a?.nome || a?.id_motoboy || "").localeCompare(String(b?.nome || b?.id_motoboy || ""), "pt-BR", { sensitivity: "base" })));
       select.innerHTML = '<option value="">Selecione o motoboy</option>' +
         ordenados
           .map((e) => `<option value="${e.id_motoboy}">${e.nome || e.id_motoboy}</option>`)

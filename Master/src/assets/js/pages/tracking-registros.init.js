@@ -292,26 +292,37 @@ function loadMotoboys(){
     .then(function(res) { return res.ok ? res.json() : []; })
     .then(function(data) {
       motoboysCache = Array.isArray(data) ? data : [];
-      var ordenados = motoboysCache.slice().sort(function(a, b) {
-        var na = (a.nome || "Motoboy " + (a.id_motoboy || a.id));
-        var nb = (b.nome || "Motoboy " + (b.id_motoboy || b.id));
-        return na.localeCompare(nb, "pt-BR");
-      });
+      var ordenados = (typeof window.normalizePersonList === "function"
+        ? window.normalizePersonList(motoboysCache)
+        : motoboysCache.slice().sort(function(a, b) {
+            var na = (a.nome || "Motoboy " + (a.id_motoboy || a.id));
+            var nb = (b.nome || "Motoboy " + (b.id_motoboy || b.id));
+            return na.localeCompare(nb, "pt-BR");
+          }));
       var selEdit = document.getElementById("edit-motoboy");
       var selBulk = document.getElementById("bulk-motoboy");
       var opts = '<option value="">Não alterar</option>' +
         ordenados.map(function(m) {
-          return '<option value="' + (m.id_motoboy || m.id) + '">' + (m.nome || "Motoboy " + (m.id_motoboy || m.id)) + '</option>';
+          var nome = (typeof window.formatPersonName === "function"
+            ? window.formatPersonName(m.nome || "Motoboy " + (m.id_motoboy || m.id))
+            : (m.nome || "Motoboy " + (m.id_motoboy || m.id)));
+          return '<option value="' + (m.id_motoboy || m.id) + '">' + nome + '</option>';
         }).join("");
       if (selEdit) selEdit.innerHTML = opts;
       if (selBulk) selBulk.innerHTML = '<option value="">Não alterar</option>' + ordenados.map(function(m) {
-        return '<option value="' + (m.id_motoboy || m.id) + '">' + (m.nome || "Motoboy " + (m.id_motoboy || m.id)) + '</option>';
+        var nome = (typeof window.formatPersonName === "function"
+          ? window.formatPersonName(m.nome || "Motoboy " + (m.id_motoboy || m.id))
+          : (m.nome || "Motoboy " + (m.id_motoboy || m.id)));
+        return '<option value="' + (m.id_motoboy || m.id) + '">' + nome + '</option>';
       }).join("");
       return motoboysCache;
     })
     .catch(function() { motoboysCache = []; return []; });
 }
 function buildUniqueNames(nomes){
+  if (typeof window.buildUniquePersonNames === "function") {
+    return window.buildUniquePersonNames(nomes);
+  }
   var map = new Map();
   (nomes || []).forEach(function(n){
     var display = String(n || "").trim();
@@ -339,12 +350,11 @@ function fillEntregadores(nomes){
 
 }
 function augmentEntregadoresFromRows(rows){
-  var nomesLista = (rows || [])
-    .map(r => r?.entregador)
-    .filter(Boolean);
-  var unicos = buildUniqueNames((augmentEntregadoresFromRows._base || []).concat(nomesLista));
-  augmentEntregadoresFromRows._base = unicos;
-  fillEntregadores(unicos);
+  // Não reintroduz no filtro nomes só presentes em histórico (ex.: usuário já excluído).
+  // A base operacional vem de entregadores/motoboys ativos carregados no init.
+  var base = augmentEntregadoresFromRows._base || [];
+  if (!base.length) return;
+  fillEntregadores(base);
 }
 
 
@@ -2532,7 +2542,10 @@ function setupPagerEvents() {
     .then(function(results) {
       var nomesEntregadores = results[0] || [];
       var motoboys = results[1] || [];
-      var nomesMotoboys = motoboys.map(function(m) { return (m.nome || ("Motoboy " + (m.id_motoboy || m.id))); });
+      var nomesMotoboys = motoboys.map(function(m) {
+        var raw = (m.nome || ("Motoboy " + (m.id_motoboy || m.id)));
+        return (typeof window.formatPersonName === "function") ? window.formatPersonName(raw) : raw;
+      });
       var todos = (nomesEntregadores).concat(nomesMotoboys);
       var unicos = buildUniqueNames(todos);
       augmentEntregadoresFromRows._base = unicos;

@@ -351,17 +351,27 @@ function applyFilters() {
         );
     });
 
-    // Ordenar por nome (asc) e, em seguida, sobrenome
+    // Ordenar por nome (asc) e, em seguida, sobrenome — padrão pt-BR
     FILTERED.sort((a, b) => {
-        const nomeA = (a.nome || "").toLowerCase();
-        const nomeB = (b.nome || "").toLowerCase();
-        if (nomeA < nomeB) return -1;
-        if (nomeA > nomeB) return 1;
-        const sobA = (a.sobrenome || "").toLowerCase();
-        const sobB = (b.sobrenome || "").toLowerCase();
-        if (sobA < sobB) return -1;
-        if (sobA > sobB) return 1;
-        return 0;
+        const nomeA = (typeof window.formatPersonName === "function")
+          ? window.formatPersonName(a.nome || "")
+          : (a.nome || "");
+        const nomeB = (typeof window.formatPersonName === "function")
+          ? window.formatPersonName(b.nome || "")
+          : (b.nome || "");
+        const cmpNome = (typeof window.comparePersonNames === "function")
+          ? window.comparePersonNames(nomeA, nomeB)
+          : nomeA.localeCompare(nomeB, "pt-BR", { sensitivity: "base" });
+        if (cmpNome !== 0) return cmpNome;
+        const sobA = (typeof window.formatPersonName === "function")
+          ? window.formatPersonName(a.sobrenome || "")
+          : (a.sobrenome || "");
+        const sobB = (typeof window.formatPersonName === "function")
+          ? window.formatPersonName(b.sobrenome || "")
+          : (b.sobrenome || "");
+        return (typeof window.comparePersonNames === "function")
+          ? window.comparePersonNames(sobA, sobB)
+          : sobA.localeCompare(sobB, "pt-BR", { sensitivity: "base" });
     });
 
     CURRENT_PAGE = 1;
@@ -402,8 +412,8 @@ function renderTable() {
         return `
         <tr data-id="${u.id}" data-role="${u.role || 0}">
             <td><input class="form-check-input row-select" type="checkbox"></td>
-            <td>${u.nome || "-"}</td>
-            <td>${u.sobrenome || "-"}</td>
+            <td>${(typeof window.formatPersonName === "function" ? window.formatPersonName(u.nome || "") : (u.nome || "")) || "-"}</td>
+            <td>${(typeof window.formatPersonName === "function" ? window.formatPersonName(u.sobrenome || "") : (u.sobrenome || "")) || "-"}</td>
             <td>${u.username}</td>
             <td>${u.email}</td>
            <td>
@@ -901,19 +911,36 @@ function deleteFromSelection() {
 
 async function deleteUsers(ids) {
     try {
+        const falhas = [];
         for (const id of ids) {
-            await fetch(`${API}/${id}`, {
+            const resp = await fetch(`${API}/${id}`, {
                 method: "DELETE",
                 credentials: "include"
             });
+            if (!resp.ok) {
+                let detail = "";
+                try {
+                    const body = await resp.json();
+                    detail = body?.detail || body?.message || "";
+                } catch (_) {}
+                falhas.push(`${id}${detail ? ` (${detail})` : ""}`);
+            }
         }
 
-        Swal.fire({
-            icon: "success",
-            title: "Excluído!",
-            timer: 1000,
-            showConfirmButton: false
-        });
+        if (falhas.length) {
+            Swal.fire({
+                icon: "error",
+                title: "Falha ao excluir",
+                text: `Não foi possível excluir: ${falhas.join(", ")}`
+            });
+        } else {
+            Swal.fire({
+                icon: "success",
+                title: "Excluído!",
+                timer: 1000,
+                showConfirmButton: false
+            });
+        }
 
         loadUsers();
 

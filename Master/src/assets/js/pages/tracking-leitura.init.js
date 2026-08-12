@@ -826,18 +826,30 @@ function createRow(row){
         .filter(e => e && (e.id_motoboy != null || e.id != null))
         .map(e => {
           const id = e.id_motoboy ?? e.id;
-          const nome = (e?.nome || e?.name || String(id)).trim() || String(id);
+          const nomeRaw = (e?.nome || e?.name || String(id)).trim() || String(id);
+          const nome = (typeof window.formatPersonName === "function")
+            ? window.formatPersonName(nomeRaw)
+            : nomeRaw;
           entregadoresMap.set(String(id), nome);
           motoboysMetaMap.set(String(id), {
             avulso_exige_foto: !!e.avulso_exige_foto,
           });
           return { id, nome };
         })
-        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+        .sort((a, b) => (typeof window.comparePersonNames === "function"
+          ? window.comparePersonNames(a.nome, b.nome)
+          : a.nome.localeCompare(b.nome, "pt-BR")))
         .filter((item, idx, arr) => {
-          const key = normalizeNomeKey(item.nome);
+          const key = (typeof window.personNameKey === "function"
+            ? window.personNameKey(item.nome)
+            : normalizeNomeKey(item.nome));
           if (!key) return false;
-          return arr.findIndex((it) => normalizeNomeKey(it.nome) === key) === idx;
+          return arr.findIndex((it) => {
+            const k = (typeof window.personNameKey === "function"
+              ? window.personNameKey(it.nome)
+              : normalizeNomeKey(it.nome));
+            return k === key;
+          }) === idx;
         });
       if (!selEnt) return;
       selEnt.innerHTML =
