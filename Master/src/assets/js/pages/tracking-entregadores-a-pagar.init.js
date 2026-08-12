@@ -21,6 +21,24 @@ document.addEventListener("DOMContentLoaded", () => {
     FECHADO: "Gerado",
   };
 
+  function labelMotoboy(item) {
+    const raw =
+      (item && (item.nome_exibicao || item.username_entregador)) || "—";
+    if (typeof window.formatPersonName === "function" && raw !== "—") {
+      return window.formatPersonName(raw) || raw;
+    }
+    return String(raw);
+  }
+
+  function compareMotoboyLabel(a, b) {
+    const la = labelMotoboy(a);
+    const lb = labelMotoboy(b);
+    if (typeof window.comparePersonNames === "function") {
+      return window.comparePersonNames(la, lb);
+    }
+    return la.localeCompare(lb, "pt-BR", { sensitivity: "base" });
+  }
+
   const state = {
     items: [],
     totais: {
@@ -109,12 +127,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderTable(items) {
     if (!tbody) return;
-    if (!items || !items.length) {
+    const list = (items || []).slice().sort(compareMotoboyLabel);
+    if (!list.length) {
       tbody.innerHTML =
         '<tr><td colspan="7" class="text-center text-muted py-4">Nenhum fechamento neste período.</td></tr>';
       return;
     }
-    tbody.innerHTML = items
+    tbody.innerHTML = list
       .map((item) => {
         const precisa = !!item.precisa_reajuste;
         const alertaPago = !!item.alerta_pos_pago;
@@ -131,7 +150,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         return (
           `<tr class="${rowClass}" data-id="${item.id_fechamento}">` +
-          `<td>${(item.username_entregador || "—").replace(/</g, "&lt;")}</td>` +
+          `<td>${labelMotoboy(item).replace(/</g, "&lt;")}</td>` +
           `<td>${fmtPeriodo(item.periodo_inicio, item.periodo_fim)}</td>` +
           `<td class="text-end fw-semibold">${formatarMoeda(item.valor_final)}</td>` +
           `<td>${statusBadge(item)}${precisa ? ' <span class="badge bg-warning text-dark">Precisa reajuste</span>' : ""}</td>` +
@@ -273,13 +292,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function abrirModalSelecao() {
-    const lista = elegiveis().slice().sort((a, b) =>
-      String(a.username_entregador || "").localeCompare(
-        String(b.username_entregador || ""),
-        "pt-BR",
-        { sensitivity: "base" }
-      )
-    );
+    const lista = elegiveis().slice().sort(compareMotoboyLabel);
     const container = qs("#listaSelecaoMotoboys");
     if (!container) return;
     if (!lista.length) {
@@ -287,7 +300,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       container.innerHTML = lista
         .map((item) => {
-          const nome = (item.username_entregador || "—").replace(/</g, "&lt;");
+          const nome = labelMotoboy(item).replace(/</g, "&lt;");
           const warn = item.precisa_reajuste
             ? ' <span class="badge bg-warning text-dark">divergência</span>'
             : "";
@@ -346,7 +359,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await fetchJson(`${API_FECHAMENTOS}/${idFechamento}`);
       const temDiv = !!data.divergencia_valor_base;
       let html =
-        `<p class="mb-2"><strong>${(data.username_entregador || "").replace(/</g, "&lt;")}</strong></p>` +
+        `<p class="mb-2"><strong>${labelMotoboy(data).replace(/</g, "&lt;")}</strong></p>` +
         `<p class="mb-1">Valor base atual: <strong>${formatarMoeda(data.valor_base)}</strong></p>`;
       if (temDiv) {
         html +=
