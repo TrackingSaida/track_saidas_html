@@ -538,6 +538,7 @@ function augmentEntregadoresFromRows(rows){
     if (!status) return "status-default";
     var s = String(status).toLowerCase().replace(/_/g, " ");
     if (s.indexOf("encerrado") !== -1) return "status-default";
+    if (s.indexOf("na base") !== -1) return "status-warning";
     if (s.indexOf("entregue") !== -1) return "status-success";
     if (s.indexOf("ausente") !== -1) return "status-warning";
     if (s.indexOf("cancelado") !== -1) return "status-danger";
@@ -549,6 +550,7 @@ function augmentEntregadoresFromRows(rows){
     if (status == null || status === "") return "—";
     var s = String(status).replace(/_/g, " ").trim();
     var lower = s.toLowerCase();
+    if (lower === "na base") return "Na Base";
     if (lower === "saiu" || lower === "saiu para entrega") return "SAIU PARA ENTREGA";
     if (lower === "encerrado sistema" || lower === "encerrado pelo sistema" || lower === "encerrado_sistema" || lower === "encerrado") {
       return "Encerrado";
@@ -2532,6 +2534,71 @@ function setupPagerEvents() {
   syncEntregadorDisabled();
   limparFiltrosSelecao();
   if (f.pageSize) f.pageSize.value = String(state.pageSize);
+
+  function applyQueryFiltersFromUrl() {
+    var params;
+    try {
+      params = new URLSearchParams(window.location.search || "");
+    } catch (_) {
+      return false;
+    }
+    var applied = false;
+    var statusRaw = (params.get("status") || "").trim().toLowerCase().replace(/\s+/g, "_");
+    if (statusRaw) {
+      var wanted = statusRaw.replace(/-/g, "_");
+      (f.statusToggles || []).forEach(function (el) {
+        var val = String(el.value || "").toLowerCase().replace(/\s+/g, "_");
+        var match =
+          val === wanted ||
+          (wanted === "na_base" && (val === "na_base" || val === "na base")) ||
+          (wanted === "na base" && val === "na_base");
+        if (match) {
+          el.checked = true;
+          applied = true;
+        }
+      });
+    }
+
+    var de = (params.get("de") || params.get("data_inicio") || "").trim();
+    var ate = (params.get("ate") || params.get("data_fim") || "").trim();
+    var periodo = (params.get("periodo") || "").trim().toLowerCase();
+    var semPeriodo = params.get("sem_periodo") === "1" || params.get("sem_periodo") === "true";
+
+    // "Todos os períodos" na listagem pesada costuma falhar/zerar; para Na Base usamos período amplo.
+    if (semPeriodo && !de && !ate && !periodo) {
+      periodo = "ultimos45";
+      semPeriodo = false;
+    }
+
+    if (de || ate) {
+      if (f.from && de) f.from.value = de;
+      if (f.to && ate) f.to.value = ate;
+      else if (f.to && de && !ate) f.to.value = de;
+      updatePeriodLabel(f.from ? f.from.value : "", f.to ? f.to.value : "");
+      applied = true;
+    } else if (periodo && datePickerInstance && datePickerInstance.applyPreset) {
+      var allowed = { ultimos15: 1, ultimos30: 1, ultimos45: 1, hoje: 1, ontem: 1, quinzena: 1, mes: 1 };
+      if (allowed[periodo]) {
+        datePickerInstance.applyPreset(periodo);
+        var r = datePickerInstance.getResolvedRange();
+        if (f.from) f.from.value = r.start || "";
+        if (f.to) f.to.value = r.end || "";
+        updatePeriodLabel(r.start || "", r.end || "");
+        applied = true;
+      }
+    }
+
+    // Limpa query da URL sem recarregar (evita reaplicar ao refresh manual)
+    if (applied && window.history && window.history.replaceState) {
+      try {
+        var clean = window.location.pathname + (window.location.hash || "");
+        window.history.replaceState({}, document.title, clean);
+      } catch (_) {}
+    }
+    return applied;
+  }
+
+  applyQueryFiltersFromUrl();
   refresh(false);
   updateEditButtonState();
   if (typeof atualizarContadorFiltros === "function") atualizarContadorFiltros();
