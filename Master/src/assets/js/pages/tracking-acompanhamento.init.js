@@ -376,21 +376,28 @@
     if (!select) return;
     try {
       const list = await fetchWithCreds(API_MOTOBOYS);
-      const sorted = (Array.isArray(list) ? list : []).slice().sort((a, b) => {
-        const va = a?.id_motoboy != null ? a.id_motoboy : a?.id;
-        const vb = b?.id_motoboy != null ? b.id_motoboy : b?.id;
-        const la = String(a?.nome || `Motoboy ${va || ""}`);
-        const lb = String(b?.nome || `Motoboy ${vb || ""}`);
-        return la.localeCompare(lb, "pt-BR", { sensitivity: "base" });
-      });
+      const listNorm = (typeof window.normalizePersonList === "function")
+        ? window.normalizePersonList(Array.isArray(list) ? list : [])
+        : (Array.isArray(list) ? list : []).slice().sort((a, b) => {
+            const va = a?.id_motoboy != null ? a.id_motoboy : a?.id;
+            const vb = b?.id_motoboy != null ? b.id_motoboy : b?.id;
+            const la = String(a?.nome || `Motoboy ${va || ""}`);
+            const lb = String(b?.nome || `Motoboy ${vb || ""}`);
+            return la.localeCompare(lb, "pt-BR", { sensitivity: "base" });
+          });
 
       const uniqueByNome = new Map();
-      sorted.forEach((m) => {
+      listNorm.forEach((m) => {
         const val = m?.id_motoboy != null ? m.id_motoboy : m?.id;
-        const label = String(m?.nome || `Motoboy ${val || ""}`);
-        const key = normalizeNomeKey(label);
+        const labelRaw = String(m?.nome || `Motoboy ${val || ""}`);
+        const label = (typeof window.formatPersonName === "function")
+          ? window.formatPersonName(labelRaw)
+          : labelRaw;
+        const key = (typeof window.personNameKey === "function")
+          ? window.personNameKey(label)
+          : normalizeNomeKey(label);
         if (!key || uniqueByNome.has(key)) return;
-        uniqueByNome.set(key, m);
+        uniqueByNome.set(key, { ...m, nome: label });
       });
 
       const opts = Array.from(uniqueByNome.values())

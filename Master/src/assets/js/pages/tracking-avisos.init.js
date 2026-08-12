@@ -82,14 +82,19 @@
         .map((m) => {
           const id = Number(m.id_motoboy != null ? m.id_motoboy : m.id);
           if (!Number.isFinite(id)) return null;
+          const nomeRaw = m.nome || "Motoboy " + id;
           return {
             id,
-            nome: m.nome || "Motoboy " + id,
+            nome: (typeof window.formatPersonName === "function")
+              ? window.formatPersonName(nomeRaw)
+              : nomeRaw,
             enabled: false,
           };
         })
         .filter(Boolean)
-        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" }));
+        .sort((a, b) => (typeof window.comparePersonNames === "function"
+          ? window.comparePersonNames(a.nome, b.nome)
+          : a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })));
       renderMotoboysList();
     } catch (e) {
       motoboysState = [];

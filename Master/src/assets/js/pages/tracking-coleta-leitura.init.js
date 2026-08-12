@@ -697,15 +697,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     const selEnt = qs("#selEntregador");
     if (selEnt && Array.isArray(entregadores)) {
       const ordenados = [...entregadores].sort((a, b) => {
-        const na = (a.nome || a.name || String(a.id_entregador ?? a.id)).trim() || String(a.id_entregador ?? a.id);
-        const nb = (b.nome || b.name || String(b.id_entregador ?? b.id)).trim() || String(b.id_entregador ?? b.id);
-        return na.localeCompare(nb, "pt-BR");
+        const naRaw = (a.nome || a.name || String(a.id_entregador ?? a.id)).trim() || String(a.id_entregador ?? a.id);
+        const nbRaw = (b.nome || b.name || String(b.id_entregador ?? b.id)).trim() || String(b.id_entregador ?? b.id);
+        const na = (typeof window.formatPersonName === "function") ? window.formatPersonName(naRaw) : naRaw;
+        const nb = (typeof window.formatPersonName === "function") ? window.formatPersonName(nbRaw) : nbRaw;
+        return (typeof window.comparePersonNames === "function")
+          ? window.comparePersonNames(na, nb)
+          : na.localeCompare(nb, "pt-BR");
       });
       selEnt.innerHTML =
         '<option value="">Usuário logado</option>' +
         ordenados.map(e => {
           const id = e.id_entregador ?? e.id;
-          const nome = (e.nome || e.name || String(id)).trim() || String(id);
+          const nomeRaw = (e.nome || e.name || String(id)).trim() || String(id);
+          const nome = (typeof window.formatPersonName === "function") ? window.formatPersonName(nomeRaw) : nomeRaw;
           return `<option value="${id}">${nome}</option>`;
         }).join("");
     }
