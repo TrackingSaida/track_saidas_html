@@ -2558,23 +2558,36 @@ function setupPagerEvents() {
         }
       });
     }
-    var semPeriodo = params.get("sem_periodo") === "1" || params.get("sem_periodo") === "true";
-    if (semPeriodo) {
-      if (f.from) f.from.value = "";
-      if (f.to) f.to.value = "";
-      var periodLabel = document.getElementById("registros-period-label");
-      if (periodLabel) periodLabel.textContent = "Todos os períodos";
-      applied = true;
-    }
+
     var de = (params.get("de") || params.get("data_inicio") || "").trim();
     var ate = (params.get("ate") || params.get("data_fim") || "").trim();
-    if (!semPeriodo && (de || ate)) {
+    var periodo = (params.get("periodo") || "").trim().toLowerCase();
+    var semPeriodo = params.get("sem_periodo") === "1" || params.get("sem_periodo") === "true";
+
+    // "Todos os períodos" na listagem pesada costuma falhar/zerar; para Na Base usamos período amplo.
+    if (semPeriodo && !de && !ate && !periodo) {
+      periodo = "ultimos45";
+      semPeriodo = false;
+    }
+
+    if (de || ate) {
       if (f.from && de) f.from.value = de;
       if (f.to && ate) f.to.value = ate;
       else if (f.to && de && !ate) f.to.value = de;
       updatePeriodLabel(f.from ? f.from.value : "", f.to ? f.to.value : "");
       applied = true;
+    } else if (periodo && datePickerInstance && datePickerInstance.applyPreset) {
+      var allowed = { ultimos15: 1, ultimos30: 1, ultimos45: 1, hoje: 1, ontem: 1, quinzena: 1, mes: 1 };
+      if (allowed[periodo]) {
+        datePickerInstance.applyPreset(periodo);
+        var r = datePickerInstance.getResolvedRange();
+        if (f.from) f.from.value = r.start || "";
+        if (f.to) f.to.value = r.end || "";
+        updatePeriodLabel(r.start || "", r.end || "");
+        applied = true;
+      }
     }
+
     // Limpa query da URL sem recarregar (evita reaplicar ao refresh manual)
     if (applied && window.history && window.history.replaceState) {
       try {

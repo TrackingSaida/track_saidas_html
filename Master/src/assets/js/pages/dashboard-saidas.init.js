@@ -143,10 +143,12 @@
     setText("card-gap-entrada-saida", formatGap(e.gap_entrada_saida));
 
     const detalheEl = document.getElementById("card-ainda-na-base-detalhe");
+    const linkEl = document.getElementById("card-ainda-na-base-link");
     if (detalheEl) {
       const detalhe = e.ainda_na_base_detalhe || [];
       if (!detalhe.length) {
         detalheEl.textContent = "Nenhum pacote aguardando saída";
+        if (linkEl) linkEl.href = "tracking-registros.html?status=na_base&periodo=ultimos45";
       } else {
         const top = detalhe.slice(0, 4);
         detalheEl.innerHTML = top.map(function (d) {
@@ -154,6 +156,16 @@
         }).join("") + (detalhe.length > 4
           ? "<div class='mt-1'>e mais " + (detalhe.length - 4) + " dia(s)</div>"
           : "");
+        if (linkEl) {
+          const dates = detalhe.map(function (d) { return d.date; }).filter(Boolean).sort();
+          const de = dates[0];
+          const ate = dates[dates.length - 1];
+          if (de && ate) {
+            linkEl.href = "tracking-registros.html?status=na_base&de=" + encodeURIComponent(de) + "&ate=" + encodeURIComponent(ate);
+          } else {
+            linkEl.href = "tracking-registros.html?status=na_base&periodo=ultimos45";
+          }
+        }
       }
     }
 
