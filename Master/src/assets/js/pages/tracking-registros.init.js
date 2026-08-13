@@ -746,9 +746,9 @@ function augmentEntregadoresFromRows(rows){
             <td>${renderActionBadge(r.acao)}</td>
             <td>${formatPersonNameOrDash(r.entregador)}</td>
             <td>${r.tsAcaoFmt || ""}</td>
-            <td>${r.tsEntradaFmt || ""}</td>
-            <td>${r.executado_por || "—"}</td>
-            <td class="text-muted">${r.seller || "-"}</td>
+            <td class="d-none d-xl-table-cell">${r.tsEntradaFmt || ""}</td>
+            <td class="d-none d-xl-table-cell">${r.executado_por || "—"}</td>
+            <td class="d-none d-xl-table-cell text-muted">${r.seller || "-"}</td>
             <td class="text-center">${gCell}</td>
           </tr>`;
       })
