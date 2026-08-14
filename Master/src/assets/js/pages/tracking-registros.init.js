@@ -292,26 +292,37 @@ function loadMotoboys(){
     .then(function(res) { return res.ok ? res.json() : []; })
     .then(function(data) {
       motoboysCache = Array.isArray(data) ? data : [];
-      var ordenados = motoboysCache.slice().sort(function(a, b) {
-        var na = (a.nome || "Motoboy " + (a.id_motoboy || a.id));
-        var nb = (b.nome || "Motoboy " + (b.id_motoboy || b.id));
-        return na.localeCompare(nb, "pt-BR");
-      });
+      var ordenados = (typeof window.normalizePersonList === "function"
+        ? window.normalizePersonList(motoboysCache)
+        : motoboysCache.slice().sort(function(a, b) {
+            var na = (a.nome || "Motoboy " + (a.id_motoboy || a.id));
+            var nb = (b.nome || "Motoboy " + (b.id_motoboy || b.id));
+            return na.localeCompare(nb, "pt-BR");
+          }));
       var selEdit = document.getElementById("edit-motoboy");
       var selBulk = document.getElementById("bulk-motoboy");
       var opts = '<option value="">Não alterar</option>' +
         ordenados.map(function(m) {
-          return '<option value="' + (m.id_motoboy || m.id) + '">' + (m.nome || "Motoboy " + (m.id_motoboy || m.id)) + '</option>';
+          var nome = (typeof window.formatPersonName === "function"
+            ? window.formatPersonName(m.nome || "Motoboy " + (m.id_motoboy || m.id))
+            : (m.nome || "Motoboy " + (m.id_motoboy || m.id)));
+          return '<option value="' + (m.id_motoboy || m.id) + '">' + nome + '</option>';
         }).join("");
       if (selEdit) selEdit.innerHTML = opts;
       if (selBulk) selBulk.innerHTML = '<option value="">Não alterar</option>' + ordenados.map(function(m) {
-        return '<option value="' + (m.id_motoboy || m.id) + '">' + (m.nome || "Motoboy " + (m.id_motoboy || m.id)) + '</option>';
+        var nome = (typeof window.formatPersonName === "function"
+          ? window.formatPersonName(m.nome || "Motoboy " + (m.id_motoboy || m.id))
+          : (m.nome || "Motoboy " + (m.id_motoboy || m.id)));
+        return '<option value="' + (m.id_motoboy || m.id) + '">' + nome + '</option>';
       }).join("");
       return motoboysCache;
     })
     .catch(function() { motoboysCache = []; return []; });
 }
 function buildUniqueNames(nomes){
+  if (typeof window.buildUniquePersonNames === "function") {
+    return window.buildUniquePersonNames(nomes);
+  }
   var map = new Map();
   (nomes || []).forEach(function(n){
     var display = String(n || "").trim();
@@ -339,12 +350,11 @@ function fillEntregadores(nomes){
 
 }
 function augmentEntregadoresFromRows(rows){
-  var nomesLista = (rows || [])
-    .map(r => r?.entregador)
-    .filter(Boolean);
-  var unicos = buildUniqueNames((augmentEntregadoresFromRows._base || []).concat(nomesLista));
-  augmentEntregadoresFromRows._base = unicos;
-  fillEntregadores(unicos);
+  // Não reintroduz no filtro nomes só presentes em histórico (ex.: usuário já excluído).
+  // A base operacional vem de entregadores/motoboys ativos carregados no init.
+  var base = augmentEntregadoresFromRows._base || [];
+  if (!base.length) return;
+  fillEntregadores(base);
 }
 
 
@@ -528,6 +538,7 @@ function augmentEntregadoresFromRows(rows){
     if (!status) return "status-default";
     var s = String(status).toLowerCase().replace(/_/g, " ");
     if (s.indexOf("encerrado") !== -1) return "status-default";
+    if (s.indexOf("na base") !== -1) return "status-warning";
     if (s.indexOf("entregue") !== -1) return "status-success";
     if (s.indexOf("ausente") !== -1) return "status-warning";
     if (s.indexOf("cancelado") !== -1) return "status-danger";
@@ -539,6 +550,7 @@ function augmentEntregadoresFromRows(rows){
     if (status == null || status === "") return "—";
     var s = String(status).replace(/_/g, " ").trim();
     var lower = s.toLowerCase();
+    if (lower === "na base") return "Na Base";
     if (lower === "saiu" || lower === "saiu para entrega") return "SAIU PARA ENTREGA";
     if (lower === "encerrado sistema" || lower === "encerrado pelo sistema" || lower === "encerrado_sistema" || lower === "encerrado") {
       return "Encerrado";
@@ -2522,6 +2534,71 @@ function setupPagerEvents() {
   syncEntregadorDisabled();
   limparFiltrosSelecao();
   if (f.pageSize) f.pageSize.value = String(state.pageSize);
+
+  function applyQueryFiltersFromUrl() {
+    var params;
+    try {
+      params = new URLSearchParams(window.location.search || "");
+    } catch (_) {
+      return false;
+    }
+    var applied = false;
+    var statusRaw = (params.get("status") || "").trim().toLowerCase().replace(/\s+/g, "_");
+    if (statusRaw) {
+      var wanted = statusRaw.replace(/-/g, "_");
+      (f.statusToggles || []).forEach(function (el) {
+        var val = String(el.value || "").toLowerCase().replace(/\s+/g, "_");
+        var match =
+          val === wanted ||
+          (wanted === "na_base" && (val === "na_base" || val === "na base")) ||
+          (wanted === "na base" && val === "na_base");
+        if (match) {
+          el.checked = true;
+          applied = true;
+        }
+      });
+    }
+
+    var de = (params.get("de") || params.get("data_inicio") || "").trim();
+    var ate = (params.get("ate") || params.get("data_fim") || "").trim();
+    var periodo = (params.get("periodo") || "").trim().toLowerCase();
+    var semPeriodo = params.get("sem_periodo") === "1" || params.get("sem_periodo") === "true";
+
+    // "Todos os períodos" na listagem pesada costuma falhar/zerar; para Na Base usamos período amplo.
+    if (semPeriodo && !de && !ate && !periodo) {
+      periodo = "ultimos45";
+      semPeriodo = false;
+    }
+
+    if (de || ate) {
+      if (f.from && de) f.from.value = de;
+      if (f.to && ate) f.to.value = ate;
+      else if (f.to && de && !ate) f.to.value = de;
+      updatePeriodLabel(f.from ? f.from.value : "", f.to ? f.to.value : "");
+      applied = true;
+    } else if (periodo && datePickerInstance && datePickerInstance.applyPreset) {
+      var allowed = { ultimos15: 1, ultimos30: 1, ultimos45: 1, hoje: 1, ontem: 1, quinzena: 1, mes: 1 };
+      if (allowed[periodo]) {
+        datePickerInstance.applyPreset(periodo);
+        var r = datePickerInstance.getResolvedRange();
+        if (f.from) f.from.value = r.start || "";
+        if (f.to) f.to.value = r.end || "";
+        updatePeriodLabel(r.start || "", r.end || "");
+        applied = true;
+      }
+    }
+
+    // Limpa query da URL sem recarregar (evita reaplicar ao refresh manual)
+    if (applied && window.history && window.history.replaceState) {
+      try {
+        var clean = window.location.pathname + (window.location.hash || "");
+        window.history.replaceState({}, document.title, clean);
+      } catch (_) {}
+    }
+    return applied;
+  }
+
+  applyQueryFiltersFromUrl();
   refresh(false);
   updateEditButtonState();
   if (typeof atualizarContadorFiltros === "function") atualizarContadorFiltros();
@@ -2532,7 +2609,10 @@ function setupPagerEvents() {
     .then(function(results) {
       var nomesEntregadores = results[0] || [];
       var motoboys = results[1] || [];
-      var nomesMotoboys = motoboys.map(function(m) { return (m.nome || ("Motoboy " + (m.id_motoboy || m.id))); });
+      var nomesMotoboys = motoboys.map(function(m) {
+        var raw = (m.nome || ("Motoboy " + (m.id_motoboy || m.id)));
+        return (typeof window.formatPersonName === "function") ? window.formatPersonName(raw) : raw;
+      });
       var todos = (nomesEntregadores).concat(nomesMotoboys);
       var unicos = buildUniqueNames(todos);
       augmentEntregadoresFromRows._base = unicos;
