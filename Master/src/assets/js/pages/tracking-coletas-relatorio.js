@@ -278,7 +278,7 @@ async function gerarPdfResumoColetas(resumo, base, de, ate) {
   const ano = new Date().getFullYear();
   doc.setFontSize(10);
   doc.setTextColor(80);
-  doc.text(`${ano} © TrackingSaídas.`, 105, doc.internal.pageSize.height - 10, { align: "center" });
+  doc.text(`${ano} © ROTEVO.`, 105, doc.internal.pageSize.height - 10, { align: "center" });
 
   /* ======================================================
      Abrir PDF
@@ -421,7 +421,7 @@ async function gerarPdfFechamentoBases(idFechamento) {
   doc.setFontSize(16);
   doc.text("RELATÓRIO DE COLETAS", 105, 20, { align: "center" });
   doc.setFontSize(10);
-  const emitidoPor = fech.emitido_por || fech.sub_base || "Tracking Saídas";
+  const emitidoPor = fech.emitido_por || fech.sub_base || "ROTEVO";
   doc.text(`Emitido por: ${emitidoPor}`, 105, 26, { align: "center" });
   doc.text(`Período: ${isoParaBr(de)} a ${isoParaBr(ate)}`, 105, 32, { align: "center" });
 
@@ -613,7 +613,7 @@ async function gerarPdfFechamentoBases(idFechamento) {
   const ano = new Date().getFullYear();
   doc.setFontSize(10);
   doc.setTextColor(80);
-  doc.text(`${ano} © TrackingSaídas.`, 105, doc.internal.pageSize.height - 10, { align: "center" });
+  doc.text(`${ano} © ROTEVO.`, 105, doc.internal.pageSize.height - 10, { align: "center" });
 
   // Nome de arquivo padronizado: fechamento_{base}_{ddIni}_a_{ddFim}_{mm}.pdf
   const dIni = String(de || "").split("-");

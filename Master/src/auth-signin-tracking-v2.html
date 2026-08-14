@@ -1,184 +1,139 @@
 <!doctype html>
 <html lang="pt-br">
 <head>
-   @@include("partials/title-meta.html", {"title": "Sign Up"})
+   @@include("partials/title-meta.html", {"title": "Entrar"})
    @@include("partials/head-css.html")
 
-  <!-- Fonte do tema -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <style>
-    :root{
-      --vz-body-font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto,
-        "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji",
-        "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-    }
-    body{ font-family: var(--vz-body-font-family) !important; }
-  </style>
-
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="assets/css/auth-rotevo.css" rel="stylesheet">
 </head>
-<body>
-  <div class="auth-page-wrapper auth-bg-cover py-5 d-flex justify-content-center align-items-center min-vh-100">
-    <div class="bg-overlay"></div>
-    <div class="auth-page-content overflow-hidden pt-lg-5">
-      <div class="container">
-        <div class="row">
-          <div class="col-lg-12">
-            <div class="card overflow-hidden m-0 galaxy-border-none">
-              <div class="row justify-content-center g-0">
+<body class="rotevo-login">
+  <div class="rv-shell">
+    <aside class="rv-brand" aria-hidden="false">
+      <div class="rv-brand-inner">
+        <a href="index.html" class="rv-logo-row">
+          <img src="assets/images/logo_rotevo.png" alt="ROTEVO">
+          <span class="rv-wordmark">ROT<span class="rv-e">E</span>VO</span>
+        </a>
+        <p class="rv-tagline">Gestão Inteligente de Entregas</p>
 
-                <!-- Lado esquerdo -->
-                <div class="col-lg-6">
-                  <div class="p-lg-5 p-4 auth-one-bg h-100">
-                    <div class="bg-overlay"></div>
-                    <div class="position-relative h-100 d-flex flex-column">
-                      <div class="mb-4">
-                        <a href="index.html" class="d-block">
-                          <img src="assets/images/logo-track-light.png" alt="Tracking Saídas" height="115">
-                        </a>
-                      </div>
-                      <div class="mt-auto">
-                        <div class="mb-3">
-                          <i class="ri-double-quotes-l display-4 text-success"></i>
-                        </div>
-                        <div id="qoutescarouselIndicators" class="carousel slide" data-bs-ride="carousel">
-                          <div class="carousel-indicators">
-                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="0" class="active"></button>
-                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="1"></button>
-                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="2"></button>
-                          </div>
-                          <div class="carousel-inner text-center text-white pb-5">
-                            <div class="carousel-item active">
-                              <p class="fs-15 fst-italic">“Tracking Saídas simplifica o dia a dia da operação.”</p>
-                            </div>
-                            <div class="carousel-item">
-                              <p class="fs-15 fst-italic">“Login prático: e-mail, usuário ou telefone.”</p>
-                            </div>
-                            <div class="carousel-item">
-                              <p class="fs-15 fst-italic">“Segurança e velocidade no acesso.”</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+        <h2 class="rv-headline">O controle completo <em>da coleta à entrega.</em></h2>
+        <p class="rv-lead">Plataforma completa para gestão operacional, acompanhamento de entregas, entregadores, rotas e muito mais.</p>
 
-                <!-- Lado direito: formulário -->
-                <div class="col-lg-6">
-                  <div class="p-lg-5 p-4">
-                    <div class="text-start">
-                      <h5 class="text-primary mb-1">Bem-vindo de volta!</h5>
-                      <p class="text-muted">Entre para continuar</p>
-                    </div>
+        <div class="rv-map" role="presentation"></div>
 
-                    <form id="loginForm" class="mt-4" novalidate>
-                      
-                      <div class="mb-3">
-                        <label for="login" class="form-label">Login</label>
-                        <input type="text" class="form-control" id="login" placeholder="Digite e-mail, usuário ou telefone" required>
-                        <div class="invalid-feedback">Informe seu e-mail, usuário ou telefone.</div>
-                      </div>
-
-                      
-                      <div class="mb-3">
-                        <div class="float-end">
-                          <a href="#" id="forgotPass" class="text-muted">
-                            Esqueceu a senha?
-                          </a>
-                        </div>
-                      </div>
-                      
-                        <label class="form-label" for="password-input">Senha</label>
-                        <div class="position-relative auth-pass-inputgroup">
-                          <input type="password" class="form-control pe-5" id="password-input" placeholder="Sua senha" required>
-                          <button class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted material-shadow-none"
-                            type="button" data-toggle="ver-senha">
-                            <i class="ri-eye-fill align-middle"></i>
-                          </button>
-                          <div class="invalid-feedback">Informe sua senha.</div>
-                        </div>
-                      </div>
-
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="auth-remember-check">
-                        <label class="form-check-label" for="auth-remember-check">Lembrar-me</label>
-                      </div>
-
-                      <div id="loginError" class="alert alert-danger d-none mt-3"></div>
-
-                      <div class="mt-4">
-                        <button id="signinBtn" class="btn btn-success w-100" type="submit" data-loading="Entrando...">
-                          Entrar
-                        </button>
-                        <div id="signinStatus" class="text-muted small mt-2 d-none" aria-live="polite"></div>
-                      </div>
-
-                      <div class="mt-4 text-center">
-                        <p class="mb-0">
-                          Não tem conta?
-                          <a href="auth-signup-tracking-v2.html" class="fw-semibold text-primary text-decoration-underline">
-                            Criar conta
-                          </a>
-                        </p>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-            <!-- end card -->
+        <div class="rv-benefits">
+          <div class="rv-benefit">
+            <i class="ri-dashboard-3-line" aria-hidden="true"></i>
+            <strong>Performance</strong>
+            <span>Mais eficiência nas entregas</span>
+          </div>
+          <div class="rv-benefit">
+            <i class="ri-map-pin-line" aria-hidden="true"></i>
+            <strong>Visibilidade</strong>
+            <span>Acompanhe tudo em tempo real</span>
+          </div>
+          <div class="rv-benefit">
+            <i class="ri-shield-check-line" aria-hidden="true"></i>
+            <strong>Segurança</strong>
+            <span>Dados protegidos e confiáveis</span>
+          </div>
+          <div class="rv-benefit">
+            <i class="ri-bar-chart-2-line" aria-hidden="true"></i>
+            <strong>Resultados</strong>
+            <span>Relatórios e dados para decisões</span>
           </div>
         </div>
       </div>
+    </aside>
 
-      <footer class="footer galaxy-border-none">
-        <div class="container">
-          <div class="row align-items-center small text-muted">
-            <div class="col-6">
-              <p class="mb-0">&copy; <script>document.write(new Date().getFullYear())</script> Tracking Saídas</p>
-            </div>
-            <div class="col-6 text-end">
-              <p class="mb-0">v4.8.0</p>
+    <main class="rv-auth">
+      <div class="rv-auth-inner">
+        <div class="rv-mobile-brand">
+          <img src="assets/images/logo_rotevo.png" alt="">
+          <span class="rv-wordmark">ROT<span class="rv-e">E</span>VO</span>
+          <p class="rv-tagline">Gestão Inteligente de Entregas</p>
+        </div>
+
+        <h1>Bem-vindo de volta! 👋</h1>
+        <p class="rv-sub">Entre com suas credenciais para continuar.</p>
+
+        <form id="loginForm" novalidate>
+          <div class="rv-field">
+            <label for="login">Login</label>
+            <div class="rv-input-wrap">
+              <i class="ri-user-line" aria-hidden="true"></i>
+              <input type="text" id="login" name="login" autocomplete="username"
+                     placeholder="Digite seu e-mail, usuário ou telefone" required>
             </div>
           </div>
-        </div>
-      </footer>
-    </div>
+
+          <div class="rv-field">
+            <div class="rv-field-head">
+              <label for="password-input">Senha</label>
+              <a href="#" id="forgotPass" class="rv-forgot">Esqueceu sua senha?</a>
+            </div>
+            <div class="rv-input-wrap">
+              <i class="ri-lock-2-line" aria-hidden="true"></i>
+              <input type="password" id="password-input" name="password" autocomplete="current-password"
+                     placeholder="Digite sua senha" required>
+              <button class="rv-toggle-pass" type="button" data-toggle="ver-senha"
+                      aria-label="Mostrar senha" aria-pressed="false">
+                <i class="ri-eye-fill align-middle" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="rv-check">
+            <input class="form-check-input" type="checkbox" id="auth-remember-check">
+            <label class="form-check-label" for="auth-remember-check">Lembrar-me</label>
+          </div>
+
+          <div id="loginError" class="alert alert-danger d-none rv-error" role="alert"></div>
+
+          <button id="signinBtn" class="rv-btn-enter" type="submit" data-loading="Entrando...">
+            Entrar <i class="ri-arrow-right-line" aria-hidden="true"></i>
+          </button>
+          <div id="signinStatus" class="text-muted small mt-2 d-none" aria-live="polite"></div>
+
+          <div class="rv-or">ou</div>
+
+          <a href="auth-signup-tracking-v2.html" class="rv-btn-signup">
+            <i class="ri-user-add-line" aria-hidden="true"></i>
+            Criar nova conta
+          </a>
+
+          <p class="rv-secure">
+            <i class="ri-lock-line" aria-hidden="true"></i>
+            Seus dados são protegidos durante o acesso.
+          </p>
+        </form>
+      </div>
+    </main>
   </div>
 
-
-<!-- Modal Glass Premium (corrigido) -->
 <div class="modal fade" id="ownerBlockedModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow-lg" 
+    <div class="modal-content border-0 shadow-lg"
          style="backdrop-filter: blur(12px); background: rgba(255, 255, 255, 0.90); border-radius:18px;">
-
-      <!-- HEADER -->
-      <div class="modal-header border-0" 
+      <div class="modal-header border-0"
            style="background: linear-gradient(135deg, #0b6e4f, #0a5a41); color:white; border-radius:18px 18px 0 0;">
         <h5 class="modal-title d-flex align-items-center fs-5 fw-semibold" style="color: #fff !important;">
-          <i class="ri-shield-cross-fill me-2 fs-4"></i>  
+          <i class="ri-shield-cross-fill me-2 fs-4"></i>
           Acesso bloqueado
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-
-      <!-- BODY -->
       <div class="modal-body py-4">
         <p class="mb-2 fw-medium" style="font-size: 16px;">
           Sua operação foi <strong>bloqueada pelo administrador</strong>.
         </p>
-
         <p class="text-muted mb-0" style="font-size: 14px;">
           Caso acredite que seja um engano, entre em contato com o responsável pelo sistema.
         </p>
       </div>
-
-      <!-- FOOTER -->
       <div class="modal-footer border-0">
         <button type="button" class="btn w-100 text-white fw-semibold py-2"
                 style="background:#0b6e4f; border-radius:10px;"
@@ -186,32 +141,21 @@
           Fechar
         </button>
       </div>
-
     </div>
   </div>
 </div>
 
-
-
-
-
-
-  <!-- JS -->
   <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script src="assets/libs/simplebar/simplebar.min.js"></script>
   <script src="assets/libs/node-waves/waves.min.js"></script>
   <script src="assets/libs/feather-icons/feather.min.js"></script>
   <script src="assets/js/plugins.js"></script>
-  <!-- SweetAlert2 (necessário para fluxo de troca de senha, esqueceu senha, etc.) -->
   <script src="assets/libs/sweetalert2/sweetalert2.min.js"></script>
 
-
-    <!-- Trigger automático do Modal -->
   <script>
   (function () {
     const params = new URLSearchParams(window.location.search);
     const reason = params.get("reason");
-
     if (reason === "owner_blocked") {
       const modal = new bootstrap.Modal(document.getElementById("ownerBlockedModal"));
       modal.show();
@@ -219,7 +163,18 @@
   })();
   </script>
 
-  <!-- Lógica do login -->
   <script src="assets/js/pages/auth-signin-tracking.js"></script>
+  <script>
+  (function () {
+    document.querySelectorAll('[data-toggle="ver-senha"]').forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var input = document.getElementById("password-input");
+        var shown = input && input.type === "text";
+        btn.setAttribute("aria-pressed", shown ? "true" : "false");
+        btn.setAttribute("aria-label", shown ? "Ocultar senha" : "Mostrar senha");
+      });
+    });
+  })();
+  </script>
 </body>
 </html>

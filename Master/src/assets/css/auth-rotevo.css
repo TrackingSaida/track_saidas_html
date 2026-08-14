@@ -1,0 +1,420 @@
+.rotevo-login {
+  --rv-deep: #0B1F3A;
+  --rv-tech: #1A4F8C;
+  --rv-cyan: #1FC6E8;
+  --rv-lime: #C6F531;
+  --rv-surface: #FFFFFF;
+  --rv-text: #0F172A;
+  --rv-muted: #64748B;
+  --rv-border: #E2E8F0;
+  --rv-brand-bg: linear-gradient(160deg, #071526 0%, #0B1F3A 42%, #123A5C 78%, #0E4A5C 100%);
+  --rv-cta: linear-gradient(90deg, #14B8A6 0%, #1A6FD4 100%);
+  --rv-cta-hover: linear-gradient(90deg, #0F9B8C 0%, #155CB3 100%);
+  --rv-font: "Inter", "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --rv-radius: 16px;
+  --rv-focus: 0 0 0 3px rgba(198, 245, 49, 0.45);
+  min-height: 100vh;
+  background: #E8EEF4;
+  font-family: var(--rv-font);
+  color: var(--rv-text);
+}
+
+.rotevo-login *,
+.rotevo-login *::before,
+.rotevo-login *::after {
+  box-sizing: border-box;
+}
+
+.rv-shell {
+  display: grid;
+  grid-template-columns: 1.22fr 1fr;
+  min-height: 100vh;
+  background: var(--rv-surface);
+}
+
+.rv-brand {
+  position: relative;
+  overflow: hidden;
+  background: var(--rv-brand-bg);
+  color: #fff;
+  padding: 40px 48px 32px;
+  display: flex;
+  flex-direction: column;
+}
+
+.rv-brand::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 70% 70%, rgba(31, 198, 232, 0.18), transparent 60%),
+    radial-gradient(ellipse 40% 40% at 20% 90%, rgba(198, 245, 49, 0.08), transparent 50%);
+  pointer-events: none;
+}
+
+.rv-brand-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.rv-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.rv-logo-row img {
+  height: 52px;
+  width: auto;
+}
+
+.rv-wordmark {
+  font-weight: 800;
+  font-size: 1.85rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.rv-wordmark .rv-e {
+  color: var(--rv-lime);
+}
+
+.rv-tagline {
+  margin: 8px 0 0 66px;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #9FE8F5;
+  font-weight: 600;
+}
+
+.rv-headline {
+  margin-top: 48px;
+  font-size: clamp(1.7rem, 2.6vw, 2.35rem);
+  font-weight: 800;
+  line-height: 1.2;
+  max-width: 16ch;
+}
+
+.rv-headline em {
+  font-style: normal;
+  color: var(--rv-cyan);
+}
+
+.rv-lead {
+  margin-top: 16px;
+  max-width: 38ch;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.rv-map {
+  flex: 1;
+  min-height: 140px;
+  margin: 24px 0 8px;
+  background: url("../images/rotevo-login-map.svg") center / contain no-repeat;
+  opacity: 0.95;
+}
+
+.rv-benefits {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.rv-benefit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rv-benefit i {
+  color: var(--rv-cyan);
+  font-size: 1.25rem;
+}
+
+.rv-benefit strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.rv-benefit span {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.35;
+}
+
+.rv-auth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 48px;
+  background: #fff;
+}
+
+.rv-auth-inner {
+  width: 100%;
+  max-width: 420px;
+}
+
+.rv-auth h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin: 0 0 8px;
+  color: var(--rv-text);
+}
+
+.rv-auth .rv-sub {
+  color: var(--rv-muted);
+  margin-bottom: 28px;
+}
+
+.rv-field {
+  margin-bottom: 18px;
+}
+
+.rv-field-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.rv-field label {
+  font-weight: 600;
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.rv-forgot {
+  font-size: 0.86rem;
+  color: #2563EB;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.rv-forgot:hover,
+.rv-forgot:focus-visible {
+  text-decoration: underline;
+  color: #1D4ED8;
+}
+
+.rv-input-wrap {
+  position: relative;
+}
+
+.rv-input-wrap > i:first-child {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94A3B8;
+  font-size: 1.1rem;
+  pointer-events: none;
+}
+
+.rv-input-wrap input {
+  width: 100%;
+  height: 48px;
+  border: 1px solid var(--rv-border);
+  border-radius: 10px;
+  padding: 0 44px 0 42px;
+  font-size: 0.95rem;
+  background: #F8FAFC;
+  color: var(--rv-text);
+}
+
+.rv-input-wrap input:focus {
+  outline: none;
+  border-color: var(--rv-cyan);
+  background: #fff;
+  box-shadow: var(--rv-focus);
+}
+
+.rv-toggle-pass {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: #94A3B8;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+
+.rv-toggle-pass:hover,
+.rv-toggle-pass:focus-visible {
+  color: var(--rv-tech);
+  box-shadow: var(--rv-focus);
+}
+
+.rv-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 20px;
+  font-size: 0.92rem;
+}
+
+.rv-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: #14B8A6;
+}
+
+.rv-error {
+  margin-bottom: 12px;
+}
+
+.rv-btn-enter {
+  width: 100%;
+  height: 48px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--rv-cta);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 8px 20px rgba(20, 184, 166, 0.28);
+}
+
+.rv-btn-enter:hover:not(:disabled) {
+  background: var(--rv-cta-hover);
+}
+
+.rv-btn-enter:focus-visible {
+  outline: none;
+  box-shadow: var(--rv-focus);
+}
+
+.rv-btn-enter:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.rv-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  color: #94A3B8;
+  font-size: 0.85rem;
+}
+
+.rv-or::before,
+.rv-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--rv-border);
+}
+
+.rv-btn-signup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 46px;
+  border: 1px solid #CBD5E1;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--rv-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.rv-btn-signup:hover,
+.rv-btn-signup:focus-visible {
+  border-color: var(--rv-tech);
+  color: var(--rv-tech);
+  box-shadow: var(--rv-focus);
+}
+
+.rv-secure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 22px;
+  color: var(--rv-muted);
+  font-size: 0.78rem;
+}
+
+.rv-secure i {
+  color: #14B8A6;
+}
+
+.rv-mobile-brand {
+  display: none;
+}
+
+@media (max-width: 1199.98px) {
+  .rv-brand {
+    padding: 32px 32px 24px;
+  }
+  .rv-auth {
+    padding: 32px;
+  }
+  .rv-headline {
+    margin-top: 32px;
+  }
+  .rv-benefits {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .rv-shell {
+    grid-template-columns: 1fr;
+    min-height: 100vh;
+  }
+  .rv-brand {
+    display: none;
+  }
+  .rv-mobile-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .rv-mobile-brand img {
+    height: 56px;
+    width: auto;
+    margin-bottom: 8px;
+  }
+  .rv-mobile-brand .rv-wordmark {
+    font-size: 1.6rem;
+    color: var(--rv-deep);
+  }
+  .rv-mobile-brand .rv-tagline {
+    margin: 6px 0 0;
+    color: #0E7490;
+  }
+  .rv-auth {
+    padding: 28px 20px 40px;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .rv-auth-inner {
+    max-width: none;
+  }
+}

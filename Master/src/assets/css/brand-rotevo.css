@@ -1,0 +1,32 @@
+.navbar-brand-box .logo-sm img {
+  height: 28px !important;
+  width: auto;
+}
+.navbar-brand-box .logo-lg {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.navbar-brand-box .logo-lg img {
+  height: 32px !important;
+  width: auto;
+}
+.rv-brand-name {
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.logo-light .rv-brand-name {
+  color: #fff;
+}
+.logo-dark .rv-brand-name {
+  color: #0B1F3A;
+}
+.logo-light .rv-brand-name .rv-e,
+.logo-dark .rv-brand-name .rv-e {
+  color: #7CB518;
+}
+.logo-light .rv-brand-name .rv-e {
+  color: #C6F531;
+}
