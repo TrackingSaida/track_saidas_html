@@ -70,13 +70,13 @@
 }
 
 .rv-logo-row img {
-  height: 52px;
+  height: 64px;
   width: auto;
 }
 
 .rv-wordmark {
   font-weight: 800;
-  font-size: 1.85rem;
+  font-size: 2.1rem;
   letter-spacing: 0.08em;
   line-height: 1;
 }
@@ -117,10 +117,13 @@
 
 .rv-map {
   flex: 1;
-  min-height: 140px;
-  margin: 24px 0 8px;
-  background: url("../images/rotevo-login-map.svg") center / contain no-repeat;
-  opacity: 0.95;
+  min-height: 180px;
+  margin: 20px 0 8px;
+  background:
+    linear-gradient(180deg, rgba(7, 21, 38, 0.15) 0%, rgba(7, 21, 38, 0.05) 40%, rgba(7, 21, 38, 0.35) 100%),
+    url("../images/rotevo-login-hero.jpg") center / cover no-repeat;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(31, 198, 232, 0.12);
 }
 
 .rv-benefits {
