@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="assets/css/auth-rotevo.css?v=rotevo8" rel="stylesheet">
+  <link href="assets/css/auth-rotevo.css?v=rotevo9" rel="stylesheet">
 </head>
 <body class="rotevo-login rotevo-signup">
   <div class="rv-shell">
@@ -97,6 +97,7 @@
                   <label for="cep">CEP <span class="text-danger">*</span></label>
                   <input type="text" id="cep" name="cep" inputmode="numeric" placeholder="00000-000" maxlength="9" required>
                   <div class="invalid-feedback">Informe um CEP válido.</div>
+                  <div id="cepStatus" class="rv-cep-status" aria-live="polite"></div>
                 </div>
                 <div class="rv-field">
                   <label for="estado">UF <span class="text-danger">*</span></label>

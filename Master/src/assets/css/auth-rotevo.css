@@ -608,6 +608,25 @@
   text-align: center;
 }
 
+.rv-cep-status {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  min-height: 1.1em;
+  color: var(--rv-muted);
+}
+
+.rv-cep-status.is-loading {
+  color: #0E7490;
+}
+
+.rv-cep-status.is-ok {
+  color: #0F766E;
+}
+
+.rv-cep-status.is-error {
+  color: #dc3545;
+}
+
 @media (max-width: 575.98px) {
   .rv-grid-2 {
     grid-template-columns: 1fr;

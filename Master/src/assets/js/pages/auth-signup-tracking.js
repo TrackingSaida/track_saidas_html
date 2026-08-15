@@ -143,6 +143,41 @@ const API_SIGNUP = 'https://track-saidas-api.onrender.com/api/public/signup';
     if (auth) auth.scrollTop = 0;
   }
 
+  function setCepStatus(msg, kind) {
+    const el = $('#cepStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.classList.remove('is-loading', 'is-ok', 'is-error');
+    if (kind) el.classList.add(kind);
+  }
+
+  async function lookupCep(cepRaw) {
+    const cepDigits = digits(cepRaw);
+    if (cepDigits.length !== 8) throw new Error('CEP inválido');
+    const res = await fetch('https://viacep.com.br/ws/' + cepDigits + '/json/');
+    if (!res.ok) throw new Error('Falha ao consultar CEP');
+    const data = await res.json();
+    if (!data || data.erro) throw new Error('CEP não encontrado');
+    return data;
+  }
+
+  function fillAddressFromCep(data) {
+    const rua = $('#rua');
+    const bairro = $('#bairro');
+    const cidade = $('#cidade');
+    const estado = $('#estado');
+    const numero = $('#numero');
+
+    if (rua && data.logradouro) rua.value = data.logradouro;
+    if (bairro && data.bairro) bairro.value = data.bairro;
+    if (cidade && data.localidade) cidade.value = data.localidade;
+    if (estado && data.uf) estado.value = String(data.uf).toUpperCase().slice(0, 2);
+
+    if (numero) {
+      numero.focus();
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('signup-wizard');
     if (!form) {
@@ -155,12 +190,46 @@ const API_SIGNUP = 'https://track-saidas-api.onrender.com/api/public/signup';
     const telEmp = $('#telefone_empresa');
     const tel = $('#telefone');
     const uf = $('#estado');
+    let lastCepLookup = '';
+    let cepLookupTimer = null;
 
     if (cnpj) cnpj.addEventListener('input', () => { cnpj.value = maskCnpj(cnpj.value); });
-    if (cep) cep.addEventListener('input', () => { cep.value = maskCep(cep.value); });
     if (telEmp) telEmp.addEventListener('input', () => { telEmp.value = maskPhone(telEmp.value); });
     if (tel) tel.addEventListener('input', () => { tel.value = maskPhone(tel.value); });
     if (uf) uf.addEventListener('input', () => { uf.value = present(uf.value).toUpperCase().slice(0, 2); });
+
+    if (cep) {
+      cep.addEventListener('input', () => {
+        cep.value = maskCep(cep.value);
+        const d = digits(cep.value);
+        if (d.length !== 8) {
+          lastCepLookup = '';
+          setCepStatus('', null);
+          return;
+        }
+        if (d === lastCepLookup) return;
+        clearTimeout(cepLookupTimer);
+        cepLookupTimer = setTimeout(async () => {
+          lastCepLookup = d;
+          setCepStatus('Buscando endereço...', 'is-loading');
+          try {
+            const data = await lookupCep(d);
+            fillAddressFromCep(data);
+            setCepStatus('Endereço encontrado. Confira e informe o número.', 'is-ok');
+          } catch (err) {
+            lastCepLookup = '';
+            setCepStatus(err?.message || 'Não foi possível buscar o CEP.', 'is-error');
+          }
+        }, 250);
+      });
+
+      cep.addEventListener('blur', () => {
+        const d = digits(cep.value);
+        if (d.length === 8 && d !== lastCepLookup) {
+          cep.dispatchEvent(new Event('input'));
+        }
+      });
+    }
 
     $$('.nexttab').forEach((el) => {
       el.addEventListener('click', (e) => {
