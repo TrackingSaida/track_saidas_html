@@ -258,7 +258,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (listaRent) {
         listaRent.innerHTML =
           rentabilidade.length === 0
-            ? "<p class=\"text-muted small mb-0\">Nenhuma base no período.</p>"
+            ? "<p class=\"text-muted small mb-0\">" + (typeof window.ownerTerm === "function" ? window.ownerTerm("nenhuma_base_periodo") : "Nenhuma base no período.") + "</p>"
             : rentabilidade
                 .map(
                   (r, i) => `

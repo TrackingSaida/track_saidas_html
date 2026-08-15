@@ -18,8 +18,8 @@ async function gerarPdfResumoColetas(resumo, base, de, ate) {
   if (!base || base.trim() === "") {
     Swal.fire({
       icon: "warning",
-      title: "Selecione uma Base",
-      text: "Para gerar a cobrança, escolha uma base específica."
+      title: typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_uma_base") : "Selecione uma Base",
+      text: typeof window.ownerTerm === "function" ? window.ownerTerm("escolha_base_cobranca") : "Para gerar a cobrança, escolha uma base específica."
     });
     return;
   }
@@ -47,7 +47,8 @@ async function gerarPdfResumoColetas(resumo, base, de, ate) {
      HEADER DO RELATÓRIO
   ====================================================== */
   doc.setFontSize(15);
-  doc.text(`RELATÓRIO DE COLETAS — ${base}`, 105, 20, { align: "center" });
+  const entidadePdf = typeof window.ownerTerm === "function" ? window.ownerTerm("base") : "Base";
+  doc.text(`RELATÓRIO DE COLETAS — ${entidadePdf}: ${base}`, 105, 20, { align: "center" });
 
   doc.setFontSize(10);
   doc.text(
@@ -461,7 +462,7 @@ async function gerarPdfFechamentoBases(idFechamento) {
     doc.rect(marginLeft, boxTop, boxWidth, contentH, "FD");
     let cursorY = boxTop + paddingBox;
     doc.setFont(undefined, "bold");
-    doc.text("Empresa:", marginLeft + paddingBox, cursorY);
+    doc.text((typeof window.ownerTerm === "function" ? window.ownerTerm("base") : "Base") + ":", marginLeft + paddingBox, cursorY);
     doc.setFont(undefined, "normal");
     doc.text(nomeEmpresa || base || "—", marginLeft + paddingBox + 22, cursorY);
     cursorY += lineH;

@@ -25,7 +25,7 @@
               <div class="registros-toolbar d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
                 <div class="registros-toolbar-left d-flex flex-wrap align-items-center gap-2 flex-grow-1" style="min-width: 0;">
                   <div class="input-group registros-search-wrap" style="flex: 1; max-width: 420px;">
-                    <input id="flt-localizar" class="form-control" placeholder="Buscar por código, entregador ou base..." />
+                    <input id="flt-localizar" class="form-control" data-owner-term="buscar_codigo_entregador_base" placeholder="Buscar por código, entregador ou base..." />
                     <button id="btnScan" class="btn btn-outline-secondary" type="button" title="Escanear código">
                       <i class="ri-camera-line"></i>
                     </button>
@@ -375,7 +375,7 @@
                       <th style="min-width:160px;">Horário da ação</th>
                       <th class="d-none d-xl-table-cell" style="min-width:170px;">Entrada no sistema</th>
                       <th class="d-none d-xl-table-cell" style="min-width:110px;">Executado por</th>
-                      <th class="d-none d-xl-table-cell" style="min-width:110px;">Seller</th>
+                      <th class="d-none d-xl-table-cell" style="min-width:110px;" data-owner-term="base">Base</th>
                       <th class="text-center" style="width:50px" title="Pacote G (Grande)">G</th>
                     </tr>
                   </thead>
