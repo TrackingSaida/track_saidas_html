@@ -121,7 +121,7 @@
   margin: 20px 0 8px;
   background:
     linear-gradient(180deg, rgba(7, 21, 38, 0.15) 0%, rgba(7, 21, 38, 0.05) 40%, rgba(7, 21, 38, 0.35) 100%),
-    url("../images/rotevo-login-hero.jpg") center / cover no-repeat;
+    url("../images/rotevo-login-hero.png") center / cover no-repeat;
   border-radius: 14px;
   box-shadow: inset 0 0 0 1px rgba(31, 198, 232, 0.12);
 }
