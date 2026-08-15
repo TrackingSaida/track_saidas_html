@@ -130,8 +130,8 @@
     @@include("partials/vendor-scripts.html")
 
     <!-- Offcanvas: Editar Valores Globais -->
-    <div class="offcanvas offcanvas-end offcanvas-form" tabindex="-1" id="oc-global" aria-labelledby="ocGlobalLabel"
-      style="width:400px" data-bs-scroll="false" data-bs-backdrop="true">
+    <div class="offcanvas offcanvas-end offcanvas-form offcanvas-form--w400" tabindex="-1" id="oc-global" aria-labelledby="ocGlobalLabel"
+      data-bs-scroll="false" data-bs-backdrop="true">
       <div class="offcanvas-header border-bottom">
         <h5 class="offcanvas-title" id="ocGlobalLabel">Editar Valores Globais</h5>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
@@ -179,8 +179,8 @@
     </div>
 
     <!-- Offcanvas: Adicionar/Editar Exceção -->
-    <div class="offcanvas offcanvas-end offcanvas-form" tabindex="-1" id="oc-excecao" aria-labelledby="ocExcecaoLabel"
-      style="width:480px" data-bs-scroll="false" data-bs-backdrop="true">
+    <div class="offcanvas offcanvas-end offcanvas-form offcanvas-form--w480" tabindex="-1" id="oc-excecao" aria-labelledby="ocExcecaoLabel"
+       data-bs-scroll="false" data-bs-backdrop="true">
       <div class="offcanvas-header border-bottom">
         <h5 class="offcanvas-title" id="ocExcecaoLabel">Adicionar Exceção</h5>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
@@ -226,7 +226,7 @@
 
     <!-- Modal de exclusão -->
     <div class="modal fade" id="modalDelete" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-body text-center p-4">
             <lord-icon src="https://cdn.lordicon.com/gsqxdxog.json" trigger="loop"
