@@ -1,3 +1,16 @@
+[data-topbar="dark"] {
+  --vz-header-bg: #14B8A6;
+  --vz-header-border: transparent;
+  --vz-header-item-bg: rgba(255, 255, 255, 0.14);
+  --vz-header-item-sub-color: rgba(255, 255, 255, 0.82);
+  --vz-topbar-user-bg: rgba(255, 255, 255, 0.12);
+}
+
+[data-topbar="dark"] #page-topbar {
+  background: linear-gradient(90deg, #14B8A6 0%, #1A6FD4 100%);
+  border-bottom-color: transparent;
+}
+
 .navbar-brand-box .logo-sm img {
   height: 36px !important;
   width: auto;
