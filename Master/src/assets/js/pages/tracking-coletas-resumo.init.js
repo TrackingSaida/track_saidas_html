@@ -155,7 +155,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const habilitado = !!(dataInicio && dataFim && (temDados || podeReajustar));
     btnGerarFechamento.disabled = !habilitado;
     if (wrapBtnGerarFechamento) {
-      wrapBtnGerarFechamento.title = !habilitado ? (!temDados && !podeReajustar ? "Não há dados para gerar fechamento" : "Preencha o período") : (podeReajustar ? (basesReajuste.length > 1 ? "Reajustar: selecione a base" : "Reajustar fechamento") : "Gerar fechamento");
+      wrapBtnGerarFechamento.title = !habilitado ? (!temDados && !podeReajustar ? "Não há dados para gerar fechamento" : "Preencha o período") : (podeReajustar ? (basesReajuste.length > 1 ? (typeof window.ownerTerm === "function" ? window.ownerTerm("reajustar_selecione") : "Reajustar: selecione a base") : "Reajustar fechamento") : "Gerar fechamento");
     }
     btnGerarFechamento.innerHTML = podeReajustar ? '<i class="ri-edit-line me-1"></i> Reajustar' : '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
   }
@@ -536,15 +536,15 @@ async function carregarResumoCompleto() {
     if (basesReajuste.length > 1) {
       const opcoes = basesReajuste.reduce((acc, b) => { acc[b.base] = b.base; return acc; }, {});
       const result = window.Swal ? await Swal.fire({
-        title: "Selecione a base",
-        html: "Há mais de uma base com fechamento GERADO. Escolha qual deseja reajustar.",
+        title: typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_a_base") : "Selecione a base",
+        html: typeof window.ownerTerm === "function" ? window.ownerTerm("ha_mais_de_uma_base") : "Há mais de uma base com fechamento GERADO. Escolha qual deseja reajustar.",
         showCancelButton: true,
         cancelButtonText: "Cancelar",
         confirmButtonText: "Reajustar",
         input: "select",
         inputOptions: opcoes,
-        inputPlaceholder: "Selecione a base",
-        inputValidator: (v) => (!v ? "Selecione uma base" : null),
+        inputPlaceholder: typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_a_base") : "Selecione a base",
+        inputValidator: (v) => (!v ? (typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_uma_base_validator") : "Selecione uma base") : null),
       }) : null;
       const selecionado = result?.value;
       if (selecionado) {
@@ -575,7 +575,7 @@ async function carregarResumoCompleto() {
       });
     } catch (err) {
       console.error("Erro ao carregar bases:", err);
-      if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao carregar bases." });
+      if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: typeof window.ownerTerm === "function" ? window.ownerTerm("erro_carregar_bases") : "Erro ao carregar bases." });
       return;
     }
     const modal = new bootstrap.Modal(qs("#modalSelecionarBaseFechamento"));
@@ -586,7 +586,7 @@ async function carregarResumoCompleto() {
     const sel = document.getElementById("modalSelecionarBaseFechamentoSelect");
     const base = (sel?.value || "").trim();
     if (!base) {
-      if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: "Selecione uma base." });
+      if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_uma_base_toast") : "Selecione uma base." });
       return;
     }
     const modalStep1 = bootstrap.Modal.getInstance(qs("#modalSelecionarBaseFechamento"));
@@ -619,14 +619,14 @@ async function carregarResumoCompleto() {
             const result = await Swal.fire({
               icon: "question",
               title: "Fechamento já existente",
-              text: "Já existe um fechamento gerado para esta base e período. Deseja reajustar?",
+              text: typeof window.ownerTerm === "function" ? window.ownerTerm("ja_existe_fechamento") : "Já existe um fechamento gerado para esta base e período. Deseja reajustar?",
               showCancelButton: true,
               confirmButtonText: "Sim, reajustar",
               cancelButtonText: "Cancelar"
             });
             confirmado = !!result?.isConfirmed;
           } else {
-            confirmado = confirm("Já existe um fechamento gerado para esta base e período. Deseja reajustar?");
+            confirmado = confirm(typeof window.ownerTerm === "function" ? window.ownerTerm("ja_existe_fechamento") : "Já existe um fechamento gerado para esta base e período. Deseja reajustar?");
           }
           acao = confirmado ? "reajustar" : "cancelar";
           if (confirmado) {
@@ -648,7 +648,7 @@ async function carregarResumoCompleto() {
     const ctx = state.contextoFechamento;
     const base = baseOverride ?? (modoEdicao && ctx?.base ? ctx.base : null) ?? (fltBase.value || "").trim();
     if (!base) {
-      if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: "É necessário informar a base." });
+      if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: typeof window.ownerTerm === "function" ? window.ownerTerm("informe_a_base") : "É necessário informar a base." });
       return;
     }
     const periodoInicio = fltFrom.value;
@@ -658,10 +658,10 @@ async function carregarResumoCompleto() {
     const titleEl = document.getElementById("modalFechamentoBasesLabel");
     const btnModal = document.getElementById("btnGerarFechamentoModal");
     if (modoEdicao && idFech) {
-      if (titleEl) titleEl.innerHTML = '<i class="ri-building-line me-2"></i>Reajustar Fechamento de Base';
+      if (titleEl) titleEl.innerHTML = '<i class="ri-building-line me-2"></i>' + (typeof window.ownerTerm === "function" ? window.ownerTerm("reajustar_fechamento_base") : "Reajustar Fechamento de Base");
       if (btnModal) btnModal.innerHTML = '<i class="ri-save-line me-1"></i> Salvar Reajuste';
     } else {
-      if (titleEl) titleEl.innerHTML = '<i class="ri-building-line me-2"></i>Gerar Fechamento de Base';
+      if (titleEl) titleEl.innerHTML = '<i class="ri-building-line me-2"></i>' + (typeof window.ownerTerm === "function" ? window.ownerTerm("gerar_fechamento_base") : "Gerar Fechamento de Base");
       if (btnModal) btnModal.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
     }
 
@@ -1423,7 +1423,7 @@ async function carregarResumoCompleto() {
     const g_avulso = chkGavulso?.checked ? (parseInt(inputGavulso?.value, 10) || 1) : 0;
 
     if (!base) {
-      Swal.fire({ icon: "warning", title: "Campo obrigatório", text: "Selecione uma base." });
+      Swal.fire({ icon: "warning", title: "Campo obrigatório", text: typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_uma_base_toast") : "Selecione uma base." });
       return;
     }
 
@@ -1453,7 +1453,7 @@ async function carregarResumoCompleto() {
           const err = await res.json().catch(() => ({}));
           const msg = Array.isArray(err?.detail) ? (err.detail[0]?.msg || err.detail[0]) : (err?.detail || res.statusText);
           if (res.status === 409) {
-            Swal.fire({ icon: "warning", title: "Lançamento já existente", text: msg || "Já existe um lançamento para essa mesma data e base. Use Editar no registro existente." });
+            Swal.fire({ icon: "warning", title: "Lançamento já existente", text: msg || (typeof window.ownerTerm === "function" ? window.ownerTerm("lancamento_mesma_data_base") : "Já existe um lançamento para essa mesma data e base. Use Editar no registro existente.") });
             return;
           }
           throw new Error(msg || "Erro ao criar");

@@ -140,7 +140,7 @@ async function apiCreate(payload) {
     });
   } catch (err) {
     if (err.status === 409) {
-      toast("Já existe uma base com esse nome nesta sub-base.", false);
+      toast(typeof window.ownerTerm === "function" ? window.ownerTerm("ja_existe_nome") : "Já existe uma base com esse nome nesta sub-base.", false);
       throw err;
     }
     throw err;
@@ -158,7 +158,7 @@ async function apiUpdate(id, payload) {
     });
   } catch (err) {
     if (err.status === 409) {
-      toast("Já existe uma base com esse nome nesta sub-base.", false);
+      toast(typeof window.ownerTerm === "function" ? window.ownerTerm("ja_existe_nome") : "Já existe uma base com esse nome nesta sub-base.", false);
       throw err;
     }
     throw err;
@@ -265,7 +265,9 @@ async function apiDelete(id) {
       if (typeof message === "string" && message.trim()) {
         empty.textContent = message;
       } else {
-        empty.textContent = "Selecione um Seller na lista acima para ver os detalhes de CNPJ e endereço.";
+        empty.textContent = typeof window.ownerTerm === "function"
+          ? window.ownerTerm("selecione_detalhe")
+          : "Selecione uma Base na lista acima para ver os detalhes de CNPJ e endereço.";
       }
     }
     if (content) content.classList.add("d-none");
@@ -317,13 +319,13 @@ async function apiDelete(id) {
         `${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados?base_id=${encodeURIComponent(SELECTED_ID)}`
       );
       if (!seller) {
-        showSellerDetailEmpty("Não há dados de CNPJ e endereço cadastrados para o Seller selecionado.");
+        showSellerDetailEmpty(typeof window.ownerTerm === "function" ? window.ownerTerm("sem_dados_detalhe") : "Não há dados de CNPJ e endereço cadastrados para a Base selecionada.");
         return;
       }
       renderSellerDetail(seller);
     } catch (err) {
-      // 404 ou outro erro → indica ausência de dados para o seller selecionado
-      showSellerDetailEmpty("Não há dados de CNPJ e endereço cadastrados para o Seller selecionado.");
+      // 404 ou outro erro → indica ausência de dados para a entidade selecionada
+      showSellerDetailEmpty(typeof window.ownerTerm === "function" ? window.ownerTerm("sem_dados_detalhe") : "Não há dados de CNPJ e endereço cadastrados para a Base selecionada.");
     }
   }
 
@@ -402,7 +404,7 @@ async function apiDelete(id) {
       showSellerDetailEmpty();
     } catch (err) {
       console.error(err);
-      toast("Falha ao carregar bases.", false);
+      toast(typeof window.ownerTerm === "function" ? window.ownerTerm("falha_carregar_bases") : "Falha ao carregar bases.", false);
     }
   }
 
@@ -410,7 +412,9 @@ async function apiDelete(id) {
     const form = qs("#formBase");
     form.reset();
     form.classList.remove("was-validated");
-    qs("#ocLabel").textContent = modo === "edit" ? "Editar Base" : "Nova Base";
+    qs("#ocLabel").textContent = modo === "edit"
+      ? (typeof window.ownerTerm === "function" ? window.ownerTerm("editar_base") : "Editar Base")
+      : (typeof window.ownerTerm === "function" ? window.ownerTerm("nova_base") : "Nova Base");
 
     qs("#baseId").value = data?.id_base || "";
     qs("#base").value = data?.base || "";
@@ -612,12 +616,13 @@ async function apiDelete(id) {
 
       const errosSeller = [];
       if (ownerTipo === "base") {
-        if (!cnpjDig) errosSeller.push("CNPJ é obrigatório para Seller/Base.");
-        if (cepDig.length !== 8) errosSeller.push("CEP é obrigatório e deve ter 8 dígitos para Seller/Base.");
-        if (!rua) errosSeller.push("Rua é obrigatória para Seller/Base.");
-        if (!numero) errosSeller.push("Número é obrigatório para Seller/Base.");
-        if (!bairro) errosSeller.push("Bairro é obrigatório para Seller/Base.");
-        if (!cidade) errosSeller.push("Cidade é obrigatória para Seller/Base.");
+        const ot = (k) => (typeof window.ownerTerm === "function" ? window.ownerTerm(k) : k);
+        if (!cnpjDig) errosSeller.push(ot("cnpj_obrigatorio_entidade"));
+        if (cepDig.length !== 8) errosSeller.push(ot("cep_obrigatorio_entidade"));
+        if (!rua) errosSeller.push(ot("rua_obrigatoria_entidade"));
+        if (!numero) errosSeller.push(ot("numero_obrigatorio_entidade"));
+        if (!bairro) errosSeller.push(ot("bairro_obrigatorio_entidade"));
+        if (!cidade) errosSeller.push(ot("cidade_obrigatoria_entidade"));
       }
 
       if (errosSeller.length) {
@@ -657,13 +662,15 @@ async function apiDelete(id) {
           });
           if (!rSeller.ok) {
             const errBody = await rSeller.json().catch(() => ({}));
-            const msg = errBody.detail || errBody.message || "Falha ao salvar dados do Seller/Base.";
+            const msg = errBody.detail || errBody.message || (typeof window.ownerTerm === "function" ? window.ownerTerm("falha_salvar_dados") : "Falha ao salvar dados da Base.");
             toast(msg, false);
             return;
           }
         }
 
-        toast(id ? "Base atualizada com sucesso." : "Base criada com sucesso.");
+        toast(id
+          ? (typeof window.ownerTerm === "function" ? window.ownerTerm("base_atualizada") : "Base atualizada com sucesso.")
+          : (typeof window.ownerTerm === "function" ? window.ownerTerm("base_criada") : "Base criada com sucesso."));
         offcanvas.hide();
         await listarBases();
       } catch (err) {
