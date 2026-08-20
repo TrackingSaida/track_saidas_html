@@ -1904,8 +1904,7 @@ function setupPagerEvents() {
   function supportsColetaStatus(){
     var ignorar = (window.__USER__ && window.__USER__.ignorar_coleta === true) || window.IGNORAR_COLETA === true;
     var modo = (window.__USER__ && window.__USER__.modo_operacao) || window.MODO_OPERACAO || "codigo";
-    if (!ignorar) return true;
-    return modo === "coleta_manual";
+    return !ignorar;
   }
 
   function getAllowedStatusOptions(){

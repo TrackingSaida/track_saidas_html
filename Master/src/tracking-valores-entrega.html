@@ -52,6 +52,7 @@
                             <th>Shopee</th>
                             <th>Flex</th>
                             <th>Avulso</th>
+                            <th class="coleta-preco d-none">Diária de coleta</th>
                           </tr>
                         </thead>
                         <tbody id="tbody-global">
@@ -59,6 +60,7 @@
                             <td id="globalShopeeVal" class="text-muted">—</td>
                             <td id="globalMlVal" class="text-muted">—</td>
                             <td id="globalAvulsoVal" class="text-muted">—</td>
+                            <td id="globalColetaVal" class="text-muted coleta-preco d-none">—</td>
                           </tr>
                         </tbody>
                       </table>
@@ -93,6 +95,7 @@
                             <th>Shopee</th>
                             <th>Flex</th>
                             <th>Avulso</th>
+                            <th class="coleta-preco d-none">Diária de coleta</th>
                           </tr>
                         </thead>
                         <tbody id="tbody-excecoes"></tbody>
@@ -149,6 +152,11 @@
           <div class="mb-3">
             <label for="editGlobalAvulso" class="form-label">Avulso</label>
             <input type="text" id="editGlobalAvulso" class="form-control moeda" placeholder="R$ 0,00">
+          </div>
+          <div class="mb-3 coleta-preco d-none">
+            <label for="editGlobalColeta" class="form-label">Diária de coleta</label>
+            <input type="text" id="editGlobalColeta" class="form-control moeda" placeholder="R$ 0,00">
+            <div class="form-text">Pago uma vez por motoboy em cada dia com coleta válida.</div>
           </div>
           <div class="form-check form-switch mt-2">
             <input class="form-check-input" type="checkbox" id="editGlobalPacoteGAdicional">
@@ -212,6 +220,10 @@
                 <div class="col-12">
                   <label for="excecaoAvulso" class="form-label">Avulso</label>
                   <input type="text" id="excecaoAvulso" class="form-control moeda" placeholder="R$ 0,00">
+                </div>
+                <div class="col-12 coleta-preco d-none">
+                  <label for="excecaoColeta" class="form-label">Diária de coleta</label>
+                  <input type="text" id="excecaoColeta" class="form-control moeda" placeholder="R$ 0,00">
                 </div>
               </div>
             </div>

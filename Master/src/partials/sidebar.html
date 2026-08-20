@@ -203,14 +203,23 @@ if (operacao) {
   }
 }
 
-    // 🔹 Monta grupo Financeiro (itens diretos: Resumo de Coletas, Fechamento de Motoboys, Contabilidade)
+    // 🔹 Financeiro: Saídas e Coletas possuem submenus próprios.
     const financeiro = serverMenu.find(s =>
       (s.section || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes("financeiro")
     );
     let finHTML = "";
     if (financeiro) {
       const itensFinanceiro = financeiro.items || [];
-      finHTML = itensFinanceiro.map(i => makeItem(i.href, i.label)).join("");
+      const grupoSaidas = itensFinanceiro.filter(i => i.group === "saidas");
+      const grupoColetas = itensFinanceiro.filter(i => i.group === "coletas");
+      const diretos = itensFinanceiro.filter(i => !i.group);
+      if (grupoSaidas.length) {
+        finHTML += makeGroup(toId("Financeiro Saídas"), "ri-motorbike-line me-1", "Saídas", grupoSaidas.map(i => makeItem(i.href, i.label)).join(""));
+      }
+      if (grupoColetas.length) {
+        finHTML += makeGroup(toId("Financeiro Coletas"), "ri-inbox-archive-line me-1", "Coletas", grupoColetas.map(i => makeItem(i.href, i.label)).join(""));
+      }
+      finHTML += diretos.map(i => makeItem(i.href, i.label)).join("");
     }
 
 
@@ -239,8 +248,11 @@ if (operacao) {
     // Expande o grupo ativo
     const activeLink = nav.querySelector(".nav-link.active");
     if (activeLink && typeof bootstrap !== "undefined") {
-      const collapse = activeLink.closest(".menu-dropdown");
-      if (collapse) new bootstrap.Collapse(collapse, { toggle: true });
+      let collapse = activeLink.closest(".menu-dropdown");
+      while (collapse) {
+        bootstrap.Collapse.getOrCreateInstance(collapse, { toggle: false }).show();
+        collapse = collapse.parentElement?.closest(".menu-dropdown") || null;
+      }
     }
 
     nav.style.visibility = "visible";
@@ -264,11 +276,13 @@ if (operacao) {
             try {
               const role = Number((user && user.role) || 0);
               const ignorarColeta = !!(user && user.ignorar_coleta);
+              const modoColeta = (user && user.modo_operacao) || "codigo";
 
               if (role === 0) return "dashboard-admin.html";
               if ((role === 0 || role === 1) && ignorarColeta) return "dashboard-saidas.html";
               if (role === 1) return "dashboard-visao-360.html"; // ignorar_coleta=false → Visão 360
-              if (role === 3) return "tracking-coleta-leitura.html"; // Coletador
+              if (role === 3 && !ignorarColeta && ["codigo", "ambos"].includes(modoColeta)) return "tracking-coleta-leitura.html";
+              if (role === 3) return "tracking-leitura.html";
               return "tracking-leitura.html"; // Operador (role 2) ou fallback
             } catch (_) {
               return "tracking-leitura.html";
