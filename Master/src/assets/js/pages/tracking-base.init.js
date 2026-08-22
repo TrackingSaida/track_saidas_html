@@ -185,9 +185,9 @@ async function apiDelete(id) {
       <tr class="row-selectable" data-id="${id}">
         <td class="text-center"><input class="form-check-input sel-row" type="radio" name="sel-base" value="${id}"></td>
         <td>${b.base || "-"}</td>
-        <td>R$ ${Number(b.ml).toFixed(2).replace(".", ",")}</td>
-        <td>R$ ${Number(b.shopee).toFixed(2).replace(".", ",")}</td>
-        <td>R$ ${Number(b.avulso).toFixed(2).replace(".", ",")}</td>
+        <td class="text-end">R$ ${Number(b.ml).toFixed(2).replace(".", ",")}</td>
+        <td class="text-end">R$ ${Number(b.shopee).toFixed(2).replace(".", ",")}</td>
+        <td class="text-end">R$ ${Number(b.avulso).toFixed(2).replace(".", ",")}</td>
         <td class="text-center"><input type="checkbox" class="form-check-input" ${ativoChecked} disabled></td>
       </tr>
     `;
@@ -213,7 +213,7 @@ async function apiDelete(id) {
   let OWNER_INFO = null;
   let CURRENT_PAGE = 1;
   let PER_PAGE = 10;
-  const offcanvas = new bootstrap.Offcanvas("#oc-form");
+  const formModal = new bootstrap.Modal("#oc-form");
 
   async function carregarOwnerInfo() {
     try {
@@ -231,6 +231,7 @@ async function apiDelete(id) {
       if (el && v != null) el.value = v || "";
     };
     setVal("#sellerCnpj", seller.cnpj ? maskCnpj(seller.cnpj) : "");
+    setVal("#sellerPix", seller.chave_pix || "");
     setVal("#sellerCep", seller.cep ? maskCep(seller.cep) : "");
     setVal("#sellerRua", seller.rua || "");
     setVal("#sellerNumero", seller.numero || "");
@@ -297,6 +298,7 @@ async function apiDelete(id) {
 
     const cnpjFormatado = maskCnpj(seller.cnpj || "");
     setText("#s-cnpj", cnpjFormatado);
+    setText("#s-pix", seller.chave_pix);
     setText("#s-cep", seller.cep);
     setText("#s-endereco", endereco);
     setText("#s-cidade-uf", cidadeUf);
@@ -427,8 +429,30 @@ async function apiDelete(id) {
     qs("#agendaConfirmada").checked = !!data?.agenda_coleta_confirmada;
     const chave = Array.from(dias).sort((a, b) => a - b).join(",");
     qs("#agendaPreset").value = ["1,2,3,4,5", "1,2,3,4,5,6"].includes(chave) ? chave : "custom";
+    if (qs("#sellerPix")) qs("#sellerPix").value = "";
 
-    offcanvas.show();
+    atualizarAjudaCamposSeller();
+    formModal.show();
+  }
+
+  function ownerTipoAtual() {
+    return (OWNER_INFO?.tipo_owner || "subbase").toLowerCase();
+  }
+
+  function atualizarAjudaCamposSeller() {
+    const isSeller = ownerTipoAtual() === "base";
+    const cnpjHelp = qs("#sellerCnpjHelp");
+    const cepHelp = qs("#sellerCepHelp");
+    if (cnpjHelp) {
+      cnpjHelp.textContent = isSeller
+        ? "Obrigatório quando o owner for do tipo Base (Seller)."
+        : "Opcional quando o owner for do tipo Subbase.";
+    }
+    if (cepHelp) {
+      cepHelp.textContent = isSeller
+        ? "Digite o CEP e saia do campo para preencher o endereço. Obrigatório para Base (Seller)."
+        : "Opcional. Digite o CEP e saia do campo para preencher o endereço.";
+    }
   }
 
   function formPayload() {
@@ -448,6 +472,7 @@ async function apiDelete(id) {
   // =======================================================
   document.addEventListener("DOMContentLoaded", async () => {
     await carregarOwnerInfo();
+    atualizarAjudaCamposSeller();
 
     const perPageSelect = qs("#perPage");
     if (perPageSelect) {
@@ -626,7 +651,7 @@ async function apiDelete(id) {
       const payload = formPayload();
 
       // Validação adicional de CNPJ/Endereço do Seller/Base
-      const ownerTipo = (OWNER_INFO?.tipo_owner || "subbase").toLowerCase();
+      const ownerTipo = ownerTipoAtual();
       const cnpjDig = onlyDigits(qs("#sellerCnpj")?.value || "");
       const cepDig = onlyDigits(qs("#sellerCep")?.value || "");
       const rua = (qs("#sellerRua")?.value || "").trim();
@@ -635,6 +660,7 @@ async function apiDelete(id) {
       const cidade = (qs("#sellerCidade")?.value || "").trim();
       const estado = (qs("#sellerEstado")?.value || "").trim();
       const complemento = (qs("#sellerComplemento")?.value || "").trim();
+      const chavePix = (qs("#sellerPix")?.value || "").trim();
 
       const errosSeller = [];
       if (ownerTipo === "base") {
@@ -675,6 +701,7 @@ async function apiDelete(id) {
             bairro: bairro || null,
             cidade: cidade || null,
             estado: estado || null,
+            chave_pix: chavePix || null,
           };
           const rSeller = await fetch(`${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados`, {
             method: "PATCH",
@@ -693,7 +720,7 @@ async function apiDelete(id) {
         toast(id
           ? (typeof window.ownerTerm === "function" ? window.ownerTerm("base_atualizada") : "Base atualizada com sucesso.")
           : (typeof window.ownerTerm === "function" ? window.ownerTerm("base_criada") : "Base criada com sucesso."));
-        offcanvas.hide();
+        formModal.hide();
         await listarBases();
       } catch (err) {
         if (err.status === 409) {

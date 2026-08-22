@@ -311,7 +311,7 @@ async function buscarCancelados() {
       const celFech = celulaFechamento(r);
       tbody.innerHTML += `
         <tr>
-          <td>${r.data}</td>
+          <td class="text-nowrap">${r.data}</td>
           <td>${r.base}</td>
           <td>${r.entregadores}</td>
           <td class="text-center">${r.shopee}</td>
@@ -319,8 +319,8 @@ async function buscarCancelados() {
           <td class="text-center">${r.avulso}</td>
           <td class="text-center">${r.pacotes_g ?? 0}</td>
           <td class="text-center text-danger fw-bold">${r.cancelados}</td>
-          <td class="text-center">${formatarMoeda(r.valor_total)}</td>
-          <td class="text-center">${celFech}</td>
+          <td class="text-center text-nowrap">${formatarMoeda(r.valor_total)}</td>
+          <td class="text-center text-nowrap">${celFech}</td>
           ${acoesCell}
         </tr>`;
     });
