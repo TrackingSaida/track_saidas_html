@@ -89,6 +89,7 @@
   function renderCards(data) {
     const c = data.cards || {};
     setText("card-total-coletas", c.total_coletas ?? 0);
+    setText("card-total-entradas", c.total_entradas ?? 0);
     setText("card-total-saidas", c.total_saidas ?? 0);
     setText("card-receita-admin", formatMoeda(c.receita_admin));
     setText("card-owners-ativos", c.owners_ativos ?? 0);
@@ -104,16 +105,18 @@
     }
     const labels = items.map(function (x) { return x.sub_base || "-"; });
     const coletas = items.map(function (x) { return x.coletas || 0; });
+    const entradas = items.map(function (x) { return x.entradas || 0; });
     const saidas = items.map(function (x) { return x.saidas || 0; });
     var chart = echarts.getInstanceByDom(el);
     if (!chart) chart = echarts.init(el);
     chart.setOption({
       tooltip: { trigger: "axis" },
-      legend: { data: ["Coletas", "Saídas"], bottom: 0 },
+      legend: { data: ["Coletas", "Entradas", "Saídas"], bottom: 0 },
       xAxis: { type: "category", data: labels },
       yAxis: { type: "value" },
       series: [
         { name: "Coletas", type: "bar", data: coletas, itemStyle: { color: "#198754" } },
+        { name: "Entradas", type: "bar", data: entradas, itemStyle: { color: "#0d6efd" } },
         { name: "Saídas", type: "bar", data: saidas, itemStyle: { color: "#dc3545" } }
       ]
     }, true);
@@ -148,22 +151,33 @@
     }).join("");
   }
 
+  function tipoBadgeClass(tipo) {
+    if (tipo === "Só Saída") return "bg-secondary";
+    if (tipo === "Entrada") return "bg-info";
+    if (tipo === "Coleta + Entrada") return "bg-dark";
+    return "bg-primary";
+  }
+
   function renderPerformancePorOwner(data) {
     const items = data.performance_por_owner || [];
     const tbody = document.getElementById("performance-por-owner");
     if (!tbody) return;
     if (items.length === 0) {
-      tbody.innerHTML = "<tr><td colspan='6' class='text-muted text-center py-3'>Sem dados</td></tr>";
+      tbody.innerHTML = "<tr><td colspan='7' class='text-muted text-center py-3'>Sem dados</td></tr>";
       return;
     }
     tbody.innerHTML = items.map(function (r) {
-      var tipoClass = r.tipo === "Só Saída" ? "bg-secondary" : "bg-primary";
+      var detalhe = r.base_cobranca_detalhe ? String(r.base_cobranca_detalhe) : "";
       return "<tr>" +
         "<td><strong>" + escapeHtml(r.sub_base) + "</strong></td>" +
-        "<td><span class='badge " + tipoClass + "'>" + escapeHtml(r.tipo) + "</span></td>" +
+        "<td><span class='badge " + tipoBadgeClass(r.tipo) + "'>" + escapeHtml(r.tipo) + "</span></td>" +
         "<td class='text-end'>" + (r.coletas || 0) + "</td>" +
+        "<td class='text-end'>" + (r.entradas || 0) + "</td>" +
         "<td class='text-end'>" + (r.saidas || 0) + "</td>" +
-        "<td class='text-end'>" + (r.base_cobranca || 0) + " pacotes</td>" +
+        "<td class='text-end'>" +
+          (r.base_cobranca || 0) + " pacotes" +
+          (detalhe && detalhe !== "0 pacotes" ? "<div class='small text-muted'>" + escapeHtml(detalhe) + "</div>" : "") +
+        "</td>" +
         "<td class='text-end text-success'>" + formatMoeda(r.receita_admin) + "</td>" +
         "</tr>";
     }).join("");
