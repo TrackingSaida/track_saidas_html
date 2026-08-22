@@ -65,8 +65,8 @@
 
             <!-- Cards de topo -->
             <section class="mb-4">
-              <div class="row g-3">
-                <div class="col-6 col-xl-3">
+              <div class="row g-3 row-cols-2 row-cols-xl-5">
+                <div class="col">
                   <div class="card card-height-100 border border-success">
                     <div class="card-body d-flex align-items-center">
                       <div class="flex-grow-1">
@@ -78,7 +78,19 @@
                     </div>
                   </div>
                 </div>
-                <div class="col-6 col-xl-3">
+                <div class="col">
+                  <div class="card card-height-100 border border-primary">
+                    <div class="card-body d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Total Entradas</p>
+                        <h4 class="mb-0"><span id="card-total-entradas">0</span></h4>
+                        <small class="text-muted">Entraram no período</small>
+                      </div>
+                      <i class="bx bx-log-in-circle fs-2 text-primary"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="col">
                   <div class="card card-height-100 border border-danger">
                     <div class="card-body d-flex align-items-center">
                       <div class="flex-grow-1">
@@ -90,19 +102,19 @@
                     </div>
                   </div>
                 </div>
-                <div class="col-6 col-xl-3">
+                <div class="col">
                   <div class="card card-height-100 border border-info">
                     <div class="card-body d-flex align-items-center">
                       <div class="flex-grow-1">
                         <p class="text-muted mb-1">Receita Admin</p>
                         <h4 class="mb-0"><span id="card-receita-admin">R$ 0,00</span></h4>
-                        <small class="text-muted">Valores config owner</small>
+                        <small class="text-muted">Coleta, entrada ou só saída</small>
                       </div>
                       <i class="bx bx-dollar-circle fs-2 text-info"></i>
                     </div>
                   </div>
                 </div>
-                <div class="col-6 col-xl-3">
+                <div class="col">
                   <div class="card card-height-100 border border-secondary">
                     <div class="card-body d-flex align-items-center">
                       <div class="flex-grow-1">
@@ -122,7 +134,7 @@
               <div class="card">
                 <div class="card-header">
                   <h5 class="card-title mb-0">Volume por Owner</h5>
-                  <small class="text-muted">Comparativo de coletas, saídas e receita</small>
+                  <small class="text-muted">Comparativo de coletas, entradas e saídas</small>
                 </div>
                 <div class="card-body">
                   <div id="chart-volume-owner" class="chart-responsive"></div>
@@ -161,6 +173,7 @@
                             <th>Owner</th>
                             <th>Tipo</th>
                             <th class="text-end">Coletas</th>
+                            <th class="text-end">Entradas</th>
                             <th class="text-end">Saídas</th>
                             <th class="text-end">Base Cobrança</th>
                             <th class="text-end text-success">Receita Admin</th>
