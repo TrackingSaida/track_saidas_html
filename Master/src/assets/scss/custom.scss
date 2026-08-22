@@ -1044,7 +1044,8 @@
 }
 
 #coletas-resumo-table {
-  width: 100%;
+  width: 100% !important;
+  min-width: 100%;
 }
 #coletas-resumo-table th,
 #coletas-resumo-table td {
@@ -1063,6 +1064,7 @@
 }
 .bases-table-wrap,
 .coletas-resumo-table-wrap {
+  width: 100%;
   border: 1px solid var(--bs-border-color, #e9ebec);
   border-radius: 0.4rem;
   overflow-x: auto;
