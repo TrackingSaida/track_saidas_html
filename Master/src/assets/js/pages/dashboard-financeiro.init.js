@@ -348,7 +348,7 @@
     }
 
     ignorarColeta = user.ignorar_coleta === true;
-    temColetaParaGanhos = !ignorarColeta || (ignorarColeta && (user.modo_operacao || "codigo") === "coleta_manual");
+    temColetaParaGanhos = !ignorarColeta;
     hideAcessoNegado();
 
     var greeting = document.getElementById("fin-dash-greeting");

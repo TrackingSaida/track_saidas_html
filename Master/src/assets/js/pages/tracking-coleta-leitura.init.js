@@ -1,6 +1,7 @@
 /* =================== Config =================== */
 (function checkIgnorarColeta() {
-  if (window.IGNORAR_COLETA === true || localStorage.getItem("ignorar_coleta") === "1") {
+  const modoColeta = window.__USER__?.modo_operacao || window.MODO_OPERACAO || "codigo";
+  if (window.IGNORAR_COLETA === true || localStorage.getItem("ignorar_coleta") === "1" || !["codigo", "ambos"].includes(modoColeta)) {
     window.location.replace("dashboard-saidas.html");
     return;
   }

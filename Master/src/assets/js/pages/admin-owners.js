@@ -193,7 +193,7 @@ function renderTable() {
 </td>
 
             <td>R$ ${Number(o.valor).toFixed(2)}</td>
-            <td>${o.modo_operacao === "coleta_manual" ? "Saídas e Coleta Manual" : o.modo_operacao === "saida" ? "Saídas" : "Coletas e Saída via código"}</td>
+            <td>${o.ignorar_coleta ? "Sem coleta" : o.modo_operacao === "coleta_manual" ? "Manual" : o.modo_operacao === "ambos" ? "Leitura e manual" : "Leitura"}</td>
             <td>${o.ignorar_coleta ? "Sim" : "Não"}</td>
             <td>${o.teste ? "Sim" : "Não"}</td>
             <td>${o.ativo ? "Sim" : "Não"}</td>
@@ -264,27 +264,12 @@ function goToPage(n) {
 
 
 // -------------------------------------------------------------------------
-// Modo Operação: quando ignorar_coleta=false → só "Coletas e Saída via código"
-// quando ignorar_coleta=true → "Saídas" ou "Saídas e Coleta Manual"
+// Ignorar coleta é a chave geral; o modo fica preservado para uma reativação futura.
 // -------------------------------------------------------------------------
 function syncModoOperacaoSelect() {
     const ignorar = document.getElementById("ownerIgnorarToggle").checked;
     const sel = document.getElementById("ownerModoOperacao");
-    const optCodigo = sel.querySelector('option[value="codigo"]');
-    const optSaida = sel.querySelector('option[value="saida"]');
-    const optManual = sel.querySelector('option[value="coleta_manual"]');
-
-    if (ignorar) {
-        if (optCodigo) optCodigo.disabled = true;
-        if (optSaida) optSaida.disabled = false;
-        if (optManual) optManual.disabled = false;
-        if (sel.value === "codigo") sel.value = "saida";
-    } else {
-        if (optCodigo) optCodigo.disabled = false;
-        if (optSaida) optSaida.disabled = true;
-        if (optManual) optManual.disabled = true;
-        if (sel.value === "coleta_manual" || sel.value === "saida") sel.value = "codigo";
-    }
+    sel.disabled = ignorar;
 }
 
 // -------------------------------------------------------------------------
@@ -318,7 +303,7 @@ function openEdit(o) {
     document.getElementById("ownerDevolucaoToggle").checked = !!o.devolucao_sub_base_habilitada;
     document.getElementById("ownerEntradaToggle").checked = !!o.entrada_obrigatoria_habilitada;
     document.getElementById("ownerConferenciaToggle").checked = !!o.conferencia_saida_habilitada;
-    document.getElementById("ownerModoOperacao").value = o.modo_operacao || "codigo";
+    document.getElementById("ownerModoOperacao").value = ["codigo", "coleta_manual", "ambos"].includes(o.modo_operacao) ? o.modo_operacao : "codigo";
     document.getElementById("ownerTesteToggle").checked = !!o.teste;
     document.getElementById("ownerAtivoToggle").checked = o.ativo;
 

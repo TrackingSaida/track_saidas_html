@@ -424,6 +424,11 @@ async function apiDelete(id) {
     qs("#shopee").value = data ? `R$ ${Number(data.shopee).toFixed(2).replace(".", ",")}` : "";
     qs("#avulso").value = data ? `R$ ${Number(data.avulso).toFixed(2).replace(".", ",")}` : "";
     qs("#ativo").checked = data != null ? !!data.ativo : true;
+    const dias = new Set(data?.dias_coleta || [1, 2, 3, 4, 5, 6]);
+    qsa(".dia-coleta").forEach((el) => { el.checked = dias.has(Number(el.value)); });
+    qs("#agendaConfirmada").checked = !!data?.agenda_coleta_confirmada;
+    const chave = Array.from(dias).sort((a, b) => a - b).join(",");
+    qs("#agendaPreset").value = ["1,2,3,4,5", "1,2,3,4,5,6"].includes(chave) ? chave : "custom";
     if (qs("#sellerPix")) qs("#sellerPix").value = "";
 
     atualizarAjudaCamposSeller();
@@ -457,6 +462,8 @@ async function apiDelete(id) {
       shopee: parseMoeda(qs("#shopee").value),
       avulso: parseMoeda(qs("#avulso").value),
       ativo: qs("#ativo").checked,
+      dias_coleta: qsa(".dia-coleta:checked").map((el) => Number(el.value)),
+      agenda_coleta_confirmada: qs("#agendaConfirmada").checked,
     };
   }
 
@@ -479,8 +486,23 @@ async function apiDelete(id) {
       });
     }
 
+    const usuario = typeof window.ensureAuthUser === "function" ? await window.ensureAuthUser() : window.__USER__;
+    const agendaCard = qs("#agendaColetaCard");
+    const coletaHabilitada = !(usuario?.ignorar_coleta === true || window.IGNORAR_COLETA === true);
+    agendaCard?.classList.toggle("d-none", !coletaHabilitada);
+
     await listarBases();
     await carregarSellerDados();
+
+    qs("#agendaPreset")?.addEventListener("change", (ev) => {
+      if (ev.target.value === "custom") return;
+      const dias = new Set(ev.target.value.split(",").map(Number));
+      qsa(".dia-coleta").forEach((el) => { el.checked = dias.has(Number(el.value)); });
+    });
+    qsa(".dia-coleta").forEach((el) => el.addEventListener("change", () => {
+      const chave = qsa(".dia-coleta:checked").map((item) => Number(item.value)).sort((a, b) => a - b).join(",");
+      qs("#agendaPreset").value = ["1,2,3,4,5", "1,2,3,4,5,6"].includes(chave) ? chave : "custom";
+    }));
 
     // Máscaras e auto-preenchimento dos campos de CNPJ/CEP do Seller/Base
     const cnpjEl = qs("#sellerCnpj");

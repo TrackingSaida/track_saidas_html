@@ -42,7 +42,8 @@
             if (role === 0) destino = 'dashboard-admin.html';
             else if ((role === 0 || role === 1) && user?.ignorar_coleta === true) destino = 'dashboard-saidas.html';
             else if (role === 1) destino = 'dashboard-visao-360.html';
-            else if (role === 3) destino = 'tracking-coleta-leitura.html';  // Coletador
+            else if (role === 3 && user?.ignorar_coleta !== true && ['codigo', 'ambos'].includes(user?.modo_operacao || 'codigo')) destino = 'tracking-coleta-leitura.html';
+            else if (role === 3) destino = 'tracking-leitura.html';
             else destino = 'tracking-leitura.html';  // Operador (role 2)
           }
           return location.replace(destino);

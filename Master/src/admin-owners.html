@@ -177,7 +177,7 @@
                                 <input class="form-check-input" type="checkbox" id="ownerIgnorarToggle">
                                 <label class="form-check-label">Ignorar Coleta</label>
                             </div>
-                            <small class="text-muted d-block mt-1">Requerido para usar Modo Coleta Manual.</small>
+                            <small class="text-muted d-block mt-1">Quando ativo, nenhuma função de coleta será exibida ou aceita.</small>
                         </div>
 
                         <div class="col-12">
@@ -207,11 +207,11 @@
                         <div class="col-12">
                             <label class="form-label">Modo de Operação</label>
                             <select id="ownerModoOperacao" class="form-select">
-                                <option value="codigo">Coletas e Saída via código</option>
-                                <option value="saida">Saídas</option>
-                                <option value="coleta_manual">Saídas e Coleta Manual</option>
+                                <option value="codigo">Coleta por leitura</option>
+                                <option value="coleta_manual">Coleta manual</option>
+                                <option value="ambos">Leitura e manual</option>
                             </select>
-                            <small class="text-muted">Quando &quot;Ignorar Coleta&quot; ativo: Saídas ou Saídas e Coleta Manual. Coletas e Saída via código quando desativado.</small>
+                            <small class="text-muted">Aplicado somente quando &quot;Ignorar Coleta&quot; estiver desativado.</small>
                         </div>
 
                         <div class="col-12">
