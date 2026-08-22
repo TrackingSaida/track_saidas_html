@@ -63,6 +63,22 @@
       .coletas-resumo-layout .coletas-resumo-summary-card.card-valor-total .coletas-resumo-summary-num {
         color: #198754;
       }
+      /* Tabela e KPIs ocupam a largura útil do card (evita bloco “puxado” à esquerda) */
+      .coletas-resumo-layout {
+        margin-left: 0;
+        margin-right: 0;
+      }
+      .coletas-resumo-table-wrap {
+        width: 100%;
+      }
+      #coletas-resumo-table {
+        width: 100% !important;
+        min-width: 100%;
+      }
+      #coletas-resumo-table th,
+      #coletas-resumo-table td {
+        vertical-align: middle;
+      }
     </style>
   </head>
 
@@ -150,118 +166,81 @@
                           </div>
                         </div>
                       </div>
-                    </div>
                     <div id="resumoMsg" class="mb-3"></div>
-                <div class="row g-3 mb-4 coletas-resumo-layout">
-  <div class="col-12 col-sm-6 col-lg-4 col-xl-2">
-    <div class="coletas-resumo-summary-card card-shopee p-3 text-center rounded-3">
-      <span class="coletas-resumo-summary-label">Shopee</span>
-      <div class="coletas-resumo-summary-num" id="sum-shopee">0</div>
-    </div>
-  </div>
-  <div class="col-12 col-sm-6 col-lg-4 col-xl-2">
-    <div class="coletas-resumo-summary-card card-ml p-3 text-center rounded-3">
-      <span class="coletas-resumo-summary-label">Mercado Livre</span>
-      <div class="coletas-resumo-summary-num" id="sum-ml">0</div>
-    </div>
-  </div>
-  <div class="col-12 col-sm-6 col-lg-4 col-xl-2">
-    <div class="coletas-resumo-summary-card card-avulso p-3 text-center rounded-3">
-      <span class="coletas-resumo-summary-label">Avulso</span>
-      <div class="coletas-resumo-summary-num" id="sum-avulso">0</div>
-    </div>
-  </div>
-  <div class="col-12 col-sm-6 col-lg-4 col-xl-2">
-    <div class="coletas-resumo-summary-card card-cancelados p-3 text-center rounded-3">
-      <span class="coletas-resumo-summary-label">Cancelados</span>
-      <div class="coletas-resumo-summary-num" id="sum-cancelados">0</div>
-    </div>
-  </div>
-  <div class="col-12 col-sm-6 col-lg-4 col-xl-2">
-    <div class="coletas-resumo-summary-card card-total p-3 text-center rounded-3">
-      <span class="coletas-resumo-summary-label">Total Coletas</span>
-      <div class="coletas-resumo-summary-num" id="sum-total">0</div>
-    </div>
-  </div>
-  <div class="col-12 col-sm-6 col-lg-4 col-xl-2">
-    <div class="coletas-resumo-summary-card card-valor-total p-3 text-center rounded-3">
-      <span class="coletas-resumo-summary-label">Valor Total (R$)</span>
-      <div class="coletas-resumo-summary-num" id="sum-total-valor">R$ 0,00</div>
-    </div>
-  </div>
-</div>
+                    <div class="row row-cols-2 row-cols-md-3 row-cols-xl-6 g-3 mb-4 coletas-resumo-layout">
+                      <div class="col">
+                        <div class="coletas-resumo-summary-card card-shopee p-3 text-center rounded-3 h-100">
+                          <span class="coletas-resumo-summary-label">Shopee</span>
+                          <div class="coletas-resumo-summary-num" id="sum-shopee">0</div>
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="coletas-resumo-summary-card card-ml p-3 text-center rounded-3 h-100">
+                          <span class="coletas-resumo-summary-label">Mercado Livre</span>
+                          <div class="coletas-resumo-summary-num" id="sum-ml">0</div>
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="coletas-resumo-summary-card card-avulso p-3 text-center rounded-3 h-100">
+                          <span class="coletas-resumo-summary-label">Avulso</span>
+                          <div class="coletas-resumo-summary-num" id="sum-avulso">0</div>
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="coletas-resumo-summary-card card-cancelados p-3 text-center rounded-3 h-100">
+                          <span class="coletas-resumo-summary-label">Cancelados</span>
+                          <div class="coletas-resumo-summary-num" id="sum-cancelados">0</div>
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="coletas-resumo-summary-card card-total p-3 text-center rounded-3 h-100">
+                          <span class="coletas-resumo-summary-label">Total Coletas</span>
+                          <div class="coletas-resumo-summary-num" id="sum-total">0</div>
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="coletas-resumo-summary-card card-valor-total p-3 text-center rounded-3 h-100">
+                          <span class="coletas-resumo-summary-label">Valor Total (R$)</span>
+                          <div class="coletas-resumo-summary-num" id="sum-total-valor">R$ 0,00</div>
+                        </div>
+                      </div>
+                    </div>
 
+                    <!-- Tabela -->
+                    <div class="table-responsive table-card coletas-resumo-table-wrap">
+                      <table id="coletas-resumo-table" class="table table-striped align-middle table-hover table-nowrap mb-0 w-100">
+                        <thead class="table-light">
+                          <tr>
+                            <th>Data</th>
+                            <th>Cliente</th>
+                            <th>Usuário</th>
+                            <th class="text-center">Shopee</th>
+                            <th class="text-center">Mercado Livre</th>
+                            <th class="text-center">Avulso</th>
+                            <th class="text-center">G</th>
+                            <th class="text-center text-danger">Cancelados</th>
+                            <th class="text-center">Valor Total</th>
+                            <th class="text-center">Situação</th>
+                            <th id="th-acoes" class="text-center d-none">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody></tbody>
+                      </table>
+                    </div>
 
-                <!-- 🔹 Tabela -->
-<div class="table-responsive table-card coletas-resumo-table-wrap">
-  <table id="coletas-resumo-table" class="table table-striped align-middle table-hover table-nowrap mb-0">
-    <thead class="table-light">
-      <tr>
-        <th>Data</th>
-        <th>Cliente</th>
-        <th>Usuário</th>
-        <th class="text-center">Shopee</th>
-        <th class="text-center">Mercado Livre</th>
-        <th class="text-center">Avulso</th>
-        <th class="text-center">G</th>
-        <th class="text-center text-danger">Cancelados</th>
-        <th class="text-center">Valor Total</th>
-        <th class="text-center">Situação</th>
-        <th id="th-acoes" class="text-center d-none">Ações</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</div>
-
-<!-- PAGINAÇÃO (mesma ergonomia da tela de Registros, mantendo o layout atual) -->
-<div class="d-flex justify-content-between align-items-center mt-3">
-
-  <!-- Infos (Exibindo X a Y de Z) -->
-  <div id="pager-info" class="text-muted small">
-    Exibindo 0 a 0 de 0 registros
-  </div>
-
-  <!-- Botões -->
-  <div class="btn-group">
-
-    <!-- PRIMEIRA -->
-    <button id="pager-first"
-            class="btn btn-soft-secondary"
-            title="Primeira">
-      ⏮
-    </button>
-
-    <!-- ANTERIOR -->
-    <button id="pager-prev"
-            class="btn btn-soft-secondary"
-            title="Anterior">
-      ◀
-    </button>
-
-    <!-- INDICADOR -->
-    <span id="pager-summary"
-          class="px-3 d-flex align-items-center small text-muted">
-      Página 1 de 1
-    </span>
-
-    <!-- PRÓXIMA -->
-    <button id="pager-next"
-            class="btn btn-soft-secondary"
-            title="Próxima">
-      ▶
-    </button>
-
-    <!-- ÚLTIMA -->
-    <button id="pager-last"
-            class="btn btn-soft-secondary"
-            title="Última">
-      ⏭
-    </button>
-  </div>
-</div>
-
-
+                    <!-- PAGINAÇÃO -->
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                      <div id="pager-info" class="text-muted small">
+                        Exibindo 0 a 0 de 0 registros
+                      </div>
+                      <div class="btn-group">
+                        <button id="pager-first" class="btn btn-soft-secondary" title="Primeira">⏮</button>
+                        <button id="pager-prev" class="btn btn-soft-secondary" title="Anterior">◀</button>
+                        <span id="pager-summary" class="px-3 d-flex align-items-center small text-muted">Página 1 de 1</span>
+                        <button id="pager-next" class="btn btn-soft-secondary" title="Próxima">▶</button>
+                        <button id="pager-last" class="btn btn-soft-secondary" title="Última">⏭</button>
+                      </div>
+                    </div>
 
                   </div>
 
