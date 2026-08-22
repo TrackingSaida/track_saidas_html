@@ -74,6 +74,41 @@
       </div>
     </div>
     <div class="vertical-overlay"></div>
+
+    <div class="modal fade" id="modal-corrigir-qtde" tabindex="-1" aria-labelledby="modal-corrigir-qtde-title" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modal-corrigir-qtde-title">Corrigir quantidades</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <div class="modal-body">
+            <p id="corr-meta" class="text-muted small mb-3"></p>
+            <div class="row g-3">
+              <div class="col-4">
+                <label for="corr-flex" class="form-label">Flex</label>
+                <input id="corr-flex" type="number" min="0" step="1" class="form-control" />
+              </div>
+              <div class="col-4">
+                <label for="corr-shopee" class="form-label">Shopee</label>
+                <input id="corr-shopee" type="number" min="0" step="1" class="form-control" />
+              </div>
+              <div class="col-4">
+                <label for="corr-avulso" class="form-label">Avulso</label>
+                <input id="corr-avulso" type="number" min="0" step="1" class="form-control" />
+              </div>
+            </div>
+            <div id="corr-preview" class="border rounded p-3 mt-3 bg-light"></div>
+            <div id="corr-erro" class="alert alert-danger mt-3 mb-0 d-none" role="alert"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="corr-salvar">Confirmar correção</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
     <script>if (!window.TRACK_API_URL) window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";</script>
