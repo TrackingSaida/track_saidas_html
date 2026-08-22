@@ -447,11 +447,13 @@ async function gerarPdfFechamentoBases(idFechamento) {
     doc.setFontSize(10);
     const nomeEmpresa = (seller && seller.nome_base) ? seller.nome_base : base;
     const cnpjVal = seller && seller.cnpj ? formatarCnpjPdf(seller.cnpj) : null;
+    const pixVal = seller && seller.chave_pix ? String(seller.chave_pix).trim() : null;
     const enderecoVal = (seller && seller.endereco_completo) ? seller.endereco_completo : null;
     let boxTop = startY;
     let contentH = paddingBox;
     contentH += lineH;
     if (cnpjVal) contentH += lineH;
+    if (pixVal) contentH += lineH;
     if (enderecoVal) {
       const enderecoLines = doc.splitTextToSize(enderecoVal, boxWidth - paddingBox * 2 - 22);
       contentH += lineH * enderecoLines.length;
@@ -471,6 +473,13 @@ async function gerarPdfFechamentoBases(idFechamento) {
       doc.text("CNPJ:", marginLeft + paddingBox, cursorY);
       doc.setFont(undefined, "normal");
       doc.text(cnpjVal, marginLeft + paddingBox + 22, cursorY);
+      cursorY += lineH;
+    }
+    if (pixVal) {
+      doc.setFont(undefined, "bold");
+      doc.text("PIX:", marginLeft + paddingBox, cursorY);
+      doc.setFont(undefined, "normal");
+      doc.text(pixVal, marginLeft + paddingBox + 22, cursorY);
       cursorY += lineH;
     }
     if (enderecoVal) {

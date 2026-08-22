@@ -223,6 +223,34 @@
               </div>
             </div>
 
+            <div class="mb-3 card border fechamento-ajuste-g-card" id="fech-avulso-card">
+              <div class="card-body py-3">
+                <label class="form-label form-label-modal fw-semibold">Adicionar avulso</label>
+                <p class="small text-muted mb-2">Informe a quantidade. O valor e a justificativa são preenchidos automaticamente com o preço deste motoboy.</p>
+                <div class="row g-2 align-items-end">
+                  <div class="col-md-3">
+                    <label class="form-label form-label-modal small" for="fech-avulso-qtde">Quantidade</label>
+                    <input type="number" id="fech-avulso-qtde" class="form-control form-control-sm" min="1" step="1" inputmode="numeric" placeholder="0">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label form-label-modal small">Valor unitário</label>
+                    <div class="form-control form-control-sm form-control-readonly" id="fech-avulso-unitario">R$ 0,00</div>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label form-label-modal small">Total</label>
+                    <div class="form-control form-control-sm form-control-readonly" id="fech-avulso-total">R$ 0,00</div>
+                  </div>
+                  <div class="col-md-3">
+                    <button type="button" id="btnAdicionarAvulso" class="btn btn-outline-primary btn-sm w-100" disabled>
+                      <i class="ri-add-circle-line me-1"></i> Adicionar avulso
+                    </button>
+                  </div>
+                </div>
+                <div id="fech-avulso-preview" class="small text-secondary mt-2"></div>
+                <div id="fech-avulso-msg" class="small text-danger mt-1 d-none"></div>
+              </div>
+            </div>
+
             <div class="mb-3">
               <label class="form-label form-label-modal fw-semibold">Ajustes Manuais</label>
               <div id="fech-lista-ajustes" class="mb-2"></div>
@@ -284,7 +312,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.min.js"></script>
     <script src="assets/js/components/date-picker-dashboard.js"></script>
     <script src="assets/js/pages/tracking-entregadores-fechamento-pdf.js"></script>
-    <script src="assets/js/pages/tracking-entregadores-resumo.init.js?v=3"></script>
+    <script src="assets/js/pages/tracking-entregadores-resumo.init.js?v=4"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>
