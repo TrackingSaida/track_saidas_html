@@ -1043,3 +1043,28 @@
   }
 }
 
+#coletas-resumo-table {
+  width: 100%;
+}
+#coletas-resumo-table th,
+#coletas-resumo-table td {
+  vertical-align: middle;
+}
+#coletas-resumo-table th:nth-child(-n+3),
+#coletas-resumo-table td:nth-child(-n+3) {
+  text-align: left;
+}
+#tbl-bases {
+  width: 100%;
+}
+#tbl-bases th,
+#tbl-bases td {
+  vertical-align: middle;
+}
+.bases-table-wrap,
+.coletas-resumo-table-wrap {
+  border: 1px solid var(--bs-border-color, #e9ebec);
+  border-radius: 0.4rem;
+  overflow-x: auto;
+}
+
