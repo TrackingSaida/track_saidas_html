@@ -1,0 +1,85 @@
+[data-topbar="dark"] {
+  --vz-header-bg: #14B8A6;
+  --vz-header-border: transparent;
+  --vz-header-item-bg: rgba(255, 255, 255, 0.14);
+  --vz-header-item-sub-color: rgba(255, 255, 255, 0.82);
+  --vz-topbar-user-bg: rgba(255, 255, 255, 0.12);
+}
+
+[data-topbar="dark"] #page-topbar {
+  background: linear-gradient(90deg, #14B8A6 0%, #1A6FD4 100%);
+  border-bottom-color: transparent;
+}
+
+.navbar-brand-box .logo-sm img {
+  height: 36px !important;
+  width: auto;
+}
+.navbar-brand-box .logo-lg {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.navbar-brand-box .logo-lg img {
+  height: 40px !important;
+  width: auto;
+}
+.rv-brand-name {
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.logo-light .rv-brand-name {
+  color: #fff;
+}
+.logo-dark .rv-brand-name {
+  color: #0B1F3A;
+}
+.logo-light .rv-brand-name .rv-e,
+.logo-dark .rv-brand-name .rv-e {
+  color: #7CB518;
+}
+.logo-light .rv-brand-name .rv-e {
+  color: #C6F531;
+}
+
+.rv-landing-brand {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto !important;
+  min-width: 220px !important;
+  text-decoration: none;
+}
+.rv-landing-brand img {
+  height: 52px !important;
+  width: auto !important;
+  max-width: none !important;
+}
+.layout-wrapper.landing .navbar-landing .rv-landing-brand .rv-brand-name {
+  color: #fff;
+  font-size: 1.55rem;
+}
+.layout-wrapper.landing .navbar-landing.navbar-scrolled .rv-landing-brand .rv-brand-name,
+.layout-wrapper.landing .navbar-landing.is-sticky .rv-landing-brand .rv-brand-name {
+  color: #0B1F3A;
+}
+.layout-wrapper.landing .navbar-landing .rv-landing-brand .rv-e {
+  color: #C6F531;
+}
+.layout-wrapper.landing .navbar-landing.navbar-scrolled .rv-landing-brand .rv-e,
+.layout-wrapper.landing .navbar-landing.is-sticky .rv-landing-brand .rv-e {
+  color: #7CB518;
+}
+@media (max-width: 991.98px) {
+  .layout-wrapper.landing .navbar-landing .rv-landing-brand .rv-brand-name {
+    color: #0B1F3A;
+  }
+  .layout-wrapper.landing .navbar-landing .rv-landing-brand .rv-e {
+    color: #7CB518;
+  }
+  .rv-landing-brand img {
+    height: 44px !important;
+  }
+}
