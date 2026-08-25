@@ -69,6 +69,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       g_total: 0,
       conferencia_habilitada: false,
       conferencia_por_dia: [],
+      avulso_valor: 0,
     },
     contextoFechamento: null, // { status, id_fechamento, periodo_inicio, periodo_fim, entregador_nome } quando um único entregador
     entregadoresParaReajuste: [], // quando status GERADO sem entregador no filtro: lista de { entregador_id, entregador_nome, id_fechamento, periodo_inicio, periodo_fim }
@@ -224,7 +225,103 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (state.ajustesFechamento.length > 0) return true;
     const valor = parseFloat(qs("#fech-ajuste-valor")?.value || 0) || 0;
     const motivo = (qs("#fech-ajuste-motivo")?.value || "").trim();
-    return valor > 0 || motivo.length > 0;
+    const qtdeAvulso = parseInt(qs("#fech-avulso-qtde")?.value || "0", 10) || 0;
+    return valor > 0 || motivo.length > 0 || qtdeAvulso > 0;
+  }
+
+  function qtdeAvulsoInformada() {
+    const raw = String(qs("#fech-avulso-qtde")?.value || "").trim();
+    if (!raw) return 0;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  function arredondarDinheiro(v) {
+    return Math.round((Number(v) || 0) * 100) / 100;
+  }
+
+  function montarMotivoAvulso(qtde, unitario) {
+    return "Avulsos (" + qtde + " x " + formatarMoeda(unitario) + ")";
+  }
+
+  function atualizarPreviewAvulso() {
+    const unitario = arredondarDinheiro(state.fechModal.avulso_valor);
+    const qtde = qtdeAvulsoInformada();
+    const total = arredondarDinheiro(qtde * unitario);
+    const elUnit = qs("#fech-avulso-unitario");
+    const elTotal = qs("#fech-avulso-total");
+    const elPreview = qs("#fech-avulso-preview");
+    const elMsg = qs("#fech-avulso-msg");
+    const btn = qs("#btnAdicionarAvulso");
+    if (elUnit) elUnit.textContent = formatarMoeda(unitario);
+    if (elTotal) elTotal.textContent = formatarMoeda(total);
+    if (elPreview) {
+      elPreview.textContent = qtde > 0 && unitario > 0
+        ? montarMotivoAvulso(qtde, unitario) + " = " + formatarMoeda(total)
+        : "";
+    }
+    if (elMsg) {
+      if (unitario <= 0) {
+        elMsg.textContent = "Não há preço de avulso configurado para este motoboy.";
+        elMsg.classList.remove("d-none");
+      } else {
+        elMsg.textContent = "";
+        elMsg.classList.add("d-none");
+      }
+    }
+    if (btn) btn.disabled = !(qtde > 0 && unitario > 0 && total > 0);
+  }
+
+  function aplicarPrecoAvulso(valor) {
+    const n = arredondarDinheiro(valor);
+    state.fechModal.avulso_valor = n > 0 ? n : 0;
+    atualizarPreviewAvulso();
+  }
+
+  async function carregarPrecoAvulsoFallback(executorTipo, executorId) {
+    try {
+      const [resGlobal, resIndiv] = await Promise.all([
+        fetch(`${API_ENTREGADORES}/precos/global`, { credentials: "include" }),
+        fetch(`${API_ENTREGADORES}/precos/individuais`, { credentials: "include" }),
+      ]);
+      let unitario = 0;
+      if (resGlobal.ok) {
+        const globalData = await resGlobal.json();
+        unitario = Number(globalData?.avulso_valor || 0);
+      }
+      if (resIndiv.ok) {
+        const indivData = await resIndiv.json();
+        const items = Array.isArray(indivData?.items) ? indivData.items : [];
+        const match = items.find((it) => {
+          if (executorTipo === "m") return Number(it.motoboy_id) === Number(executorId);
+          if (executorTipo === "e") return Number(it.entregador_id) === Number(executorId);
+          return false;
+        });
+        if (match && match.avulso_valor != null && match.avulso_valor !== "") {
+          unitario = Number(match.avulso_valor);
+        }
+      }
+      aplicarPrecoAvulso(unitario);
+    } catch (err) {
+      console.error("Erro ao carregar preço de avulso:", err);
+      aplicarPrecoAvulso(0);
+    }
+  }
+
+  function adicionarAvulsoAjuste() {
+    const unitario = arredondarDinheiro(state.fechModal.avulso_valor);
+    const qtde = qtdeAvulsoInformada();
+    const total = arredondarDinheiro(qtde * unitario);
+    if (!(qtde > 0 && unitario > 0 && total > 0)) return;
+    state.ajustesFechamento.push({
+      tipo: "ADIÇÃO",
+      valor: total,
+      motivo: montarMotivoAvulso(qtde, unitario),
+    });
+    const inp = qs("#fech-avulso-qtde");
+    if (inp) inp.value = "";
+    atualizarPreviewAvulso();
+    renderListaAjustes();
   }
 
   function renderListaAjustes() {
@@ -491,6 +588,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     state.divergenciaValorBase = false;
     state.valorBaseRecalculado = null;
     state.ajustesFechamento = [];
+    let precoAvulsoCarregado = false;
+    aplicarPrecoAvulso(0);
+    const inpAvulsoQtde = qs("#fech-avulso-qtde");
+    if (inpAvulsoQtde) inpAvulsoQtde.value = "";
 
     const titleEl = qs("#modalFechamentoLabel");
     const btnModal = qs("#btnGerarFechamentoModal");
@@ -530,6 +631,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         const data = await res.json();
         state.fechModal.valorBase = Number(data.valor_base || 0);
         qs("#fech-valor-base").value = formatarMoeda(data.valor_base);
+        if (data.avulso_valor != null && data.avulso_valor !== "") {
+          aplicarPrecoAvulso(data.avulso_valor);
+          precoAvulsoCarregado = true;
+        }
         if ((data.valor_adicao || 0) > 0) state.ajustesFechamento.push({ tipo: "ADIÇÃO", valor: data.valor_adicao, motivo: data.motivo_adicao || "" });
         if ((data.valor_subtracao || 0) > 0) state.ajustesFechamento.push({ tipo: "SUBTRAÇÃO", valor: data.valor_subtracao, motivo: data.motivo_subtracao || "" });
         if (data.divergencia_valor_base && data.valor_base_recalculado != null) {
@@ -572,6 +677,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           const data = await res.json();
           state.fechModal.valorBase = Number(data.valor_base || 0);
           qs("#fech-valor-base").value = formatarMoeda(data.valor_base);
+          if (data.avulso_valor != null && data.avulso_valor !== "") {
+            aplicarPrecoAvulso(data.avulso_valor);
+            precoAvulsoCarregado = true;
+          }
           state.fechModal.g_por_servico = data.g_por_servico || { shopee: 0, ml: 0, avulso: 0 };
           state.fechModal.g_total = data.g_total ?? 0;
           state.fechModal.conferencia_habilitada = !!data.conferencia_habilitada;
@@ -651,6 +760,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     qs("#fech-ajuste-valor").value = 0;
     qs("#fech-ajuste-motivo").value = "";
+    if (!precoAvulsoCarregado) {
+      await carregarPrecoAvulsoFallback(executorTipo, executorId);
+    } else {
+      atualizarPreviewAvulso();
+    }
     atualizarPlaceholderMotivo();
     renderListaAjustes();
     atualizarTotaisModal();
@@ -861,6 +975,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   qs("#fech-ajuste-tipo")?.addEventListener("change", atualizarPlaceholderMotivo);
+  qs("#fech-avulso-qtde")?.addEventListener("input", atualizarPreviewAvulso);
+  qs("#fech-avulso-qtde")?.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      adicionarAvulsoAjuste();
+    }
+  });
+  qs("#btnAdicionarAvulso")?.addEventListener("click", adicionarAvulsoAjuste);
   qs("#btnAdicionarAjuste")?.addEventListener("click", () => {
     const tipo = qs("#fech-ajuste-tipo")?.value || "ADIÇÃO";
     const valor = Math.abs(parseFloat(qs("#fech-ajuste-valor")?.value || 0) || 0);

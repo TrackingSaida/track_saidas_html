@@ -758,9 +758,9 @@ function augmentEntregadoresFromRows(rows){
             <td>${renderActionBadge(r.acao)}</td>
             <td>${formatPersonNameOrDash(r.entregador)}</td>
             <td>${r.tsAcaoFmt || ""}</td>
-            <td>${r.tsEntradaFmt || ""}</td>
-            <td>${r.executado_por || "—"}</td>
-            <td class="text-muted">${r.seller || "-"}</td>
+            <td class="d-none d-xl-table-cell">${r.tsEntradaFmt || ""}</td>
+            <td class="d-none d-xl-table-cell">${r.executado_por || "—"}</td>
+            <td class="d-none d-xl-table-cell text-muted">${r.seller || "-"}</td>
             <td class="text-center">${gCell}</td>
           </tr>`;
       })
@@ -1904,8 +1904,7 @@ function setupPagerEvents() {
   function supportsColetaStatus(){
     var ignorar = (window.__USER__ && window.__USER__.ignorar_coleta === true) || window.IGNORAR_COLETA === true;
     var modo = (window.__USER__ && window.__USER__.modo_operacao) || window.MODO_OPERACAO || "codigo";
-    if (!ignorar) return true;
-    return modo === "coleta_manual";
+    return !ignorar;
   }
 
   function getAllowedStatusOptions(){
@@ -2057,7 +2056,7 @@ function setupPagerEvents() {
       if (!isEditChanged()) return notify("Nenhuma alteração para salvar.", "info");
 
       if (eSta?.value === "Não Coletado" && eBase && !eBase.value)
-        return notify("Base obrigatória para 'Não Coletado'.", "warning");
+        return notify(typeof window.ownerTerm === "function" ? window.ownerTerm("base_obrigatoria_nao_coletado") : "Base obrigatória para 'Não Coletado'.", "warning");
 
       function mapStatusToApi(v){
         return (
@@ -2099,7 +2098,7 @@ function setupPagerEvents() {
       if ((eMotoboy?.value || "") !== editInitialState.motoboy) camposAlterados.push("Motoboy");
       if ((eSta?.value || "") !== editInitialState.status) camposAlterados.push("Status");
       if ((eSrv?.value || "") !== editInitialState.servico) camposAlterados.push("Serviço");
-      if ((eBase?.value || "") !== editInitialState.base) camposAlterados.push("Base");
+      if ((eBase?.value || "") !== editInitialState.base) camposAlterados.push(typeof window.ownerTerm === "function" ? window.ownerTerm("base") : "Base");
 
       var confirmMsg = "Campos alterados: " + (camposAlterados.length ? camposAlterados.join(", ") : "nenhum");
       var confirmTitle = "Confirmar alterações";
@@ -2328,7 +2327,7 @@ function setupPagerEvents() {
       if (bulkMotoboy?.value) campos.push("Motoboy");
       if (bulkStatus?.value) campos.push("Status");
       if (bulkServico?.value) campos.push("Serviço");
-      if (body.base) campos.push("Base");
+      if (body.base) campos.push(typeof window.ownerTerm === "function" ? window.ownerTerm("base") : "Base");
 
       var bulkConfirmTitle = "Confirmar alterações em lote";
       var bulkConfirmMsg = "Aplicar alterações em " + ids.length + " registros?\nCampos: " + campos.join(", ");

@@ -4,7 +4,7 @@
    ====================================================== */
 
 function deveRedirecionarColetasResumo(ignorar, modo) {
-  return ignorar === true && modo !== "coleta_manual";
+  return ignorar === true;
 }
 
 async function obterUserParaRedirect() {
@@ -114,7 +114,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const STATUS_TOOLTIPS = {
     PENDENTE: "Sem fechamento para o período",
     GERADO: "Fechamento gerado",
-    REAJUSTADO: "Fechamento reajustado"
+    REAJUSTADO: "Fechamento reajustado",
+    RECEBIDO: "Cobrança recebida"
   };
 
   function celulaFechamento(r) {
@@ -125,6 +126,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       html = '<span class="badge bg-warning-subtle text-warning" title="' + (STATUS_TOOLTIPS.PENDENTE || "Pendente") + '">PENDENTE</span>';
     } else if (st === "GERADO") {
       html = '<span class="badge bg-success-subtle text-success" title="' + (STATUS_TOOLTIPS.GERADO || "Gerado") + '">GERADO</span>';
+      if (idFech) {
+        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
+      }
+    } else if (st === "RECEBIDO") {
+      html = '<span class="badge bg-primary-subtle text-primary" title="Cobrança recebida">RECEBIDO</span>';
       if (idFech) {
         html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
       }
@@ -151,13 +157,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     const temDados = state.total > 0;
     const statusFiltro = (fltStatus?.value || "").trim().toUpperCase();
     const basesReajuste = state.basesParaReajuste || [];
-    const podeReajustar = statusFiltro === "GERADO" && basesReajuste.length > 0;
-    const habilitado = !!(dataInicio && dataFim && (temDados || podeReajustar));
+    const statusContexto = String(state.contextoFechamento?.status || "").toUpperCase();
+    const fechamentoImutavel = ["GERADO", "REAJUSTADO", "RECEBIDO", "PAGO"].includes(statusContexto)
+      || (["GERADO", "REAJUSTADO", "RECEBIDO"].includes(statusFiltro) && (basesReajuste.length > 0 || statusFiltro === "RECEBIDO"));
+    const habilitado = !!(dataInicio && dataFim && temDados && !fechamentoImutavel);
     btnGerarFechamento.disabled = !habilitado;
     if (wrapBtnGerarFechamento) {
-      wrapBtnGerarFechamento.title = !habilitado ? (!temDados && !podeReajustar ? "Não há dados para gerar fechamento" : "Preencha o período") : (podeReajustar ? (basesReajuste.length > 1 ? "Reajustar: selecione a base" : "Reajustar fechamento") : "Gerar fechamento");
+      wrapBtnGerarFechamento.title = fechamentoImutavel
+        ? "Fechamentos gerados são imutáveis"
+        : (!habilitado ? (!temDados ? "Não há dados para gerar fechamento" : "Preencha o período") : "Gerar fechamento");
     }
-    btnGerarFechamento.innerHTML = podeReajustar ? '<i class="ri-edit-line me-1"></i> Reajustar' : '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
+    btnGerarFechamento.innerHTML = fechamentoImutavel
+      ? '<i class="ri-lock-line me-1"></i> Fechamento gerado'
+      : '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
   }
 
   const pagerFirst   = qs("#pager-first");
@@ -299,7 +311,7 @@ async function buscarCancelados() {
       const celFech = celulaFechamento(r);
       tbody.innerHTML += `
         <tr>
-          <td>${r.data}</td>
+          <td class="text-nowrap">${r.data}</td>
           <td>${r.base}</td>
           <td>${r.entregadores}</td>
           <td class="text-center">${r.shopee}</td>
@@ -307,8 +319,8 @@ async function buscarCancelados() {
           <td class="text-center">${r.avulso}</td>
           <td class="text-center">${r.pacotes_g ?? 0}</td>
           <td class="text-center text-danger fw-bold">${r.cancelados}</td>
-          <td class="text-center">${formatarMoeda(r.valor_total)}</td>
-          <td class="text-center">${celFech}</td>
+          <td class="text-center text-nowrap">${formatarMoeda(r.valor_total)}</td>
+          <td class="text-center text-nowrap">${celFech}</td>
           ${acoesCell}
         </tr>`;
     });
@@ -536,15 +548,15 @@ async function carregarResumoCompleto() {
     if (basesReajuste.length > 1) {
       const opcoes = basesReajuste.reduce((acc, b) => { acc[b.base] = b.base; return acc; }, {});
       const result = window.Swal ? await Swal.fire({
-        title: "Selecione a base",
-        html: "Há mais de uma base com fechamento GERADO. Escolha qual deseja reajustar.",
+        title: typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_a_base") : "Selecione a base",
+        html: typeof window.ownerTerm === "function" ? window.ownerTerm("ha_mais_de_uma_base") : "Há mais de uma base com fechamento GERADO. Escolha qual deseja reajustar.",
         showCancelButton: true,
         cancelButtonText: "Cancelar",
         confirmButtonText: "Reajustar",
         input: "select",
         inputOptions: opcoes,
-        inputPlaceholder: "Selecione a base",
-        inputValidator: (v) => (!v ? "Selecione uma base" : null),
+        inputPlaceholder: typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_a_base") : "Selecione a base",
+        inputValidator: (v) => (!v ? (typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_uma_base_validator") : "Selecione uma base") : null),
       }) : null;
       const selecionado = result?.value;
       if (selecionado) {
@@ -575,7 +587,7 @@ async function carregarResumoCompleto() {
       });
     } catch (err) {
       console.error("Erro ao carregar bases:", err);
-      if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao carregar bases." });
+      if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: typeof window.ownerTerm === "function" ? window.ownerTerm("erro_carregar_bases") : "Erro ao carregar bases." });
       return;
     }
     const modal = new bootstrap.Modal(qs("#modalSelecionarBaseFechamento"));
@@ -586,7 +598,7 @@ async function carregarResumoCompleto() {
     const sel = document.getElementById("modalSelecionarBaseFechamentoSelect");
     const base = (sel?.value || "").trim();
     if (!base) {
-      if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: "Selecione uma base." });
+      if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_uma_base_toast") : "Selecione uma base." });
       return;
     }
     const modalStep1 = bootstrap.Modal.getInstance(qs("#modalSelecionarBaseFechamento"));
@@ -604,6 +616,17 @@ async function carregarResumoCompleto() {
   });
 
   async function iniciarGerarOuReajustar(base) {
+    const statusAtual = String(state.contextoFechamento?.status || "").toUpperCase();
+    if (["GERADO", "REAJUSTADO", "RECEBIDO", "PAGO"].includes(statusAtual)) {
+      if (window.Swal) {
+        await Swal.fire({
+          icon: "info",
+          title: "Fechamento imutável",
+          text: "Ajuste os lançamentos antes de gerar. Um fechamento já gerado não pode ser recalculado.",
+        });
+      }
+      return;
+    }
     const periodoInicio = fltFrom?.value || "";
     const periodoFim = fltTo?.value || "";
     if (!periodoInicio || !periodoFim) return;
@@ -613,33 +636,24 @@ async function carregarResumoCompleto() {
       const res = await fetch(`${API_FECHAMENTOS}/verificar?${params}`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
-        if (data.existe && (data.status === "GERADO" || data.status === "REAJUSTADO")) {
-          let confirmado = false;
+        if (data.existe && ["GERADO", "REAJUSTADO", "RECEBIDO"].includes(data.status)) {
           if (window.Swal) {
-            const result = await Swal.fire({
-              icon: "question",
+            await Swal.fire({
+              icon: "info",
               title: "Fechamento já existente",
-              text: "Já existe um fechamento gerado para esta base e período. Deseja reajustar?",
-              showCancelButton: true,
-              confirmButtonText: "Sim, reajustar",
-              cancelButtonText: "Cancelar"
+              text: "Fechamentos gerados são imutáveis. Consulte o fechamento já emitido para este período.",
+              confirmButtonText: "Entendi"
             });
-            confirmado = !!result?.isConfirmed;
           } else {
-            confirmado = confirm("Já existe um fechamento gerado para esta base e período. Deseja reajustar?");
+            alert("Já existe um fechamento imutável para esta base e período.");
           }
-          acao = confirmado ? "reajustar" : "cancelar";
-          if (confirmado) {
-            state.contextoFechamento = { id_fechamento: data.id_fechamento, status: data.status, base };
-          }
+          acao = "cancelar";
         }
       }
     } catch (err) {
       console.error("Erro ao verificar fechamento:", err);
     }
-    if (acao === "reajustar") {
-      abrirModalFechamento(true);
-    } else if (acao === "gerar") {
+    if (acao === "gerar") {
       abrirModalFechamento(false, base);
     }
   }
@@ -648,7 +662,7 @@ async function carregarResumoCompleto() {
     const ctx = state.contextoFechamento;
     const base = baseOverride ?? (modoEdicao && ctx?.base ? ctx.base : null) ?? (fltBase.value || "").trim();
     if (!base) {
-      if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: "É necessário informar a base." });
+      if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: typeof window.ownerTerm === "function" ? window.ownerTerm("informe_a_base") : "É necessário informar a base." });
       return;
     }
     const periodoInicio = fltFrom.value;
@@ -658,10 +672,10 @@ async function carregarResumoCompleto() {
     const titleEl = document.getElementById("modalFechamentoBasesLabel");
     const btnModal = document.getElementById("btnGerarFechamentoModal");
     if (modoEdicao && idFech) {
-      if (titleEl) titleEl.innerHTML = '<i class="ri-building-line me-2"></i>Reajustar Fechamento de Base';
+      if (titleEl) titleEl.innerHTML = '<i class="ri-building-line me-2"></i>' + (typeof window.ownerTerm === "function" ? window.ownerTerm("reajustar_fechamento_base") : "Reajustar Fechamento de Base");
       if (btnModal) btnModal.innerHTML = '<i class="ri-save-line me-1"></i> Salvar Reajuste';
     } else {
-      if (titleEl) titleEl.innerHTML = '<i class="ri-building-line me-2"></i>Gerar Fechamento de Base';
+      if (titleEl) titleEl.innerHTML = '<i class="ri-building-line me-2"></i>' + (typeof window.ownerTerm === "function" ? window.ownerTerm("gerar_fechamento_base") : "Gerar Fechamento de Base");
       if (btnModal) btnModal.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
     }
 
@@ -798,6 +812,7 @@ async function carregarResumoCompleto() {
         state.total_g_ml = data.total_g_ml ?? 0;
         state.total_g_avulso = data.total_g_avulso ?? 0;
         state.total_pacotes_g = data.total_pacotes_g ?? 0;
+        if (!(await resolverPendenciasCalendario(data.calendario, base))) return;
       } catch (err) {
         console.error(err);
         if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: err?.message || "Erro ao calcular fechamento." });
@@ -957,6 +972,61 @@ async function carregarResumoCompleto() {
     }
   }
 
+  async function resolverPendenciasCalendario(calendario, baseNome) {
+    if (!calendario || calendario.pronto_para_fechamento) return true;
+    const pendentes = calendario.dias_pendentes || [];
+    const linhas = pendentes.map((item) => `<li class="text-start">${String(item.data || "").split("-").reverse().join("/")} — pendente</li>`).join("");
+    const escolha = await Swal.fire({
+      icon: "warning",
+      title: "Existem dias pendentes",
+      html: `<p>Resolva os lançamentos antes de gerar o fechamento.</p><ul>${linhas}</ul>`,
+      showCancelButton: true,
+      showDenyButton: true,
+      confirmButtonText: "Lançar quantidade",
+      denyButtonText: "Justificar / feriado",
+      cancelButtonText: "Fechar",
+    });
+    const primeiraData = pendentes[0]?.data;
+    if (escolha.isConfirmed && primeiraData) {
+      await carregarBasesModal();
+      abrirModalNova();
+      modalData.value = primeiraData;
+      modalBase.value = baseNome;
+    } else if (escolha.isDenied && primeiraData) {
+      const tipoResp = await Swal.fire({
+        title: "Como resolver este dia?",
+        input: "select",
+        inputOptions: { FERIADO: "Feriado", JUSTIFICADO: "Ausência justificada", SEM_COLETA: "Sem coleta / base fechada" },
+        inputPlaceholder: "Selecione",
+        showCancelButton: true,
+      });
+      if (!tipoResp.value) return false;
+      const motivoResp = await Swal.fire({
+        title: "Informe o motivo",
+        input: "text",
+        inputValidator: (v) => !String(v || "").trim() ? "Motivo obrigatório" : undefined,
+        showCancelButton: true,
+      });
+      if (!motivoResp.value) return false;
+      const basesRes = await fetch(API_BASES, { credentials: "include" });
+      const bases = await basesRes.json().catch(() => []);
+      const baseObj = (Array.isArray(bases) ? bases : []).find((b) => String(b.base || "").toUpperCase() === String(baseNome || "").toUpperCase());
+      const resp = await fetch(`${window.TRACK_API_URL}/coletas/operacionais/calendario`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: primeiraData, tipo: tipoResp.value, motivo: String(motivoResp.value).trim(), base_id: baseObj?.id_base || null }),
+      });
+      if (!resp.ok) {
+        const erro = await resp.json().catch(() => ({}));
+        Swal.fire({ icon: "error", title: "Não foi possível justificar", text: typeof erro.detail === "string" ? erro.detail : "Verifique sua permissão." });
+      } else {
+        Swal.fire({ icon: "success", title: "Dia resolvido", text: "Tente gerar o fechamento novamente." });
+      }
+    }
+    return false;
+  }
+
   async function salvarFechamento() {
     const idFech = qs("#fech-id")?.value?.trim();
     const base = qs("#fech-base")?.value?.trim();
@@ -1104,7 +1174,12 @@ async function carregarResumoCompleto() {
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err?.detail || res.statusText || "Erro ao gerar fechamento");
+          const detail = err?.detail;
+          if (res.status === 409 && detail?.calendario) {
+            await resolverPendenciasCalendario(detail.calendario, base);
+            return;
+          }
+          throw new Error(typeof detail === "string" ? detail : (detail?.message || res.statusText || "Erro ao gerar fechamento"));
         }
         const json = await res.json().catch(() => null);
         if (window.Swal) Swal.fire({ icon: "success", title: "Fechamento gerado" });
@@ -1423,7 +1498,7 @@ async function carregarResumoCompleto() {
     const g_avulso = chkGavulso?.checked ? (parseInt(inputGavulso?.value, 10) || 1) : 0;
 
     if (!base) {
-      Swal.fire({ icon: "warning", title: "Campo obrigatório", text: "Selecione uma base." });
+      Swal.fire({ icon: "warning", title: "Campo obrigatório", text: typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_uma_base_toast") : "Selecione uma base." });
       return;
     }
 
@@ -1453,7 +1528,7 @@ async function carregarResumoCompleto() {
           const err = await res.json().catch(() => ({}));
           const msg = Array.isArray(err?.detail) ? (err.detail[0]?.msg || err.detail[0]) : (err?.detail || res.statusText);
           if (res.status === 409) {
-            Swal.fire({ icon: "warning", title: "Lançamento já existente", text: msg || "Já existe um lançamento para essa mesma data e base. Use Editar no registro existente." });
+            Swal.fire({ icon: "warning", title: "Lançamento já existente", text: msg || (typeof window.ownerTerm === "function" ? window.ownerTerm("lancamento_mesma_data_base") : "Já existe um lançamento para essa mesma data e base. Use Editar no registro existente.") });
             return;
           }
           throw new Error(msg || "Erro ao criar");
@@ -1485,8 +1560,7 @@ async function carregarResumoCompleto() {
 
   (async function init() {
     await obterModoOperacao();
-    // Lançamento manual: permitido quando modo = coleta_manual (ignorar_coleta=true) OU quando coleta ativa (ignorar_coleta=false)
-    const mostrarColetaManual = modoOperacao === "coleta_manual" || !window.IGNORAR_COLETA;
+    const mostrarColetaManual = !window.IGNORAR_COLETA && ["coleta_manual", "ambos"].includes(modoOperacao);
     if (wrapBtnColetaManual && mostrarColetaManual) {
       wrapBtnColetaManual.classList.remove("d-none");
     }

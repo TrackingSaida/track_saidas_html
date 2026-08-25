@@ -39,7 +39,7 @@
                             <i class="ri-filter-3-line me-1"></i> Filtros
                             <span id="filtrosContador" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary d-none">0</span>
                           </button>
-                          <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 280px;">
+                          <div class="dropdown-menu dropdown-menu-end p-3 filter-menu">
                             <div class="mb-3">
                               <label class="form-label small" id="flt-motoboy-label">Motoboy</label>
                               <select id="flt-motoboy" class="form-select form-select-sm">
@@ -132,7 +132,7 @@
                     </div>
 
                     <!-- KPIs totalizadores -->
-                    <div class="row g-2 mb-3 flex-nowrap">
+                    <div class="row g-2 mb-3 flex-nowrap kpi-row">
                       <div class="col flex-fill" style="min-width: 0;">
                         <div class="p-3 rounded text-center bg-light border">
                           <span class="small text-secondary fw-semibold d-block">Total pedidos</span>
@@ -240,7 +240,7 @@
     </div>
 
     <!-- Detalhe do motoboy -->
-    <div class="offcanvas offcanvas-end offcanvas-form" tabindex="-1" id="ocMotoboyDetail" aria-labelledby="ocMotoboyDetailLabel">
+    <div class="offcanvas offcanvas-end offcanvas-form offcanvas-form--w480" tabindex="-1" id="ocMotoboyDetail" aria-labelledby="ocMotoboyDetailLabel">
       <div class="offcanvas-header border-bottom">
         <h5 class="offcanvas-title" id="ocMotoboyDetailLabel">Detalhe do motoboy</h5>
         <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>

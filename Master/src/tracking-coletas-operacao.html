@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    @@include("partials/title-meta.html", {"title": "TrackSaídas — Consultar Coletas"})
+    @@include("partials/head-css.html")
+    <style>
+      .coleta-kpi { border: 1px solid var(--vz-border-color); border-radius: 14px; padding: 16px; height: 100%; }
+      .coleta-kpi strong { display: block; font-size: 1.8rem; line-height: 1.1; }
+      .coleta-mobile-card { border: 1px solid var(--vz-border-color); border-radius: 14px; padding: 14px; background: var(--vz-card-bg); }
+      .coleta-participantes { white-space: normal; min-width: 180px; }
+    </style>
+  </head>
+  <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
+    <div id="layout-wrapper">
+      @@include("partials/menu.html")
+      <div class="main-content">
+        <div class="page-content">
+          <div class="container-fluid">
+            @@include("partials/page-title.html", {"pagetitle": "Operação / Registros", "title": "Consultar Coletas", "withSubtitle": true, "ownerTerm": ""})
+
+            <div id="coletas-operacao-alert" class="alert alert-danger d-none" role="alert"></div>
+
+            <div class="card">
+              <div class="card-body">
+                <div class="row g-2 align-items-end mb-4">
+                  <div class="col-12 col-sm-4 col-lg-3">
+                    <label for="coletas-operacao-data" class="form-label">Data</label>
+                    <input id="coletas-operacao-data" type="date" class="form-control" />
+                  </div>
+                  <div class="col-6 col-sm-4 col-lg-3">
+                    <label for="coletas-operacao-status" class="form-label">Status</label>
+                    <select id="coletas-operacao-status" class="form-select">
+                      <option value="">Todos</option>
+                      <option value="pendente">Pendente</option>
+                      <option value="em_coleta">Em coleta</option>
+                      <option value="coletado">Coletada</option>
+                    </select>
+                  </div>
+                  <div class="col-6 col-sm-4 col-lg-3">
+                    <label for="coletas-operacao-base" class="form-label">Base</label>
+                    <select id="coletas-operacao-base" class="form-select"><option value="">Todas</option></select>
+                  </div>
+                  <div class="col-12 col-lg-3 d-grid">
+                    <button id="coletas-operacao-atualizar" type="button" class="btn btn-primary">
+                      <i class="ri-refresh-line me-1"></i> Atualizar
+                    </button>
+                  </div>
+                </div>
+
+                <div class="row g-3 mb-4">
+                  <div class="col-4"><div class="coleta-kpi"><span class="text-muted">Pendentes</span><strong id="coletas-kpi-pendentes" class="text-warning">0</strong></div></div>
+                  <div class="col-4"><div class="coleta-kpi"><span class="text-muted">Em coleta</span><strong id="coletas-kpi-em-coleta" class="text-info">0</strong></div></div>
+                  <div class="col-4"><div class="coleta-kpi"><span class="text-muted">Coletadas</span><strong id="coletas-kpi-coletadas" class="text-success">0</strong></div></div>
+                </div>
+
+                <div id="coletas-operacao-loading" class="text-center py-5 d-none">
+                  <div class="spinner-border text-primary" role="status"></div>
+                  <p class="text-muted mt-2 mb-0">Carregando situação das coletas...</p>
+                </div>
+
+                <div class="table-responsive d-none d-md-block" id="coletas-operacao-tabela-wrap">
+                  <table class="table align-middle table-hover mb-0">
+                    <thead class="table-light"><tr><th>Base</th><th>Status</th><th>Participantes</th><th>Modo</th><th class="text-center">Flex</th><th class="text-center">Shopee</th><th class="text-center">Avulso</th><th>Atualização</th></tr></thead>
+                    <tbody id="coletas-operacao-tbody"></tbody>
+                  </table>
+                </div>
+                <div id="coletas-operacao-mobile" class="d-grid d-md-none gap-3"></div>
+                <div id="coletas-operacao-vazio" class="text-center text-muted py-5 d-none">Nenhuma base encontrada para os filtros selecionados.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        @@include("partials/footer.html")
+      </div>
+    </div>
+    <div class="vertical-overlay"></div>
+
+    <div class="modal fade" id="modal-corrigir-qtde" tabindex="-1" aria-labelledby="modal-corrigir-qtde-title" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modal-corrigir-qtde-title">Corrigir quantidades</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <div class="modal-body">
+            <p id="corr-meta" class="text-muted small mb-3"></p>
+            <div class="row g-3">
+              <div class="col-4">
+                <label for="corr-flex" class="form-label">Flex</label>
+                <input id="corr-flex" type="number" min="0" step="1" class="form-control" />
+              </div>
+              <div class="col-4">
+                <label for="corr-shopee" class="form-label">Shopee</label>
+                <input id="corr-shopee" type="number" min="0" step="1" class="form-control" />
+              </div>
+              <div class="col-4">
+                <label for="corr-avulso" class="form-label">Avulso</label>
+                <input id="corr-avulso" type="number" min="0" step="1" class="form-control" />
+              </div>
+            </div>
+            <div id="corr-preview" class="border rounded p-3 mt-3 bg-light"></div>
+            <div id="corr-erro" class="alert alert-danger mt-3 mb-0 d-none" role="alert"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="corr-salvar">Confirmar correção</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    @@include("partials/customizer.html")
+    @@include("partials/vendor-scripts.html")
+    <script>if (!window.TRACK_API_URL) window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";</script>
+    <script src="assets/js/pages/tracking-coletas-operacao.init.js"></script>
+    <script src="assets/js/app.js"></script>
+  </body>
+</html>

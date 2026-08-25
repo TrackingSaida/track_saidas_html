@@ -13,6 +13,15 @@
 
   const qs = (s) => document.querySelector(s);
   const qsa = (s) => Array.from(document.querySelectorAll(s));
+  const coletaHabilitada = () => !(
+    window.__USER__?.ignorar_coleta === true ||
+    window.IGNORAR_COLETA === true ||
+    localStorage.getItem("ignorar_coleta") === "1"
+  );
+
+  function syncCamposColeta() {
+    qsa(".coleta-preco").forEach((el) => el.classList.toggle("d-none", !coletaHabilitada()));
+  }
 
   const toast = (msg, ok = true) => {
     const el = document.createElement("div");
@@ -89,6 +98,7 @@
       qs("#globalShopeeVal").textContent = formatMoedaGrid(data?.shopee_valor);
       qs("#globalMlVal").textContent = formatMoedaGrid(data?.ml_valor);
       qs("#globalAvulsoVal").textContent = formatMoedaGrid(data?.avulso_valor);
+      if (qs("#globalColetaVal")) qs("#globalColetaVal").textContent = formatMoedaGrid(data?.coleta_valor);
       const chk = qs("#editGlobalPacoteGAdicional");
       if (chk) chk.checked = !!data?.considerar_pacote_g_adicional;
     } catch (err) {
@@ -102,6 +112,7 @@
       qs("#editGlobalShopee").value = formatMoedaInput(data?.shopee_valor);
       qs("#editGlobalMl").value = formatMoedaInput(data?.ml_valor);
       qs("#editGlobalAvulso").value = formatMoedaInput(data?.avulso_valor);
+      if (qs("#editGlobalColeta")) qs("#editGlobalColeta").value = formatMoedaInput(data?.coleta_valor);
       const chk = qs("#editGlobalPacoteGAdicional");
       if (chk) chk.checked = !!data?.considerar_pacote_g_adicional;
       offcanvasGlobal.show();
@@ -116,11 +127,13 @@
     const shopee = parseMoeda(qs("#editGlobalShopee").value);
     const ml = parseMoeda(qs("#editGlobalMl").value);
     const avulso = parseMoeda(qs("#editGlobalAvulso").value);
+    const coleta = coletaHabilitada() ? parseMoeda(qs("#editGlobalColeta")?.value) : null;
     const considerarPacoteG = !!qs("#editGlobalPacoteGAdicional")?.checked;
     const payload = {};
     if (shopee != null) payload.shopee_valor = shopee;
     if (ml != null) payload.ml_valor = ml;
     if (avulso != null) payload.avulso_valor = avulso;
+    if (coleta != null) payload.coleta_valor = coleta;
     payload.considerar_pacote_g_adicional = considerarPacoteG;
     try {
       await http(API_PRECOS_GLOBAL, {
@@ -147,12 +160,14 @@
     const shopee = formatMoeda(item.shopee_valor);
     const flex = formatMoeda(item.ml_valor);
     const avulso = formatMoeda(item.avulso_valor);
+    const coleta = formatMoeda(item.coleta_valor);
     return `<tr class="row-selectable" data-id="${id}">
         <td class="text-center"><input class="form-check-input sel-row" type="radio" name="sel-excecao" value="${id}"></td>
         <td>${nome}</td>
         <td>${shopee}</td>
         <td>${flex}</td>
         <td>${avulso}</td>
+        ${coletaHabilitada() ? `<td>${coleta}</td>` : ""}
       </tr>`;
   }
 
@@ -241,6 +256,7 @@
     qs("#excecaoShopee").value = item ? formatMoedaInput(item.shopee_valor) : "";
     qs("#excecaoMl").value = item ? formatMoedaInput(item.ml_valor) : "";
     qs("#excecaoAvulso").value = item ? formatMoedaInput(item.avulso_valor) : "";
+    if (qs("#excecaoColeta")) qs("#excecaoColeta").value = item ? formatMoedaInput(item.coleta_valor) : "";
 
     if (!isEdit) {
       loadMotoboysSelect();
@@ -252,10 +268,12 @@
     const shopee = parseMoeda(qs("#excecaoShopee").value);
     const ml = parseMoeda(qs("#excecaoMl").value);
     const avulso = parseMoeda(qs("#excecaoAvulso").value);
+    const coleta = coletaHabilitada() ? parseMoeda(qs("#excecaoColeta")?.value) : null;
     const payload = {};
     if (shopee != null) payload.shopee_valor = shopee;
     if (ml != null) payload.ml_valor = ml;
     if (avulso != null) payload.avulso_valor = avulso;
+    if (coleta != null) payload.coleta_valor = coleta;
     return payload;
   }
 
@@ -310,6 +328,8 @@
 
   // ---------- Eventos ----------
   document.addEventListener("DOMContentLoaded", async () => {
+    if (typeof window.ensureAuthUser === "function") await window.ensureAuthUser();
+    syncCamposColeta();
     await loadPrecosGlobal();
     await loadExcecoes();
 

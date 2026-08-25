@@ -42,7 +42,7 @@
                     <i class="bx bx-calendar"></i>
                     <span id="visao360-period-label">Hoje</span>
                   </button>
-                  <div class="dropdown-menu dropdown-menu-end p-0" id="visao360-period-panel" style="min-width: 540px;">
+                  <div class="dropdown-menu dropdown-menu-end p-0 period-panel-sm" id="visao360-period-panel">
                     <input type="hidden" id="visao360-data-inicio" />
                     <input type="hidden" id="visao360-data-fim" />
                     <div id="visao360-date-picker-container"></div>
@@ -224,7 +224,7 @@
                   <div id="fifo-drilldown" class="mt-3 d-none">
                     <div class="d-flex gap-2 mb-2 flex-wrap">
                       <select id="fifo-filtro-base" class="form-select form-select-sm" style="max-width: 180px;">
-                        <option value="">Todas as bases</option>
+                        <option value="" data-owner-term="todas_as_bases">Todas as bases</option>
                       </select>
                       <select id="fifo-filtro-marketplace" class="form-select form-select-sm" style="max-width: 160px;">
                         <option value="">Todos os marketplaces</option>
@@ -233,7 +233,7 @@
                     <div class="table-responsive">
                       <table class="table table-sm table-bordered">
                         <thead>
-                          <tr><th>Base</th><th>Código</th><th>Marketplace</th><th>Data Coleta</th><th>Dias</th><th>Status</th></tr>
+                          <tr><th data-owner-term="base">Base</th><th>Código</th><th>Marketplace</th><th>Data Coleta</th><th>Dias</th><th>Status</th></tr>
                         </thead>
                         <tbody id="fifo-tabela"></tbody>
                       </table>
@@ -289,7 +289,7 @@
                   <small class="text-muted">Coletas vs Saídas + Taxa de Conversão</small>
                 </div>
                 <div class="card-body py-2">
-                  <div id="chart-evolucao-diaria" style="height: 260px;"></div>
+                  <div id="chart-evolucao-diaria" class="chart-responsive"></div>
                 </div>
               </div>
 
@@ -316,7 +316,7 @@
                   <div class="card border border-info shadow-sm">
                     <div class="card-header py-2 d-flex align-items-center gap-2">
                       <div>
-                        <h6 class="card-title mb-0 fs-14 text-muted">Ranking por Base</h6>
+                        <h6 class="card-title mb-0 fs-14 text-muted" data-owner-term="ranking_por_base">Ranking por Base</h6>
                         <small class="text-muted">Distribuição das SAÍDAS por serviço</small>
                       </div>
                       <i class="bx bx-info-circle text-muted fs-14" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" title="Bases ordenadas por volume de saídas. O percentual azul é saídas/coletas. A barra mostra a divisão por marketplace (Shopee, Mercado Livre, Avulso)."></i>

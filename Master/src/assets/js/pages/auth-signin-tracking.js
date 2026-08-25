@@ -198,12 +198,14 @@ if (!resp.ok) {
       // Redirecionamento por role e ignorar_coleta
       const role = Number(userData?.role || 0);
       const ignorarColeta = userData?.ignorar_coleta === true;
+      const modoColeta = userData?.modo_operacao || "codigo";
 
       let destino;
       if (role === 0) destino = "dashboard-admin.html";
       else if ((role === 0 || role === 1) && ignorarColeta) destino = "dashboard-saidas.html";
       else if (role === 1) destino = "dashboard-visao-360.html";
-      else if (role === 3) destino = "tracking-coleta-leitura.html";  // Coletador
+      else if (role === 3 && !ignorarColeta && ["codigo", "ambos"].includes(modoColeta)) destino = "tracking-coleta-leitura.html";
+      else if (role === 3) destino = "tracking-leitura.html";
       else destino = "tracking-leitura.html";  // Operador (role 2)
 
       window.location.href = destino;
