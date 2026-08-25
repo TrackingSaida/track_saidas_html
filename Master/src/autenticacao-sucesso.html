@@ -1,21 +1,53 @@
 <!doctype html>
 <html lang="pt-br">
 <head>
-    @@include("partials/title-meta.html", {"title": "Conectado"})
+    @@include("partials/title-meta.html", {"title": "Autorização"})
     @@include("partials/head-css.html")
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --auth-success-primary: #0d6efd;
+            --auth-success-primary: #1A6FD4;
             --auth-success-green: #198754;
-            --auth-success-card-shadow: 0 4px 24px rgba(0,0,0,.06);
-            --auth-success-card-border: 1px solid rgba(0,0,0,.06);
+            --auth-success-card-shadow: 0 12px 40px rgba(0,0,0,.22);
+            --auth-success-card-border: 1px solid rgba(255,255,255,.12);
         }
-        .auth-success-wrapper .auth-success-card {
-            margin: 0 auto;
+        html, body {
+            min-height: 100%;
+        }
+        body.auth-success-page {
+            margin: 0;
+            font-family: "Inter", "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+        }
+        .auth-success-hero {
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+            background:
+                url("assets/images/rotevo-login-hero.png") 88% 70% / cover no-repeat,
+                linear-gradient(160deg, #071526 0%, #0B1F3A 42%, #123A5C 78%, #0E4A5C 100%);
+        }
+        .auth-success-hero::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(180deg, rgba(7, 21, 38, 0.58) 0%, rgba(7, 21, 38, 0.38) 42%, rgba(7, 21, 38, 0.68) 100%),
+                radial-gradient(ellipse 80% 50% at 70% 70%, rgba(31, 198, 232, 0.12), transparent 60%);
+            pointer-events: none;
+        }
+        .auth-success-hero .container {
+            position: relative;
+            z-index: 1;
         }
         .auth-success-card {
             max-width: 520px;
             width: 100%;
+            margin: 0 auto;
             background: #fff;
             border-radius: 16px;
             box-shadow: var(--auth-success-card-shadow);
@@ -26,22 +58,16 @@
         }
         .auth-success-logos {
             text-align: center;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.75rem;
         }
-        .auth-success-logo-pin {
-            display: block;
-            margin: 0 auto 1.50rem;
-            height: 126px;
-            width: auto;
-            animation: authIconPop 0.3s ease-out 0.1s forwards;
-            opacity: 0;
-        }
-        .auth-success-logo-name {
+        .auth-success-logo {
             display: block;
             margin: 0 auto;
-            height: 56px;
-            width: auto;
-            animation: authIconPop 0.3s ease-out 0.15s forwards;
+            width: 100%;
+            max-width: 420px;
+            height: auto;
+            object-fit: contain;
+            animation: authIconPop 0.3s ease-out 0.1s forwards;
             opacity: 0;
         }
         .auth-success-card h1 {
@@ -119,7 +145,7 @@
             flex-wrap: wrap;
             gap: 0.5rem;
             justify-content: center;
-            margin-bottom: 1rem;
+            margin-bottom: 1.25rem;
         }
         .auth-badge {
             display: inline-flex;
@@ -132,30 +158,12 @@
             background: #e7f1ff;
             color: var(--auth-success-primary);
         }
-        .auth-support-text {
-            font-size: 0.875rem;
-            color: #6c757d;
-            text-align: center;
-            margin: 0 0 1.5rem;
-        }
         .auth-ctas {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 1rem;
         }
-        .auth-cta-primary {
-            display: inline-block;
-            padding: 0.75rem 1.75rem;
-            background: var(--auth-success-primary);
-            color: #fff !important;
-            font-weight: 600;
-            font-size: 1rem;
-            border-radius: 8px;
-            text-decoration: none;
-            transition: background .2s, transform .15s;
-        }
-        .auth-cta-primary:hover { background: #0b5ed7; color: #fff; }
         .auth-cta-secondary {
             font-size: 0.9375rem;
             color: #6c757d;
@@ -180,8 +188,7 @@
         }
         @media (prefers-reduced-motion: reduce) {
             .auth-success-card,
-            .auth-success-logo-pin,
-            .auth-success-logo-name,
+            .auth-success-logo,
             .auth-benefit-item {
                 animation: none !important;
                 opacity: 1 !important;
@@ -190,17 +197,12 @@
         }
     </style>
 </head>
-<body>
-  <div class="auth-page-wrapper auth-bg-cover py-5 d-flex justify-content-center align-items-center min-vh-100">
-    <div class="bg-overlay"></div>
-    <div class="auth-page-content overflow-hidden pt-lg-5 auth-success-wrapper">
+<body class="auth-success-page">
+  <div class="auth-success-hero">
       <div class="container">
-        <div class="row justify-content-center">
-          <div class="col-lg-6 col-md-8">
-            <div class="auth-success-card card border-0 shadow">
+            <div class="auth-success-card">
               <div class="auth-success-logos">
-                <img src="assets/images/logo_rotevo.png" alt="" class="auth-success-logo-pin" height="72">
-                <img src="assets/images/rotevo.png" alt="ROTEVO" class="auth-success-logo-name" height="56">
+                <img src="assets/images/rotevo.png" alt="ROTEVO — Gestão inteligente de entregas" class="auth-success-logo">
               </div>
 
       <h1 id="authTitle">Autorização concluída com sucesso</h1>
@@ -235,17 +237,11 @@
 
       <div class="auth-badges" id="authBadges" style="display: none;"></div>
 
-      <p class="auth-support-text">Agora você pode acompanhar o status das entregas em tempo real.</p>
-
       <div class="auth-ctas">
-        <a href="landing-tracking.html" class="auth-cta-primary" id="authCtaPrimary">Acessar painel de entregas</a>
         <button type="button" class="auth-cta-secondary" id="authCtaBack">Voltar para a plataforma</button>
       </div>
     </div>
-          </div>
-        </div>
       </div>
-    </div>
   </div>
 
   @@include("partials/vendor-scripts.html")
@@ -259,7 +255,6 @@
       var sellerName = params.get("seller_name");
       var erro = params.get("erro");
 
-      // Exibir nome fantasia do owner quando existir; caso contrário, sub_base do id_owner
       var transportadoraNome = null;
       if (nomeFantasia && nomeFantasia.trim()) {
         try { transportadoraNome = decodeURIComponent(nomeFantasia.trim()); } catch (e) { transportadoraNome = nomeFantasia.trim(); }
@@ -276,7 +271,6 @@
       var sellerNameWrap = document.getElementById("authSellerNameWrap");
       var sellerNameEl = document.getElementById("authSellerName");
       var badgesEl = document.getElementById("authBadges");
-      var ctaPrimary = document.getElementById("authCtaPrimary");
 
       var isJaExiste = (ml === "ja_existe" || shopee === "ja_existe");
       var isErro = (erro === "1" || erro === "true");
@@ -285,8 +279,6 @@
         titleEl.textContent = "Não foi possível concluir";
         msgEl.innerHTML = "Ocorreu um problema ao processar a autorização. Tente novamente.";
         nomeEl.parentElement.style.display = "none";
-        ctaPrimary.textContent = "Tentar novamente";
-        ctaPrimary.href = "landing-tracking.html";
       } else if (isJaExiste) {
         titleEl.textContent = "Autorização já existente";
         msgEl.textContent = "Essa conta já estava autorizada para a transportadora. Nenhuma alteração foi necessária.";

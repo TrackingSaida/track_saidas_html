@@ -1,24 +1,51 @@
 // =========================
-// Signup - TrackingSaídas (Wizard Cover)
+// Signup - ROTEVO (wizard empresa / responsável / acesso)
 // =========================
 
-// URL do endpoint de signup público
 const API_SIGNUP = 'https://track-saidas-api.onrender.com/api/public/signup';
 
 (function () {
   'use strict';
 
-  // Util
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => Array.from(document.querySelectorAll(s));
   const present = (v) => (typeof v === 'string' ? v.trim() : '');
+  const digits = (v) => present(v).replace(/\D+/g, '');
+
+  const STEP_IDS = ['tab-empresa', 'tab-responsavel', 'tab-acesso'];
+  const PANE_IDS = ['pane-empresa', 'pane-responsavel', 'pane-acesso'];
 
   function senhaForteOk(s) {
-    // 8+ chars, minúscula, maiúscula e número
     return /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}$/.test(present(s));
   }
 
-  function disableBtn(btn, loading = true) {
+  function maskCnpj(value) {
+    const d = digits(value).slice(0, 14);
+    return d
+      .replace(/^(\d{2})(\d)/, '$1.$2')
+      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2');
+  }
+
+  function maskCep(value) {
+    const d = digits(value).slice(0, 8);
+    return d.replace(/^(\d{5})(\d)/, '$1-$2');
+  }
+
+  function maskPhone(value) {
+    const d = digits(value).slice(0, 11);
+    if (d.length <= 10) {
+      return d
+        .replace(/^(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{4})(\d)/, '$1-$2');
+    }
+    return d
+      .replace(/^(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{5})(\d)/, '$1-$2');
+  }
+
+  function disableBtn(btn, loading) {
     if (!btn) return;
     if (loading) {
       btn.dataset.__html = btn.innerHTML;
@@ -30,48 +57,186 @@ const API_SIGNUP = 'https://track-saidas-api.onrender.com/api/public/signup';
     }
   }
 
+  function showError(msg) {
+    const box = $('#signupError');
+    if (!box) {
+      alert(msg);
+      return;
+    }
+    box.textContent = msg;
+    box.classList.remove('d-none');
+  }
+
+  function clearError() {
+    const box = $('#signupError');
+    if (!box) return;
+    box.textContent = '';
+    box.classList.add('d-none');
+  }
+
+  function parseApiError(txt, status) {
+    if (!txt) {
+      if (status === 409) return 'Não foi possível criar a conta: dado já cadastrado.';
+      return 'Falha ao criar conta.';
+    }
+    try {
+      const j = JSON.parse(txt);
+      const detail = j && j.detail;
+      if (typeof detail === 'string') return detail;
+      if (Array.isArray(detail) && detail.length) {
+        return detail.map((d) => d.msg || JSON.stringify(d)).join(' ');
+      }
+    } catch (_) {}
+    return txt.length > 280 ? 'Falha ao criar conta. Verifique os dados e tente novamente.' : txt;
+  }
+
+  function validatePane(pane) {
+    if (!pane) return false;
+    let valid = true;
+    const inputs = pane.querySelectorAll('input,select,textarea');
+    inputs.forEach((inp) => {
+      if (inp.id === 'senha') {
+        inp.setCustomValidity(senhaForteOk(inp.value) ? '' : 'Weak');
+      }
+      if (inp.id === 'senha2') {
+        const s1 = $('#senha')?.value || '';
+        inp.setCustomValidity(inp.value === s1 ? '' : 'Mismatch');
+      }
+      if (inp.id === 'cnpj') {
+        inp.setCustomValidity(digits(inp.value).length === 14 ? '' : 'CNPJ');
+      }
+      if (inp.id === 'cep') {
+        inp.setCustomValidity(digits(inp.value).length === 8 ? '' : 'CEP');
+      }
+      if (inp.id === 'telefone' || inp.id === 'telefone_empresa') {
+        inp.setCustomValidity(digits(inp.value).length >= 8 ? '' : 'Tel');
+      }
+      if (inp.id === 'estado') {
+        inp.setCustomValidity(present(inp.value).length === 2 ? '' : 'UF');
+      }
+      if (!inp.checkValidity()) valid = false;
+    });
+    return valid;
+  }
+
+  function goTo(tabId) {
+    const idx = STEP_IDS.indexOf(tabId);
+    if (idx < 0) return;
+
+    STEP_IDS.forEach((id, i) => {
+      const btn = document.getElementById(id);
+      const pane = document.getElementById(PANE_IDS[i]);
+      if (btn) {
+        btn.classList.toggle('active', i === idx);
+        btn.setAttribute('aria-selected', i === idx ? 'true' : 'false');
+      }
+      if (pane) {
+        pane.classList.toggle('show', i === idx);
+        pane.classList.toggle('active', i === idx);
+      }
+    });
+
+    const fill = $('.rv-step-bar-fill');
+    if (fill) fill.style.width = Math.round(((idx + 1) / STEP_IDS.length) * 100) + '%';
+
+    const auth = $('.rv-auth-scroll');
+    if (auth) auth.scrollTop = 0;
+  }
+
+  function setCepStatus(msg, kind) {
+    const el = $('#cepStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.classList.remove('is-loading', 'is-ok', 'is-error');
+    if (kind) el.classList.add(kind);
+  }
+
+  async function lookupCep(cepRaw) {
+    const cepDigits = digits(cepRaw);
+    if (cepDigits.length !== 8) throw new Error('CEP inválido');
+    const res = await fetch('https://viacep.com.br/ws/' + cepDigits + '/json/');
+    if (!res.ok) throw new Error('Falha ao consultar CEP');
+    const data = await res.json();
+    if (!data || data.erro) throw new Error('CEP não encontrado');
+    return data;
+  }
+
+  function fillAddressFromCep(data) {
+    const rua = $('#rua');
+    const bairro = $('#bairro');
+    const cidade = $('#cidade');
+    const estado = $('#estado');
+    const numero = $('#numero');
+
+    if (rua && data.logradouro) rua.value = data.logradouro;
+    if (bairro && data.bairro) bairro.value = data.bairro;
+    if (cidade && data.localidade) cidade.value = data.localidade;
+    if (estado && data.uf) estado.value = String(data.uf).toUpperCase().slice(0, 2);
+
+    if (numero) {
+      numero.focus();
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('signup-wizard') || document.getElementById('signup-form');
+    const form = document.getElementById('signup-wizard');
     if (!form) {
-      console.error('[signup] formulário de cadastro não encontrado (#signup-wizard / #signup-form)');
+      console.error('[signup] formulário não encontrado');
       return;
     }
 
-    // ------ Progress / Tabs ------
-    const progressBar = $('#progress-bar .progress-bar');
-    const tabs = $$('.progress-bar-tab .nav-link');
+    const cnpj = $('#cnpj');
+    const cep = $('#cep');
+    const telEmp = $('#telefone_empresa');
+    const tel = $('#telefone');
+    const uf = $('#estado');
+    let lastCepLookup = '';
+    let cepLookupTimer = null;
 
-    function goTo(tabId) {
-      const btn = document.getElementById(tabId);
-      if (!btn) return;
-      new bootstrap.Tab(btn).show();
-      if (progressBar && tabs.length) {
-        const idx = tabs.findIndex((t) => t.id === tabId);
-        const pct = Math.round(((idx + 1) / tabs.length) * 100);
-        progressBar.style.width = pct + '%';
-        progressBar.setAttribute('aria-valuenow', String(pct));
-      }
+    if (cnpj) cnpj.addEventListener('input', () => { cnpj.value = maskCnpj(cnpj.value); });
+    if (telEmp) telEmp.addEventListener('input', () => { telEmp.value = maskPhone(telEmp.value); });
+    if (tel) tel.addEventListener('input', () => { tel.value = maskPhone(tel.value); });
+    if (uf) uf.addEventListener('input', () => { uf.value = present(uf.value).toUpperCase().slice(0, 2); });
+
+    if (cep) {
+      cep.addEventListener('input', () => {
+        cep.value = maskCep(cep.value);
+        const d = digits(cep.value);
+        if (d.length !== 8) {
+          lastCepLookup = '';
+          setCepStatus('', null);
+          return;
+        }
+        if (d === lastCepLookup) return;
+        clearTimeout(cepLookupTimer);
+        cepLookupTimer = setTimeout(async () => {
+          lastCepLookup = d;
+          setCepStatus('Buscando endereço...', 'is-loading');
+          try {
+            const data = await lookupCep(d);
+            fillAddressFromCep(data);
+            setCepStatus('Endereço encontrado. Confira e informe o número.', 'is-ok');
+          } catch (err) {
+            lastCepLookup = '';
+            setCepStatus(err?.message || 'Não foi possível buscar o CEP.', 'is-error');
+          }
+        }, 250);
+      });
+
+      cep.addEventListener('blur', () => {
+        const d = digits(cep.value);
+        if (d.length === 8 && d !== lastCepLookup) {
+          cep.dispatchEvent(new Event('input'));
+        }
+      });
     }
 
     $$('.nexttab').forEach((el) => {
       el.addEventListener('click', (e) => {
+        clearError();
         const activePane = document.querySelector('.tab-pane.active');
-        const inputs = activePane ? activePane.querySelectorAll('input,select,textarea') : [];
-        let valid = true;
-        inputs.forEach((inp) => {
-          // confirmar senha em tempo de clique
-          if (inp.id === 'senha2') {
-            const s1 = $('#senha')?.value || '';
-            inp.setCustomValidity(inp.value === s1 ? '' : 'Mismatch');
-          }
-          // força senha forte no passo da senha
-          if (inp.id === 'senha') {
-            inp.setCustomValidity(senhaForteOk(inp.value) ? '' : 'Weak');
-          }
-          if (!inp.checkValidity()) valid = false;
-        });
         form.classList.add('was-validated');
-        if (!valid) return;
+        if (!validatePane(activePane)) return;
         const next = e.currentTarget.getAttribute('data-nexttab');
         if (next) goTo(next);
       });
@@ -79,15 +244,16 @@ const API_SIGNUP = 'https://track-saidas-api.onrender.com/api/public/signup';
 
     $$('.previestab').forEach((el) => {
       el.addEventListener('click', (e) => {
+        clearError();
         const prev = e.currentTarget.getAttribute('data-previous');
         if (prev) goTo(prev);
       });
     });
 
-    // ------ Toggle ver senha ------
     $$('[data-toggle="ver-senha"]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const input = btn.previousElementSibling;
+        const targetId = btn.getAttribute('data-target');
+        const input = targetId ? document.getElementById(targetId) : btn.previousElementSibling;
         if (!input) return;
         input.type = input.type === 'password' ? 'text' : 'password';
         const i = btn.querySelector('i');
@@ -98,56 +264,59 @@ const API_SIGNUP = 'https://track-saidas-api.onrender.com/api/public/signup';
       });
     });
 
-    // ------ Submit final -> POST /public/signup ------
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       e.stopPropagation();
+      clearError();
 
-      // valida apenas o último passo (sub-base)
-      const finalPane = document.getElementById('pane-subbase') || document.querySelector('.tab-pane.active');
-      const inputs = finalPane ? finalPane.querySelectorAll('input[required],select[required],textarea[required]') : [];
-      let valid = true;
-
-      inputs.forEach((inp) => {
-        if (!inp.checkValidity()) valid = false;
-      });
-
-      // validações globais de senha
-      const senha = $('#senha')?.value || '';
-      const senha2 = $('#senha2')?.value || '';
-
-      if (!senhaForteOk(senha)) valid = false;
-      if (senha2 && senha !== senha2) valid = false;
+      const acessoPane = document.getElementById('pane-acesso');
+      const empresaPane = document.getElementById('pane-empresa');
+      const respPane = document.getElementById('pane-responsavel');
 
       form.classList.add('was-validated');
-      if (!valid) return;
+      let valid = validatePane(acessoPane) && validatePane(empresaPane) && validatePane(respPane);
 
-      // coleta dos dados
+      const termos = $('#termos');
+      const termosError = $('#termosError');
+      if (termos && !termos.checked) {
+        valid = false;
+        if (termosError) termosError.style.setProperty('display', 'block', 'important');
+      } else if (termosError) {
+        termosError.style.setProperty('display', 'none', 'important');
+      }
+
+      if (!valid) {
+        if (!validatePane(empresaPane)) goTo('tab-empresa');
+        else if (!validatePane(respPane)) goTo('tab-responsavel');
+        else goTo('tab-acesso');
+        return;
+      }
+
+      const fantasia = present($('#nome_fantasia')?.value);
+      const senha = $('#senha')?.value || '';
+
       const payload = {
-        email:      present($('#email')?.value),
-        username:   present($('#username')?.value),
-        password:   senha,
-        nome:       present($('#nome')?.value),
-        sobrenome:  present($('#sobrenome')?.value),
-        contato:    present($('#telefone')?.value),
-        sub_base:   present($('#subbase')?.value),
+        email: present($('#email')?.value),
+        username: present($('#username')?.value),
+        password: senha,
+        nome: present($('#nome')?.value),
+        sobrenome: present($('#sobrenome')?.value),
+        contato: present($('#telefone')?.value),
+        sub_base: fantasia,
+        nome_fantasia: fantasia,
+        razao_social: present($('#razao_social')?.value),
+        cnpj: digits($('#cnpj')?.value),
+        telefone_empresa: present($('#telefone_empresa')?.value),
+        cep: digits($('#cep')?.value),
+        rua: present($('#rua')?.value),
+        numero: present($('#numero')?.value),
+        complemento: present($('#complemento')?.value) || null,
+        bairro: present($('#bairro')?.value),
+        cidade: present($('#cidade')?.value),
+        estado: present($('#estado')?.value).toUpperCase(),
       };
 
-      // campo termos (se existir)
-      const termosOK = $('#termos') ? !!$('#termos').checked : true;
-      if (!termosOK) {
-        alert('Você precisa aceitar os termos.');
-        return;
-      }
-
-      // campos obrigatórios
-      if (!payload.email || !payload.username || !payload.nome || !payload.sobrenome ||
-          !payload.contato || !payload.password || !payload.sub_base) {
-        alert('Preencha todos os campos obrigatórios.');
-        return;
-      }
-
-      const btn = $('#btn-submit') || form.querySelector('[type="submit"]');
+      const btn = $('#btn-submit');
 
       try {
         disableBtn(btn, true);
@@ -155,26 +324,24 @@ const API_SIGNUP = 'https://track-saidas-api.onrender.com/api/public/signup';
         const res = await fetch(API_SIGNUP, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         });
 
         if (!res.ok) {
           const txt = await res.text().catch(() => '');
-          throw new Error(txt || 'Falha ao criar conta.');
+          throw new Error(parseApiError(txt, res.status));
         }
 
-        // redireciona para login já preenchido
         const q = new URLSearchParams({
           email: payload.email,
-          username: payload.username
+          username: payload.username,
         }).toString();
-
         window.location.href = 'auth-signin-tracking-v2.html?' + q;
-
       } catch (err) {
         console.error('[signup] erro', err);
-        alert(err?.message || 'Erro inesperado ao criar a conta.');
+        showError(err?.message || 'Erro inesperado ao criar a conta.');
         disableBtn(btn, false);
+        goTo('tab-acesso');
       }
     });
   });

@@ -2,222 +2,249 @@
 <html lang="pt-br">
 <head>
   @@include("partials/title-meta.html", {"title": "Criar conta"})
-  @@include("partials/head-css.html") 
+  @@include("partials/head-css.html")
 
-    
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-<style>
-  :root{
-    --vz-body-font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto,
-      "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji",
-      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  }
-  body{ font-family: var(--vz-body-font-family) !important; }
-</style>
-
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="assets/css/auth-rotevo.css?v=rotevo9" rel="stylesheet">
 </head>
-<body>
-  <!-- cover layout -->
-  <div class="auth-page-wrapper auth-bg-cover py-5 d-flex justify-content-center align-items-center min-vh-100">
-    <div class="bg-overlay"></div>
-    <div class="auth-page-content overflow-hidden pt-lg-5 w-100">
-      <div class="container">
-        <div class="row">
-          <div class="col-lg-12">
-            <div class="card overflow-hidden m-0 galaxy-border-none">
-              <div class="row justify-content-center g-0">
+<body class="rotevo-login rotevo-signup">
+  <div class="rv-shell">
+    <aside class="rv-brand" aria-hidden="false">
+      <div class="rv-brand-inner">
+        <a href="index.html" class="rv-logo-row">
+          <img src="assets/images/logo_rotevo.png" alt="ROTEVO">
+          <span class="rv-wordmark">ROT<span class="rv-e">E</span>VO</span>
+        </a>
+        <p class="rv-tagline">Gestão Inteligente de Entregas</p>
 
-                <!-- Lado esquerdo (cover/quote/brand) -->
-                <div class="col-lg-6">
-                  <div class="p-lg-5 p-4 auth-one-bg h-100">
-                    <div class="bg-overlay"></div>
-                    <div class="position-relative h-100 d-flex flex-column">
-                      <div class="mb-4 brand">
-                        <a href="index.html" class="d-block">
-                          <img src="assets/images/logo_rotevo.png" alt="ROTEVO" height="56">
-                        </a>
-                      </div>
-                      <div class="mt-auto">
-                        <div class="mb-3"><i class="ri-double-quotes-l display-4 text-success"></i></div>
-                        <div id="qoutescarouselIndicators" class="carousel slide" data-bs-ride="carousel">
-                          <div class="carousel-indicators">
-                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
-                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="1" aria-label="Slide 2"></button>
-                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="2" aria-label="Slide 3"></button>
-                          </div>
-                          <div class="carousel-inner text-center text-white pb-5">
-                            <div class="carousel-item active"><p class="fs-15 fst-italic">“ROTEVO simplifica o dia a dia da operação.”</p></div>
-                            <div class="carousel-item"><p class="fs-15 fst-italic">“Cadastro ágil, controle total e visual moderno.”</p></div>
-                            <div class="carousel-item"><p class="fs-15 fst-italic">“Segurança e velocidade para o seu fluxo de saídas.”</p></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+        <h2 class="rv-headline">Comece a operar <em>com a sua empresa.</em></h2>
+        <p class="rv-lead">Cadastre os dados da operação, do responsável e crie o acesso em poucos minutos.</p>
 
-                <!-- Lado direito (FORM + PROGRESS STEPS) -->
-                <div class="col-lg-6">
-                  <div class="p-lg-5 p-4">
-                    <div class="text-start">
-                      <h5 class="text-primary mb-1">Crie sua conta</h5>
-                      <p class="text-muted">Conclua as etapas abaixo</p>
-                    </div>
-
-                    <form id="signup-wizard" class="form-steps needs-validation" novalidate autocomplete="off">
-                      <!-- Steps (Progress Nav) -->
-                      <div id="progress-bar" class="progress-nav mb-4">
-                        <div class="progress" style="height:1px;">
-                          <div class="progress-bar" role="progressbar" style="width:0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                        <ul class="nav nav-pills progress-bar-tab custom-nav" role="tablist">
-                          <li class="nav-item" role="presentation">
-                            <button class="nav-link rounded-pill active" data-progressbar="progress-bar" id="tab-conta" data-bs-toggle="pill" data-bs-target="#pane-conta" type="button" role="tab" aria-controls="pane-conta" aria-selected="true">1</button>
-                          </li>
-                          <li class="nav-item" role="presentation">
-                            <button class="nav-link rounded-pill" data-progressbar="progress-bar" id="tab-pessoal" data-bs-toggle="pill" data-bs-target="#pane-pessoal" type="button" role="tab" aria-controls="pane-pessoal" aria-selected="false">2</button>
-                          </li>
-                          <li class="nav-item" role="presentation">
-                            <button class="nav-link rounded-pill" data-progressbar="progress-bar" id="tab-subbase" data-bs-toggle="pill" data-bs-target="#pane-subbase" type="button" role="tab" aria-controls="pane-subbase" aria-selected="false">3</button>
-                          </li>
-                        </ul>
-                      </div>
-
-                      <div class="tab-content">
-                        <!-- Etapa 1: Conta -->
-                        <div class="tab-pane fade show active" id="pane-conta" role="tabpanel" aria-labelledby="tab-conta">
-                          <div class="mb-3">
-                            <h6 class="mb-1">Informações da Conta</h6>
-                            <p class="text-muted">E-mail, usuário e senha.</p>
-                          </div>
-                          <div class="row g-3">
-                            <div class="col-md-6">
-                              <label for="email" class="form-label">E-mail <span class="text-danger">*</span></label>
-                              <input type="email" class="form-control" id="email" placeholder="nome@gmail.com" required>
-                              <div class="invalid-feedback">Informe um e-mail válido.</div>
-                            </div>
-                            <div class="col-md-6">
-                              <label for="username" class="form-label">Nome de Usuário (login) <span class="text-danger">*</span></label>
-                              <input type="text" class="form-control" id="username" placeholder="ex: andrey.silva" required>
-                              <div class="invalid-feedback">Informe um nome de usuário.</div>
-                            </div>
-                            <div class="col-md-6">
-                              <label for="senha" class="form-label">Senha <span class="text-danger">*</span></label>
-                              <div class="position-relative auth-pass-inputgroup">
-                                <input type="password" class="form-control pe-5 senha-input" id="senha" placeholder="Mínimo 8 caracteres" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}" autocomplete="new-password" required>
-                                <button class="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted material-shadow-none" type="button" data-toggle="ver-senha"><i class="ri-eye-fill align-middle"></i></button>
-                                <div class="invalid-feedback">Use pelo menos 8 caracteres com maiúsculas, minúsculas e números.</div>
-                              </div>
-                            </div>
-                            <div class="col-md-6">
-                              <label for="senha2" class="form-label">Confirmar senha <span class="text-danger">*</span></label>
-                              <input type="password" class="form-control" id="senha2" placeholder="Digite novamente" required>
-                              <div class="invalid-feedback">As senhas precisam coincidir.</div>
-                            </div>
-                          </div>
-                          <div id="password-hints" class="p-3 bg-light my-3 rounded">
-                            <h6 class="fs-13 mb-2">A senha deve conter:</h6>
-                            <ul class="mb-0 small text-muted">
-                              <li>Ao menos 8 caracteres</li>
-                              <li>Pelo menos uma letra minúscula (a-z) e uma maiúscula (A-Z)</li>
-                              <li>Ao menos um número (0-9)</li>
-                            </ul>
-                          </div>
-                          <div class="d-flex align-items-start gap-3 mt-3">
-                            <button type="button" class="btn btn-success btn-label right ms-auto nexttab" data-nexttab="tab-pessoal"><i class="ri-arrow-right-line label-icon align-middle fs-16 ms-2"></i> Próxima etapa</button>
-                          </div>
-                        </div>
-
-                        <!-- Etapa 2: Dados Pessoais -->
-                        <div class="tab-pane fade" id="pane-pessoal" role="tabpanel" aria-labelledby="tab-pessoal">
-                          <div class="mb-3">
-                            <h6 class="mb-1">Dados Pessoais</h6>
-                            <p class="text-muted">Essas informações ajudam na identificação.</p>
-                          </div>
-                          <div class="row g-3">
-                            <div class="col-md-6">
-                              <label for="nome" class="form-label">Nome <span class="text-danger">*</span></label>
-                              <input type="text" class="form-control" id="nome" placeholder="Seu nome" required>
-                              <div class="invalid-feedback">Informe o nome.</div>
-                            </div>
-                            <div class="col-md-6">
-                              <label for="sobrenome" class="form-label">Sobrenome <span class="text-danger">*</span></label>
-                              <input type="text" class="form-control" id="sobrenome" placeholder="Seu sobrenome" required>
-                              <div class="invalid-feedback">Informe o sobrenome.</div>
-                            </div>
-                            <div class="col-md-6">
-                              <label for="telefone" class="form-label">Telefone / WhatsApp <span class="text-danger">*</span></label>
-                              <input type="tel" class="form-control" id="telefone" placeholder="(11) 9 9999-9999" required>
-                              <div class="invalid-feedback">Informe um telefone válido.</div>
-                            </div>
-                          </div>
-                          <div class="d-flex align-items-start gap-3 mt-3">
-                            <button type="button" class="btn btn-light btn-label previestab" data-previous="tab-conta"><i class="ri-arrow-left-line label-icon align-middle fs-16 me-2"></i> Voltar</button>
-                            <button type="button" class="btn btn-success btn-label right ms-auto nexttab" data-nexttab="tab-subbase"><i class="ri-arrow-right-line label-icon align-middle fs-16 ms-2"></i> Próxima etapa</button>
-                          </div>
-                        </div>
-
-                        <!-- Etapa 3: Sub-Base -->
-                        <div class="tab-pane fade" id="pane-subbase" role="tabpanel" aria-labelledby="tab-subbase">
-                          <div class="mb-3">
-                            <h6 class="mb-1">Sub-Base</h6>
-                            <p class="text-muted">Defina o nome da sua Sub-Base responsável pelos registros.</p>
-                          </div>
-                          <div class="row g-3">
-                            <div class="col-md-8">
-                              <label for="subbase" class="form-label">Nome da Sub-Base <span class="text-danger">*</span></label>
-                              <input type="text" class="form-control" id="subbase" placeholder="Ex.: Base Lapa" required>
-                              <div class="invalid-feedback">Informe o nome da Sub-Base.</div>
-                            </div>
-                          </div>
-                          <div class="form-check mt-3">
-                            <input class="form-check-input" type="checkbox" value="1" id="termos" required>
-                            <label class="form-check-label" for="termos"> Concordo com os <a href="#">Termos de Uso</a></label>
-                            <div class="invalid-feedback">Você precisa aceitar os termos.</div>
-                          </div>
-                          <div class="d-flex align-items-start gap-3 mt-3">
-                            <button type="button" class="btn btn-light btn-label previestab" data-previous="tab-pessoal"><i class="ri-arrow-left-line label-icon align-middle fs-16 me-2"></i> Voltar</button>
-                            <button id="btn-submit" type="submit" class="btn btn-success btn-label right ms-auto"><i class="ri-check-line label-icon align-middle fs-16 ms-2"></i> Concluir cadastro</button>
-                          </div>
-                        </div>
-                      </div>
-                    </form>
-
-                    <div class="mt-4 text-center">
-                      <p class="mb-0">Já tem uma conta? <a href="auth-signin-tracking-v2.html" class="fw-semibold text-primary text-decoration-underline"> Entrar </a></p>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
+        <div class="rv-benefits">
+          <div class="rv-benefit">
+            <i class="ri-building-2-line" aria-hidden="true"></i>
+            <strong>Empresa</strong>
+            <span>Dados cadastrais da operação</span>
+          </div>
+          <div class="rv-benefit">
+            <i class="ri-user-smile-line" aria-hidden="true"></i>
+            <strong>Responsável</strong>
+            <span>Contato principal da conta</span>
+          </div>
+          <div class="rv-benefit">
+            <i class="ri-shield-check-line" aria-hidden="true"></i>
+            <strong>Acesso</strong>
+            <span>Login seguro para começar</span>
+          </div>
+          <div class="rv-benefit">
+            <i class="ri-rocket-line" aria-hidden="true"></i>
+            <strong>Pronto</strong>
+            <span>Entre e use o sistema</span>
           </div>
         </div>
       </div>
+    </aside>
 
-      <!-- footer -->
-      <footer class="footer galaxy-border-none">
-        <div class="container"><div class="row"><div class="col-lg-12">
-          <div class="text-center">
-            <p class="mb-0">&copy;<script>document.write(new Date().getFullYear())</script> ROTEVO.</p>
+    <main class="rv-auth rv-auth-scroll">
+      <div class="rv-auth-inner rv-auth-inner-wide">
+        <div class="rv-mobile-brand">
+          <img src="assets/images/logo_rotevo.png" alt="">
+          <span class="rv-wordmark">ROT<span class="rv-e">E</span>VO</span>
+          <p class="rv-tagline">Gestão Inteligente de Entregas</p>
+        </div>
+
+        <h1>Crie sua conta</h1>
+        <p class="rv-sub">Conclua as etapas abaixo para cadastrar sua operação.</p>
+
+        <form id="signup-wizard" class="rv-signup-form needs-validation" novalidate autocomplete="off">
+          <div class="rv-steps" id="progress-bar" role="tablist" aria-label="Etapas do cadastro">
+            <button type="button" class="rv-step active" id="tab-empresa" data-step="0" role="tab" aria-selected="true" aria-controls="pane-empresa">1. Empresa</button>
+            <button type="button" class="rv-step" id="tab-responsavel" data-step="1" role="tab" aria-selected="false" aria-controls="pane-responsavel">2. Responsável</button>
+            <button type="button" class="rv-step" id="tab-acesso" data-step="2" role="tab" aria-selected="false" aria-controls="pane-acesso">3. Acesso</button>
           </div>
-        </div></div></div>
-      </footer>
-    </div>
+          <div class="rv-step-bar"><span class="rv-step-bar-fill" style="width:33%"></span></div>
+
+          <div class="tab-content">
+            <!-- Etapa 1: Empresa -->
+            <div class="tab-pane fade show active" id="pane-empresa" role="tabpanel" aria-labelledby="tab-empresa">
+              <h2 class="rv-step-title">Dados da empresa</h2>
+              <p class="rv-step-desc">Informações cadastrais da operação.</p>
+
+              <div class="rv-grid-2">
+                <div class="rv-field">
+                  <label for="nome_fantasia">Nome fantasia <span class="text-danger">*</span></label>
+                  <input type="text" id="nome_fantasia" name="nome_fantasia" placeholder="Ex.: Express Entregas" required>
+                  <div class="invalid-feedback">Informe o nome fantasia.</div>
+                </div>
+                <div class="rv-field">
+                  <label for="razao_social">Razão social <span class="text-danger">*</span></label>
+                  <input type="text" id="razao_social" name="razao_social" placeholder="Ex.: Express Entregas LTDA" required>
+                  <div class="invalid-feedback">Informe a razão social.</div>
+                </div>
+                <div class="rv-field">
+                  <label for="cnpj">CNPJ <span class="text-danger">*</span></label>
+                  <input type="text" id="cnpj" name="cnpj" inputmode="numeric" placeholder="00.000.000/0000-00" maxlength="18" required>
+                  <div class="invalid-feedback">Informe um CNPJ válido com 14 dígitos.</div>
+                </div>
+                <div class="rv-field">
+                  <label for="telefone_empresa">Telefone comercial <span class="text-danger">*</span></label>
+                  <input type="tel" id="telefone_empresa" name="telefone_empresa" inputmode="tel" placeholder="(11) 3000-0000" maxlength="16" required>
+                  <div class="invalid-feedback">Informe o telefone comercial.</div>
+                </div>
+                <div class="rv-field">
+                  <label for="cep">CEP <span class="text-danger">*</span></label>
+                  <input type="text" id="cep" name="cep" inputmode="numeric" placeholder="00000-000" maxlength="9" required>
+                  <div class="invalid-feedback">Informe um CEP válido.</div>
+                  <div id="cepStatus" class="rv-cep-status" aria-live="polite"></div>
+                </div>
+                <div class="rv-field">
+                  <label for="estado">UF <span class="text-danger">*</span></label>
+                  <input type="text" id="estado" name="estado" maxlength="2" placeholder="SP" required>
+                  <div class="invalid-feedback">Informe a UF.</div>
+                </div>
+                <div class="rv-field rv-field-full">
+                  <label for="rua">Rua <span class="text-danger">*</span></label>
+                  <input type="text" id="rua" name="rua" placeholder="Rua, avenida..." required>
+                  <div class="invalid-feedback">Informe a rua.</div>
+                </div>
+                <div class="rv-field">
+                  <label for="numero">Número <span class="text-danger">*</span></label>
+                  <input type="text" id="numero" name="numero" placeholder="123" required>
+                  <div class="invalid-feedback">Informe o número.</div>
+                </div>
+                <div class="rv-field">
+                  <label for="complemento">Complemento</label>
+                  <input type="text" id="complemento" name="complemento" placeholder="Sala, andar...">
+                </div>
+                <div class="rv-field">
+                  <label for="bairro">Bairro <span class="text-danger">*</span></label>
+                  <input type="text" id="bairro" name="bairro" placeholder="Bairro" required>
+                  <div class="invalid-feedback">Informe o bairro.</div>
+                </div>
+                <div class="rv-field">
+                  <label for="cidade">Cidade <span class="text-danger">*</span></label>
+                  <input type="text" id="cidade" name="cidade" placeholder="Cidade" required>
+                  <div class="invalid-feedback">Informe a cidade.</div>
+                </div>
+              </div>
+
+              <div class="rv-wizard-actions">
+                <button type="button" class="rv-btn-enter nexttab" data-nexttab="tab-responsavel">
+                  Próxima etapa <i class="ri-arrow-right-line" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Etapa 2: Responsável -->
+            <div class="tab-pane fade" id="pane-responsavel" role="tabpanel" aria-labelledby="tab-responsavel">
+              <h2 class="rv-step-title">Responsável pela conta</h2>
+              <p class="rv-step-desc">Pessoa de contato que vai administrar o acesso.</p>
+
+              <div class="rv-grid-2">
+                <div class="rv-field">
+                  <label for="nome">Nome <span class="text-danger">*</span></label>
+                  <input type="text" id="nome" name="nome" placeholder="Seu nome" required>
+                  <div class="invalid-feedback">Informe o nome.</div>
+                </div>
+                <div class="rv-field">
+                  <label for="sobrenome">Sobrenome <span class="text-danger">*</span></label>
+                  <input type="text" id="sobrenome" name="sobrenome" placeholder="Seu sobrenome" required>
+                  <div class="invalid-feedback">Informe o sobrenome.</div>
+                </div>
+                <div class="rv-field rv-field-full">
+                  <label for="telefone">Telefone / WhatsApp <span class="text-danger">*</span></label>
+                  <input type="tel" id="telefone" name="telefone" inputmode="tel" placeholder="(11) 9 9999-9999" maxlength="16" required>
+                  <div class="invalid-feedback">Informe um telefone válido.</div>
+                </div>
+              </div>
+
+              <div class="rv-wizard-actions rv-wizard-actions-split">
+                <button type="button" class="rv-btn-signup previestab" data-previous="tab-empresa">
+                  <i class="ri-arrow-left-line" aria-hidden="true"></i> Voltar
+                </button>
+                <button type="button" class="rv-btn-enter nexttab" data-nexttab="tab-acesso">
+                  Próxima etapa <i class="ri-arrow-right-line" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Etapa 3: Acesso -->
+            <div class="tab-pane fade" id="pane-acesso" role="tabpanel" aria-labelledby="tab-acesso">
+              <h2 class="rv-step-title">Dados de acesso</h2>
+              <p class="rv-step-desc">E-mail, usuário e senha para entrar no sistema.</p>
+
+              <div class="rv-grid-2">
+                <div class="rv-field">
+                  <label for="email">E-mail <span class="text-danger">*</span></label>
+                  <input type="email" id="email" name="email" placeholder="nome@empresa.com" required>
+                  <div class="invalid-feedback">Informe um e-mail válido.</div>
+                </div>
+                <div class="rv-field">
+                  <label for="username">Nome de usuário <span class="text-danger">*</span></label>
+                  <input type="text" id="username" name="username" placeholder="ex: andrey.silva" minlength="3" required>
+                  <div class="invalid-feedback">Informe um nome de usuário (mín. 3 caracteres).</div>
+                </div>
+                <div class="rv-field">
+                  <label for="senha">Senha <span class="text-danger">*</span></label>
+                  <div class="rv-input-wrap">
+                    <input type="password" id="senha" name="senha" placeholder="Mínimo 8 caracteres" autocomplete="new-password" required>
+                    <button class="rv-toggle-pass" type="button" data-toggle="ver-senha" data-target="senha" aria-label="Mostrar senha">
+                      <i class="ri-eye-fill align-middle" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                  <div class="invalid-feedback">Use pelo menos 8 caracteres com maiúsculas, minúsculas e números.</div>
+                </div>
+                <div class="rv-field">
+                  <label for="senha2">Confirmar senha <span class="text-danger">*</span></label>
+                  <div class="rv-input-wrap">
+                    <input type="password" id="senha2" name="senha2" placeholder="Digite novamente" autocomplete="new-password" required>
+                    <button class="rv-toggle-pass" type="button" data-toggle="ver-senha" data-target="senha2" aria-label="Mostrar senha">
+                      <i class="ri-eye-fill align-middle" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                  <div class="invalid-feedback">As senhas precisam coincidir.</div>
+                </div>
+              </div>
+
+              <div class="rv-password-hints">
+                <strong>A senha deve conter:</strong>
+                <ul>
+                  <li>Ao menos 8 caracteres</li>
+                  <li>Uma letra minúscula e uma maiúscula</li>
+                  <li>Ao menos um número</li>
+                </ul>
+              </div>
+
+              <div class="rv-check">
+                <input class="form-check-input" type="checkbox" id="termos" required>
+                <label class="form-check-label" for="termos">Concordo com os Termos de Uso</label>
+              </div>
+              <div class="invalid-feedback d-block" id="termosError" style="display:none !important;">Você precisa aceitar os termos.</div>
+
+              <div id="signupError" class="alert alert-danger d-none rv-error" role="alert"></div>
+
+              <div class="rv-wizard-actions rv-wizard-actions-split">
+                <button type="button" class="rv-btn-signup previestab" data-previous="tab-responsavel">
+                  <i class="ri-arrow-left-line" aria-hidden="true"></i> Voltar
+                </button>
+                <button id="btn-submit" type="submit" class="rv-btn-enter">
+                  Concluir cadastro <i class="ri-check-line" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <p class="rv-secure rv-signup-footer">
+          Já tem uma conta? <a href="auth-signin-tracking-v2.html">Entrar</a>
+        </p>
+      </div>
+    </main>
   </div>
 
-  <!-- JS -->
   <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="assets/libs/simplebar/simplebar.min.js"></script>
-  <script src="assets/libs/node-waves/waves.min.js"></script>
-  <script src="assets/libs/feather-icons/feather.min.js"></script>
-  <script src="assets/js/plugins.js"></script>
   <script src="assets/js/pages/auth-signup-tracking.js"></script>
-
-
-
 </body>
 </html>

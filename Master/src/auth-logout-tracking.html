@@ -1,108 +1,96 @@
-@@include("partials/main.html")
+<!doctype html>
+<html lang="pt-br">
 <head>
   @@include("partials/title-meta.html", {"title": "Sair"})
   @@include("partials/head-css.html")
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="assets/css/auth-rotevo.css?v=rotevo8" rel="stylesheet">
 </head>
+<body class="rotevo-login">
+  <div class="rv-shell">
+    <aside class="rv-brand" aria-hidden="false">
+      <div class="rv-brand-inner">
+        <a href="index.html" class="rv-logo-row">
+          <img src="assets/images/logo_rotevo.png" alt="ROTEVO">
+          <span class="rv-wordmark">ROT<span class="rv-e">E</span>VO</span>
+        </a>
+        <p class="rv-tagline">Gestão Inteligente de Entregas</p>
 
-<body>
-  <!-- cover -->
-  <div class="auth-page-wrapper auth-bg-cover py-5 d-flex justify-content-center align-items-center min-vh-100">
-    <div class="bg-overlay"></div>
+        <h2 class="rv-headline">Sessão encerrada <em>com segurança.</em></h2>
+        <p class="rv-lead">Obrigado por utilizar o ROTEVO. Volte quando quiser continuar a operação.</p>
 
-    <!-- conteúdo -->
-    <div class="auth-page-content overflow-hidden pt-lg-5">
-      <div class="container">
-        <div class="row">
-          <div class="col-lg-12">
-            <div class="card overflow-hidden card-bg-fill galaxy-border-none">
-              <div class="row justify-content-center g-0">
-
-                <!-- coluna esquerda (imagem / brand / quotes) -->
-                <div class="col-lg-6">
-                  <div class="p-lg-5 p-4 auth-one-bg h-100">
-                    <div class="bg-overlay"></div>
-                    <div class="position-relative h-100 d-flex flex-column">
-                      <div class="mb-4">
-                        <a href="index.html" class="d-block">
-                          <img src="assets/images/logo_rotevo.png" alt="ROTEVO" height="56">
-                        </a>
-                      </div>
-                      <div class="mt-auto">
-                        <div class="mb-3"><i class="ri-double-quotes-l display-4 text-success"></i></div>
-                        <div id="qoutescarouselIndicators" class="carousel slide" data-bs-ride="carousel">
-                          <div class="carousel-indicators">
-                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
-                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="1" aria-label="Slide 2"></button>
-                            <button type="button" data-bs-target="#qoutescarouselIndicators" data-bs-slide-to="2" aria-label="Slide 3"></button>
-                          </div>
-                          <div class="carousel-inner text-center text-white-50 pb-5">
-                            <div class="carousel-item active"><p class="fs-15 fst-italic">“Sessão encerrada com segurança.”</p></div>
-                            <div class="carousel-item"><p class="fs-15 fst-italic">“Até breve no ROTEVO.”</p></div>
-                            <div class="carousel-item"><p class="fs-15 fst-italic">“Produtividade e controle em um só lugar.”</p></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- coluna direita (mensagem + botão) -->
-                <div class="col-lg-6">
-                  <div class="p-lg-5 p-4 text-center">
-                    <lord-icon src="https://cdn.lordicon.com/hzomhqxz.json" trigger="loop"
-                      colors="primary:#405189,secondary:#08a88a" style="width:180px;height:180px"></lord-icon>
-
-                    <div class="mt-4 pt-2">
-                      <h5>Você saiu da sessão</h5>
-                      <p class="text-muted">Obrigado por utilizar o <span class="fw-semibold">ROTEVO</span>.</p>
-                      <div class="mt-4">
-                        <!-- aponte para sua tela de login preferida (cover ou padrão) -->
-                        <a href="auth-signin-tracking-v2.html" class="btn btn-success w-100">Entrar</a>
-                        <!-- se quiser a padrão, troque para: auth-signin-tracking.html -->
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-              </div><!-- row -->
-            </div><!-- card -->
+        <div class="rv-benefits">
+          <div class="rv-benefit">
+            <i class="ri-shield-check-line" aria-hidden="true"></i>
+            <strong>Segurança</strong>
+            <span>Acesso finalizado com cuidado</span>
+          </div>
+          <div class="rv-benefit">
+            <i class="ri-time-line" aria-hidden="true"></i>
+            <strong>Rapidez</strong>
+            <span>Entre de novo em segundos</span>
+          </div>
+          <div class="rv-benefit">
+            <i class="ri-dashboard-3-line" aria-hidden="true"></i>
+            <strong>Controle</strong>
+            <span>Operação sempre à mão</span>
+          </div>
+          <div class="rv-benefit">
+            <i class="ri-map-pin-line" aria-hidden="true"></i>
+            <strong>Entregas</strong>
+            <span>Da coleta à entrega</span>
           </div>
         </div>
       </div>
+    </aside>
 
-      <footer class="footer galaxy-border-none">
-        <div class="container"><div class="row"><div class="col-lg-12">
-          <div class="text-center">
-            <p class="mb-0">&copy;<script>document.write(new Date().getFullYear())</script> ROTEVO.</p>
-          </div>
-        </div></div></div>
-      </footer>
-    </div>
+    <main class="rv-auth">
+      <div class="rv-auth-inner" style="text-align:center;">
+        <div class="rv-mobile-brand">
+          <img src="assets/images/logo_rotevo.png" alt="">
+          <span class="rv-wordmark">ROT<span class="rv-e">E</span>VO</span>
+          <p class="rv-tagline">Gestão Inteligente de Entregas</p>
+        </div>
+
+        <div class="rv-logout-icon" aria-hidden="true">
+          <i class="ri-logout-circle-r-line"></i>
+        </div>
+
+        <h1>Você saiu da sessão</h1>
+        <p class="rv-sub">Obrigado por utilizar o <strong>ROTEVO</strong>.</p>
+
+        <div class="rv-logout-actions">
+          <a href="auth-signin-tracking-v2.html" class="rv-btn-enter" style="text-decoration:none;">
+            Entrar <i class="ri-arrow-right-line" aria-hidden="true"></i>
+          </a>
+        </div>
+        <p class="rv-logout-hint">Você será redirecionado automaticamente em alguns segundos.</p>
+      </div>
+    </main>
   </div>
 
-  @@include("partials/vendor-scripts.html")
-  <script src="assets/js/pages/plugins/lord-icon-2.1.0.js"></script>
-  <script src="assets/js/plugins.js"></script>
-
-  <!-- limpa estado local e (opcional) chama /auth/logout no backend -->
   <script>
-    // limpa storages
-    try{
+    try {
       localStorage.removeItem('trackingToken');
       localStorage.removeItem('trackingUser');
       localStorage.removeItem('access_token');
       sessionStorage.removeItem('trackingToken');
       sessionStorage.removeItem('trackingUser');
       sessionStorage.removeItem('access_token');
-    }catch(_){}
+    } catch (_) {}
 
-    // invalidar cookie/sessão no servidor:
     window.TRACK_API_URL = window.TRACK_API_URL || 'https://track-saidas-api.onrender.com/api';
- fetch((window.TRACK_API_URL.replace(/\/+$/,'') + '/auth/logout'), { method:'POST', credentials:'include' });
-    
- // voltar automaticamente para login após Xs:
-    setTimeout(()=> location.href='auth-signin-tracking-v2.html', 6000);
+    fetch((window.TRACK_API_URL.replace(/\/+$/, '') + '/auth/logout'), {
+      method: 'POST',
+      credentials: 'include'
+    }).catch(function () {});
+
+    setTimeout(function () {
+      location.href = 'auth-signin-tracking-v2.html';
+    }, 6000);
   </script>
 </body>
 </html>
