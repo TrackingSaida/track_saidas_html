@@ -12,7 +12,7 @@
         <div class="page-content">
           <div class="container-fluid">
 
-            @@include("partials/page-title.html", {"pagetitle": "Financeiro", "title": "Fechamento de Motoboys", "withSubtitle": true, "ownerTerm": ""})
+            @@include("partials/page-title.html", {"pagetitle": "Financeiro / Saídas", "title": "Fechamento de Motoboys", "withSubtitle": true, "ownerTerm": ""})
 
             <div class="row">
               <div class="col-12">
@@ -26,6 +26,9 @@
                             <i class="ri-file-add-line me-1"></i> Gerar Fechamento
                           </button>
                         </div>
+                        <a href="tracking-entregadores-a-pagar.html" class="btn btn-outline-secondary">
+                          <i class="ri-money-dollar-circle-line me-1"></i> A Pagar
+                        </a>
                       </div>
                       <div class="col-md-auto ms-auto d-flex gap-2 flex-wrap align-items-center">
                         <div class="dropdown">
@@ -33,7 +36,7 @@
                               <i class="bx bx-calendar"></i>
                               <span id="entregadores-resumo-period-label" class="text-truncate">Quinzena anterior</span>
                             </button>
-                            <div class="dropdown-menu dropdown-menu-end p-0" id="entregadores-resumo-period-panel" style="min-width: 640px;">
+                            <div class="dropdown-menu dropdown-menu-end p-0 period-panel" id="entregadores-resumo-period-panel">
                               <input type="hidden" id="flt-data-inicio" />
                               <input type="hidden" id="flt-data-fim" />
                               <div id="entregadores-resumo-date-picker-container"></div>
@@ -44,7 +47,7 @@
                               <i class="ri-filter-3-line me-1"></i> Filtros
                               <span id="filtrosContador" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary d-none">0</span>
                             </button>
-                            <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 280px;">
+                            <div class="dropdown-menu dropdown-menu-end p-3 filter-menu">
                               <div class="mb-2">
                                 <label class="form-label small">Motoboy</label>
                                 <select id="flt-entregador" class="form-select form-select-sm">
@@ -73,7 +76,7 @@
                     </div>
                     <div id="resumoMsg" class="mb-3"></div>
                     <!-- Cards totalizadores (mesma linha, como Registros) -->
-                    <div class="row g-2 mb-3 flex-nowrap">
+                    <div class="row g-2 mb-3 flex-nowrap kpi-row">
                       <div class="col flex-fill" style="min-width: 0;">
                         <div class="p-3 rounded text-center card-er-flex">
                           <span class="text-uppercase small text-secondary fw-semibold d-block">Flex</span>
@@ -159,7 +162,7 @@
 
     <!-- Modal Fechamento -->
     <div class="modal fade" id="modalFechamento" tabindex="-1" aria-labelledby="modalFechamentoLabel" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-lg">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="modalFechamentoLabel">
@@ -220,6 +223,34 @@
                     <tr><td colspan="2" class="text-muted small">Sem dias com conferência no período.</td></tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            <div class="mb-3 card border fechamento-ajuste-g-card" id="fech-avulso-card">
+              <div class="card-body py-3">
+                <label class="form-label form-label-modal fw-semibold">Adicionar avulso</label>
+                <p class="small text-muted mb-2">Informe a quantidade. O valor e a justificativa são preenchidos automaticamente com o preço deste motoboy.</p>
+                <div class="row g-2 align-items-end">
+                  <div class="col-md-3">
+                    <label class="form-label form-label-modal small" for="fech-avulso-qtde">Quantidade</label>
+                    <input type="number" id="fech-avulso-qtde" class="form-control form-control-sm" min="1" step="1" inputmode="numeric" placeholder="0">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label form-label-modal small">Valor unitário</label>
+                    <div class="form-control form-control-sm form-control-readonly" id="fech-avulso-unitario">R$ 0,00</div>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label form-label-modal small">Total</label>
+                    <div class="form-control form-control-sm form-control-readonly" id="fech-avulso-total">R$ 0,00</div>
+                  </div>
+                  <div class="col-md-3">
+                    <button type="button" id="btnAdicionarAvulso" class="btn btn-outline-primary btn-sm w-100" disabled>
+                      <i class="ri-add-circle-line me-1"></i> Adicionar avulso
+                    </button>
+                  </div>
+                </div>
+                <div id="fech-avulso-preview" class="small text-secondary mt-2"></div>
+                <div id="fech-avulso-msg" class="small text-danger mt-1 d-none"></div>
               </div>
             </div>
 
@@ -284,7 +315,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.min.js"></script>
     <script src="assets/js/components/date-picker-dashboard.js"></script>
     <script src="assets/js/pages/tracking-entregadores-fechamento-pdf.js"></script>
-    <script src="assets/js/pages/tracking-entregadores-resumo.init.js?v=3"></script>
+    <script src="assets/js/pages/tracking-entregadores-resumo.init.js?v=4"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>

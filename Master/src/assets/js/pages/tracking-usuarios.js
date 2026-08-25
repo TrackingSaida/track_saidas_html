@@ -231,6 +231,8 @@ function toggleMotoboySection() {
     const colUser = document.getElementById("colUser");
     const colMotoboy = document.getElementById("colMotoboy");
     const ignorarColeta = (CURRENT_USER && CURRENT_USER.ignorar_coleta) || false;
+    document.getElementById("coletaPermissaoFormGroup")?.classList.toggle("d-none", ignorarColeta);
+    document.getElementById("coletaPermissaoDetailGroup")?.classList.toggle("d-none", ignorarColeta);
 
     // Para Admin (1) e Operador (2): Username e E-mail obrigatórios com sinalização (*)
     // Para Motoboy (4): esses campos não são obrigatórios
@@ -623,7 +625,7 @@ async function openEdit(id) {
     document.getElementById("bairro").value = m.bairro || "";
     document.getElementById("cidade").value = m.cidade || "";
     document.getElementById("estado").value = m.estado || "";
-    document.getElementById("podeLerColeta").checked = !!m.pode_ler_coleta;
+    document.getElementById("podeLerColeta").checked = !!(m.pode_realizar_coleta ?? m.pode_ler_coleta);
     document.getElementById("podeLerSaida").checked = m.pode_ler_saida !== false;
     document.getElementById("podeDigitarCodigoManual").checked = !!m.pode_digitar_codigo_manual;
     const podeAvulsoEdit = document.getElementById("podeLancarAvulso");
@@ -676,7 +678,7 @@ function renderMotoboyDetail(data) {
     assign("d-bairro", m.bairro);
     assign("d-cidade", m.cidade);
     assign("d-cep", m.cep);
-    assign("d-pode-coleta", m.pode_ler_coleta ? "Sim" : "Não");
+    assign("d-pode-coleta", (m.pode_realizar_coleta ?? m.pode_ler_coleta) ? "Sim" : "Não");
     assign("d-pode-saida", m.pode_ler_saida !== false ? "Sim" : "Não");
     assign("d-pode-codigo-manual", m.pode_digitar_codigo_manual ? "Sim" : "Não");
     assign("d-pode-lancar-avulso", m.pode_lancar_avulso !== false ? "Sim" : "Não");
@@ -811,7 +813,8 @@ async function saveUser(ev) {
         payload.cidade = document.getElementById("cidade").value.trim();
         payload.estado = document.getElementById("estado").value.trim() || null;
         payload.cep = (document.getElementById("cep").value || "").replace(/\D/g, "");
-        payload.pode_ler_coleta = document.getElementById("podeLerColeta").checked;
+        payload.pode_realizar_coleta = document.getElementById("podeLerColeta").checked;
+        payload.pode_ler_coleta = payload.pode_realizar_coleta;
         payload.pode_ler_saida = document.getElementById("podeLerSaida").checked;
         payload.pode_digitar_codigo_manual = document.getElementById("podeDigitarCodigoManual").checked;
         const podeAvulsoEl = document.getElementById("podeLancarAvulso");

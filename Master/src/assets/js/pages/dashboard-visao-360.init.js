@@ -300,7 +300,7 @@
     var baseSel = document.getElementById("fifo-filtro-base");
     var mpSel = document.getElementById("fifo-filtro-marketplace");
     if (baseSel) {
-      var opts = "<option value=''>Todas as bases</option>";
+      var opts = "<option value=''>" + (typeof window.ownerTerm === "function" ? window.ownerTerm("todas_as_bases") : "Todas as bases") + "</option>";
       Object.keys(bases).sort().forEach(function (b) { opts += "<option value='" + escapeHtml(b) + "'>" + escapeHtml(b) + "</option>"; });
       baseSel.innerHTML = opts;
     }

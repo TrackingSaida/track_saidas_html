@@ -50,7 +50,7 @@
                     <i class="bx bx-calendar"></i>
                     <span id="fin-period-label">Hoje</span>
                   </button>
-                  <div class="dropdown-menu dropdown-menu-end p-0" id="fin-period-panel" style="min-width: 540px;">
+                  <div class="dropdown-menu dropdown-menu-end p-0 period-panel-sm" id="fin-period-panel">
                     <input type="hidden" id="fin-data-inicio" />
                     <input type="hidden" id="fin-data-fim" />
                     <div id="fin-date-picker-container"></div>
@@ -134,7 +134,7 @@
                   </div>
                 </div>
                 <div class="card-body">
-                  <div id="chart-evolucao-financeira" style="height: 280px;"></div>
+                  <div id="chart-evolucao-financeira" class="chart-responsive"></div>
                 </div>
               </div>
             </section>
@@ -170,7 +170,7 @@
                 <div class="col-lg-4" id="painel-base">
                   <div class="card h-100">
                     <div class="card-header">
-                      <h5 class="card-title mb-0">Ganho por Base</h5>
+                      <h5 class="card-title mb-0" data-owner-term="ganho_por_base">Ganho por Base</h5>
                       <small class="text-muted">Receita por ponto de coleta</small>
                     </div>
                     <div class="card-body">

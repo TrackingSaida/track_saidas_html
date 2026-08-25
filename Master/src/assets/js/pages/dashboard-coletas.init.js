@@ -222,7 +222,7 @@
       },
       legend: { data: ["Com coletas", "Sem coletas"], bottom: 0 },
       xAxis: { type: "category", data: dates },
-      yAxis: { type: "value", name: "Bases" },
+      yAxis: { type: "value", name: typeof window.ownerTerm === "function" ? window.ownerTerm("bases") : "Bases" },
       series: [
         { name: "Com coletas", type: "bar", data: comColetas, itemStyle: { color: "#0d6efd" } },
         { name: "Sem coletas", type: "bar", data: semColetas, itemStyle: { color: "#dc3545" } }
@@ -252,7 +252,7 @@
       var bases = c.bases_sem_coletas_lista || [];
       modalBody.innerHTML = bases.length > 0
         ? "<ul class='mb-0'>" + bases.map(function (b) { return "<li>" + escapeHtml(b) + "</li>"; }).join("") + "</ul>"
-        : "<p class='text-muted mb-0'>Nenhuma base sem coletas no período.</p>";
+        : "<p class='text-muted mb-0'>" + (typeof window.ownerTerm === "function" ? window.ownerTerm("nenhuma_base_sem_coletas") : "Nenhuma base sem coletas no período.") + "</p>";
     }
   }
 
@@ -413,16 +413,16 @@
       ["Total Coletas", c.total_coletas],
       ["Valor Total", formatMoeda(c.valor_total)],
       ["Cancelados", c.cancelados, "Taxa: " + (c.taxa_cancelamento || 0) + "%"],
-      ["Bases ativas (total)", c.bases_total_ativas ?? 0],
-      ["Bases com coletas", c.bases_com_coletas],
-      ["Bases sem coletas", c.bases_sem_coletas],
+      [(typeof window.ownerTerm === "function" ? window.ownerTerm("bases") : "Bases") + " ativas (total)", c.bases_total_ativas ?? 0],
+      [(typeof window.ownerTerm === "function" ? window.ownerTerm("bases") : "Bases") + " com coletas", c.bases_com_coletas],
+      [(typeof window.ownerTerm === "function" ? window.ownerTerm("bases") : "Bases") + " sem coletas", c.bases_sem_coletas],
       [],
       ["Shopee", c.shopee, formatMoeda(c.valor_shopee)],
       ["Mercado Livre", c.mercado_livre, formatMoeda(c.valor_mercado_livre)],
       ["Avulso", c.avulso, formatMoeda(c.valor_avulso)],
       [],
-      ["Ranking por Base"],
-      ["Base", "Coletas", "%", "Valor", "Variação"]
+      [typeof window.ownerTerm === "function" ? window.ownerTerm("ranking_por_base") : "Ranking por Base"],
+      [typeof window.ownerTerm === "function" ? window.ownerTerm("base") : "Base", "Coletas", "%", "Valor", "Variação"]
     ];
     (data.ranking_bases || []).forEach(function (r) {
       rows.push([r.nome, r.coletas, r.pct_total + "%", formatMoeda(r.valor_total), r.variacao_pct != null ? r.variacao_pct + "%" : "—"]);

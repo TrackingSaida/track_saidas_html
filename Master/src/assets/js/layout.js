@@ -10,6 +10,14 @@
     "data-sidebar-image","data-theme-colors","data-preloader"
   ].forEach(k => localStorage.removeItem(k));
 
+  /** Sidebar compacta em viewport estreita / zoom alto (área útil). */
+  function sidebarSizeForViewport() {
+    const w = window.innerWidth || document.documentElement.clientWidth || 1200;
+    if (w < 992) return "sm";
+    if (w < 1200) return "md";
+    return "lg";
+  }
+
   // 2) Aplica os atributos padrão do layout
   function applyDefaults() {
     R.setAttribute("data-bs-theme", "light");      // Color Scheme
@@ -19,7 +27,7 @@
     R.setAttribute("data-topbar", "dark");         // Topbar Color
     R.setAttribute("data-sidebar", "gradient");    // Sidebar Color (gradient)
     R.setAttribute("data-sidebar-color", "gradient-1"); // 1ª bolinha do gradient (se suportado)
-    R.setAttribute("data-sidebar-size", "lg");     // Sidebar Size (Default)
+    R.setAttribute("data-sidebar-size", sidebarSizeForViewport());
     R.setAttribute("data-theme", "default");       // Theme (Default)
     R.setAttribute("data-preloader", "disable");    // Preloader ligado (se suportado)
   }
@@ -28,6 +36,14 @@
   document.addEventListener("DOMContentLoaded", () => {
     applyDefaults();
     setTimeout(applyDefaults, 0);
+  });
+
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      R.setAttribute("data-sidebar-size", sidebarSizeForViewport());
+    }, 150);
   });
 
   // 4) Desativa qualquer input do customizer caso o HTML ainda exista

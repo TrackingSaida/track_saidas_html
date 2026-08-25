@@ -37,24 +37,23 @@
                   </div>
 
                   <div class="search-box w-100">
-                    <input type="text" id="search" class="form-control" placeholder="Buscar por base...">
+                    <input type="text" id="search" class="form-control" data-owner-term="buscar_por_base" placeholder="Buscar por base...">
                     <i class="ri-search-line search-icon"></i>
                   </div>
                 </div>
               </div>
 
               <div class="card-body">
-                <div class="bases-table-wrap" style="max-height: calc(100vh - 320px); overflow-y: auto;">
-                  <div class="table-responsive table-card">
-                    <table class="table align-middle table-nowrap" id="tbl-bases">
+                <div class="table-responsive table-card bases-table-wrap">
+                    <table class="table align-middle table-nowrap mb-0" id="tbl-bases">
                       <thead class="table-light">
                         <tr>
-                          <th style="width:56px;">Sel.</th>
+                          <th class="text-center" style="width:56px;">Sel.</th>
                           <th data-owner-term="base">Base</th>
-                          <th>Flex</th>
-                          <th>Shopee</th>
-                          <th>Avulso</th>
-                          <th style="width:110px;">Ativo</th>
+                          <th class="text-end">Flex</th>
+                          <th class="text-end">Shopee</th>
+                          <th class="text-end">Avulso</th>
+                          <th class="text-center" style="width:110px;">Ativo</th>
                         </tr>
                       </thead>
                       <tbody id="tbody-bases"></tbody>
@@ -63,7 +62,7 @@
                     <div id="empty" class="text-center text-muted py-4 d-none">
                       <lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop"
                         colors="primary:#121331,secondary:#08a88a" style="width:60px;height:60px"></lord-icon>
-                      <div class="mt-2">Nenhuma base encontrada.</div>
+                      <div class="mt-2" data-owner-term="nenhuma_base_encontrada">Nenhuma base encontrada.</div>
                     </div>
                   </div>
 
@@ -87,34 +86,37 @@
                       <small id="page-info" class="text-muted"></small>
                     </div>
                   </div>
-                </div>
               </div>
             </div>
 
-            <!-- Detalhe do Seller selecionado -->
+            <!-- Detalhe da Base/Seller selecionado -->
             <div id="seller-detail" class="card mt-3 d-none">
-              <div class="card-header d-flex align-items-center justify-content-between bg-primary bg-opacity-10 border-start border-4 border-primary">
-                <span class="fw-semibold">Dados do Seller selecionado</span>
+              <div class="card-header d-flex align-items-center justify-content-between">
+                <span class="fw-semibold" data-owner-term="dados_da_base_selecionada">Dados da Base selecionada</span>
                 <small class="text-muted" id="seller-detail-nome"></small>
               </div>
               <div class="card-body">
-                <div id="seller-detail-empty" class="text-muted">
-                  Selecione um Seller na lista acima para ver os detalhes de CNPJ e endereço.
+                <div id="seller-detail-empty" class="text-muted" data-owner-term="selecione_detalhe">
+                  Selecione uma Base na lista acima para ver os detalhes de CNPJ, endereço e PIX.
                 </div>
                 <div id="seller-detail-content" class="row g-3 d-none">
-                  <div class="col-md-6">
+                  <div class="col-md-4">
                     <label class="form-label text-primary fw-medium mb-1">CNPJ</label>
                     <div id="s-cnpj">—</div>
                   </div>
-                  <div class="col-md-6">
+                  <div class="col-md-4">
+                    <label class="form-label text-primary fw-medium mb-1">PIX</label>
+                    <div id="s-pix">—</div>
+                  </div>
+                  <div class="col-md-4">
                     <label class="form-label text-primary fw-medium mb-1">CEP</label>
                     <div id="s-cep">—</div>
                   </div>
-                  <div class="col-12">
+                  <div class="col-md-8">
                     <label class="form-label text-primary fw-medium mb-1">Endereço</label>
                     <div id="s-endereco">—</div>
                   </div>
-                  <div class="col-md-6 offset-md-6">
+                  <div class="col-md-4">
                     <label class="form-label text-primary fw-medium mb-1">Cidade / UF</label>
                     <div id="s-cidade-uf">—</div>
                   </div>
@@ -131,121 +133,145 @@
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
 
-    <!-- Offcanvas: Formulário -->
-    <div class="offcanvas offcanvas-end offcanvas-form"
-         tabindex="-1"
-         id="oc-form"
-         aria-labelledby="ocLabel"
-         style="width:480px; display:flex; flex-direction:column;"
-         data-bs-scroll="false"
-         data-bs-backdrop="true">
-      <div class="offcanvas-header border-bottom">
-        <h5 class="offcanvas-title" id="ocLabel" data-owner-term="nova_base">Nova Base</h5>
-        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
-      </div>
+    <!-- Modal: Formulário da Base -->
+    <div class="modal fade" id="oc-form" tabindex="-1" aria-labelledby="ocLabel" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="ocLabel" data-owner-term="nova_base">Nova Base</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <form id="formBase" class="needs-validation" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="baseId" />
 
-      <form id="formBase" class="needs-validation flex-grow-1 d-flex flex-column overflow-hidden" novalidate>
-        <div class="offcanvas-body overflow-auto flex-grow-1">
-          <input type="hidden" id="baseId" />
-
-          <div class="card mb-3">
-            <div class="card-header bg-light fw-semibold" data-owner-term="dados_da_base">Dados da Base</div>
-            <div class="card-body">
               <div class="row g-3">
+                <div class="col-lg-6">
+                  <div class="card h-100 mb-0">
+                    <div class="card-header bg-light fw-semibold" data-owner-term="dados_da_base">Dados da Base</div>
+                    <div class="card-body">
+                      <div class="row g-3">
+                        <div class="col-12">
+                          <label for="base" class="form-label" data-owner-term="nome_da_base">Nome da Base</label>
+                          <input type="text" id="base" class="form-control" required />
+                          <div class="invalid-feedback" data-owner-term="informe_nome_base">Informe o nome da base.</div>
+                        </div>
+                        <div class="col-md-6">
+                          <label for="flex" class="form-label">Flex</label>
+                          <input type="text" id="flex" class="form-control moeda" placeholder="R$ 0,00" required />
+                          <div class="invalid-feedback">Informe o valor Flex.</div>
+                        </div>
+                        <div class="col-md-6">
+                          <label for="shopee" class="form-label">Shopee</label>
+                          <input type="text" id="shopee" class="form-control moeda" placeholder="R$ 0,00" required />
+                          <div class="invalid-feedback">Informe o valor Shopee.</div>
+                        </div>
+                        <div class="col-md-6">
+                          <label for="avulso" class="form-label">Avulso</label>
+                          <input type="text" id="avulso" class="form-control moeda" placeholder="R$ 0,00" required />
+                          <div class="invalid-feedback">Informe o valor Avulso.</div>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                          <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="ativo" checked>
+                            <label class="form-check-label" for="ativo">Ativa</label>
+                          </div>
+                        </div>
+                        <div class="col-12">
+                          <label for="sellerPix" class="form-label">PIX para pagamento</label>
+                          <input type="text" id="sellerPix" class="form-control" placeholder="Chave PIX da operação" maxlength="140" autocomplete="off">
+                          <div class="form-text small">Opcional. É a chave que a base usa para pagar o fechamento. Aparece no comprovante.</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-6">
+                  <div class="card h-100 mb-0">
+                    <div class="card-header bg-light fw-semibold">CNPJ e endereço</div>
+                    <div class="card-body">
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <label for="sellerCnpj" class="form-label" data-owner-term="cnpj_da_entidade">CNPJ da Base</label>
+                          <input type="text" id="sellerCnpj" class="form-control" placeholder="00.000.000/0000-00">
+                          <div class="form-text small" id="sellerCnpjHelp">Opcional quando o owner for do tipo Subbase.</div>
+                        </div>
+                        <div class="col-md-6">
+                          <label for="sellerCep" class="form-label">CEP</label>
+                          <input type="text" id="sellerCep" class="form-control" placeholder="00000-000" maxlength="9" inputmode="numeric">
+                          <div class="form-text small" id="sellerCepHelp">Digite o CEP e saia do campo para preencher o endereço.</div>
+                        </div>
+                        <div class="col-md-8">
+                          <label for="sellerRua" class="form-label">Rua</label>
+                          <input type="text" id="sellerRua" class="form-control" placeholder="Nome da rua">
+                        </div>
+                        <div class="col-md-4">
+                          <label for="sellerNumero" class="form-label">Número</label>
+                          <input type="text" id="sellerNumero" class="form-control" placeholder="123">
+                        </div>
+                        <div class="col-12">
+                          <label for="sellerComplemento" class="form-label">Complemento</label>
+                          <input type="text" id="sellerComplemento" class="form-control" placeholder="Apto, sala, bloco...">
+                        </div>
+                        <div class="col-md-5">
+                          <label for="sellerBairro" class="form-label">Bairro</label>
+                          <input type="text" id="sellerBairro" class="form-control" placeholder="Ex: Centro">
+                        </div>
+                        <div class="col-md-5">
+                          <label for="sellerCidade" class="form-label">Cidade</label>
+                          <input type="text" id="sellerCidade" class="form-control" placeholder="Ex: São Paulo">
+                        </div>
+                        <div class="col-md-2">
+                          <label for="sellerEstado" class="form-label">UF</label>
+                          <input type="text" id="sellerEstado" class="form-control" maxlength="2" placeholder="UF">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="col-12">
-                  <label for="base" class="form-label" data-owner-term="nome_da_base">Nome da Base</label>
-                  <input type="text" id="base" class="form-control" required />
-                  <div class="invalid-feedback">Informe o nome da base.</div>
-                </div>
-
-                <div class="col-md-6">
-                  <label for="flex" class="form-label">Flex</label>
-                  <input type="text" id="flex" class="form-control moeda" placeholder="R$ 0,00" required />
-                  <div class="invalid-feedback">Informe o valor Flex.</div>
-                </div>
-
-                <div class="col-md-6">
-                  <label for="shopee" class="form-label">Shopee</label>
-                  <input type="text" id="shopee" class="form-control moeda" placeholder="R$ 0,00" required />
-                  <div class="invalid-feedback">Informe o valor Shopee.</div>
-                </div>
-
-                <div class="col-md-6">
-                  <label for="avulso" class="form-label">Avulso</label>
-                  <input type="text" id="avulso" class="form-control moeda" placeholder="R$ 0,00" required />
-                  <div class="invalid-feedback">Informe o valor Avulso.</div>
-                </div>
-
-                <div class="col-md-6 d-flex align-items-end">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="ativo" checked>
-                    <label class="form-check-label" for="ativo">Ativo</label>
+                  <div class="card mb-0 d-none" id="agendaColetaCard">
+                    <div class="card-header bg-light fw-semibold">Agenda de coleta</div>
+                    <div class="card-body">
+                      <label for="agendaPreset" class="form-label">Frequência</label>
+                      <select id="agendaPreset" class="form-select mb-3">
+                        <option value="1,2,3,4,5">Segunda a sexta</option>
+                        <option value="1,2,3,4,5,6" selected>Segunda a sábado</option>
+                        <option value="custom">Personalizada</option>
+                      </select>
+                      <div class="d-flex flex-wrap gap-3 mb-3" id="diasColeta">
+                        <label class="form-check"><input class="form-check-input dia-coleta" type="checkbox" value="1"> Seg</label>
+                        <label class="form-check"><input class="form-check-input dia-coleta" type="checkbox" value="2"> Ter</label>
+                        <label class="form-check"><input class="form-check-input dia-coleta" type="checkbox" value="3"> Qua</label>
+                        <label class="form-check"><input class="form-check-input dia-coleta" type="checkbox" value="4"> Qui</label>
+                        <label class="form-check"><input class="form-check-input dia-coleta" type="checkbox" value="5"> Sex</label>
+                        <label class="form-check"><input class="form-check-input dia-coleta" type="checkbox" value="6"> Sáb</label>
+                        <label class="form-check"><input class="form-check-input dia-coleta" type="checkbox" value="7"> Dom</label>
+                      </div>
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="agendaConfirmada">
+                        <label class="form-check-label" for="agendaConfirmada">Agenda revisada e confirmada</label>
+                      </div>
+                      <div class="form-text">Após confirmar, dias sem lançamento poderão bloquear o fechamento.</div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-
-          <div class="card mb-3">
-            <div class="card-header bg-light fw-semibold">Dados do Seller / Base</div>
-            <div class="card-body">
-              <div class="row g-3">
-                <div class="col-12">
-                  <label for="sellerCnpj" class="form-label">CNPJ do Seller/Base</label>
-                  <input type="text" id="sellerCnpj" class="form-control" placeholder="00.000.000/0000-00">
-                  <div class="form-text small">Obrigatório quando o Owner for do tipo Base (Seller).</div>
-                </div>
-
-                <div class="col-md-6">
-                  <label for="sellerCep" class="form-label">CEP</label>
-                  <input type="text" id="sellerCep" class="form-control" placeholder="00000-000" maxlength="9" inputmode="numeric">
-                  <div class="form-text small">Digite o CEP e saia do campo para preencher automaticamente (para Seller/Base obrigatório).</div>
-                </div>
-
-                <div class="col-md-6">
-                  <label for="sellerRua" class="form-label">Rua</label>
-                  <input type="text" id="sellerRua" class="form-control" placeholder="Nome da rua">
-                </div>
-
-                <div class="col-md-4">
-                  <label for="sellerNumero" class="form-label">Número</label>
-                  <input type="text" id="sellerNumero" class="form-control" placeholder="123">
-                </div>
-
-                <div class="col-md-8">
-                  <label for="sellerComplemento" class="form-label">Complemento</label>
-                  <input type="text" id="sellerComplemento" class="form-control" placeholder="Apto, sala, bloco...">
-                </div>
-
-                <div class="col-md-6">
-                  <label for="sellerBairro" class="form-label">Bairro</label>
-                  <input type="text" id="sellerBairro" class="form-control" placeholder="Ex: Centro">
-                </div>
-
-                <div class="col-md-4">
-                  <label for="sellerCidade" class="form-label">Cidade</label>
-                  <input type="text" id="sellerCidade" class="form-control" placeholder="Ex: São Paulo">
-                </div>
-
-                <div class="col-md-2">
-                  <label for="sellerEstado" class="form-label">Estado</label>
-                  <input type="text" id="sellerEstado" class="form-control" maxlength="2" placeholder="UF">
-                </div>
-              </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-primary" id="btnSalvar">Salvar</button>
             </div>
-          </div>
+          </form>
         </div>
-
-        <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body flex-shrink-0">
-          <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
-          <button type="submit" class="btn btn-primary" id="btnSalvar">Salvar</button>
-        </div>
-      </form>
+      </div>
     </div>
 
     <!-- Modal de exclusão -->
     <div class="modal fade" id="modalDelete" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-body text-center p-4">
             <lord-icon src="https://cdn.lordicon.com/gsqxdxog.json" trigger="loop"
@@ -273,7 +299,7 @@
       });
     </script>
 
-    <script src="assets/js/pages/tracking-base.init.js?v=1"></script>
+    <script src="assets/js/pages/tracking-base.init.js?v=2"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>

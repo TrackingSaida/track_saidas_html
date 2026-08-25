@@ -1,6 +1,7 @@
 /* =================== Config =================== */
 (function checkIgnorarColeta() {
-  if (window.IGNORAR_COLETA === true || localStorage.getItem("ignorar_coleta") === "1") {
+  const modoColeta = window.__USER__?.modo_operacao || window.MODO_OPERACAO || "codigo";
+  if (window.IGNORAR_COLETA === true || localStorage.getItem("ignorar_coleta") === "1" || !["codigo", "ambos"].includes(modoColeta)) {
     window.location.replace("dashboard-saidas.html");
     return;
   }
@@ -161,7 +162,8 @@ async function carregarBases() {
   }
   const r = await fetch(url, { credentials: "include" });
   if (!r.ok) {
-    const msg = r.status === 401 ? "Faça login para carregar as bases." : (r.status === 403 ? "Sem permissão para listar bases." : `Falha ao carregar bases (${r.status}).`);
+    const entidade = typeof window.ownerTerm === "function" ? window.ownerTerm("bases_lower") : "bases";
+    const msg = r.status === 401 ? `Faça login para carregar ${entidade}.` : (r.status === 403 ? `Sem permissão para listar ${entidade}.` : `Falha ao carregar ${entidade} (${r.status}).`);
     throw new Error(msg);
   }
   const data = await r.json();
@@ -560,7 +562,7 @@ function registrarCodigo() {
   const baseSel = qs("#selBase")?.value;
   const codRaw = qs("#codigo")?.value;
 
-  if (!baseSel) return toast("Selecione a base antes de registrar.", false);
+  if (!baseSel) return toast(typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_base_antes_registrar") : "Selecione a base antes de registrar.", false);
   if (!codRaw) return toast("Informe ou escaneie um código.", false);
 
   const parsed = classifyCodigo(codRaw);
@@ -629,7 +631,7 @@ enviarColetaUnica(novoItem, entId);
 
 /* 🆕 Reenvio manual dos pendentes */
 async function reenviarPendentes() {
-  if (!BASE_ATUAL) return toast("Selecione uma base antes de reenviar.", false);
+  if (!BASE_ATUAL) return toast(typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_base_antes_reenviar") : "Selecione uma base antes de reenviar.", false);
 
   const pendentes = COLETAS.filter(c => ["pendente", "erro"].includes(c.status));
   if (!pendentes.length)
@@ -684,10 +686,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       '<option value="" disabled selected>Selecione...</option>' +
       list.map(b => `<option value="${(b.base != null ? b.base : b).toString()}">${(b.base != null ? b.base : b).toString()}</option>`).join("");
     if (list.length === 0) {
-      toast("Nenhuma base ativa cadastrada. Cadastre uma base para registrar coletas.", false);
+      toast(typeof window.ownerTerm === "function" ? window.ownerTerm("nenhuma_base_ativa") : "Nenhuma base ativa cadastrada. Cadastre uma base para registrar coletas.", false);
     }
   } catch (err) {
-    const msg = err && err.message ? err.message : "Falha ao carregar bases.";
+    const msg = err && err.message ? err.message : (typeof window.ownerTerm === "function" ? window.ownerTerm("falha_carregar_bases") : "Falha ao carregar bases.");
     toast(msg, false);
     sel.innerHTML = '<option value="" disabled selected>Selecione...</option>';
   }
@@ -1002,7 +1004,7 @@ if (res?.sucesso) {
 
     const baseSel = qs("#selBase")?.value;
     if (!baseSel) {
-      showMsg("alerta", "Selecione a base");
+      showMsg("alerta", typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_a_base_toast") : "Selecione a base");
       Sound.play("warn");
       scanLocked = false;
       return;
@@ -1063,7 +1065,7 @@ if (duplicado) {
         BASE_ATUAL = null;
         STORAGE_KEY = null;
 
-        toast("Selecione a base novamente (inatividade).", false);
+        toast(typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_base_inatividade") : "Selecione a base novamente (inatividade).", false);
         console.warn("⏳ Base resetada por inatividade");
       }
     }, TEMPO_INATIVIDADE_MS);

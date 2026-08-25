@@ -181,8 +181,8 @@
                                 <label class="form-label text-primary fw-medium mb-1">CEP</label>
                                 <div id="d-cep">—</div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label text-primary fw-medium mb-1">Pode ler Coletas</label>
+                            <div class="col-md-6" id="coletaPermissaoDetailGroup">
+                                <label class="form-label text-primary fw-medium mb-1">Pode realizar Coletas</label>
                                 <div id="d-pode-coleta">—</div>
                             </div>
                             <div class="col-md-6">
@@ -236,8 +236,8 @@
 </style>
 
 <!-- ===================== OFFCANVAS (CREATE/EDIT) ===================== -->
-<div class="offcanvas offcanvas-end offcanvas-form" tabindex="-1" id="oc-user" aria-labelledby="ocLabel"
-     style="width:900px; display: flex; flex-direction: column;" data-bs-backdrop="true">
+<div class="offcanvas offcanvas-end offcanvas-form offcanvas-form--w900" tabindex="-1" id="oc-user" aria-labelledby="ocLabel"
+     style="display: flex; flex-direction: column;" data-bs-backdrop="true">
 
     <div class="offcanvas-header border-bottom flex-shrink-0">
         <h5 class="offcanvas-title" id="ocLabel">Novo Usuário</h5>
@@ -391,11 +391,11 @@
                                 <input type="text" id="estado" class="form-control" maxlength="2" placeholder="UF">
                             </div>
                         </div>
-                        <div class="col-6">
+                        <div class="col-6" id="coletaPermissaoFormGroup">
                             <div class="mb-3">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="podeLerColeta">
-                                    <label class="form-check-label" for="podeLerColeta">Pode ler Coletas</label>
+                                    <label class="form-check-label" for="podeLerColeta">Pode realizar Coletas</label>
                                 </div>
                             </div>
                         </div>
