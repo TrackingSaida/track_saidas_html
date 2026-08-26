@@ -727,6 +727,13 @@ function augmentEntregadoresFromRows(rows){
     } catch (_) { return false; }
   }
 
+  function canReverterCancelado(){
+    try {
+      var role = (window.__USER__ && window.__USER__.role != null) ? Number(window.__USER__.role) : null;
+      return role === 0 || role === 1;
+    } catch (_) { return false; }
+  }
+
   function renderTable(rows){
     if (!tblBody) return;
     if (!rows?.length){
@@ -1471,6 +1478,7 @@ function setupPagerEvents() {
       var podeLiberar = canEditG() && bloqueadoAusencias;
       var statusJaCancelado = statusLower === "cancelado";
       var podeCancelar = canEditG() && !statusJaCancelado;
+      var podeReverterCancelado = canReverterCancelado() && statusJaCancelado;
       var entregador = formatPersonName(saida.entregador);
       var entregueEv = historico.filter(function(h) { return (h.evento || "").toLowerCase() === "entregue" || (h.status_novo || "").toLowerCase() === "entregue"; }).pop();
       var ausenteEv = historico.filter(function(h) {
@@ -1531,13 +1539,16 @@ function setupPagerEvents() {
         ? '<span class="badge bg-danger ms-2 align-middle">Bloqueado por ausências</span>'
         : "";
       var acoesHtml = "";
-      if (podeLiberar || podeCancelar || hasPhotos) {
+      if (podeLiberar || podeCancelar || podeReverterCancelado || hasPhotos) {
         acoesHtml = '<div class="pedido-actions d-flex flex-wrap gap-2 mt-3 mb-2">';
         if (podeLiberar) {
           acoesHtml += '<button type="button" class="btn btn-sm btn-warning" id="btn-liberar-nova-tentativa">Liberar nova tentativa</button>';
         }
         if (podeCancelar) {
           acoesHtml += '<button type="button" class="btn btn-sm btn-outline-danger" id="btn-cancelar-pedido">Cancelar pedido</button>';
+        }
+        if (podeReverterCancelado) {
+          acoesHtml += '<button type="button" class="btn btn-sm btn-outline-warning" id="btn-reverter-cancelamento">Reverter cancelamento</button>';
         }
         if (hasPhotos) {
           acoesHtml += '<button type="button" class="btn btn-sm btn-outline-primary" id="btn-export-comprovante">Baixar / compartilhar comprovante</button>';
@@ -1600,6 +1611,13 @@ function setupPagerEvents() {
             if (typeof refresh === "function") refresh(true);
             openDetailPanel(idSaida);
           }
+        });
+      }
+      var btnReverter = document.getElementById("btn-reverter-cancelamento");
+      if (btnReverter) {
+        btnReverter.addEventListener("click", function() {
+          closeDetailPanel();
+          openEditModal(idSaida);
         });
       }
       var btnExport = document.getElementById("btn-export-comprovante");
@@ -1995,6 +2013,23 @@ function setupPagerEvents() {
         : "Alterar o motoboy também mudará o status para \"Saiu para entrega\".";
     }
 
+    var editCanceladoHint = document.getElementById("edit-cancelado-hint");
+    var isCanceladoAtual = uiStatus === "Cancelado";
+    var podeReverter = canReverterCancelado();
+    if (editCanceladoHint) {
+      if (isCanceladoAtual) {
+        editCanceladoHint.classList.remove("d-none");
+        editCanceladoHint.textContent = podeReverter
+          ? "Este pedido está cancelado. Altere o status para reverter o cancelamento."
+          : "Pedido cancelado. Apenas root ou admin podem reverter o cancelamento.";
+      } else {
+        editCanceladoHint.classList.add("d-none");
+      }
+    }
+    if (eSta) eSta.disabled = isCanceladoAtual && !podeReverter;
+    if (eMotoboy) eMotoboy.disabled = isCanceladoAtual && !podeReverter;
+    if (eSrv) eSrv.disabled = isCanceladoAtual && !podeReverter;
+
     eSta?.dispatchEvent(new Event("change"));
     editInitialState = {
       motoboy: eMotoboy?.value || "",
@@ -2019,6 +2054,10 @@ function setupPagerEvents() {
 
   function updateEditSaveState(){
     if (!btnSave) return;
+    if (editInitialState && editInitialState.status === "Cancelado" && !canReverterCancelado()) {
+      btnSave.disabled = true;
+      return;
+    }
     btnSave.disabled = !isEditChanged();
   }
 
@@ -2074,6 +2113,7 @@ function setupPagerEvents() {
       var motoboyChanged = (eMotoboy?.value || "") !== (editInitialState?.motoboy || "");
       var statusChanged = (eSta?.value || "") !== (editInitialState?.status || "");
       var cohortEntregue = (editInitialState?.status || "") === "Entregue";
+      var cohortCancelado = (editInitialState?.status || "") === "Cancelado";
 
       var payload = {
         codigo:     eCod.value,
@@ -2102,7 +2142,10 @@ function setupPagerEvents() {
 
       var confirmMsg = "Campos alterados: " + (camposAlterados.length ? camposAlterados.join(", ") : "nenhum");
       var confirmTitle = "Confirmar alterações";
-      if (cohortEntregue && eSta?.value === "Cancelado" && statusChanged) {
+      if (cohortCancelado && eSta?.value !== "Cancelado" && statusChanged) {
+        confirmTitle = "Reverter cancelamento";
+        confirmMsg = "Este pedido está cancelado. Deseja reverter o cancelamento e alterar o status?\n\n" + confirmMsg;
+      } else if (cohortEntregue && eSta?.value === "Cancelado" && statusChanged) {
         confirmTitle = "Cancelar pedido entregue";
         confirmMsg = "Este pedido já foi entregue. Deseja cancelar?\n\n" + confirmMsg;
       } else if (cohortEntregue && motoboyChanged && !statusChanged) {
@@ -2297,6 +2340,9 @@ function setupPagerEvents() {
       var ids = bulkCurrentIds.length ? bulkCurrentIds : getSelectedIds();
       if (!ids.length) return;
       if (!hasBulkChanges()) return notify("Nada para aplicar.", "info");
+      if (bulkCurrentCohortStatus === "cancelado" && !canReverterCancelado()) {
+        return notify("Pedido cancelado. Apenas root ou admin podem reverter o cancelamento.", "warning");
+      }
 
       function mapStatusToApi(v){
         return (
@@ -2331,7 +2377,10 @@ function setupPagerEvents() {
 
       var bulkConfirmTitle = "Confirmar alterações em lote";
       var bulkConfirmMsg = "Aplicar alterações em " + ids.length + " registros?\nCampos: " + campos.join(", ");
-      if (bulkCurrentCohortStatus === "entregue" && bulkStatus?.value === "Cancelado") {
+      if (bulkCurrentCohortStatus === "cancelado" && bulkStatus?.value && bulkStatus.value !== "Cancelado") {
+        bulkConfirmTitle = "Reverter cancelamento em lote";
+        bulkConfirmMsg = "Reverter o cancelamento de " + ids.length + " pedidos?\n\n" + bulkConfirmMsg;
+      } else if (bulkCurrentCohortStatus === "entregue" && bulkStatus?.value === "Cancelado") {
         bulkConfirmTitle = "Cancelar pedidos entregues";
         bulkConfirmMsg = "Cancelar " + ids.length + " pedidos já entregues?\n\n" + bulkConfirmMsg;
       } else if (bulkCurrentCohortStatus === "entregue" && bulkMotoboy?.value && !bulkStatus?.value) {
