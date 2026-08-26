@@ -103,33 +103,6 @@ function normalizeNomeKey(nome){
     .toLowerCase();
 }
 
-function parseCodigoFromBusca(rawInput){
-  const normalized = normalizeCodigoForFilter(rawInput);
-  if (!normalized) return null;
-
-  const codigo = String(normalized).toUpperCase().trim();
-  if (!codigo) return null;
-
-  // Evita classificar nomes/frases como código.
-  if (/\s/.test(codigo)) return null;
-
-  if (/^BR(\d{13}|\d{12}[A-Z])$/i.test(codigo)) return codigo;
-  if (/^4[5-9]\d{10}$/.test(codigo)) return codigo;
-  if (/^LM[\w\d-]{4,}$/i.test(codigo)) return codigo;
-
-  // Códigos avulsos costumam ser alfanuméricos sem espaços.
-  if (/^[A-Z0-9][A-Z0-9-]{7,}$/.test(codigo) && /\d/.test(codigo)) return codigo;
-
-  // Fallback para QR/câmera: token único longo o bastante para ser código operacional.
-  // Sem isso, a busca cai em localizar+ILIKE no D-15 (muito lento no celular).
-  if (/^[A-Z0-9][A-Z0-9._-]{5,}$/.test(codigo) && (/\d/.test(codigo) || codigo.length >= 10)) {
-    return codigo;
-  }
-
-  return null;
-}
-
-
   // ================== Classificação de código ==================
   function toAsciiDigits(str){
     return String(str || "").replace(/[\u0660-\u0669\u06F0-\u06F9]/g, function(d){
@@ -412,8 +385,11 @@ function augmentEntregadoresFromRows(rows){
   const de  = (from && from.trim()) ? from.trim() : "";
   const ate = (to && to.trim()) ? to.trim() : (de ? de : "");
 
-  const codigoBusca = parseCodigoFromBusca(localizar)
-    || (state.forceCodigoExato ? String(state.forceCodigoExato).toUpperCase().trim() : null);
+  // Scan da câmera: código completo/exato.
+  // Digitação no campo Localizar: contém (ILIKE), senão fragmento não encontra o pedido.
+  const codigoBusca = state.forceCodigoExato
+    ? String(state.forceCodigoExato).toUpperCase().trim()
+    : null;
 
   const params = {
     de,
@@ -438,8 +414,9 @@ function augmentEntregadoresFromRows(rows){
     params.somente_g = true;
   }
 
-  // Apenas busca por código deve ignorar período para permitir histórico completo.
-  if (codigoBusca) {
+  // Digitação no Localizar não restringe período, para fragmento achar pedido antigo.
+  const temBuscaLocalizar = !!localizar && !codigoBusca;
+  if (codigoBusca || temBuscaLocalizar) {
     delete params.de;
     delete params.ate;
   }
