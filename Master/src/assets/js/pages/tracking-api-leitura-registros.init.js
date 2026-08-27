@@ -143,6 +143,54 @@
     return fetchPromise;
   };
 
+  window.TrackAPI.exportSaidas = async function (payload) {
+    const EXPORT_TIMEOUT_MS = 120000;
+    try {
+      const ac = new AbortController();
+      const to = setTimeout(function () { ac.abort(); }, EXPORT_TIMEOUT_MS);
+      let res;
+      try {
+        res = await req("/saidas/exportar", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, text/csv, application/json"
+          },
+          body: JSON.stringify(payload || {}),
+          signal: ac.signal
+        });
+      } finally {
+        clearTimeout(to);
+      }
+
+      if (!res.ok) {
+        let data = null;
+        try { data = await res.json(); } catch (_) {}
+        const detail = data && data.detail;
+        const error = (typeof detail === "string" && detail.trim())
+          ? detail.trim()
+          : (detail && typeof detail === "object" && detail.message)
+            ? String(detail.message)
+            : (data && (data.message || data.error)) || "Não foi possível exportar os registros.";
+        return { ok: false, status: res.status, error: error };
+      }
+
+      const blob = await res.blob();
+      const dispo = res.headers.get("Content-Disposition") || res.headers.get("content-disposition") || "";
+      let filename = "";
+      const quoted = dispo.match(/filename="([^"]+)"/i);
+      const plain = dispo.match(/filename=([^;]+)/i);
+      if (quoted) filename = quoted[1];
+      else if (plain) filename = String(plain[1] || "").trim();
+      return { ok: true, status: res.status, blob: blob, filename: filename };
+    } catch (err) {
+      const msg = err && err.name === "AbortError"
+        ? "A exportação demorou demais. Restrinja os filtros e tente novamente."
+        : String((err && err.message) || err || "Não foi possível exportar os registros.");
+      return { ok: false, status: 0, error: msg };
+    }
+  };
+
   // Timeout para POST /saidas/ler: não adiciona delay em respostas normais; só aborta se travar (rede/servidor).
   const LER_SAIDA_TIMEOUT_MS = 10000; // 10s
 

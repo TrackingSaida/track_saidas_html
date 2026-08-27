@@ -222,6 +222,9 @@
                       </div>
                     </div>
                   </div>
+                  <button id="btnExportarRegistros" class="btn btn-outline-secondary" type="button" title="Exportar registros filtrados">
+                    <i class="ri-download-2-line me-1"></i> Exportar
+                  </button>
                 </div>
               </div>
 
@@ -741,6 +744,95 @@
       <div class="modal-footer border-0 bg-light-subtle">
         <button class="btn btn-ghost-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
         <button id="bulk-apply" class="btn btn-primary px-4" disabled>Aplicar alterações</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="exportRegistrosModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header p-3 bg-primary-subtle">
+        <h5 class="modal-title">Exportar registros</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <p id="export-registros-count" class="mb-3">Serão exportados 0 registros, conforme os filtros atuais.</p>
+        <div id="export-registros-empty" class="alert alert-warning py-2 px-3 small d-none">
+          Não há registros para exportar com os filtros atuais.
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Formato</label>
+          <div class="d-flex flex-wrap gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="export-formato" id="export-formato-xlsx" value="xlsx" checked>
+              <label class="form-check-label" for="export-formato-xlsx">Planilha Excel (XLSX)</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="export-formato" id="export-formato-csv" value="csv">
+              <label class="form-check-label" for="export-formato-csv">CSV</label>
+            </div>
+          </div>
+        </div>
+        <div class="mb-1">
+          <label class="form-label fw-semibold mb-2">Colunas</label>
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="export-col-todas" checked>
+            <label class="form-check-label" for="export-col-todas">Todas as colunas</label>
+          </div>
+          <div id="export-colunas-list" class="d-flex flex-column gap-1 ps-1">
+            <div class="form-check">
+              <input class="form-check-input export-col-item" type="checkbox" id="export-col-codigo" value="codigo" checked>
+              <label class="form-check-label" for="export-col-codigo">Código</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input export-col-item" type="checkbox" id="export-col-servico" value="servico" checked>
+              <label class="form-check-label" for="export-col-servico">Serviço</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input export-col-item" type="checkbox" id="export-col-status" value="status" checked>
+              <label class="form-check-label" for="export-col-status">Status</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input export-col-item" type="checkbox" id="export-col-acao" value="acao" checked>
+              <label class="form-check-label" for="export-col-acao">Última ação</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input export-col-item" type="checkbox" id="export-col-entregador" value="entregador" checked>
+              <label class="form-check-label" for="export-col-entregador">Motoboy</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input export-col-item" type="checkbox" id="export-col-data-hora-acao" value="data_hora_acao" checked>
+              <label class="form-check-label" for="export-col-data-hora-acao">Horário da ação</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input export-col-item" type="checkbox" id="export-col-timestamp" value="timestamp" checked>
+              <label class="form-check-label" for="export-col-timestamp">Entrada no sistema</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input export-col-item" type="checkbox" id="export-col-executado-por" value="executado_por" checked>
+              <label class="form-check-label" for="export-col-executado-por">Executado por</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input export-col-item" type="checkbox" id="export-col-base" value="base" checked>
+              <label class="form-check-label" for="export-col-base" data-owner-term="base">Base</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input export-col-item" type="checkbox" id="export-col-g" value="is_grande" checked>
+              <label class="form-check-label" for="export-col-g">G</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0 bg-light-subtle">
+        <button type="button" class="btn btn-ghost-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="btnExportarRegistrosConfirmar" class="btn btn-primary px-4">
+          <span class="export-btn-label">Exportar</span>
+          <span class="export-btn-loading d-none">
+            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+            Gerando arquivo...
+          </span>
+        </button>
       </div>
     </div>
   </div>

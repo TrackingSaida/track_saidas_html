@@ -224,7 +224,8 @@ function normalizeNomeKey(nome){
     rows: [],
     hasMore: false,
     // Após scan pela câmera: força GET codigo_exato sem D-15 (evita ILIKE lento).
-    forceCodigoExato: null
+    forceCodigoExato: null,
+    lastExportFilters: null
   };
   var loadingState = {
     active: false,
@@ -883,6 +884,8 @@ function setupPagerEvents() {
     if (btnFiltroLimpar) btnFiltroLimpar.disabled = !!show;
     if (btnFiltroCancelar) btnFiltroCancelar.disabled = !!show;
     if (btnFiltrosIcon) btnFiltrosIcon.disabled = !!show;
+    var btnExportarRegistros = document.getElementById("btnExportarRegistros");
+    if (btnExportarRegistros) btnExportarRegistros.disabled = !!show;
     if (periodBtnReg) periodBtnReg.disabled = !!show;
     if (f.localizar) f.localizar.disabled = !!show;
     if (fltBase) fltBase.disabled = !!show;
@@ -923,6 +926,12 @@ function setupPagerEvents() {
     ensureUserForG()
       .then(function() {
         const params = readFilters();
+        var exportFilters = {};
+        Object.keys(params).forEach(function (k) {
+          if (k === "limit" || k === "offset" || k === "sort") return;
+          exportFilters[k] = params[k];
+        });
+        state.lastExportFilters = exportFilters;
         params.limit = state.pageSize;
         params.offset = (state.page - 1) * state.pageSize;
         return TrackAPI.listSaidas(params);
@@ -2550,6 +2559,161 @@ function setupPagerEvents() {
   }
   if (btnFiltroCancelar) {
     btnFiltroCancelar.onclick = fecharDropdownFiltros;
+  }
+
+  // =====================================================================
+  // Exportar registros (conjunto filtrado)
+  // =====================================================================
+  var EXPORT_MAX_REGISTROS = 10000;
+  var btnExportarRegistros = document.getElementById("btnExportarRegistros");
+  var exportModalEl = document.getElementById("exportRegistrosModal");
+  var exportCountEl = document.getElementById("export-registros-count");
+  var exportEmptyEl = document.getElementById("export-registros-empty");
+  var exportAllCols = document.getElementById("export-col-todas");
+  var exportColItems = qsa("#export-colunas-list .export-col-item");
+  var btnExportarConfirmar = document.getElementById("btnExportarRegistrosConfirmar");
+  var exportModalInstance = null;
+  var exportBusy = false;
+
+  function formatIntegerPt(n) {
+    try {
+      return Number(n || 0).toLocaleString("pt-BR");
+    } catch (_) {
+      return String(n || 0);
+    }
+  }
+
+  function defaultExportFilename(formato) {
+    var d = new Date();
+    var pad = function (v) { return String(v).padStart(2, "0"); };
+    var stamp = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "_" + pad(d.getHours()) + pad(d.getMinutes());
+    return "registros_" + stamp + "." + (formato === "xlsx" ? "xlsx" : "csv");
+  }
+
+  function selectedExportColumns() {
+    return exportColItems.filter(function (el) { return el.checked; }).map(function (el) { return el.value; });
+  }
+
+  function syncExportAllCheckbox() {
+    if (!exportAllCols) return;
+    exportAllCols.checked = exportColItems.length > 0 && exportColItems.every(function (el) { return el.checked; });
+  }
+
+  function setExportBusy(busy) {
+    exportBusy = !!busy;
+    if (btnExportarConfirmar) {
+      var totalNow = Number(state.total || 0);
+      btnExportarConfirmar.disabled = !!busy || totalNow <= 0 || totalNow > EXPORT_MAX_REGISTROS;
+    }
+    var label = btnExportarConfirmar && btnExportarConfirmar.querySelector(".export-btn-label");
+    var loading = btnExportarConfirmar && btnExportarConfirmar.querySelector(".export-btn-loading");
+    if (label) label.classList.toggle("d-none", !!busy);
+    if (loading) loading.classList.toggle("d-none", !busy);
+    if (exportModalEl) {
+      qsa("#exportRegistrosModal input").forEach(function (el) { el.disabled = !!busy; });
+    }
+  }
+
+  function openExportModal() {
+    if (loadingState.active) return;
+    var total = Number(state.total || 0);
+    if (exportCountEl) {
+      exportCountEl.textContent = "Serão exportados " + formatIntegerPt(total) + " registros, conforme os filtros atuais.";
+    }
+    if (exportEmptyEl) {
+      var tooMany = total > EXPORT_MAX_REGISTROS;
+      exportEmptyEl.classList.toggle("d-none", total > 0 && !tooMany);
+      if (total <= 0) {
+        exportEmptyEl.textContent = "Não há registros para exportar com os filtros atuais.";
+      } else if (tooMany) {
+        exportEmptyEl.textContent = "Há mais de 10.000 registros. Restrinja o período ou os filtros para exportar.";
+      }
+    }
+    if (btnExportarConfirmar) {
+      btnExportarConfirmar.disabled = total <= 0 || total > EXPORT_MAX_REGISTROS;
+    }
+    if (exportAllCols) exportAllCols.checked = true;
+    exportColItems.forEach(function (el) { el.checked = true; });
+    var xlsxRadio = document.getElementById("export-formato-xlsx");
+    if (xlsxRadio) xlsxRadio.checked = true;
+    if (exportModalEl && window.bootstrap && bootstrap.Modal) {
+      exportModalInstance = bootstrap.Modal.getOrCreateInstance(exportModalEl);
+      exportModalInstance.show();
+    }
+  }
+
+  function downloadBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename || "registros.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  if (exportAllCols) {
+    exportAllCols.addEventListener("change", function () {
+      var checked = !!exportAllCols.checked;
+      exportColItems.forEach(function (el) { el.checked = checked; });
+    });
+  }
+  exportColItems.forEach(function (el) {
+    el.addEventListener("change", syncExportAllCheckbox);
+  });
+
+  if (btnExportarRegistros) {
+    btnExportarRegistros.addEventListener("click", openExportModal);
+  }
+
+  if (btnExportarConfirmar) {
+    btnExportarConfirmar.addEventListener("click", function () {
+      if (exportBusy) return;
+      var total = Number(state.total || 0);
+      if (total <= 0) {
+        notify("Não há registros para exportar com os filtros atuais.", "warning");
+        return;
+      }
+      if (total > EXPORT_MAX_REGISTROS) {
+        notify("Há mais de 10.000 registros. Restrinja o período ou os filtros para exportar.", "warning");
+        return;
+      }
+      var colunas = selectedExportColumns();
+      if (!colunas.length) {
+        notify("Selecione pelo menos uma coluna.", "warning");
+        return;
+      }
+      var formatoEl = document.querySelector("#exportRegistrosModal input[name='export-formato']:checked");
+      var formato = (formatoEl && formatoEl.value) || "xlsx";
+      if (!window.TrackAPI || typeof TrackAPI.exportSaidas !== "function") {
+        notify("Não foi possível exportar os registros.", "error");
+        return;
+      }
+      if (!state.lastExportFilters) {
+        notify("Aguarde o carregamento dos registros.", "warning");
+        return;
+      }
+      var body = Object.assign({}, state.lastExportFilters);
+      body.formato = formato;
+      body.colunas = colunas;
+      setExportBusy(true);
+      TrackAPI.exportSaidas(body)
+        .then(function (res) {
+          if (!res || !res.ok) {
+            notify((res && res.error) || "Não foi possível exportar os registros.", "error");
+            return;
+          }
+          downloadBlob(res.blob, res.filename || defaultExportFilename(formato));
+          if (exportModalInstance) exportModalInstance.hide();
+        })
+        .catch(function () {
+          notify("Não foi possível exportar os registros.", "error");
+        })
+        .finally(function () {
+          setExportBusy(false);
+        });
+    });
   }
 
   // =====================================================================
