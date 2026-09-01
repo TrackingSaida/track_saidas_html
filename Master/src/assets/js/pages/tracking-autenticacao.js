@@ -180,8 +180,16 @@ async function loadSellers() {
         emptyEl.classList.add("d-none");
 
         const platformLabel = { mercado_livre: "Mercado Livre", shopee: "Shopee" };
-        const statusLabel = { conectado: "Conectado", expirado: "Expirado" };
-        const statusClass = { conectado: "success", expirado: "warning" };
+        const statusLabel = {
+            conectado: "Conectado",
+            expirado: "Expirado",
+            requer_reautorizacao: "Requer nova autorização",
+        };
+        const statusClass = {
+            conectado: "success",
+            expirado: "warning",
+            requer_reautorizacao: "danger",
+        };
 
         merged.forEach(row => {
             const id = row.user_id_ml != null ? row.user_id_ml : row.shop_id;
