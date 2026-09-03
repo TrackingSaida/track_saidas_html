@@ -176,6 +176,14 @@
     setText("card-entrada-shopee-qty", shopee ? (shopee.qty ?? 0) : 0);
     setText("card-entrada-ml-qty", ml ? (ml.qty ?? 0) : 0);
     setText("card-entrada-avulso-qty", avulso ? (avulso.qty ?? 0) : 0);
+
+    const naBaseItems = e.ainda_na_base_por_marketplace || [];
+    const nbShopee = naBaseItems.find(function (x) { return x.nome === "Shopee"; });
+    const nbMl = naBaseItems.find(function (x) { return x.nome === "Mercado Livre"; });
+    const nbAvulso = naBaseItems.find(function (x) { return x.nome === "Avulso"; });
+    setText("card-nabase-shopee-qty", nbShopee ? (nbShopee.qty ?? 0) : 0);
+    setText("card-nabase-ml-qty", nbMl ? (nbMl.qty ?? 0) : 0);
+    setText("card-nabase-avulso-qty", nbAvulso ? (nbAvulso.qty ?? 0) : 0);
   }
 
   function renderCancelamentos(data) {
