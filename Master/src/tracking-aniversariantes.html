@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-br" data-layout="vertical" data-topbar="dark" data-sidebar="dark" data-sidebar-size="lg">
+
+<head>
+    @@include("partials/title-meta.html", {"title": "Aniversariantes"})
+    @@include("partials/head-css.html")
+    <link href="assets/css/aniversariantes-rotevo.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+
+<div id="layout-wrapper">
+
+    @@include("partials/menu.html")
+
+    <div class="main-content">
+        <div class="page-content">
+            <div class="container-fluid">
+
+                @@include("partials/page-title.html", {"pagetitle": "Cadastros", "title": "Aniversariantes", "withSubtitle": false, "ownerTerm": ""})
+
+                <div class="aniv-page" id="anivPage">
+                    <div class="aniv-confetti" aria-hidden="true"></div>
+
+                    <div class="aniv-hero card border-0 mb-3">
+                        <div class="card-body aniv-hero-body">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                <div>
+                                    <div class="aniv-brand mb-1">
+                                        <img src="assets/images/logo_rotevo.png" alt="Rotevo" class="aniv-logo" />
+                                        <span class="rv-brand-name">ROT<span class="rv-e">E</span>VO</span>
+                                    </div>
+                                    <h4 class="aniv-title mb-1">Aniversariantes</h4>
+                                    <p class="aniv-subtitle mb-0">Celebre a equipe — prepare o quadro do mês</p>
+                                </div>
+                                <div class="aniv-balloon" aria-hidden="true"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card aniv-toolbar-card mb-3">
+                        <div class="card-body py-3">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                <div class="d-flex flex-wrap align-items-center gap-3">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <label class="form-label mb-0 text-nowrap" for="filtroMes">Mês</label>
+                                        <select id="filtroMes" class="form-select form-select-sm" style="width: auto; min-width: 140px;">
+                                            <option value="1">Janeiro</option>
+                                            <option value="2">Fevereiro</option>
+                                            <option value="3">Março</option>
+                                            <option value="4">Abril</option>
+                                            <option value="5">Maio</option>
+                                            <option value="6">Junho</option>
+                                            <option value="7">Julho</option>
+                                            <option value="8">Agosto</option>
+                                            <option value="9">Setembro</option>
+                                            <option value="10">Outubro</option>
+                                            <option value="11">Novembro</option>
+                                            <option value="12">Dezembro</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" id="verAnoTodo">
+                                        <label class="form-check-label" for="verAnoTodo">Ver ano todo</label>
+                                    </div>
+                                </div>
+
+                                <div class="dropdown">
+                                    <button class="btn btn-primary dropdown-toggle" type="button" id="btnImprimir" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="ri-printer-line align-bottom me-1"></i> Imprimir
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="btnImprimir">
+                                        <li><button class="dropdown-item" type="button" id="printMesAtual">Mês atual</button></li>
+                                        <li><button class="dropdown-item" type="button" id="printOutroMes">Outro mês…</button></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><button class="dropdown-item" type="button" id="printAnual">Anual</button></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="anivLoading" class="text-center text-muted py-5">Carregando aniversariantes…</div>
+                    <div id="anivError" class="alert alert-danger d-none" role="alert"></div>
+                    <div id="anivEmptyGeral" class="aniv-empty-geral d-none">
+                        <p class="mb-0">Nenhum aniversariante cadastrado. Preencha a data de nascimento em Usuários.</p>
+                    </div>
+
+                    <div id="anivViewMes" class="aniv-view-mes d-none"></div>
+                    <div id="anivViewAno" class="aniv-grid d-none"></div>
+                </div>
+
+                <!-- Área exclusiva de impressão -->
+                <div id="anivPrintRoot" class="aniv-print-root" aria-hidden="true"></div>
+
+            </div>
+        </div>
+        @@include("partials/footer.html")
+    </div>
+</div>
+
+@@include("partials/vendor-scripts.html")
+<script>
+  if (!window.TRACK_API_URL) window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+</script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/pages/tracking-aniversariantes.js"></script>
+
+</body>
+</html>

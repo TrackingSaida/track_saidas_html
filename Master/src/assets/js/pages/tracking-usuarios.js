@@ -38,6 +38,14 @@ function maskCep(value) {
     return digits;
 }
 
+/** Formata data de nascimento ISO (YYYY-MM-DD) para DD/MM/AAAA; vazio → "—". */
+function formatDataNascimento(value) {
+    const raw = (value || "").toString().trim().slice(0, 10);
+    if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return "—";
+    const [y, m, d] = raw.split("-");
+    return `${d}/${m}/${y}`;
+}
+
 // =====================================================================
 // VIA CEP
 // =====================================================================
@@ -418,6 +426,7 @@ function renderTable() {
             <td><input class="form-check-input row-select" type="checkbox"></td>
             <td>${(typeof window.formatPersonName === "function" ? window.formatPersonName(u.nome || "") : (u.nome || "")) || "-"}</td>
             <td>${(typeof window.formatPersonName === "function" ? window.formatPersonName(u.sobrenome || "") : (u.sobrenome || "")) || "-"}</td>
+            <td>${formatDataNascimento(u.data_nascimento)}</td>
             <td>${u.username}</td>
             <td>${u.email}</td>
            <td>
@@ -544,6 +553,7 @@ function openCreate() {
 
     document.getElementById("nome").value = "";
     document.getElementById("sobrenome").value = "";
+    document.getElementById("dataNascimento").value = "";
     document.getElementById("username").value = "";
     document.getElementById("contato").value = "";
     document.getElementById("email").value = "";
@@ -608,6 +618,7 @@ async function openEdit(id) {
 
     document.getElementById("nome").value = data.nome || "";
     document.getElementById("sobrenome").value = data.sobrenome || "";
+    document.getElementById("dataNascimento").value = (data.data_nascimento || "").toString().slice(0, 10);
     document.getElementById("username").value = data.username;
     document.getElementById("contato").value = data.contato || "";
     document.getElementById("email").value = data.email;
@@ -799,7 +810,8 @@ async function saveUser(ev) {
         contato: contato.replace(/\D/g, ""),
         email,
         status,
-        role
+        role,
+        data_nascimento: (document.getElementById("dataNascimento").value || "").trim() || null
     };
 
     if (isNew) payload.password = senha;
