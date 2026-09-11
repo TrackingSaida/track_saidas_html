@@ -418,6 +418,7 @@ function renderTable() {
             <td><input class="form-check-input row-select" type="checkbox"></td>
             <td>${(typeof window.formatPersonName === "function" ? window.formatPersonName(u.nome || "") : (u.nome || "")) || "-"}</td>
             <td>${(typeof window.formatPersonName === "function" ? window.formatPersonName(u.sobrenome || "") : (u.sobrenome || "")) || "-"}</td>
+            <td>${formatDataNascimento(u.data_nascimento)}</td>
             <td>${u.username}</td>
             <td>${u.email}</td>
            <td>
