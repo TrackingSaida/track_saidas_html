@@ -46,6 +46,53 @@ function formatDataNascimento(value) {
     return `${d}/${m}/${y}`;
 }
 
+function currentUserRole() {
+    return Number(window.CURRENT_USER?.role);
+}
+
+function isCurrentUserRoot() {
+    return currentUserRole() === 0;
+}
+
+function roleDisplayName(role) {
+    return ({
+        0: "Root",
+        1: "Administrador",
+        2: "Operador",
+        3: "Coletador",
+        4: "Motoboy",
+    })[Number(role)] || "Desconhecido";
+}
+
+function ensureRootRoleOptions() {
+    if (!isCurrentUserRoot()) return;
+    const filterRole = document.getElementById("filterRole");
+    if (filterRole && !filterRole.querySelector('option[value="0"]')) {
+        const opt = document.createElement("option");
+        opt.value = "0";
+        opt.textContent = "Root";
+        const afterAll = filterRole.querySelector('option[value="all"]');
+        if (afterAll && afterAll.nextSibling) {
+            filterRole.insertBefore(opt, afterAll.nextSibling);
+        } else {
+            filterRole.appendChild(opt);
+        }
+    }
+    const roleSelect = document.getElementById("role");
+    if (roleSelect && !roleSelect.querySelector('option[value="0"]')) {
+        const opt = document.createElement("option");
+        opt.value = "0";
+        opt.textContent = "Root";
+        roleSelect.insertBefore(opt, roleSelect.firstChild);
+    }
+}
+
+function getSelectedUserRows() {
+    return [...document.querySelectorAll(".row-select:checked")]
+        .map(el => el.closest("tr"))
+        .filter(Boolean);
+}
+
 // =====================================================================
 // VIA CEP
 // =====================================================================
@@ -129,6 +176,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     window.CURRENT_USER = me;
+    ensureRootRoleOptions();
 
     initUsers();
 });
@@ -415,14 +463,10 @@ function renderTable() {
 
     tbody.innerHTML = rows.map(u => {
 
-        const roleName = ({
-            1: "Administrador",
-            2: "Operador",
-            4: "Motoboy"
-        })[u.role] || "Desconhecido";
+        const roleName = roleDisplayName(u.role);
 
         return `
-        <tr data-id="${u.id}" data-role="${u.role || 0}">
+        <tr data-id="${u.id}" data-role="${u.role ?? ""}">
             <td><input class="form-check-input row-select" type="checkbox"></td>
             <td>${(typeof window.formatPersonName === "function" ? window.formatPersonName(u.nome || "") : (u.nome || "")) || "-"}</td>
             <td>${(typeof window.formatPersonName === "function" ? window.formatPersonName(u.sobrenome || "") : (u.sobrenome || "")) || "-"}</td>
@@ -501,6 +545,11 @@ function setupRowSelection() {
 function getSelectedIds() {
     return [...document.querySelectorAll(".row-select:checked")]
         .map(el => Number(el.closest("tr").dataset.id));
+}
+
+function getSelectedRoles() {
+    return [...document.querySelectorAll(".row-select:checked")]
+        .map(el => Number(el.closest("tr").dataset.role));
 }
 
 
@@ -914,6 +963,18 @@ function deleteFromSelection() {
     const ids = getSelectedIds();
     if (ids.length < 1) return;
 
+    if (!isCurrentUserRoot()) {
+        const hasRoot = getSelectedUserRows().some(tr => Number(tr.dataset.role) === 0);
+        if (hasRoot) {
+            Swal.fire({
+                icon: "error",
+                title: "Não permitido",
+                text: "Não é permitido excluir usuário root."
+            });
+            return;
+        }
+    }
+
     Swal.fire({
         icon: "warning",
         title: "Excluir usuário?",
@@ -982,6 +1043,16 @@ async function resetPasswordFromSelection() {
 
     const tr = document.querySelector(`#tbody-users tr[data-id="${id}"]`);
     const nome = tr ? (tr.children[1]?.textContent || "").trim() : "";
+    const targetRole = tr ? Number(tr.dataset.role) : null;
+
+    if (!isCurrentUserRoot() && targetRole === 0) {
+        await Swal.fire({
+            icon: "error",
+            title: "Não permitido",
+            text: "Não é permitido resetar senha de usuário root."
+        });
+        return;
+    }
 
     const { isConfirmed } = await Swal.fire({
         icon: "warning",
