@@ -1,0 +1,347 @@
+/* Aniversariantes — visual Rotevo (escopo isolado) */
+
+.aniv-page {
+  --aniv-teal: #14B8A6;
+  --aniv-blue: #1A6FD4;
+  --aniv-navy: #0B1F3A;
+  --aniv-lime: #7CB518;
+  --aniv-lime-bright: #C6F531;
+  position: relative;
+}
+
+.aniv-hero {
+  background: linear-gradient(105deg, var(--aniv-teal) 0%, var(--aniv-blue) 100%);
+  color: #fff;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.aniv-hero-body {
+  position: relative;
+  z-index: 1;
+}
+
+.aniv-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.aniv-logo {
+  height: 36px;
+  width: auto;
+}
+
+.aniv-hero .rv-brand-name {
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-size: 1.15rem;
+}
+
+.aniv-hero .rv-brand-name .rv-e {
+  color: var(--aniv-lime-bright);
+}
+
+.aniv-title {
+  color: #fff;
+  font-weight: 700;
+}
+
+.aniv-subtitle {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.95rem;
+}
+
+.aniv-balloon {
+  width: 56px;
+  height: 72px;
+  border-radius: 50% 50% 50% 50% / 45% 45% 55% 55%;
+  background: radial-gradient(circle at 30% 30%, #fff 0%, var(--aniv-lime-bright) 35%, var(--aniv-lime) 100%);
+  position: relative;
+  animation: aniv-sway 3.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.aniv-balloon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: 36px;
+  background: var(--aniv-navy);
+  transform: translateX(-50%);
+}
+
+.aniv-toolbar-card {
+  border-radius: 12px;
+}
+
+.aniv-confetti {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.aniv-confetti span {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  opacity: 0.55;
+  animation: aniv-fall linear infinite;
+}
+
+.aniv-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 991.98px) {
+  .aniv-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 575.98px) {
+  .aniv-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.aniv-month-card {
+  background: #fff;
+  border: 1px solid rgba(11, 31, 58, 0.08);
+  border-radius: 14px;
+  padding: 1rem 1rem 0.85rem;
+  min-height: 180px;
+  box-shadow: 0 6px 18px rgba(11, 31, 58, 0.06);
+  animation: aniv-fade-in 0.45s ease both;
+  position: relative;
+  overflow: hidden;
+}
+
+.aniv-month-card.is-current {
+  border-color: var(--aniv-lime);
+  box-shadow: 0 0 0 2px rgba(124, 181, 24, 0.35), 0 8px 22px rgba(26, 111, 212, 0.12);
+}
+
+.aniv-month-card::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 48px;
+  width: 28px;
+  height: 36px;
+  border-radius: 50% 50% 50% 50% / 45% 45% 55% 55%;
+  background: linear-gradient(160deg, var(--aniv-teal), var(--aniv-blue));
+  opacity: 0.85;
+}
+
+.aniv-month-card:nth-child(3n+2)::before {
+  background: linear-gradient(160deg, var(--aniv-lime), var(--aniv-teal));
+}
+
+.aniv-month-card:nth-child(3n)::before {
+  background: linear-gradient(160deg, #f472b6, var(--aniv-blue));
+}
+
+.aniv-month-title {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--aniv-navy);
+  font-size: 0.95rem;
+  margin: 0 0 0.75rem 2.5rem;
+}
+
+.aniv-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 2.4rem;
+}
+
+.aniv-list li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.28rem 0.55rem;
+  margin-bottom: 0.35rem;
+  background: rgba(20, 184, 166, 0.1);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  color: var(--aniv-navy);
+}
+
+.aniv-list .aniv-day {
+  font-weight: 700;
+  color: var(--aniv-blue);
+  min-width: 1.6rem;
+}
+
+.aniv-empty {
+  color: #6c757d;
+  font-size: 0.88rem;
+  padding-left: 2.4rem;
+  margin: 0;
+}
+
+.aniv-empty-geral {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 2.5rem 1rem;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px dashed rgba(11, 31, 58, 0.2);
+  color: #6c757d;
+}
+
+.aniv-view-mes {
+  position: relative;
+  z-index: 1;
+}
+
+.aniv-view-mes .aniv-month-card {
+  max-width: 640px;
+  margin: 0 auto;
+  min-height: 240px;
+}
+
+.aniv-view-mes .aniv-list li {
+  font-size: 1.05rem;
+  padding: 0.45rem 0.85rem;
+}
+
+.aniv-view-mes .aniv-month-title {
+  font-size: 1.25rem;
+}
+
+/* ---- Print ---- */
+.aniv-print-root {
+  display: none;
+}
+
+@keyframes aniv-sway {
+  0%, 100% { transform: rotate(-4deg) translateY(0); }
+  50% { transform: rotate(5deg) translateY(-6px); }
+}
+
+@keyframes aniv-fall {
+  0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.6; }
+  100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+}
+
+@keyframes aniv-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aniv-balloon,
+  .aniv-confetti span,
+  .aniv-month-card {
+    animation: none !important;
+  }
+}
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .aniv-print-root,
+  .aniv-print-root * {
+    visibility: visible !important;
+  }
+
+  .aniv-print-root {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    background: #fff;
+    color: var(--aniv-navy, #0B1F3A);
+  }
+
+  .aniv-print-header {
+    background: linear-gradient(90deg, #14B8A6, #1A6FD4) !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color: #fff !important;
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+  }
+
+  .aniv-print-header h1 {
+    margin: 0;
+    font-size: 22pt;
+  }
+
+  .aniv-print-header p {
+    margin: 4px 0 0;
+    opacity: 0.9;
+  }
+
+  .aniv-print-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .aniv-print-grid.single {
+    grid-template-columns: 1fr;
+  }
+
+  .aniv-print-card {
+    border: 1px solid #cfd8e3;
+    border-radius: 8px;
+    padding: 10px 12px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .aniv-print-card h2 {
+    font-size: 12pt;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    color: #0B1F3A;
+  }
+
+  .aniv-print-card ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .aniv-print-card li {
+    font-size: 10pt;
+    padding: 3px 0;
+    border-bottom: 1px solid #eef2f6;
+  }
+
+  .aniv-print-card .empty {
+    font-size: 9pt;
+    color: #6c757d;
+  }
+
+  .aniv-print-mes-list li {
+    font-size: 14pt;
+    padding: 8px 0;
+  }
+}

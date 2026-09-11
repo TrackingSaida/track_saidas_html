@@ -542,6 +542,7 @@ function openCreate() {
 
     document.getElementById("nome").value = "";
     document.getElementById("sobrenome").value = "";
+    document.getElementById("dataNascimento").value = "";
     document.getElementById("username").value = "";
     document.getElementById("contato").value = "";
     document.getElementById("email").value = "";
@@ -606,6 +607,7 @@ async function openEdit(id) {
 
     document.getElementById("nome").value = data.nome || "";
     document.getElementById("sobrenome").value = data.sobrenome || "";
+    document.getElementById("dataNascimento").value = (data.data_nascimento || "").toString().slice(0, 10);
     document.getElementById("username").value = data.username;
     document.getElementById("contato").value = data.contato || "";
     document.getElementById("email").value = data.email;
@@ -797,7 +799,8 @@ async function saveUser(ev) {
         contato: contato.replace(/\D/g, ""),
         email,
         status,
-        role
+        role,
+        data_nascimento: (document.getElementById("dataNascimento").value || "").trim() || null
     };
 
     if (isNew) payload.password = senha;
