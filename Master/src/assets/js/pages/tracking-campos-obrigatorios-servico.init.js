@@ -6,7 +6,8 @@
   const API_META = `${API_RULES}/meta`;
   const qs = (s) => document.querySelector(s);
 
-  const offcanvasRule = new bootstrap.Offcanvas("#oc-rule");
+  const modalRule = new bootstrap.Modal("#oc-rule");
+  const modalDeleteRule = new bootstrap.Modal("#modalDeleteRule");
   let CACHE_RULES = [];
   let CACHE_META = { servicos: [], contextos: [], campos: [] };
   let SELECTED_ID = null;
@@ -110,7 +111,7 @@
       }
     });
     qs("#ruleAtivo").checked = isEdit ? !!rule.ativo : true;
-    offcanvasRule.show();
+    modalRule.show();
   }
 
   async function loadAll() {
@@ -140,17 +141,23 @@
     const method = id ? "PUT" : "POST";
     await http(url, { method, body: JSON.stringify(payload) });
     toast(id ? "Regra atualizada." : "Regra criada.");
-    offcanvasRule.hide();
+    modalRule.hide();
     await loadAll();
   }
 
-  async function deleteSelectedRule() {
+  function openDeleteRuleModal() {
     const rule = getSelectedRule();
     if (!rule) return;
-    if (!window.confirm("Deseja excluir esta regra?")) return;
+    modalDeleteRule.show();
+  }
+
+  async function confirmDeleteRule() {
+    const rule = getSelectedRule();
+    if (!rule) return;
     await http(`${API_RULES}/${rule.id}`, { method: "DELETE" });
     SELECTED_ID = null;
     updateActionButtons();
+    modalDeleteRule.hide();
     toast("Regra excluída.");
     await loadAll();
   }
@@ -161,7 +168,8 @@
       const rule = getSelectedRule();
       if (rule) openRuleForm("edit", rule);
     });
-    qs("#btnDeleteRule")?.addEventListener("click", () => deleteSelectedRule().catch((e) => toast(e.message || "Erro ao excluir.", false)));
+    qs("#btnDeleteRule")?.addEventListener("click", () => openDeleteRuleModal());
+    qs("#btnConfirmDeleteRule")?.addEventListener("click", () => confirmDeleteRule().catch((e) => toast(e.message || "Erro ao excluir.", false)));
     qs("#formRule")?.addEventListener("submit", (ev) => saveRule(ev).catch((e) => toast(e.message || "Erro ao salvar.", false)));
     qs("#searchRule")?.addEventListener("input", () => renderRows(CACHE_RULES));
 

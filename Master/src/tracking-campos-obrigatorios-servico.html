@@ -61,37 +61,64 @@
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
 
-    <div class="offcanvas offcanvas-end offcanvas-form offcanvas-form--w460" tabindex="-1" id="oc-rule" aria-labelledby="ocRuleLabel" >
-      <div class="offcanvas-header border-bottom">
-        <h5 class="offcanvas-title" id="ocRuleLabel">Nova regra</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    <div class="modal fade" id="oc-rule" tabindex="-1" aria-labelledby="ocRuleLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="ocRuleLabel">Nova regra</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <form id="formRule" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="ruleId" />
+              <div class="card mb-0">
+                <div class="card-header bg-light fw-semibold">Dados da regra</div>
+                <div class="card-body">
+                  <div class="mb-3">
+                    <label for="ruleServico" class="form-label">Serviço</label>
+                    <select id="ruleServico" class="form-select"></select>
+                  </div>
+                  <div class="mb-3">
+                    <label for="ruleContexto" class="form-label">Contexto</label>
+                    <select id="ruleContexto" class="form-select"></select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Campos obrigatórios</label>
+                    <div id="ruleCamposChecklist" class="border rounded p-2" style="max-height: 210px; overflow:auto;"></div>
+                    <div class="form-text">Marque um ou mais campos obrigatórios.</div>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="ruleAtivo" checked>
+                    <label class="form-check-label" for="ruleAtivo">Regra ativa</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+          </form>
+        </div>
       </div>
-      <form id="formRule" class="d-flex flex-column h-100" novalidate>
-        <div class="offcanvas-body">
-          <input type="hidden" id="ruleId" />
-          <div class="mb-3">
-            <label for="ruleServico" class="form-label">Serviço</label>
-            <select id="ruleServico" class="form-select"></select>
-          </div>
-          <div class="mb-3">
-            <label for="ruleContexto" class="form-label">Contexto</label>
-            <select id="ruleContexto" class="form-select"></select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Campos obrigatórios</label>
-            <div id="ruleCamposChecklist" class="border rounded p-2" style="max-height: 210px; overflow:auto;"></div>
-            <div class="form-text">Marque um ou mais campos obrigatórios.</div>
-          </div>
-          <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="ruleAtivo" checked>
-            <label class="form-check-label" for="ruleAtivo">Regra ativa</label>
+    </div>
+
+    <!-- Modal de exclusão -->
+    <div class="modal fade" id="modalDeleteRule" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-body text-center p-4">
+            <lord-icon src="https://cdn.lordicon.com/gsqxdxog.json" trigger="loop"
+              colors="primary:#f7b84b,secondary:#f06548" style="width:80px;height:80px"></lord-icon>
+            <h5 class="mt-3">Excluir regra?</h5>
+            <p class="text-muted mb-4">Esta ação não pode ser desfeita.</p>
+            <div class="hstack gap-2 justify-content-center">
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+              <button type="button" class="btn btn-danger" id="btnConfirmDeleteRule">Excluir</button>
+            </div>
           </div>
         </div>
-        <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body">
-          <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Salvar</button>
-        </div>
-      </form>
+      </div>
     </div>
 
     <script src="assets/js/app.js"></script>
