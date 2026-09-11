@@ -940,6 +940,23 @@
   max-width: min(1140px, calc(100vw - 1rem));
 }
 
+/* Form no modal: header/footer fixos, corpo rola (perfil Motoboy, etc.) */
+.modal-content > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.modal-content > form > .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.modal-content > form > .modal-footer {
+  flex: 0 0 auto;
+}
+
 /* Date picker em coluna quando a área útil aperta (zoom / notebook) */
 @media (max-width: 1199.98px) {
   .date-picker-dashboard .row {

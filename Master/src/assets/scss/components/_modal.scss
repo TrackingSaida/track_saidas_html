@@ -183,6 +183,17 @@
 		max-height: calc(100vh - 2rem); // margem de segurança no topo/rodapé
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
+
+		// Footer fica dentro do form (padrão Bases/Usuários). Sem isso o modal
+		// cresce além da viewport e Cancelar/Salvar somem.
+		> form {
+			display: flex;
+			flex-direction: column;
+			flex: 1 1 auto;
+			min-height: 0;
+			overflow: hidden;
+		}
 	}
 }
 

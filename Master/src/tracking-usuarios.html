@@ -233,6 +233,28 @@
   padding: 0.5rem 0.75rem !important;
   background-color: var(--vz-input-bg, #fff);
 }
+#oc-user .modal-dialog {
+  max-height: calc(100vh - 2rem);
+}
+#oc-user .modal-content {
+  max-height: calc(100vh - 2rem);
+  overflow: hidden;
+}
+#oc-user .modal-content > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+#oc-user .modal-body {
+  min-height: 0;
+  overflow-y: auto;
+}
+#oc-user .modal-footer {
+  flex: 0 0 auto;
+  background: var(--vz-modal-bg, #fff);
+}
 </style>
 
 <!-- ===================== MODAL (CREATE/EDIT) ===================== -->
@@ -453,7 +475,7 @@
   </div>
 </div>
 
-<script src="assets/js/pages/tracking-usuarios.js?v=1.2"></script>
+<script src="assets/js/pages/tracking-usuarios.js?v=1.3"></script>
 
 </body>
 </html>
