@@ -3,7 +3,84 @@
   <head>
     @@include("partials/title-meta.html", {"title": "Leitura de Coletas"})
     @@include("partials/head-css.html")
-    <style>.registro-g-grande { background-color: rgba(255, 193, 7, 0.12) !important; } .registro-g-grande:hover { background-color: rgba(255, 193, 7, 0.18) !important; }</style>
+    <style>
+      .registro-g-grande { background-color: rgba(255, 193, 7, 0.12) !important; }
+      .registro-g-grande:hover { background-color: rgba(255, 193, 7, 0.18) !important; }
+      .base-picker { position: relative; }
+      .base-picker-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        width: 100%;
+        text-align: left;
+      }
+      .base-picker-toggle-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .base-picker-panel {
+        position: absolute;
+        z-index: 1080;
+        top: calc(100% + 0.35rem);
+        left: 0;
+        right: 0;
+        max-height: min(420px, 70vh);
+        overflow: auto;
+        border: 1px solid var(--vz-border-color, #e9ebec);
+        border-radius: 0.75rem;
+        background: var(--vz-secondary-bg, #fff);
+        box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.12);
+        padding: 0.35rem;
+      }
+      .base-picker-group + .base-picker-group { margin-top: 0.25rem; }
+      .base-picker-group-toggle {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        border: 0;
+        background: transparent;
+        padding: 0.55rem 0.7rem;
+        border-radius: 0.55rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--vz-secondary-color, #878a99);
+      }
+      .base-picker-group-toggle:hover { background: rgba(0, 0, 0, 0.04); }
+      .base-picker-group-body { padding: 0 0.2rem 0.35rem; }
+      .base-picker-item {
+        width: 100%;
+        display: block;
+        text-align: left;
+        border: 0;
+        background: transparent;
+        border-radius: 0.55rem;
+        padding: 0.55rem 0.7rem;
+        font-size: 0.92rem;
+        color: inherit;
+      }
+      .base-picker-item:hover { background: rgba(10, 179, 156, 0.08); }
+      .base-picker-item.is-selected {
+        background: rgba(10, 179, 156, 0.14);
+        font-weight: 600;
+      }
+      .base-picker-item-meta {
+        display: block;
+        margin-top: 0.15rem;
+        font-size: 0.75rem;
+        color: var(--vz-secondary-color, #878a99);
+      }
+      .base-picker-empty {
+        padding: 0.85rem 0.7rem;
+        font-size: 0.875rem;
+        color: var(--vz-secondary-color, #878a99);
+      }
+    </style>
   </head>
 
 
@@ -41,9 +118,23 @@
                 <div class="row g-3 align-items-end">
                   <div class="col-md-3">
                     <label class="form-label" data-owner-term="selecione_a_base">Selecione a Base</label>
-                    <select id="selBase" class="form-select rounded-pill" aria-label="Selecionar base">
-                      <option value="" selected disabled data-owner-term="base_obrigatoria">Base obrigatória</option>
-                    </select>
+                    <div class="base-picker" id="basePicker">
+                      <select id="selBase" class="d-none" aria-hidden="true" tabindex="-1">
+                        <option value="" selected disabled data-owner-term="base_obrigatoria">Base obrigatória</option>
+                      </select>
+                      <button
+                        type="button"
+                        id="basePickerToggle"
+                        class="form-select rounded-pill base-picker-toggle"
+                        aria-haspopup="listbox"
+                        aria-expanded="false"
+                        aria-controls="basePickerPanel"
+                      >
+                        <span class="base-picker-toggle-label" id="basePickerToggleLabel">Selecione...</span>
+                        <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
+                      </button>
+                      <div id="basePickerPanel" class="base-picker-panel d-none" role="listbox" hidden></div>
+                    </div>
                   </div>
 
                   <div class="col-md-5">
