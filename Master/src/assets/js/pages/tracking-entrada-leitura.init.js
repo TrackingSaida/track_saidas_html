@@ -182,33 +182,127 @@
     }
   });
 
+  function newPhotoId() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    return "web-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10);
+  }
+
+  async function uploadAvulsoPhoto(file) {
+    const photoId = newPhotoId();
+    const contentType = (file && file.type) ? file.type : "image/jpeg";
+    const filename = (file && file.name) ? file.name : "avulso.jpg";
+    const presignRes = await fetch(apiBase() + "/upload/presign", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        filename,
+        tipo: "lancar_avulso",
+        content_type: contentType,
+        photo_id: photoId,
+      }),
+    });
+    let presignData = null;
+    try { presignData = await presignRes.json(); } catch (_) {}
+    if (!presignRes.ok) {
+      const msg = (presignData && presignData.detail) || "Erro ao preparar upload da foto.";
+      throw new Error(typeof msg === "string" ? msg : "Erro ao preparar upload da foto.");
+    }
+    const uploadUrl = presignData.upload_url;
+    const objectKey = presignData.object_key;
+    const headers = Object.assign({ "Content-Type": contentType }, presignData.headers || {});
+    const putRes = await fetch(uploadUrl, { method: "PUT", headers, body: file });
+    if (!putRes.ok) {
+      throw new Error("Falha ao enviar foto (" + putRes.status + ").");
+    }
+    return { foto_object_key: objectKey, photo_id: photoId };
+  }
+
   btnAvulso?.addEventListener("click", async () => {
+    const roleUser = Number(window.__USER__?.role);
+    const isRootAdmin = roleUser === 0 || roleUser === 1;
+    const isStaff = [0, 1, 2, 3].includes(roleUser);
+    const exigeFotoUser = !!(window.__USER__?.avulso_exige_foto) && Number(roleUser) === 4;
+    const exigeFoto = exigeFotoUser && !isRootAdmin;
+    const mostrarFoto = exigeFoto || isStaff;
+
+    const fotoFieldHtml = mostrarFoto
+      ? (
+        '<label class="form-label mb-1" for="swal-foto">Foto do lote ' +
+          (exigeFoto ? '<span class="text-danger">*</span>' : '<span class="text-muted">(opcional)</span>') +
+        '</label>' +
+        '<input id="swal-foto" type="file" accept="image/*" capture="environment" class="form-control mb-1">' +
+        '<div class="form-text">' +
+          (exigeFoto ? "Este usuário exige foto ao lançar avulso." : "Opcional.") +
+        "</div>"
+      )
+      : "";
+
     const { value: formValues } = await Swal.fire({
       title: "Lançar Avulso (entrada)",
       html:
-        '<input id="swal-ident" class="swal2-input" placeholder="Identificação (opcional)">' +
-        '<input id="swal-qtd" type="number" min="1" max="50" value="1" class="swal2-input" placeholder="Quantidade">',
+        '<div class="text-start">' +
+        '<label class="form-label mb-1" for="swal-ident">Identificação (opcional)</label>' +
+        '<input id="swal-ident" class="form-control mb-3" placeholder="Ex.: Cliente João">' +
+        '<label class="form-label mb-1" for="swal-qtd">Quantidade</label>' +
+        '<input id="swal-qtd" type="number" min="1" max="50" value="1" class="form-control ' + (mostrarFoto ? "mb-3" : "") + '" placeholder="Quantidade">' +
+        fotoFieldHtml +
+        "</div>",
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: "Criar",
       cancelButtonText: "Cancelar",
       preConfirm: () => {
         const qtd = Number(document.getElementById("swal-qtd").value || 0);
+        const fotoEl = document.getElementById("swal-foto");
+        const fotoFile = fotoEl && fotoEl.files && fotoEl.files[0] ? fotoEl.files[0] : null;
         if (!qtd || qtd < 1) {
           Swal.showValidationMessage("Informe a quantidade.");
+          return false;
+        }
+        if (qtd > 50) {
+          Swal.showValidationMessage("Quantidade máxima é 50.");
+          return false;
+        }
+        if (exigeFoto && !fotoFile) {
+          Swal.showValidationMessage("Foto obrigatória para este usuário.");
           return false;
         }
         return {
           identificacao: (document.getElementById("swal-ident").value || "").trim() || null,
           quantidade: qtd,
+          fotoFile,
         };
       },
     });
     if (!formValues) return;
 
-    const { ok, data, status } = await req("/entradas/lancar-avulso", {
+    let fotoPayload = {};
+    if (formValues.fotoFile) {
+      try {
+        fotoPayload = await uploadAvulsoPhoto(formValues.fotoFile);
+      } catch (uploadErr) {
+        await Swal.fire({
+          icon: "error",
+          title: "Erro",
+          text: uploadErr?.message || "Erro ao enviar foto.",
+        });
+        return;
+      }
+    }
+
+    const body = {
+      identificacao: formValues.identificacao,
+      quantidade: formValues.quantidade,
+    };
+    if (fotoPayload.foto_object_key) body.foto_object_key = fotoPayload.foto_object_key;
+    if (fotoPayload.photo_id) body.photo_id = fotoPayload.photo_id;
+
+    const { ok, data } = await req("/entradas/lancar-avulso", {
       method: "POST",
-      body: JSON.stringify(formValues),
+      body: JSON.stringify(body),
     });
     if (!ok) {
       const msg = data?.detail?.message || data?.detail || data?.mensagem || "Falha ao lançar avulso.";

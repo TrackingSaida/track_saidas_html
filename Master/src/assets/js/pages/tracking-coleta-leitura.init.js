@@ -1139,6 +1139,151 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  function newAvulsoPhotoId() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    return "web-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10);
+  }
+
+  async function uploadAvulsoPhotoColeta(file) {
+    const photoId = newAvulsoPhotoId();
+    const contentType = (file && file.type) ? file.type : "image/jpeg";
+    const filename = (file && file.name) ? file.name : "avulso.jpg";
+    const presignRes = await fetch(`${getBaseUrl()}/upload/presign`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        filename,
+        tipo: "lancar_avulso",
+        content_type: contentType,
+        photo_id: photoId,
+      }),
+    });
+    let presignData = null;
+    try { presignData = await presignRes.json(); } catch (_) {}
+    if (!presignRes.ok) {
+      const msg = (presignData && presignData.detail) || "Erro ao preparar upload da foto.";
+      throw new Error(typeof msg === "string" ? msg : "Erro ao preparar upload da foto.");
+    }
+    const uploadUrl = presignData.upload_url;
+    const objectKey = presignData.object_key;
+    const headers = Object.assign({ "Content-Type": contentType }, presignData.headers || {});
+    const putRes = await fetch(uploadUrl, { method: "PUT", headers, body: file });
+    if (!putRes.ok) {
+      throw new Error("Falha ao enviar foto (" + putRes.status + ").");
+    }
+    return { foto_object_key: objectKey, photo_id: photoId };
+  }
+
+  qs("#btnLancarAvulso")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    if (!BASE_ATUAL) {
+      toast(typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_base_antes_registrar") : "Selecione a base antes de lançar avulso.", false);
+      return;
+    }
+    if (typeof Swal === "undefined") {
+      toast("Não foi possível abrir o formulário de avulso.", false);
+      return;
+    }
+
+    const roleUser = Number(window.__USER__?.role);
+    const isRootAdmin = roleUser === 0 || roleUser === 1;
+    const isStaff = [0, 1, 2, 3].includes(roleUser);
+    const exigeFotoUser = !!(window.__USER__?.avulso_exige_foto) && roleUser === 4;
+    const exigeFoto = exigeFotoUser && !isRootAdmin;
+    const mostrarFoto = exigeFoto || isStaff;
+    const fotoFieldHtml = mostrarFoto
+      ? `
+          <label class="form-label mb-1" for="avulso-foto">Foto do lote ${exigeFoto ? '<span class="text-danger">*</span>' : '<span class="text-muted">(opcional)</span>'}</label>
+          <input id="avulso-foto" type="file" accept="image/*" capture="environment" class="form-control mb-1" />
+          <div class="form-text">${exigeFoto ? "Este usuário exige foto ao lançar avulso." : "Opcional."}</div>
+        `
+      : "";
+
+    const modal = await Swal.fire({
+      title: "Lançar Avulso (coleta)",
+      html: `
+        <div class="text-start">
+          <label class="form-label mb-1" for="avulso-identificacao">Identificação (opcional)</label>
+          <input id="avulso-identificacao" class="form-control mb-3" maxlength="32" placeholder="Ex.: Cliente João" />
+          <label class="form-label mb-1" for="avulso-quantidade">Quantidade</label>
+          <input id="avulso-quantidade" type="number" min="1" max="50" step="1" class="form-control ${mostrarFoto ? "mb-3" : ""}" value="1" />
+          ${fotoFieldHtml}
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "Confirmar",
+      cancelButtonText: "Cancelar",
+      focusConfirm: false,
+      preConfirm: () => {
+        const identificacaoVal = String(document.getElementById("avulso-identificacao")?.value || "").trim().slice(0, 32);
+        const quantidadeVal = parseInt(String(document.getElementById("avulso-quantidade")?.value || "1").trim(), 10);
+        const fotoEl = document.getElementById("avulso-foto");
+        const fotoFile = fotoEl && fotoEl.files && fotoEl.files[0] ? fotoEl.files[0] : null;
+        if (!Number.isFinite(quantidadeVal) || quantidadeVal < 1) {
+          Swal.showValidationMessage("Quantidade mínima é 1.");
+          return null;
+        }
+        if (quantidadeVal > 50) {
+          Swal.showValidationMessage("Quantidade máxima é 50.");
+          return null;
+        }
+        if (exigeFoto && !fotoFile) {
+          Swal.showValidationMessage("Foto obrigatória para este usuário.");
+          return null;
+        }
+        return { identificacao: identificacaoVal, quantidade: quantidadeVal, fotoFile };
+      },
+    });
+    if (!modal.isConfirmed || !modal.value) return;
+
+    let fotoPayload = {};
+    if (modal.value.fotoFile) {
+      try {
+        fotoPayload = await uploadAvulsoPhotoColeta(modal.value.fotoFile);
+      } catch (uploadErr) {
+        toast(uploadErr?.message || "Erro ao enviar foto.", false);
+        return;
+      }
+    }
+
+    const body = {
+      base: BASE_ATUAL,
+      identificacao: modal.value.identificacao || null,
+      quantidade: modal.value.quantidade,
+    };
+    if (fotoPayload.foto_object_key) body.foto_object_key = fotoPayload.foto_object_key;
+    if (fotoPayload.photo_id) body.photo_id = fotoPayload.photo_id;
+
+    try {
+      const r = await fetch(`${getBaseUrl()}/coletas/lancar-avulso`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(body),
+      });
+      let data = null;
+      try { data = await r.json(); } catch (_) {}
+      if (!r.ok) {
+        const detail = data?.detail;
+        const msg = (detail && typeof detail === "object" && detail.message)
+          ? detail.message
+          : (typeof detail === "string" ? detail : (data?.mensagem || "Falha ao lançar avulso."));
+        toast(msg, false);
+        Sound.play("err");
+        return;
+      }
+      toast(data?.mensagem || `${data?.quantidade_criada || modal.value.quantidade} avulso(s) lançado(s).`, true);
+      Sound.play("ok");
+      await atualizarResumoBaseSelecionada(BASE_ATUAL);
+    } catch (err) {
+      toast(err?.message || "Erro ao lançar avulso.", false);
+      Sound.play("err");
+    }
+  });
+
   // 🔄 Botão agora é "Reenviar Pendentes"
   const btnReenvio = qs("#btnIrParaLote");
   if (btnReenvio) {
