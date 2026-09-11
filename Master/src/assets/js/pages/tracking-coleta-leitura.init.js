@@ -20,6 +20,7 @@ function getBaseUrl() {
 }
 const API_URL = () => `${getBaseUrl()}/coletas/lote`;
 const API_BASES = () => `${getBaseUrl()}/base/?status=ativo`;
+const API_SITUACAO = () => `${getBaseUrl()}/coletas/operacionais/situacao`;
 const API_ENTREGADORES = () => `${getBaseUrl()}/entregadores`;
 
 // ⚙️ Agora a chave do localStorage é dinâmica por base
@@ -171,6 +172,100 @@ async function carregarBases() {
   if (Array.isArray(data?.data)) return data.data;
   if (Array.isArray(data?.items)) return data.items;
   return [];
+}
+
+function hojeOperacaoLocal() {
+  const s = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const [dd, mm, yyyy] = s.split("/");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function statusColetaNormalizado(status) {
+  return status === "sem_volume" ? "coletado" : (status || "pendente");
+}
+
+async function carregarSituacaoColetas(dataOperacao) {
+  const url = API_SITUACAO();
+  if (!url || url.includes("undefined")) {
+    throw new Error("URL da API não configurada. Verifique TRACK_API_URL.");
+  }
+  const r = await fetch(`${url}?data_operacao=${encodeURIComponent(dataOperacao)}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!r.ok) {
+    throw new Error(`Falha ao carregar situação das coletas (${r.status}).`);
+  }
+  return r.json();
+}
+
+function nomeBaseItem(b) {
+  return (b && b.base != null ? b.base : b).toString().trim();
+}
+
+function escAttr(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/** Oculta coletadas; pendentes primeiro; em coleta no final; A–Z em cada grupo. */
+function basesParaSeletorColeta(bases, situacaoItens, selecionadaNome) {
+  const porId = {};
+  const porNome = {};
+  (Array.isArray(situacaoItens) ? situacaoItens : []).forEach((item) => {
+    if (item && item.base_id != null) porId[item.base_id] = item;
+    if (item && item.base) porNome[String(item.base)] = item;
+  });
+  const selecionada = (selecionadaNome || "").trim();
+  const rank = (status) => (status === "pendente" ? 0 : status === "em_coleta" ? 1 : 2);
+
+  return (Array.isArray(bases) ? bases : [])
+    .map((b) => {
+      const nome = nomeBaseItem(b);
+      const id = b && b.id_base != null ? Number(b.id_base) : null;
+      const situacao = (id != null && porId[id]) || porNome[nome] || null;
+      const statusSeletor = statusColetaNormalizado(situacao ? situacao.status : "pendente");
+      return { raw: b, nome, statusSeletor };
+    })
+    .filter((item) => item.nome.length > 0)
+    .filter((item) => {
+      if (item.statusSeletor !== "coletado") return true;
+      return Boolean(selecionada && item.nome === selecionada);
+    })
+    .sort((a, b) => {
+      const byStatus = rank(a.statusSeletor) - rank(b.statusSeletor);
+      if (byStatus !== 0) return byStatus;
+      return a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
+    });
+}
+
+function montarOptionsSeletorBases(list, { comGrupos }) {
+  const optionHtml = (item) => {
+    const label = item.statusSeletor === "em_coleta" ? `${item.nome} — Em coleta` : item.nome;
+    return `<option value="${escAttr(item.nome)}">${escAttr(label)}</option>`;
+  };
+
+  if (!comGrupos) {
+    return list.map(optionHtml).join("");
+  }
+
+  const pendentes = list.filter((i) => i.statusSeletor === "pendente");
+  const emColeta = list.filter((i) => i.statusSeletor === "em_coleta");
+  const coletadas = list.filter((i) => i.statusSeletor === "coletado");
+  let html = "";
+  if (pendentes.length) {
+    html += `<optgroup label="Pendentes">${pendentes.map(optionHtml).join("")}</optgroup>`;
+  }
+  if (emColeta.length) {
+    html += `<optgroup label="Em coleta">${emColeta.map(optionHtml).join("")}</optgroup>`;
+  }
+  if (coletadas.length) {
+    html += `<optgroup label="Selecionada">${coletadas.map(optionHtml).join("")}</optgroup>`;
+  }
+  return html;
 }
 
 async function carregarEntregadores() {
@@ -676,16 +771,42 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!sel) return;
 
   try {
-    const bases = await carregarBases();
-    const list = (Array.isArray(bases) ? bases : []).slice().sort((a, b) => {
-      const va = (a.base != null ? a.base : a).toString();
-      const vb = (b.base != null ? b.base : b).toString();
-      return va.localeCompare(vb, "pt-BR");
+    const basesPromise = carregarBases();
+    const situacaoPromise = carregarSituacaoColetas(hojeOperacaoLocal()).catch((err) => {
+      console.warn("Situação de coletas indisponível; usando lista completa de bases.", err);
+      return null;
     });
+    const [bases, situacaoPayload] = await Promise.all([basesPromise, situacaoPromise]);
+    const basesRaw = Array.isArray(bases) ? bases : [];
+
+    let list;
+    let comGrupos = false;
+    if (situacaoPayload && Array.isArray(situacaoPayload.itens)) {
+      list = basesParaSeletorColeta(basesRaw, situacaoPayload.itens, sel.value || "");
+      comGrupos = true;
+    } else {
+      if (situacaoPayload === null) {
+        toast("Não foi possível filtrar por status. Mostrando todas as bases ativas.", false);
+      }
+      list = basesRaw
+        .map((b) => ({ raw: b, nome: nomeBaseItem(b), statusSeletor: "pendente" }))
+        .filter((item) => item.nome.length > 0)
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" }));
+    }
+
+    const entidade = typeof window.ownerTerm === "function" ? window.ownerTerm("base_lower") : "base";
+    const placeholder =
+      basesRaw.length === 0
+        ? "Selecione..."
+        : comGrupos && list.length === 0
+          ? `Nenhuma ${entidade} pendente para coletar hoje`
+          : "Selecione...";
+
     sel.innerHTML =
-      '<option value="" disabled selected>Selecione...</option>' +
-      list.map(b => `<option value="${(b.base != null ? b.base : b).toString()}">${(b.base != null ? b.base : b).toString()}</option>`).join("");
-    if (list.length === 0) {
+      `<option value="" disabled selected>${placeholder}</option>` +
+      montarOptionsSeletorBases(list, { comGrupos });
+
+    if (basesRaw.length === 0) {
       toast(typeof window.ownerTerm === "function" ? window.ownerTerm("nenhuma_base_ativa") : "Nenhuma base ativa cadastrada. Cadastre uma base para registrar coletas.", false);
     }
   } catch (err) {
