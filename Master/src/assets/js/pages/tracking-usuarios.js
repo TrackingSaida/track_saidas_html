@@ -38,6 +38,14 @@ function maskCep(value) {
     return digits;
 }
 
+/** Formata data de nascimento ISO (YYYY-MM-DD) para DD/MM/AAAA; vazio → "—". */
+function formatDataNascimento(value) {
+    const raw = (value || "").toString().trim().slice(0, 10);
+    if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return "—";
+    const [y, m, d] = raw.split("-");
+    return `${d}/${m}/${y}`;
+}
+
 // =====================================================================
 // VIA CEP
 // =====================================================================
