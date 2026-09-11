@@ -173,6 +173,33 @@
     return `${base} | Rotevo ${ano}`;
   }
 
+  const MESES_SLUG = [
+    "",
+    "janeiro",
+    "fevereiro",
+    "marco",
+    "abril",
+    "maio",
+    "junho",
+    "julho",
+    "agosto",
+    "setembro",
+    "outubro",
+    "novembro",
+    "dezembro",
+  ];
+
+  /** Nome sugerido ao salvar como PDF (sem .pdf — o browser acrescenta). */
+  function printFileTitle(mode, mesAlvo) {
+    const ano = (dataCache && dataCache.ano_referencia) || new Date().getFullYear();
+    if (mode === "anual") {
+      return `aniversariantes-anual-${ano}`;
+    }
+    const m = mesAlvo || mesAtual;
+    const mesSlug = MESES_SLUG[m] || `mes-${m}`;
+    return `aniversariantes-${mesSlug}-${ano}`;
+  }
+
   function buildPrintHtml(mode, mesAlvo) {
     const meses = (dataCache && dataCache.meses) || {};
     const ano = (dataCache && dataCache.ano_referencia) || new Date().getFullYear();
@@ -262,8 +289,9 @@
   function doPrint(mode, mesAlvo) {
     if (!dataCache) return;
     const htmlBody = buildPrintHtml(mode, mesAlvo);
+    const fileTitle = printFileTitle(mode, mesAlvo);
 
-    // Imprime em iframe (title vazio) para não exibir "Aniversariantes | ROTEVO" nem a URL da página
+    // Title do iframe = nome sugerido ao "Salvar como PDF"
     const iframe = document.createElement("iframe");
     iframe.setAttribute("aria-hidden", "true");
     iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;";
@@ -272,7 +300,7 @@
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     doc.open();
     doc.write(
-      `<!DOCTYPE html><html><head><meta charset="utf-8"><title></title><style>${PRINT_CSS}</style></head><body>${htmlBody}</body></html>`
+      `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(fileTitle)}</title><style>${PRINT_CSS}</style></head><body>${htmlBody}</body></html>`
     );
     doc.close();
 
