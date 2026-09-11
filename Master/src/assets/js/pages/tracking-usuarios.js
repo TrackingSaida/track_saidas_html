@@ -273,6 +273,8 @@ function toggleMotoboySection() {
         colUser.classList.add("col-12");
         colMotoboy.classList.add("d-none");
     }
+    const modalBody = document.querySelector("#oc-user .modal-body");
+    if (modalBody) modalBody.scrollTop = 0;
 }
 
 function toggleAvulsoExigeFotoVisibility() {
