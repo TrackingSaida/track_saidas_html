@@ -211,15 +211,14 @@ function escAttr(value) {
     .replace(/>/g, "&gt;");
 }
 
-/** Oculta coletadas; pendentes primeiro; em coleta no final; A–Z em cada grupo. */
-function basesParaSeletorColeta(bases, situacaoItens, selecionadaNome) {
+/** Agrupa por status: pendentes → em coleta → coletadas; A–Z em cada grupo. */
+function basesParaSeletorColeta(bases, situacaoItens) {
   const porId = {};
   const porNome = {};
   (Array.isArray(situacaoItens) ? situacaoItens : []).forEach((item) => {
     if (item && item.base_id != null) porId[item.base_id] = item;
     if (item && item.base) porNome[String(item.base)] = item;
   });
-  const selecionada = (selecionadaNome || "").trim();
   const rank = (status) => (status === "pendente" ? 0 : status === "em_coleta" ? 1 : 2);
 
   return (Array.isArray(bases) ? bases : [])
@@ -231,10 +230,6 @@ function basesParaSeletorColeta(bases, situacaoItens, selecionadaNome) {
       return { raw: b, nome, statusSeletor };
     })
     .filter((item) => item.nome.length > 0)
-    .filter((item) => {
-      if (item.statusSeletor !== "coletado") return true;
-      return Boolean(selecionada && item.nome === selecionada);
-    })
     .sort((a, b) => {
       const byStatus = rank(a.statusSeletor) - rank(b.statusSeletor);
       if (byStatus !== 0) return byStatus;
@@ -242,30 +237,181 @@ function basesParaSeletorColeta(bases, situacaoItens, selecionadaNome) {
     });
 }
 
-function montarOptionsSeletorBases(list, { comGrupos }) {
-  const optionHtml = (item) => {
-    const label = item.statusSeletor === "em_coleta" ? `${item.nome} — Em coleta` : item.nome;
-    return `<option value="${escAttr(item.nome)}">${escAttr(label)}</option>`;
+const BASE_PICKER_STATE = {
+  list: [],
+  comGrupos: false,
+  open: false,
+  expanded: {
+    pendente: true,
+    em_coleta: true,
+    coletado: false,
+  },
+};
+
+function labelGrupoSeletor(status) {
+  if (status === "em_coleta") return "Em coleta";
+  if (status === "coletado") return "Coletadas";
+  return "Pendentes";
+}
+
+function syncSelectOptionsFromList(sel, list, placeholder) {
+  const current = sel.value || "";
+  sel.innerHTML =
+    `<option value="" disabled>${escAttr(placeholder || "Selecione...")}</option>` +
+    list.map((item) => `<option value="${escAttr(item.nome)}">${escAttr(item.nome)}</option>`).join("");
+  if (current && list.some((item) => item.nome === current)) {
+    sel.value = current;
+  } else {
+    sel.selectedIndex = 0;
+  }
+}
+
+function atualizarLabelPickerBase(sel) {
+  const label = qs("#basePickerToggleLabel");
+  if (!label) return;
+  const valor = (sel && sel.value) || "";
+  label.textContent = valor || "Selecione...";
+}
+
+function setBasePickerOpen(open) {
+  const panel = qs("#basePickerPanel");
+  const toggle = qs("#basePickerToggle");
+  if (!panel || !toggle) return;
+  BASE_PICKER_STATE.open = Boolean(open);
+  panel.classList.toggle("d-none", !BASE_PICKER_STATE.open);
+  panel.hidden = !BASE_PICKER_STATE.open;
+  toggle.setAttribute("aria-expanded", BASE_PICKER_STATE.open ? "true" : "false");
+}
+
+function renderBasePickerPanel(sel) {
+  const panel = qs("#basePickerPanel");
+  if (!panel) return;
+
+  const list = BASE_PICKER_STATE.list || [];
+  const selected = (sel && sel.value) || "";
+
+  if (!list.length) {
+    panel.innerHTML = '<div class="base-picker-empty">Nenhuma base disponível.</div>';
+    return;
+  }
+
+  if (!BASE_PICKER_STATE.comGrupos) {
+    panel.innerHTML = list
+      .map((item) => {
+        const active = item.nome === selected ? " is-selected" : "";
+        return `<button type="button" class="base-picker-item${active}" data-base-nome="${escAttr(item.nome)}" role="option" aria-selected="${item.nome === selected ? "true" : "false"}">${escAttr(item.nome)}</button>`;
+      })
+      .join("");
+    return;
+  }
+
+  const groups = [
+    { status: "pendente", items: list.filter((i) => i.statusSeletor === "pendente") },
+    { status: "em_coleta", items: list.filter((i) => i.statusSeletor === "em_coleta") },
+    { status: "coletado", items: list.filter((i) => i.statusSeletor === "coletado") },
+  ].filter((g) => g.items.length > 0);
+
+  panel.innerHTML = groups
+    .map((group) => {
+      const expanded = Boolean(BASE_PICKER_STATE.expanded[group.status]);
+      const chevron = expanded ? "ri-arrow-up-s-line" : "ri-arrow-down-s-line";
+      const title = `${labelGrupoSeletor(group.status)} (${group.items.length})`;
+      const body = expanded
+        ? `<div class="base-picker-group-body">${group.items
+            .map((item) => {
+              const active = item.nome === selected ? " is-selected" : "";
+              const meta =
+                item.statusSeletor === "em_coleta"
+                  ? '<span class="base-picker-item-meta">Em coleta</span>'
+                  : item.statusSeletor === "coletado"
+                    ? '<span class="base-picker-item-meta">Coletada</span>'
+                    : "";
+              return `<button type="button" class="base-picker-item${active}" data-base-nome="${escAttr(item.nome)}" role="option" aria-selected="${item.nome === selected ? "true" : "false"}"><span>${escAttr(item.nome)}</span>${meta}</button>`;
+            })
+            .join("")}</div>`
+        : "";
+      return `<div class="base-picker-group" data-group-status="${group.status}">
+        <button type="button" class="base-picker-group-toggle" data-group-toggle="${group.status}" aria-expanded="${expanded ? "true" : "false"}">
+          <span>${escAttr(title)}</span>
+          <i class="${chevron}" aria-hidden="true"></i>
+        </button>
+        ${body}
+      </div>`;
+    })
+    .join("");
+}
+
+function selecionarBaseNoPicker(sel, nome) {
+  if (!sel || !nome) return;
+  if (sel.value === nome) {
+    setBasePickerOpen(false);
+    return;
+  }
+  sel.value = nome;
+  sel.dispatchEvent(new Event("change", { bubbles: true }));
+  atualizarLabelPickerBase(sel);
+  setBasePickerOpen(false);
+  renderBasePickerPanel(sel);
+}
+
+function montarSeletorBases(sel, list, { comGrupos, placeholder }) {
+  BASE_PICKER_STATE.list = Array.isArray(list) ? list : [];
+  BASE_PICKER_STATE.comGrupos = Boolean(comGrupos);
+  BASE_PICKER_STATE.expanded = {
+    pendente: true,
+    em_coleta: true,
+    coletado: false,
   };
+  syncSelectOptionsFromList(sel, BASE_PICKER_STATE.list, placeholder);
+  atualizarLabelPickerBase(sel);
+  renderBasePickerPanel(sel);
+}
 
-  if (!comGrupos) {
-    return list.map(optionHtml).join("");
-  }
+function initBasePicker(sel) {
+  const root = qs("#basePicker");
+  const toggle = qs("#basePickerToggle");
+  const panel = qs("#basePickerPanel");
+  if (!root || !toggle || !panel || !sel) return;
 
-  const pendentes = list.filter((i) => i.statusSeletor === "pendente");
-  const emColeta = list.filter((i) => i.statusSeletor === "em_coleta");
-  const coletadas = list.filter((i) => i.statusSeletor === "coletado");
-  let html = "";
-  if (pendentes.length) {
-    html += `<optgroup label="Pendentes">${pendentes.map(optionHtml).join("")}</optgroup>`;
-  }
-  if (emColeta.length) {
-    html += `<optgroup label="Em coleta">${emColeta.map(optionHtml).join("")}</optgroup>`;
-  }
-  if (coletadas.length) {
-    html += `<optgroup label="Selecionada">${coletadas.map(optionHtml).join("")}</optgroup>`;
-  }
-  return html;
+  toggle.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setBasePickerOpen(!BASE_PICKER_STATE.open);
+  });
+
+  panel.addEventListener("click", (e) => {
+    const groupBtn = e.target.closest("[data-group-toggle]");
+    if (groupBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const status = groupBtn.getAttribute("data-group-toggle");
+      if (!status) return;
+      BASE_PICKER_STATE.expanded[status] = !BASE_PICKER_STATE.expanded[status];
+      renderBasePickerPanel(sel);
+      return;
+    }
+    const itemBtn = e.target.closest("[data-base-nome]");
+    if (itemBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      selecionarBaseNoPicker(sel, itemBtn.getAttribute("data-base-nome"));
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!BASE_PICKER_STATE.open) return;
+    if (root.contains(e.target)) return;
+    setBasePickerOpen(false);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && BASE_PICKER_STATE.open) setBasePickerOpen(false);
+  });
+
+  sel.addEventListener("change", () => {
+    atualizarLabelPickerBase(sel);
+    renderBasePickerPanel(sel);
+  });
 }
 
 async function carregarEntregadores() {
@@ -770,6 +916,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const sel = qs("#selBase");
   if (!sel) return;
 
+  initBasePicker(sel);
+
   try {
     const basesPromise = carregarBases();
     const situacaoPromise = carregarSituacaoColetas(hojeOperacaoLocal()).catch((err) => {
@@ -782,11 +930,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     let list;
     let comGrupos = false;
     if (situacaoPayload && Array.isArray(situacaoPayload.itens)) {
-      list = basesParaSeletorColeta(basesRaw, situacaoPayload.itens, sel.value || "");
+      list = basesParaSeletorColeta(basesRaw, situacaoPayload.itens);
       comGrupos = true;
     } else {
       if (situacaoPayload === null) {
-        toast("Não foi possível filtrar por status. Mostrando todas as bases ativas.", false);
+        toast("Não foi possível agrupar por status. Mostrando todas as bases ativas.", false);
       }
       list = basesRaw
         .map((b) => ({ raw: b, nome: nomeBaseItem(b), statusSeletor: "pendente" }))
@@ -794,17 +942,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" }));
     }
 
-    const entidade = typeof window.ownerTerm === "function" ? window.ownerTerm("base_lower") : "base";
-    const placeholder =
-      basesRaw.length === 0
-        ? "Selecione..."
-        : comGrupos && list.length === 0
-          ? `Nenhuma ${entidade} pendente para coletar hoje`
-          : "Selecione...";
-
-    sel.innerHTML =
-      `<option value="" disabled selected>${placeholder}</option>` +
-      montarOptionsSeletorBases(list, { comGrupos });
+    montarSeletorBases(sel, list, { comGrupos, placeholder: "Selecione..." });
 
     if (basesRaw.length === 0) {
       toast(typeof window.ownerTerm === "function" ? window.ownerTerm("nenhuma_base_ativa") : "Nenhuma base ativa cadastrada. Cadastre uma base para registrar coletas.", false);
@@ -812,7 +950,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   } catch (err) {
     const msg = err && err.message ? err.message : (typeof window.ownerTerm === "function" ? window.ownerTerm("falha_carregar_bases") : "Falha ao carregar bases.");
     toast(msg, false);
-    sel.innerHTML = '<option value="" disabled selected>Selecione...</option>';
+    montarSeletorBases(sel, [], { comGrupos: false, placeholder: "Selecione..." });
   }
 
   try {
@@ -1185,6 +1323,9 @@ if (duplicado) {
         sel.value = "";
         BASE_ATUAL = null;
         STORAGE_KEY = null;
+        atualizarLabelPickerBase(sel);
+        renderBasePickerPanel(sel);
+        setBasePickerOpen(false);
 
         toast(typeof window.ownerTerm === "function" ? window.ownerTerm("selecione_base_inatividade") : "Selecione a base novamente (inatividade).", false);
         console.warn("⏳ Base resetada por inatividade");
