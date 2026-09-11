@@ -1562,12 +1562,19 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
   }
   const motoboyId = parseInt(motoboyIdRaw, 10);
   const entregador = selEnt?.options[selEnt.selectedIndex]?.text?.trim() || entregadoresMap.get(motoboyIdRaw) || "";
-  const exigeFoto = !!(motoboysMetaMap.get(motoboyIdRaw)?.avulso_exige_foto);
-  const fotoFieldHtml = exigeFoto
+  const roleUser = Number(window.__USER__?.role);
+  const isRootAdmin = roleUser === 0 || roleUser === 1;
+  const isStaff = [0, 1, 2, 3].includes(roleUser);
+  const exigeFotoMotoboy = !!(motoboysMetaMap.get(motoboyIdRaw)?.avulso_exige_foto);
+  // Root/admin nunca têm obrigação de foto, mesmo com flag do entregador.
+  const exigeFoto = exigeFotoMotoboy && !isRootAdmin;
+  // Staff sempre vê a opção (opcional); demais só quando obrigatório.
+  const mostrarFoto = exigeFoto || isStaff;
+  const fotoFieldHtml = mostrarFoto
     ? `
-        <label class="form-label mb-1" for="avulso-foto">Foto do lote <span class="text-danger">*</span></label>
+        <label class="form-label mb-1" for="avulso-foto">Foto do lote ${exigeFoto ? '<span class="text-danger">*</span>' : '<span class="text-muted">(opcional)</span>'}</label>
         <input id="avulso-foto" type="file" accept="image/*" capture="environment" class="form-control mb-1" />
-        <div class="form-text mb-3">Este entregador exige foto ao lançar avulso.</div>
+        <div class="form-text mb-3">${exigeFoto ? "Este entregador exige foto ao lançar avulso." : "Opcional."}</div>
       `
     : "";
   const modal = await Swal.fire({
@@ -1579,7 +1586,7 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
         <div class="form-text mb-3">Opcional. Até 32 caracteres para identificar o lote na operação.</div>
         <label class="form-label mb-1" for="avulso-quantidade">Quantidade</label>
         <input id="avulso-quantidade" type="number" min="1" max="50" step="1" class="form-control mb-1" value="1" />
-        <div class="form-text ${exigeFoto ? "mb-3" : ""}">Informe entre 1 e 50 pacotes por lançamento.</div>
+        <div class="form-text ${mostrarFoto ? "mb-3" : ""}">Informe entre 1 e 50 pacotes por lançamento.</div>
         ${fotoFieldHtml}
       </div>
     `,
