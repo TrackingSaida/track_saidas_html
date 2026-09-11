@@ -661,6 +661,7 @@ function augmentEntregadoresFromRows(rows){
     "Nova saída confirmada (mesmo motoboy)": { category: "confirmation", className: "action-confirmation" },
     "Nova saída confirmada com mesmo motoboy": { category: "confirmation", className: "action-confirmation" },
     "Entrada na base": { category: "neutral", className: "action-neutral" },
+    "Pacote coletado": { category: "neutral", className: "action-neutral" },
     "Saída conferida": { category: "confirmation", className: "action-confirmation" },
     "Saída reconferida": { category: "confirmation", className: "action-confirmation" },
     "Sem ação": { category: "neutral", className: "action-neutral" }

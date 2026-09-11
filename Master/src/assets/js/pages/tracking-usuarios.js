@@ -577,7 +577,7 @@ function openCreate() {
     toggleMotoboySection();
     clearMotoboyValidation();
 
-    new bootstrap.Offcanvas("#oc-user").show();
+    new bootstrap.Modal("#oc-user").show();
 }
 
 function clearMotoboyValidation() {
@@ -640,7 +640,7 @@ async function openEdit(id) {
     toggleMotoboySection();
     clearMotoboyValidation();
 
-    new bootstrap.Offcanvas("#oc-user").show();
+    new bootstrap.Modal("#oc-user").show();
 }
 
 // =====================================================================
@@ -879,7 +879,7 @@ async function saveUser(ev) {
             showConfirmButton: false
         });
 
-        bootstrap.Offcanvas.getInstance(document.getElementById("oc-user")).hide();
+        bootstrap.Modal.getInstance(document.getElementById("oc-user")).hide();
         loadUsers();
 
     } catch (err) {

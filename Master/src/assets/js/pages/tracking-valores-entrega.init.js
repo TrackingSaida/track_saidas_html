@@ -90,7 +90,7 @@
   }
 
   // ---------- Valores globais (grid = estado persistido) ----------
-  const offcanvasGlobal = new bootstrap.Offcanvas("#oc-global");
+  const modalGlobal = new bootstrap.Modal("#oc-global");
 
   async function loadPrecosGlobal() {
     try {
@@ -115,7 +115,7 @@
       if (qs("#editGlobalColeta")) qs("#editGlobalColeta").value = formatMoedaInput(data?.coleta_valor);
       const chk = qs("#editGlobalPacoteGAdicional");
       if (chk) chk.checked = !!data?.considerar_pacote_g_adicional;
-      offcanvasGlobal.show();
+      modalGlobal.show();
     }).catch((err) => {
       console.error(err);
       toast("Falha ao carregar valores para edição.", false);
@@ -141,7 +141,7 @@
         body: JSON.stringify(payload),
       });
       toast("Valores globais salvos.");
-      offcanvasGlobal.hide();
+      modalGlobal.hide();
       await loadPrecosGlobal();
     } catch (err) {
       console.error(err);
@@ -152,7 +152,7 @@
   // ---------- Lista de exceções ----------
   let CACHE_EXCECOES = [];
   let SELECTED_ID = null;
-  const offcanvasExcecao = new bootstrap.Offcanvas("#oc-excecao");
+  const modalExcecao = new bootstrap.Modal("#oc-excecao");
 
   function buildRow(item) {
     const id = item.motoboy_id || item.entregador_id;
@@ -238,7 +238,7 @@
     }
   }
 
-  // ---------- Offcanvas: Adicionar / Editar ----------
+  // ---------- Modal: Adicionar / Editar ----------
   function openExcecaoForm(modo, item = null) {
     const form = qs("#formExcecao");
     form.reset();
@@ -261,7 +261,7 @@
     if (!isEdit) {
       loadMotoboysSelect();
     }
-    offcanvasExcecao.show();
+    modalExcecao.show();
   }
 
   function formExcecaoPayload() {
@@ -298,7 +298,7 @@
         body: JSON.stringify(payload),
       });
       toast("Exceção salva.");
-      offcanvasExcecao.hide();
+      modalExcecao.hide();
       await loadExcecoes();
     } catch (err) {
       console.error(err);

@@ -132,108 +132,119 @@
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
 
-    <!-- Offcanvas: Editar Valores Globais -->
-    <div class="offcanvas offcanvas-end offcanvas-form offcanvas-form--w400" tabindex="-1" id="oc-global" aria-labelledby="ocGlobalLabel"
-      data-bs-scroll="false" data-bs-backdrop="true">
-      <div class="offcanvas-header border-bottom">
-        <h5 class="offcanvas-title" id="ocGlobalLabel">Editar Valores Globais</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-      </div>
-      <form id="formGlobal" class="d-flex flex-column h-100" novalidate>
-        <div class="offcanvas-body flex-grow-1">
-          <div class="mb-3">
-            <label for="editGlobalShopee" class="form-label">Shopee</label>
-            <input type="text" id="editGlobalShopee" class="form-control moeda" placeholder="R$ 0,00">
+    <!-- Modal: Editar Valores Globais -->
+    <div class="modal fade" id="oc-global" tabindex="-1" aria-labelledby="ocGlobalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="ocGlobalLabel">Editar Valores Globais</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
           </div>
-          <div class="mb-3">
-            <label for="editGlobalMl" class="form-label">Flex</label>
-            <input type="text" id="editGlobalMl" class="form-control moeda" placeholder="R$ 0,00">
-          </div>
-          <div class="mb-3">
-            <label for="editGlobalAvulso" class="form-label">Avulso</label>
-            <input type="text" id="editGlobalAvulso" class="form-control moeda" placeholder="R$ 0,00">
-          </div>
-          <div class="mb-3 coleta-preco d-none">
-            <label for="editGlobalColeta" class="form-label">Diária de coleta</label>
-            <input type="text" id="editGlobalColeta" class="form-control moeda" placeholder="R$ 0,00">
-            <div class="form-text">Pago uma vez por motoboy em cada dia com coleta válida.</div>
-          </div>
-          <div class="form-check form-switch mt-2">
-            <input class="form-check-input" type="checkbox" id="editGlobalPacoteGAdicional">
-            <label class="form-check-label" for="editGlobalPacoteGAdicional">
-              Aplicar adicional para Pacotes Grandes (G)
-            </label>
-            <button
-              type="button"
-              class="btn btn-sm btn-link text-muted p-0 ms-2 align-baseline"
-              id="helpPacoteGAdicional"
-              data-bs-toggle="tooltip"
-              data-bs-placement="top"
-              title="Quando ativado, cada pedido marcado como Pacote G soma um adicional igual ao valor do serviço no fechamento do motoboy. O cálculo prioriza o preço de exceção do motoboy; se não houver exceção, usa o preço global do serviço."
-              aria-label="Informações sobre adicional de Pacote G"
-            >
-              <i class="ri-information-line"></i>
-            </button>
-            <div class="form-text mt-1">
-              Pacote G adiciona +1x o valor do serviço (exceção do motoboy &gt; preço global).
+          <form id="formGlobal" novalidate>
+            <div class="modal-body">
+              <div class="card mb-0">
+                <div class="card-header bg-light fw-semibold">Valores Globais por Serviço</div>
+                <div class="card-body">
+                  <div class="mb-3">
+                    <label for="editGlobalShopee" class="form-label">Shopee</label>
+                    <input type="text" id="editGlobalShopee" class="form-control moeda" placeholder="R$ 0,00">
+                  </div>
+                  <div class="mb-3">
+                    <label for="editGlobalMl" class="form-label">Flex</label>
+                    <input type="text" id="editGlobalMl" class="form-control moeda" placeholder="R$ 0,00">
+                  </div>
+                  <div class="mb-3">
+                    <label for="editGlobalAvulso" class="form-label">Avulso</label>
+                    <input type="text" id="editGlobalAvulso" class="form-control moeda" placeholder="R$ 0,00">
+                  </div>
+                  <div class="mb-3 coleta-preco d-none">
+                    <label for="editGlobalColeta" class="form-label">Diária de coleta</label>
+                    <input type="text" id="editGlobalColeta" class="form-control moeda" placeholder="R$ 0,00">
+                    <div class="form-text">Pago uma vez por motoboy em cada dia com coleta válida.</div>
+                  </div>
+                  <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" id="editGlobalPacoteGAdicional">
+                    <label class="form-check-label" for="editGlobalPacoteGAdicional">
+                      Aplicar adicional para Pacotes Grandes (G)
+                    </label>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-link text-muted p-0 ms-2 align-baseline"
+                      id="helpPacoteGAdicional"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      title="Quando ativado, cada pedido marcado como Pacote G soma um adicional igual ao valor do serviço no fechamento do motoboy. O cálculo prioriza o preço de exceção do motoboy; se não houver exceção, usa o preço global do serviço."
+                      aria-label="Informações sobre adicional de Pacote G"
+                    >
+                      <i class="ri-information-line"></i>
+                    </button>
+                    <div class="form-text mt-1">
+                      Pacote G adiciona +1x o valor do serviço (exceção do motoboy &gt; preço global).
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+          </form>
         </div>
-        <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body">
-          <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Salvar</button>
-        </div>
-      </form>
+      </div>
     </div>
 
-    <!-- Offcanvas: Adicionar/Editar Exceção -->
-    <div class="offcanvas offcanvas-end offcanvas-form offcanvas-form--w480" tabindex="-1" id="oc-excecao" aria-labelledby="ocExcecaoLabel"
-       data-bs-scroll="false" data-bs-backdrop="true">
-      <div class="offcanvas-header border-bottom">
-        <h5 class="offcanvas-title" id="ocExcecaoLabel">Adicionar Exceção</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-      </div>
-      <form id="formExcecao" class="needs-validation d-flex flex-column h-100" novalidate>
-        <div class="offcanvas-body flex-grow-1">
-          <input type="hidden" id="excecaoEntregadorId" />
-          <div class="card mb-3">
-            <div class="card-header bg-light fw-semibold">Valores por Serviço</div>
-            <div class="card-body">
-              <div class="mb-3" id="groupSelectEntregador">
-                <label for="selectMotoboy" class="form-label">Motoboy</label>
-                <select id="selectMotoboy" class="form-select"></select>
-              </div>
-              <div class="mb-3 d-none" id="groupNomeEntregador">
-                <label class="form-label">Motoboy</label>
-                <p class="form-control-plaintext fw-medium" id="nomeEntregadorEdit"></p>
-              </div>
-              <p class="text-muted small mb-3">Campo vazio utiliza o valor global.</p>
-              <div class="row g-3">
-                <div class="col-12">
-                  <label for="excecaoShopee" class="form-label">Shopee</label>
-                  <input type="text" id="excecaoShopee" class="form-control moeda" placeholder="R$ 0,00">
-                </div>
-                <div class="col-12">
-                  <label for="excecaoMl" class="form-label">Flex</label>
-                  <input type="text" id="excecaoMl" class="form-control moeda" placeholder="R$ 0,00">
-                </div>
-                <div class="col-12">
-                  <label for="excecaoAvulso" class="form-label">Avulso</label>
-                  <input type="text" id="excecaoAvulso" class="form-control moeda" placeholder="R$ 0,00">
-                </div>
-                <div class="col-12 coleta-preco d-none">
-                  <label for="excecaoColeta" class="form-label">Diária de coleta</label>
-                  <input type="text" id="excecaoColeta" class="form-control moeda" placeholder="R$ 0,00">
+    <!-- Modal: Adicionar/Editar Exceção -->
+    <div class="modal fade" id="oc-excecao" tabindex="-1" aria-labelledby="ocExcecaoLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="ocExcecaoLabel">Adicionar Exceção</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <form id="formExcecao" class="needs-validation" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="excecaoEntregadorId" />
+              <div class="card mb-0">
+                <div class="card-header bg-light fw-semibold">Valores por Serviço</div>
+                <div class="card-body">
+                  <div class="mb-3" id="groupSelectEntregador">
+                    <label for="selectMotoboy" class="form-label">Motoboy</label>
+                    <select id="selectMotoboy" class="form-select"></select>
+                  </div>
+                  <div class="mb-3 d-none" id="groupNomeEntregador">
+                    <label class="form-label">Motoboy</label>
+                    <p class="form-control-plaintext fw-medium" id="nomeEntregadorEdit"></p>
+                  </div>
+                  <p class="text-muted small mb-3">Campo vazio utiliza o valor global.</p>
+                  <div class="row g-3">
+                    <div class="col-12">
+                      <label for="excecaoShopee" class="form-label">Shopee</label>
+                      <input type="text" id="excecaoShopee" class="form-control moeda" placeholder="R$ 0,00">
+                    </div>
+                    <div class="col-12">
+                      <label for="excecaoMl" class="form-label">Flex</label>
+                      <input type="text" id="excecaoMl" class="form-control moeda" placeholder="R$ 0,00">
+                    </div>
+                    <div class="col-12">
+                      <label for="excecaoAvulso" class="form-label">Avulso</label>
+                      <input type="text" id="excecaoAvulso" class="form-control moeda" placeholder="R$ 0,00">
+                    </div>
+                    <div class="col-12 coleta-preco d-none">
+                      <label for="excecaoColeta" class="form-label">Diária de coleta</label>
+                      <input type="text" id="excecaoColeta" class="form-control moeda" placeholder="R$ 0,00">
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-primary" id="btnSalvarExcecao">Salvar</button>
+            </div>
+          </form>
         </div>
-        <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body">
-          <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
-          <button type="submit" class="btn btn-primary" id="btnSalvarExcecao">Salvar</button>
-        </div>
-      </form>
+      </div>
     </div>
 
     <!-- Modal de exclusão -->

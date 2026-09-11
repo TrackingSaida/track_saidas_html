@@ -962,9 +962,9 @@
     max-width: 100%;
   }
 
-  /* Usuários (offcanvas 900): formulário em 1 coluna */
-  .offcanvas-form--w900 #colUser,
-  .offcanvas-form--w900 #colMotoboy {
+  /* Usuários (modal xl): formulário em 1 coluna em viewports menores */
+  #oc-user #colUser,
+  #oc-user #colMotoboy {
     flex: 0 0 100% !important;
     max-width: 100% !important;
   }

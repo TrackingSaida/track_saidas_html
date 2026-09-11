@@ -309,7 +309,7 @@ function openEdit(o) {
 
     syncModoOperacaoSelect();
 
-    new bootstrap.Offcanvas("#oc-owner").show();
+    new bootstrap.Modal("#oc-owner").show();
 }
 
 
@@ -355,7 +355,7 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
             showConfirmButton: false
         });
 
-        bootstrap.Offcanvas.getInstance(document.getElementById("oc-owner")).hide();
+        bootstrap.Modal.getInstance(document.getElementById("oc-owner")).hide();
         loadOwners();
 
     } catch (err) {
