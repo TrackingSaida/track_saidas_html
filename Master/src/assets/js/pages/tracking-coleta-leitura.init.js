@@ -21,6 +21,7 @@ function getBaseUrl() {
 const API_URL = () => `${getBaseUrl()}/coletas/lote`;
 const API_BASES = () => `${getBaseUrl()}/base/?status=ativo`;
 const API_SITUACAO = () => `${getBaseUrl()}/coletas/operacionais/situacao`;
+const API_RESUMO_BASE = (baseId) => `${getBaseUrl()}/coletas/operacionais/bases/${encodeURIComponent(baseId)}/resumo`;
 const API_ENTREGADORES = () => `${getBaseUrl()}/entregadores`;
 
 // ⚙️ Agora a chave do localStorage é dinâmica por base
@@ -150,6 +151,8 @@ function markRespostaMetric(m, ok, tipo) {
 /* =============== Estado ============= */
 let COLETAS = [];
 let BASE_ATUAL = null;
+/** Totais do dia vindos do servidor (ex.: base já coletada). */
+let TOTAIS_BASE_DIA = null;
 let modoMonitor = false;
 try {
   if (localStorage.getItem("coletasModoMonitor") === "1") modoMonitor = true;
@@ -227,7 +230,21 @@ function basesParaSeletorColeta(bases, situacaoItens) {
       const id = b && b.id_base != null ? Number(b.id_base) : null;
       const situacao = (id != null && porId[id]) || porNome[nome] || null;
       const statusSeletor = statusColetaNormalizado(situacao ? situacao.status : "pendente");
-      return { raw: b, nome, statusSeletor };
+      const idBase = id != null && !Number.isNaN(id) ? id : (situacao && situacao.base_id != null ? Number(situacao.base_id) : null);
+      return {
+        raw: b,
+        nome,
+        id_base: idBase,
+        statusSeletor,
+        totais: situacao
+          ? {
+              total: Number(situacao.total) || 0,
+              shopee: Number(situacao.shopee) || 0,
+              mercado_livre: Number(situacao.mercado_livre) || 0,
+              avulso: Number(situacao.avulso) || 0,
+            }
+          : null,
+      };
     })
     .filter((item) => item.nome.length > 0)
     .sort((a, b) => {
@@ -252,6 +269,12 @@ function labelGrupoSeletor(status) {
   if (status === "em_coleta") return "Em coleta";
   if (status === "coletado") return "Coletadas";
   return "Pendentes";
+}
+
+function classeBadgeGrupoSeletor(status) {
+  if (status === "em_coleta") return "badge-coleta-em-coleta";
+  if (status === "coletado") return "badge-coleta-coletada";
+  return "badge-coleta-pendente";
 }
 
 function syncSelectOptionsFromList(sel, list, placeholder) {
@@ -315,7 +338,8 @@ function renderBasePickerPanel(sel) {
     .map((group) => {
       const expanded = Boolean(BASE_PICKER_STATE.expanded[group.status]);
       const chevron = expanded ? "ri-arrow-up-s-line" : "ri-arrow-down-s-line";
-      const title = `${labelGrupoSeletor(group.status)} (${group.items.length})`;
+      const label = labelGrupoSeletor(group.status);
+      const badgeClass = classeBadgeGrupoSeletor(group.status);
       const body = expanded
         ? `<div class="base-picker-group-body">${group.items
             .map((item) => {
@@ -332,7 +356,10 @@ function renderBasePickerPanel(sel) {
         : "";
       return `<div class="base-picker-group" data-group-status="${group.status}">
         <button type="button" class="base-picker-group-toggle" data-group-toggle="${group.status}" aria-expanded="${expanded ? "true" : "false"}">
-          <span>${escAttr(title)}</span>
+          <span class="base-picker-group-heading">
+            <span class="badge-coleta-status ${badgeClass}">${escAttr(label)}</span>
+            <span class="base-picker-group-count">${group.items.length}</span>
+          </span>
           <i class="${chevron}" aria-hidden="true"></i>
         </button>
         ${body}
@@ -642,25 +669,110 @@ function classifyCodigo(rawInput){
 }
 
 /* =============== Atualiza Resumo ============= */
-function atualizarResumo() {
+function contarTotaisLocais() {
   const shopee = COLETAS.filter(c => c.servico === "Shopee" && !(c.status || "").toLowerCase().includes("duplicado")).length;
   const ml = COLETAS.filter(c => (c.servico === "Mercado Livre" || c.servico === "ML") && !(c.status || "").toLowerCase().includes("duplicado")).length;
   const avulso = COLETAS.filter(c => c.servico === "Avulso" && !(c.status || "").toLowerCase().includes("duplicado")).length;
   const total = COLETAS.filter(c => !(c.status || "").toLowerCase().includes("duplicado")).length;
+  return { shopee, mercado_livre: ml, avulso, total };
+}
 
-  qs("#sum-shopee").textContent = shopee;
-  qs("#sum-ml").textContent = ml;
-  qs("#sum-avulso").textContent = avulso;
-  qs("#sum-total").textContent = total;
-  atualizarVistaMonitor();
+function aplicarTotaisNaTela(totais) {
+  const t = totais || { shopee: 0, mercado_livre: 0, avulso: 0, total: 0 };
+  qs("#sum-shopee").textContent = Number(t.shopee) || 0;
+  qs("#sum-ml").textContent = Number(t.mercado_livre) || 0;
+  qs("#sum-avulso").textContent = Number(t.avulso) || 0;
+  qs("#sum-total").textContent = Number(t.total) || 0;
+  atualizarVistaMonitor(t);
+}
+
+function setResumoTitulo(texto, detalhe) {
+  const titulo = document.querySelector("#modo-padrao .card-header h5");
+  const meta = document.querySelector("#modo-padrao .card-header small");
+  if (titulo) titulo.textContent = texto || "Resumo das Leituras Atuais";
+  if (meta) {
+    meta.innerHTML = detalhe || 'Exibindo até <strong>150</strong> itens';
+  }
+}
+
+function itemSeletorPorNome(nome) {
+  const alvo = String(nome || "").trim();
+  if (!alvo) return null;
+  return (BASE_PICKER_STATE.list || []).find((item) => item.nome === alvo) || null;
+}
+
+async function carregarResumoBaseDia(baseId) {
+  const url = API_RESUMO_BASE(baseId);
+  if (!url || url.includes("undefined")) {
+    throw new Error("URL da API não configurada. Verifique TRACK_API_URL.");
+  }
+  const r = await fetch(`${url}?data_operacao=${encodeURIComponent(hojeOperacaoLocal())}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!r.ok) {
+    throw new Error(`Falha ao carregar resumo da base (${r.status}).`);
+  }
+  const data = await r.json();
+  return {
+    total: Number(data.total) || 0,
+    shopee: Number(data.shopee) || 0,
+    mercado_livre: Number(data.mercado_livre) || 0,
+    avulso: Number(data.avulso) || 0,
+    status: statusColetaNormalizado(data.status),
+  };
+}
+
+async function atualizarResumoBaseSelecionada(nomeBase) {
+  const item = itemSeletorPorNome(nomeBase);
+  const status = item ? item.statusSeletor : "pendente";
+
+  if (status === "coletado") {
+    setResumoTitulo("Resumo do dia", "Quantidades já registradas nesta coleta");
+    if (item && item.totais) {
+      TOTAIS_BASE_DIA = item.totais;
+      aplicarTotaisNaTela(TOTAIS_BASE_DIA);
+    }
+    if (item && item.id_base) {
+      try {
+        const resumo = await carregarResumoBaseDia(item.id_base);
+        TOTAIS_BASE_DIA = {
+          total: resumo.total,
+          shopee: resumo.shopee,
+          mercado_livre: resumo.mercado_livre,
+          avulso: resumo.avulso,
+        };
+        aplicarTotaisNaTela(TOTAIS_BASE_DIA);
+      } catch (err) {
+        console.warn("Não foi possível atualizar o resumo da base coletada.", err);
+        if (!TOTAIS_BASE_DIA) atualizarResumo();
+      }
+    } else if (!TOTAIS_BASE_DIA) {
+      atualizarResumo();
+    }
+    return;
+  }
+
+  TOTAIS_BASE_DIA = null;
+  setResumoTitulo("Resumo das Leituras Atuais", 'Exibindo até <strong>150</strong> itens');
+  atualizarResumo();
+}
+
+function atualizarResumo() {
+  if (TOTAIS_BASE_DIA) {
+    aplicarTotaisNaTela(TOTAIS_BASE_DIA);
+    return;
+  }
+  aplicarTotaisNaTela(contarTotaisLocais());
 }
 
 /* =============== Vista Modo Monitor ============= */
-function atualizarVistaMonitor() {
-  const shopee = COLETAS.filter(c => c.servico === "Shopee" && !(c.status || "").toLowerCase().includes("duplicado")).length;
-  const ml = COLETAS.filter(c => (c.servico === "Mercado Livre" || c.servico === "ML") && !(c.status || "").toLowerCase().includes("duplicado")).length;
-  const avulso = COLETAS.filter(c => c.servico === "Avulso" && !(c.status || "").toLowerCase().includes("duplicado")).length;
-  const total = COLETAS.filter(c => !(c.status || "").toLowerCase().includes("duplicado")).length;
+function atualizarVistaMonitor(totaisOverride) {
+  const totais = totaisOverride || contarTotaisLocais();
+  const shopee = Number(totais.shopee) || 0;
+  const ml = Number(totais.mercado_livre) || 0;
+  const avulso = Number(totais.avulso) || 0;
+  const total = Number(totais.total) || 0;
 
   const el = (id) => qs("#" + id);
   if (el("monitor-total")) el("monitor-total").textContent = total;
@@ -937,7 +1049,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         toast("Não foi possível agrupar por status. Mostrando todas as bases ativas.", false);
       }
       list = basesRaw
-        .map((b) => ({ raw: b, nome: nomeBaseItem(b), statusSeletor: "pendente" }))
+        .map((b) => ({
+          raw: b,
+          nome: nomeBaseItem(b),
+          id_base: b && b.id_base != null ? Number(b.id_base) : null,
+          statusSeletor: "pendente",
+          totais: null,
+        }))
         .filter((item) => item.nome.length > 0)
         .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" }));
     }
@@ -988,9 +1106,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // 🔹 Ao trocar a base
-    sel.addEventListener("change", e => {
+    sel.addEventListener("change", async e => {
       BASE_ATUAL = e.target.value;
       STORAGE_KEY = `coletasPendentes_${BASE_ATUAL}`;
+      TOTAIS_BASE_DIA = null;
 
       // Lê do localStorage
       const hoje = hojeBR();
@@ -1005,7 +1124,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(COLETAS));
 
       renderTabela();
-      atualizarResumo();
+      await atualizarResumoBaseSelecionada(BASE_ATUAL);
       toast(`Base alterada para ${BASE_ATUAL}.`, true);
     });
 
@@ -1323,6 +1442,9 @@ if (duplicado) {
         sel.value = "";
         BASE_ATUAL = null;
         STORAGE_KEY = null;
+        TOTAIS_BASE_DIA = null;
+        setResumoTitulo("Resumo das Leituras Atuais", 'Exibindo até <strong>150</strong> itens');
+        atualizarResumo();
         atualizarLabelPickerBase(sel);
         renderBasePickerPanel(sel);
         setBasePickerOpen(false);

@@ -45,13 +45,46 @@
         background: transparent;
         padding: 0.55rem 0.7rem;
         border-radius: 0.55rem;
-        font-size: 0.78rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
         color: var(--vz-secondary-color, #878a99);
       }
       .base-picker-group-toggle:hover { background: rgba(0, 0, 0, 0.04); }
+      .base-picker-group-heading {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        min-width: 0;
+      }
+      .base-picker-group-count {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--vz-secondary-color, #878a99);
+      }
+      .badge-coleta-status {
+        display: inline-flex;
+        align-items: center;
+        border: 1.5px solid;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        padding: 0.28em 0.7em;
+        line-height: 1.2;
+      }
+      .badge-coleta-pendente {
+        background: rgba(255, 193, 7, 0.22);
+        color: #856404;
+        border-color: #d39e00;
+      }
+      .badge-coleta-em-coleta {
+        background: rgba(13, 110, 253, 0.16);
+        color: #084298;
+        border-color: #0d6efd;
+      }
+      .badge-coleta-coletada {
+        background: rgba(25, 135, 84, 0.18);
+        color: #0f5132;
+        border-color: #198754;
+      }
       .base-picker-group-body { padding: 0 0.2rem 0.35rem; }
       .base-picker-item {
         width: 100%;

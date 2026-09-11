@@ -23,9 +23,13 @@
 
   function statusBadge(status) {
     const normal = statusNormalizado(status);
-    if (normal === "em_coleta") return '<span class="badge bg-info-subtle text-info">Em coleta</span>';
-    if (normal === "coletado") return '<span class="badge bg-success-subtle text-success">Coletada</span>';
-    return '<span class="badge bg-warning-subtle text-warning">Pendente</span>';
+    if (normal === "em_coleta") {
+      return '<span class="badge-coleta-status badge-coleta-em-coleta">Em coleta</span>';
+    }
+    if (normal === "coletado") {
+      return '<span class="badge-coleta-status badge-coleta-coletada">Coletada</span>';
+    }
+    return '<span class="badge-coleta-status badge-coleta-pendente">Pendente</span>';
   }
 
   function modoLabel(modo) {
