@@ -1572,18 +1572,18 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
   const mostrarFoto = exigeFoto || isStaff;
   const fotoFieldHtml = mostrarFoto
     ? `
-        <label class="form-label mb-1" for="avulso-foto">Foto do lote ${exigeFoto ? '<span class="text-danger">*</span>' : '<span class="text-muted">(opcional)</span>'}</label>
+        <label class="form-label mb-1" for="avulso-foto">Imagem ${exigeFoto ? '<span class="text-danger">*</span>' : '<span class="text-muted">(opcional)</span>'}</label>
         <input id="avulso-foto" type="file" accept="image/*" capture="environment" class="form-control mb-1" />
-        <div class="form-text mb-3">${exigeFoto ? "Este entregador exige foto ao lançar avulso." : "Opcional."}</div>
+        ${exigeFoto ? '<div class="form-text mb-3">Este entregador exige foto ao lançar avulso.</div>' : '<div class="mb-3"></div>'}
       `
     : "";
   const modal = await Swal.fire({
     title: "Lançar Avulso",
     html: `
       <div class="text-start">
-        <label class="form-label mb-1" for="avulso-identificacao">Identificação do avulso (opcional)</label>
+        <label class="form-label mb-1" for="avulso-identificacao">Identificação</label>
         <input id="avulso-identificacao" class="form-control mb-1" maxlength="32" placeholder="Ex.: Cliente João" />
-        <div class="form-text mb-3">Opcional. Até 32 caracteres para identificar o lote na operação.</div>
+        <div class="form-text mb-3">Até 32 caracteres para identificar o lote na operação.</div>
         <label class="form-label mb-1" for="avulso-quantidade">Quantidade</label>
         <input id="avulso-quantidade" type="number" min="1" max="50" step="1" class="form-control mb-1" value="1" />
         <div class="form-text ${mostrarFoto ? "mb-3" : ""}">Informe entre 1 e 50 pacotes por lançamento.</div>
