@@ -191,33 +191,33 @@
 
   async function uploadAvulsoPhoto(file) {
     const photoId = newPhotoId();
-    const contentType = (file && file.type) ? file.type : "image/jpeg";
-    const filename = (file && file.name) ? file.name : "avulso.jpg";
-    const presignRes = await fetch(apiBase() + "/upload/presign", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({
-        filename,
-        tipo: "lancar_avulso",
-        content_type: contentType,
-        photo_id: photoId,
-      }),
-    });
-    let presignData = null;
-    try { presignData = await presignRes.json(); } catch (_) {}
-    if (!presignRes.ok) {
-      const msg = (presignData && presignData.detail) || "Erro ao preparar upload da foto.";
-      throw new Error(typeof msg === "string" ? msg : "Erro ao preparar upload da foto.");
+    const form = new FormData();
+    form.append("file", file, (file && file.name) ? file.name : "avulso.jpg");
+    form.append("photo_id", photoId);
+    let res;
+    try {
+      res = await fetch(apiBase() + "/upload/avulso-file", {
+        method: "POST",
+        credentials: "include",
+        body: form,
+      });
+    } catch (netErr) {
+      throw new Error("Não foi possível enviar a imagem. Verifique a conexão e tente novamente.");
     }
-    const uploadUrl = presignData.upload_url;
-    const objectKey = presignData.object_key;
-    const headers = Object.assign({ "Content-Type": contentType }, presignData.headers || {});
-    const putRes = await fetch(uploadUrl, { method: "PUT", headers, body: file });
-    if (!putRes.ok) {
-      throw new Error("Falha ao enviar foto (" + putRes.status + ").");
+    let data = null;
+    try { data = await res.json(); } catch (_) {}
+    if (!res.ok) {
+      const detail = data && data.detail;
+      const msg = (detail && typeof detail === "object" && detail.message)
+        ? detail.message
+        : (typeof detail === "string" ? detail : "Erro ao enviar a imagem.");
+      throw new Error(msg);
     }
-    return { foto_object_key: objectKey, photo_id: photoId };
+    const objectKey = data && (data.foto_object_key || data.object_key);
+    if (!objectKey) {
+      throw new Error("Upload concluído sem chave da imagem. Tente novamente.");
+    }
+    return { foto_object_key: objectKey, photo_id: (data && data.photo_id) || photoId };
   }
 
   btnAvulso?.addEventListener("click", async () => {
