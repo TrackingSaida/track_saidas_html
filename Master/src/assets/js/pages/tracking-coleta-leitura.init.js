@@ -1196,9 +1196,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const mostrarFoto = exigeFoto || isStaff;
     const fotoFieldHtml = mostrarFoto
       ? `
-          <label class="form-label mb-1" for="avulso-foto">Foto do lote ${exigeFoto ? '<span class="text-danger">*</span>' : '<span class="text-muted">(opcional)</span>'}</label>
+          <label class="form-label mb-1" for="avulso-foto">Imagem ${exigeFoto ? '<span class="text-danger">*</span>' : '<span class="text-muted">(opcional)</span>'}</label>
           <input id="avulso-foto" type="file" accept="image/*" capture="environment" class="form-control mb-1" />
-          <div class="form-text">${exigeFoto ? "Este usuário exige foto ao lançar avulso." : "Opcional."}</div>
+          ${exigeFoto ? '<div class="form-text">Este usuário exige foto ao lançar avulso.</div>' : ""}
         `
       : "";
 
@@ -1206,7 +1206,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       title: "Lançar Avulso (coleta)",
       html: `
         <div class="text-start">
-          <label class="form-label mb-1" for="avulso-identificacao">Identificação (opcional)</label>
+          <label class="form-label mb-1" for="avulso-identificacao">Identificação</label>
           <input id="avulso-identificacao" class="form-control mb-3" maxlength="32" placeholder="Ex.: Cliente João" />
           <label class="form-label mb-1" for="avulso-quantidade">Quantidade</label>
           <input id="avulso-quantidade" type="number" min="1" max="50" step="1" class="form-control ${mostrarFoto ? "mb-3" : ""}" value="1" />

@@ -230,13 +230,11 @@
 
     const fotoFieldHtml = mostrarFoto
       ? (
-        '<label class="form-label mb-1" for="swal-foto">Foto do lote ' +
+        '<label class="form-label mb-1" for="swal-foto">Imagem ' +
           (exigeFoto ? '<span class="text-danger">*</span>' : '<span class="text-muted">(opcional)</span>') +
         '</label>' +
         '<input id="swal-foto" type="file" accept="image/*" capture="environment" class="form-control mb-1">' +
-        '<div class="form-text">' +
-          (exigeFoto ? "Este usuário exige foto ao lançar avulso." : "Opcional.") +
-        "</div>"
+        (exigeFoto ? '<div class="form-text">Este usuário exige foto ao lançar avulso.</div>' : "")
       )
       : "";
 
@@ -244,7 +242,7 @@
       title: "Lançar Avulso (entrada)",
       html:
         '<div class="text-start">' +
-        '<label class="form-label mb-1" for="swal-ident">Identificação (opcional)</label>' +
+        '<label class="form-label mb-1" for="swal-ident">Identificação</label>' +
         '<input id="swal-ident" class="form-control mb-3" placeholder="Ex.: Cliente João">' +
         '<label class="form-label mb-1" for="swal-qtd">Quantidade</label>' +
         '<input id="swal-qtd" type="number" min="1" max="50" value="1" class="form-control ' + (mostrarFoto ? "mb-3" : "") + '" placeholder="Quantidade">' +
