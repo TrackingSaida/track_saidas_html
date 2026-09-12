@@ -56,84 +56,69 @@ function resolvePostLoginDestino(userData) {
   return "tracking-leitura.html";
 }
 
-async function handleSuccessfulLogin(base, loginData) {
-  // Root: precisa escolher sub_base antes de receber cookie/sessão
-  if (loginData && loginData.needs_sub_base_selection) {
-    const subBases = Array.isArray(loginData.sub_bases) ? loginData.sub_bases.filter(Boolean) : [];
-    if (!subBases.length) {
-      showErrorLogin("Nenhuma base disponível para acesso.");
-      return;
-    }
+let pendingRootSelect = null;
 
-    const loginEl = document.getElementById("login");
-    const rawLogin = (loginEl?.value || "").trim();
-    const password = document.getElementById("password-input")?.value || "";
-    const remember = !!document.getElementById("auth-remember-check")?.checked;
+function buildLoginPayload(rawLogin, password, remember) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const digits = rawLogin.replace(/\D/g, "");
+  if (emailRegex.test(rawLogin)) return { email: rawLogin, password, remember };
+  if (digits.length >= 10) return { contato: rawLogin, password, remember };
+  return { username: rawLogin, password, remember };
+}
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const digits = rawLogin.replace(/\D/g, "");
-    let selectPayload;
-    if (emailRegex.test(rawLogin)) {
-      selectPayload = { email: rawLogin, password, remember };
-    } else if (digits.length >= 10) {
-      selectPayload = { contato: rawLogin, password, remember };
-    } else {
-      selectPayload = { username: rawLogin, password, remember };
-    }
+function showRootSubBasePanel(subBases) {
+  const panel = document.getElementById("rootSubBasePanel");
+  const select = document.getElementById("rootSubBaseSelect");
+  const signinBtn = document.getElementById("signinBtn");
+  const loginField = document.getElementById("login")?.closest(".rv-field");
+  const passField = document.getElementById("password-input")?.closest(".rv-field");
+  const rememberRow = document.querySelector(".rv-check");
+  const extra = document.getElementById("loginExtraActions");
+  const err = document.getElementById("loginError");
 
-    const optionsHtml = subBases
-      .map((sb) => `<option value="${String(sb).replace(/"/g, "&quot;")}">${String(sb)}</option>`)
-      .join("");
+  if (!panel || !select) return;
 
-    const { value: chosen, isConfirmed } = await Swal.fire({
-      title: "Selecione a base",
-      html: `<select id="swal-root-subbase" class="swal2-select" style="width:100%">${optionsHtml}</select>`,
-      focusConfirm: false,
-      showCancelButton: true,
-      confirmButtonText: "Continuar",
-      cancelButtonText: "Cancelar",
-      preConfirm: () => {
-        const el = document.getElementById("swal-root-subbase");
-        const v = (el?.value || "").trim();
-        if (!v) {
-          Swal.showValidationMessage("Selecione uma base.");
-          return false;
-        }
-        return v;
-      },
-    });
+  select.innerHTML = subBases
+    .map((sb) => `<option value="${String(sb).replace(/"/g, "&quot;")}">${String(sb)}</option>`)
+    .join("");
 
-    if (!isConfirmed || !chosen) {
-      showErrorLogin("Selecione uma base para continuar.");
-      return;
-    }
+  panel.classList.remove("d-none");
+  if (signinBtn) signinBtn.classList.add("d-none");
+  if (loginField) loginField.classList.add("d-none");
+  if (passField) passField.classList.add("d-none");
+  if (rememberRow) rememberRow.classList.add("d-none");
+  if (extra) extra.classList.add("d-none");
+  if (err) err.classList.add("d-none");
 
-    const selectResp = await fetch(base + "/root-select-subbase", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ ...selectPayload, sub_base: chosen }),
-    });
+  const title = document.querySelector(".rv-auth-inner h1");
+  const sub = document.querySelector(".rv-auth-inner .rv-sub");
+  if (title) title.textContent = "Selecione a base";
+  if (sub) sub.textContent = "Escolha a operação que deseja acessar.";
+}
 
-    if (selectResp.status === 403) {
-      const errBody = await selectResp.json().catch(() => ({}));
-      if (errBody?.detail === "owner_blocked") {
-        window.location.href = "auth-signin-tracking-v2.html?reason=owner_blocked";
-        return;
-      }
-      showErrorLogin(errBody.detail || "Não foi possível acessar a base selecionada.");
-      return;
-    }
+function hideRootSubBasePanel() {
+  const panel = document.getElementById("rootSubBasePanel");
+  const signinBtn = document.getElementById("signinBtn");
+  const loginField = document.getElementById("login")?.closest(".rv-field");
+  const passField = document.getElementById("password-input")?.closest(".rv-field");
+  const rememberRow = document.querySelector(".rv-check");
+  const extra = document.getElementById("loginExtraActions");
 
-    if (!selectResp.ok) {
-      const err = await selectResp.json().catch(() => ({}));
-      showErrorLogin(err.detail || "Não foi possível selecionar a base.");
-      return;
-    }
+  if (panel) panel.classList.add("d-none");
+  if (signinBtn) signinBtn.classList.remove("d-none");
+  if (loginField) loginField.classList.remove("d-none");
+  if (passField) passField.classList.remove("d-none");
+  if (rememberRow) rememberRow.classList.remove("d-none");
+  if (extra) extra.classList.remove("d-none");
 
-    loginData = await selectResp.json().catch(() => ({}));
-  }
+  const title = document.querySelector(".rv-auth-inner h1");
+  const sub = document.querySelector(".rv-auth-inner .rv-sub");
+  if (title) title.textContent = "Bem-vindo de volta! 👋";
+  if (sub) sub.textContent = "Entre com suas credenciais para continuar.";
+  pendingRootSelect = null;
+}
 
+async function finishLoginWithData(base, loginData) {
   const loginUser = loginData && loginData.user ? loginData.user : null;
 
   if (loginUser && loginUser.must_change_password) {
@@ -158,6 +143,31 @@ async function handleSuccessfulLogin(base, loginData) {
   }
 
   window.location.href = resolvePostLoginDestino(userData);
+}
+
+async function handleSuccessfulLogin(base, loginData) {
+  // Root: precisa escolher sub_base antes de receber cookie/sessão
+  if (loginData && loginData.needs_sub_base_selection) {
+    const subBases = Array.isArray(loginData.sub_bases) ? loginData.sub_bases.filter(Boolean) : [];
+    if (!subBases.length) {
+      showErrorLogin("Nenhuma base disponível para acesso.");
+      return;
+    }
+
+    const loginEl = document.getElementById("login");
+    const rawLogin = (loginEl?.value || "").trim();
+    const password = document.getElementById("password-input")?.value || "";
+    const remember = !!document.getElementById("auth-remember-check")?.checked;
+
+    pendingRootSelect = {
+      base,
+      payload: buildLoginPayload(rawLogin, password, remember),
+    };
+    showRootSubBasePanel(subBases);
+    return;
+  }
+
+  await finishLoginWithData(base, loginData);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -204,6 +214,70 @@ document.addEventListener('DOMContentLoaded', () => {
 
       window.location.href =
         `auth-pass-change-cover.html?identifier=${encodeURIComponent(login)}`;
+    });
+  }
+
+  // ==========================================
+  // SELEÇÃO DE BASE (ROOT)
+  // ==========================================
+  const rootContinue = document.getElementById("rootSubBaseContinue");
+  const rootCancel = document.getElementById("rootSubBaseCancel");
+
+  if (rootCancel) {
+    rootCancel.addEventListener("click", () => {
+      hideRootSubBasePanel();
+      const err = document.getElementById("loginError");
+      if (err) err.classList.add("d-none");
+    });
+  }
+
+  if (rootContinue) {
+    rootContinue.addEventListener("click", async () => {
+      if (!pendingRootSelect) {
+        showErrorLogin("Faça login novamente para selecionar a base.");
+        hideRootSubBasePanel();
+        return;
+      }
+      const select = document.getElementById("rootSubBaseSelect");
+      const chosen = (select?.value || "").trim();
+      if (!chosen) {
+        showErrorLogin("Selecione uma base para continuar.");
+        return;
+      }
+
+      setSigningIn(rootContinue, true);
+      try {
+        const selectResp = await fetch(pendingRootSelect.base + "/root-select-subbase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ ...pendingRootSelect.payload, sub_base: chosen }),
+        });
+
+        if (selectResp.status === 403) {
+          const errBody = await selectResp.json().catch(() => ({}));
+          if (errBody?.detail === "owner_blocked") {
+            window.location.href = "auth-signin-tracking-v2.html?reason=owner_blocked";
+            return;
+          }
+          showErrorLogin(errBody.detail || "Não foi possível acessar a base selecionada.");
+          return;
+        }
+
+        if (!selectResp.ok) {
+          const err = await selectResp.json().catch(() => ({}));
+          showErrorLogin(err.detail || "Não foi possível selecionar a base.");
+          return;
+        }
+
+        const loginData = await selectResp.json().catch(() => ({}));
+        await finishLoginWithData(pendingRootSelect.base, loginData);
+      } catch (err) {
+        console.error(err);
+        showErrorLogin("Falha ao conectar.");
+      } finally {
+        setSigningIn(rootContinue, false);
+      }
     });
   }
 

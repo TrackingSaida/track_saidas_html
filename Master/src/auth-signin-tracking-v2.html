@@ -96,12 +96,31 @@
           </button>
           <div id="signinStatus" class="text-muted small mt-2 d-none" aria-live="polite"></div>
 
+          <div id="rootSubBasePanel" class="d-none mt-3">
+            <div class="rv-field mb-3">
+              <label for="rootSubBaseSelect">Selecione a base</label>
+              <p class="text-muted small mb-2">Escolha a operação que deseja acessar.</p>
+              <div class="rv-input-wrap">
+                <i class="ri-building-line" aria-hidden="true"></i>
+                <select id="rootSubBaseSelect" class="form-select border-0 bg-transparent ps-0" style="box-shadow:none;"></select>
+              </div>
+            </div>
+            <button id="rootSubBaseContinue" type="button" class="rv-btn-enter w-100">
+              Continuar <i class="ri-arrow-right-line" aria-hidden="true"></i>
+            </button>
+            <button id="rootSubBaseCancel" type="button" class="btn btn-light w-100 mt-2 border">
+              Voltar
+            </button>
+          </div>
+
+          <div id="loginExtraActions">
           <div class="rv-or">ou</div>
 
           <a href="auth-signup-tracking-v2.html" class="rv-btn-signup">
             <i class="ri-user-add-line" aria-hidden="true"></i>
             Criar nova conta
           </a>
+          </div>
 
           <p class="rv-secure">
             <i class="ri-lock-line" aria-hidden="true"></i>
