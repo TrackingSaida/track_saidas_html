@@ -1177,6 +1177,12 @@ function setupPagerEvents() {
     return String(ev || "").toLowerCase().replace(/\s+/g, "_") === "lancar_avulso";
   }
 
+  /** Eventos de criação em coleta/entrada onde a foto de avulso também pode aparecer. */
+  function isEventoOrigemAvulso(ev) {
+    var e = String(ev || "").toLowerCase().replace(/\s+/g, "_");
+    return e === "lancar_avulso" || e === "criado_coleta" || e === "entrada_base";
+  }
+
   function buildEventPhotoMaps(historico, groups) {
     var ausenciaMap = mapPhotosToEventIndexes(historico, groups, "ausente");
     var entregaMap = mapPhotosToEventIndexes(historico, groups, "entregue");
@@ -1185,6 +1191,12 @@ function setupPagerEvents() {
     historico.forEach(function(item, i) {
       if (isEventoLancarAvulso(item.evento)) avulsoIndexes.push(i);
     });
+    // Coleta/entrada gravam criado_coleta ou entrada_base (não lancar_avulso).
+    if (!avulsoIndexes.length) {
+      historico.forEach(function(item, i) {
+        if (isEventoOrigemAvulso(item.evento)) avulsoIndexes.push(i);
+      });
+    }
     flattenPhotoGroups(groups, "lancar_avulso").forEach(function(photo) {
       var target = resolveEventIndexForPhoto(historico, avulsoIndexes, photo);
       if (target < 0 && avulsoIndexes.length) target = avulsoIndexes[avulsoIndexes.length - 1];
@@ -1197,7 +1209,7 @@ function setupPagerEvents() {
       legacy.forEach(function(photo) {
         var lastEntrega = findLastHistoricoIndexByKeys(historico, isEventoEntrega);
         var lastAusencia = findLastHistoricoIndexByKeys(historico, isEventoAusencia);
-        var lastAvulso = findLastHistoricoIndexByKeys(historico, isEventoLancarAvulso);
+        var lastAvulso = findLastHistoricoIndexByKeys(historico, isEventoOrigemAvulso);
         var absIndexes = [];
         var entIndexes = [];
         historico.forEach(function(item, i) {
@@ -1218,7 +1230,7 @@ function setupPagerEvents() {
         } else if (isEventoAusencia(historico[target].evento)) {
           if (!ausenciaMap[target]) ausenciaMap[target] = [];
           ausenciaMap[target].push(photo);
-        } else if (isEventoLancarAvulso(historico[target].evento)) {
+        } else if (isEventoOrigemAvulso(historico[target].evento)) {
           if (!avulsoMap[target]) avulsoMap[target] = [];
           avulsoMap[target].push(photo);
         }
@@ -1231,7 +1243,7 @@ function setupPagerEvents() {
   function indexExportUltimoEvento(historico, groups) {
     var maps = buildEventPhotoMaps(historico, groups);
     for (var i = historico.length - 1; i >= 0; i--) {
-      var fotos = maps.entregaMap[i] || maps.ausenciaMap[i] || [];
+      var fotos = maps.entregaMap[i] || maps.ausenciaMap[i] || maps.avulsoMap[i] || [];
       if (fotos.length) return fotos[0].globalIndex;
     }
     return 0;
@@ -1265,7 +1277,7 @@ function setupPagerEvents() {
       var eventPhotos = [];
       if (isEventoAusencia(item.evento)) eventPhotos = maps.ausenciaMap[index] || [];
       else if (isEventoEntrega(item.evento)) eventPhotos = maps.entregaMap[index] || [];
-      else if (isEventoLancarAvulso(item.evento)) eventPhotos = maps.avulsoMap[index] || [];
+      else if (isEventoOrigemAvulso(item.evento)) eventPhotos = maps.avulsoMap[index] || [];
 
       var extrasHtml = "";
       if (isEventoAusencia(item.evento)) {
