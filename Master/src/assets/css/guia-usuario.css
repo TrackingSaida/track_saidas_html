@@ -1,0 +1,123 @@
+.guia-hero {
+  background: linear-gradient(120deg, rgba(20, 184, 166, 0.12) 0%, rgba(26, 111, 212, 0.12) 100%);
+}
+
+.guia-kicker {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+
+.guia-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #0b1f3a;
+  font-weight: 700;
+  font-size: 0.8125rem;
+}
+
+.guia-nav-card {
+  position: sticky;
+  top: 88px;
+}
+
+.guia-nav-group + .guia-nav-group {
+  margin-top: 1.25rem;
+}
+
+.guia-nav-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6c757d;
+  margin-bottom: 0.5rem;
+}
+
+.guia-nav-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  color: inherit;
+}
+
+.guia-nav-item:hover,
+.guia-nav-item.is-active {
+  background: rgba(20, 184, 166, 0.12);
+}
+
+.guia-nav-item.is-active {
+  box-shadow: inset 3px 0 0 #14b8a6;
+}
+
+.guia-nav-item-title {
+  display: block;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.guia-nav-item-summary {
+  display: block;
+  color: #6c757d;
+  font-size: 0.78rem;
+  margin-top: 2px;
+}
+
+.guia-step {
+  display: flex;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--vz-border-color, #e9ebec);
+}
+
+.guia-step:last-child {
+  border-bottom: 0;
+}
+
+.guia-step-num {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #14b8a6;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.guia-step-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.guia-step-text {
+  color: #6c757d;
+  margin: 0;
+}
+
+.guia-empty {
+  text-align: center;
+  color: #6c757d;
+  padding: 2.5rem 1rem;
+}
+
+@media (max-width: 991.98px) {
+  .guia-nav-card {
+    position: static;
+  }
+}
