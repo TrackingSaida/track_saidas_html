@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-br" data-layout="vertical" data-topbar="dark" data-sidebar="dark" data-sidebar-size="lg">
+  <head>
+    @@include("partials/title-meta.html", {"title": "Guia do usuário"})
+    @@include("partials/head-css.html")
+    <link href="assets/css/guia-usuario.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <div id="layout-wrapper">
+      @@include("partials/menu.html")
+
+      <div class="main-content">
+        <div class="page-content">
+          <div class="container-fluid">
+            @@include("partials/page-title.html", {"pagetitle": "Ajuda", "title": "Guia do usuário", "withSubtitle": false, "ownerTerm": ""})
+
+            <div class="guia-hero card border-0 mb-3">
+              <div class="card-body">
+                <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+                  <div>
+                    <p class="guia-kicker mb-1">Como usar o painel</p>
+                    <h4 class="mb-2">Primeiro configure. Depois opere o dia.</h4>
+                    <p class="text-muted mb-0">
+                      Siga os passos na ordem. Em cada tópico você pode abrir a tela correspondente.
+                    </p>
+                  </div>
+                  <div class="guia-hero-badge">
+                    <i class="ri-book-open-line"></i>
+                    Passo a passo
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-lg-4">
+                <div class="card guia-nav-card">
+                  <div class="card-body">
+                    <div class="search-box mb-3">
+                      <input type="search" id="guiaSearch" class="form-control" placeholder="Buscar tópico..." autocomplete="off">
+                      <i class="ri-search-line search-icon"></i>
+                    </div>
+                    <div id="guiaNav" class="guia-nav"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-lg-8">
+                <div class="card guia-topic-card">
+                  <div class="card-body" id="guiaTopic">
+                    <div class="text-muted py-5 text-center">Carregando o guia…</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        @@include("partials/footer.html")
+      </div>
+    </div>
+
+    @@include("partials/vendor-scripts.html")
+    <script>
+      if (!window.TRACK_API_URL) window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+    </script>
+    <script src="assets/js/app.js"></script>
+    <script src="assets/js/pages/tracking-guia-usuario.init.js"></script>
+  </body>
+</html>
