@@ -8,6 +8,7 @@
   var API_GERAR = API_BASE + "/etiquetas/gerar";
   var API_ENVIOS = API_BASE + "/etiquetas/envios-proprios";
   var API_REMETENTES = API_BASE + "/etiquetas/remetentes";
+  var API_REIMPRESSAO = API_BASE + "/etiquetas/envios-proprios/reimpressao/";
 
   var inpCodigo = document.getElementById("etiqueta-codigo");
   var btnGerar = document.getElementById("btn-gerar-etiqueta");
@@ -23,6 +24,7 @@
 
   var remetentesCache = [];
   var lastPreviewUrl = null;
+  var cepBusy = {};
 
   function toast(msg, ok) {
     if (window.Swal) {
@@ -35,6 +37,16 @@
       return;
     }
     alert(msg);
+  }
+
+  function isCodigoEnvioProprio(codigo) {
+    return /^RTE[0-9]{11,}$/i.test(String(codigo || "").trim());
+  }
+
+  function maskCep(value) {
+    var digits = String(value || "").replace(/\D/g, "").slice(0, 8);
+    if (digits.length > 5) return digits.replace(/(\d{5})(\d{0,3})/, "$1-$2");
+    return digits;
   }
 
   function showPreview(blob, meta) {
@@ -66,34 +78,42 @@
     return "Erro ao gerar etiqueta";
   }
 
-  function gerarEtiqueta(codigo) {
+  function fetchPdfBlob(url, options) {
+    return fetch(url, options).then(function (res) {
+      if (res.status === 401) {
+        location.href = "login.html";
+        throw new Error("Sessão expirada");
+      }
+      if (!res.ok) {
+        return res.json().then(function (body) {
+          throw new Error(parseErrorBody(body));
+        }).catch(function (e) {
+          if (e instanceof Error && e.message && e.message !== "Unexpected end of JSON input") throw e;
+          throw new Error("Erro ao gerar etiqueta");
+        });
+      }
+      var codigo = res.headers.get("X-Codigo") || "";
+      return res.blob().then(function (blob) {
+        return { blob: blob, codigo: codigo };
+      });
+    });
+  }
+
+  function gerarQrCode(codigo) {
     codigo = (codigo || "").trim();
     if (!codigo) {
       toast("Informe o código de rastreio.");
       return;
     }
-
     if (btnGerar) btnGerar.disabled = true;
-
-    fetch(API_GERAR, {
+    fetchPdfBlob(API_GERAR, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({ codigo: codigo }),
     })
-      .then(function (res) {
-        if (!res.ok) {
-          return res.json().then(function (body) {
-            throw new Error(parseErrorBody(body));
-          }).catch(function (e) {
-            if (e instanceof Error && e.message && e.message !== "Unexpected end of JSON input") throw e;
-            throw new Error("Erro ao gerar etiqueta");
-          });
-        }
-        return res.blob();
-      })
-      .then(function (blob) {
-        showPreview(blob, codigo);
+      .then(function (out) {
+        showPreview(out.blob, codigo);
       })
       .catch(function (err) {
         toast(err.message || "Falha ao gerar etiqueta.", false);
@@ -101,6 +121,55 @@
       .finally(function () {
         if (btnGerar) btnGerar.disabled = false;
       });
+  }
+
+  function reimprimirEnvioProprio(codigo) {
+    codigo = (codigo || "").trim().toUpperCase();
+    if (!codigo) return;
+    if (btnGerar) btnGerar.disabled = true;
+    fetchPdfBlob(API_REIMPRESSAO + encodeURIComponent(codigo), {
+      method: "GET",
+      credentials: "include",
+      headers: { Accept: "application/pdf" },
+    })
+      .then(function (out) {
+        showPreview(out.blob, out.codigo || codigo);
+        toast("Etiqueta de envio reimpressa.", true);
+      })
+      .catch(function (err) {
+        toast(err.message || "Falha ao reimprimir etiqueta de envio.", false);
+      })
+      .finally(function () {
+        if (btnGerar) btnGerar.disabled = false;
+      });
+  }
+
+  function gerarEtiqueta(codigo) {
+    codigo = (codigo || "").trim();
+    if (!codigo) {
+      toast("Informe o código de rastreio.");
+      return;
+    }
+
+    if (!isCodigoEnvioProprio(codigo) || !window.Swal) {
+      gerarQrCode(codigo);
+      return;
+    }
+
+    Swal.fire({
+      title: "Envio próprio do sistema",
+      text: "Este código foi gerado pelo ROTEVO. O que deseja gerar?",
+      icon: "question",
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: "Etiqueta de envio (reimpressão)",
+      denyButtonText: "Somente QR Code",
+      cancelButtonText: "Cancelar",
+      reverseButtons: true,
+    }).then(function (result) {
+      if (result.isConfirmed) reimprimirEnvioProprio(codigo);
+      else if (result.isDenied) gerarQrCode(codigo);
+    });
   }
 
   function syncOrigemRemetente() {
@@ -192,28 +261,65 @@
     };
   }
 
+  function setCepStatus(prefix, msg, isError) {
+    var el = document.getElementById(prefix + "CepHelp");
+    if (!el) return;
+    el.textContent = msg || "Digite o CEP e saia do campo para preencher o endereço.";
+    el.className = "form-text small " + (isError ? "text-danger" : "text-muted");
+  }
+
+  function lookupCepApi(cep) {
+    return fetch(API_BASE + "/cep/" + cep, { credentials: "include" }).then(function (r) {
+      if (r.ok) return r.json();
+      // Fallback ViaCEP direto (mesmo padrão das outras telas)
+      if (r.status >= 500) {
+        return fetch("https://viacep.com.br/ws/" + cep + "/json/").then(function (direct) {
+          if (!direct.ok) throw new Error("Falha ao consultar CEP");
+          return direct.json().then(function (data) {
+            if (data && data.erro) throw new Error("CEP não encontrado");
+            return data;
+          });
+        });
+      }
+      return r.json().catch(function () { return {}; }).then(function (err) {
+        throw new Error(err.detail || (r.status === 404 ? "CEP não encontrado" : "Falha ao consultar CEP"));
+      });
+    });
+  }
+
   function buscarCep(inputId, prefix) {
     var el = document.getElementById(inputId);
     if (!el) return;
     var cep = String(el.value || "").replace(/\D/g, "");
-    if (cep.length !== 8) return;
-    fetch(API_BASE + "/cep/" + cep, { credentials: "include" })
-      .then(function (r) {
-        if (!r.ok) return null;
-        return r.json();
-      })
+    el.value = maskCep(cep);
+    if (cep.length !== 8) {
+      if (cep.length > 0) setCepStatus(prefix, "Informe um CEP com 8 dígitos.", true);
+      return;
+    }
+    if (cepBusy[prefix]) return;
+    cepBusy[prefix] = true;
+    setCepStatus(prefix, "Buscando CEP…", false);
+    lookupCepApi(cep)
       .then(function (data) {
-        if (!data) return;
+        if (!data) throw new Error("CEP não encontrado");
         var set = function (suf, v) {
           var field = document.getElementById(prefix + suf);
           if (field && v) field.value = v;
         };
         set("Rua", data.logradouro || data.rua || data.street);
-        set("Bairro", data.bairro || data.district);
+        set("Bairro", data.bairro || data.district || data.neighborhood);
         set("Cidade", data.localidade || data.cidade || data.city);
         set("Uf", data.uf || data.estado || data.state);
+        setCepStatus(prefix, "Endereço preenchido pelo CEP.", false);
+        var num = document.getElementById(prefix + "Numero");
+        if (num) num.focus();
       })
-      .catch(function () {});
+      .catch(function (err) {
+        setCepStatus(prefix, err.message || "Não foi possível consultar o CEP.", true);
+      })
+      .finally(function () {
+        cepBusy[prefix] = false;
+      });
   }
 
   function criarEnvioProprio() {
@@ -315,6 +421,14 @@
       gerarEtiqueta(inpCodigo && inpCodigo.value);
     });
   }
+  if (inpCodigo) {
+    inpCodigo.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        gerarEtiqueta(inpCodigo.value);
+      }
+    });
+  }
 
   document.querySelectorAll('input[name="origemRemetente"]').forEach(function (el) {
     el.addEventListener("change", syncOrigemRemetente);
@@ -326,6 +440,12 @@
     var el = document.getElementById(id);
     if (!el) return;
     var prefix = id.indexOf("rem") === 0 ? "rem" : "dest";
+    el.addEventListener("input", function () {
+      var before = el.value;
+      el.value = maskCep(before);
+      var digits = String(el.value || "").replace(/\D/g, "");
+      if (digits.length === 8) buscarCep(id, prefix);
+    });
     el.addEventListener("blur", function () {
       buscarCep(id, prefix);
     });
