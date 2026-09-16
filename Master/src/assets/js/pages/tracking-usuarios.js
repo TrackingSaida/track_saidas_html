@@ -203,14 +203,6 @@ function initUsers() {
     if (btnReset) {
         btnReset.addEventListener("click", resetPasswordFromSelection);
     }
-    const btnPermAvulso = document.getElementById("btnPermAvulsoLote");
-    if (btnPermAvulso) {
-        btnPermAvulso.addEventListener("click", aplicarPermissaoAvulsoLote);
-    }
-    const btnPermAvulsoFoto = document.getElementById("btnPermAvulsoFotoLote");
-    if (btnPermAvulsoFoto) {
-        btnPermAvulsoFoto.addEventListener("click", aplicarPermissaoAvulsoExigeFotoLote);
-    }
 
     document.getElementById("toggleAtivos").addEventListener("change", applyFilters);
     document.getElementById("search").addEventListener("input", applyFilters);
@@ -596,7 +588,34 @@ function goToPage(n) {
 // CREATE
 // =====================================================================
 
-function openCreate() {
+async function applyPadroesMotoboyDefaults() {
+    const fallback = {
+        pode_realizar_coleta: false,
+        pode_ler_saida: true,
+        pode_digitar_codigo_manual: false,
+        pode_lancar_avulso: true,
+        avulso_exige_foto: true,
+    };
+    let pad = fallback;
+    try {
+        const r = await fetch(`${API_BASE}/politicas`, { credentials: "include", headers: { Accept: "application/json" } });
+        if (r.ok) {
+            const data = await r.json();
+            if (data?.padroes_motoboy) pad = { ...fallback, ...data.padroes_motoboy };
+        }
+    } catch (_) {}
+    document.getElementById("podeLerColeta").checked = !!pad.pode_realizar_coleta;
+    document.getElementById("podeLerSaida").checked = pad.pode_ler_saida !== false;
+    document.getElementById("podeDigitarCodigoManual").checked = !!pad.pode_digitar_codigo_manual;
+    const podeAvulsoCreate = document.getElementById("podeLancarAvulso");
+    if (podeAvulsoCreate) podeAvulsoCreate.checked = pad.pode_lancar_avulso !== false;
+    const avulsoExigeCreate = document.getElementById("avulsoExigeFoto");
+    if (avulsoExigeCreate) {
+        avulsoExigeCreate.checked = !!(pad.pode_lancar_avulso !== false && pad.avulso_exige_foto);
+    }
+}
+
+async function openCreate() {
     document.getElementById("ocLabel").textContent = "Novo Usuário";
     document.getElementById("userId").value = "";
 
@@ -623,13 +642,7 @@ function openCreate() {
     document.getElementById("bairro").value = "";
     document.getElementById("cidade").value = "";
     document.getElementById("estado").value = "";
-    document.getElementById("podeLerColeta").checked = false;
-    document.getElementById("podeLerSaida").checked = true;
-    document.getElementById("podeDigitarCodigoManual").checked = true;
-    const podeAvulsoCreate = document.getElementById("podeLancarAvulso");
-    if (podeAvulsoCreate) podeAvulsoCreate.checked = true;
-    const avulsoExigeCreate = document.getElementById("avulsoExigeFoto");
-    if (avulsoExigeCreate) avulsoExigeCreate.checked = false;
+    await applyPadroesMotoboyDefaults();
 
     document.getElementById("groupPassword").classList.remove("d-none");
     document.getElementById("groupPasswordConfirm").classList.remove("d-none");
@@ -1113,136 +1126,6 @@ async function resetPasswordFromSelection() {
             icon: "error",
             title: "Erro inesperado",
             text: err.message || "Falha ao resetar senha.",
-        });
-    }
-}
-
-async function aplicarPermissaoAvulsoLote() {
-    const escolha = await Swal.fire({
-        icon: "question",
-        title: "Lançar avulso — todos os motoboys",
-        html: `
-            <p class="mb-2">Aplica a permissão a <strong>todos os entregadores</strong> desta base.</p>
-            <p class="text-muted small mb-0">Motoboys precisarão entrar novamente no app para o token refletir a mudança.</p>
-        `,
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: "Liberar para todos",
-        denyButtonText: "Bloquear para todos",
-        cancelButtonText: "Cancelar",
-    });
-
-    if (!escolha.isConfirmed && !escolha.isDenied) return;
-
-    const liberar = !!escolha.isConfirmed;
-    try {
-        const resp = await fetch(`${API}/motoboys/permissoes-lote`, {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ pode_lancar_avulso: liberar }),
-        });
-
-        if (!resp.ok) {
-            if (resp.status === 401) {
-                await Swal.fire({
-                    icon: "warning",
-                    title: "Sessão expirada",
-                    text: "Faça login novamente para continuar.",
-                });
-                location.href = "login.html";
-                return;
-            }
-            let mensagem = "Erro ao atualizar permissões.";
-            try {
-                const json = await resp.json();
-                if (json.detail) {
-                    mensagem = typeof json.detail === "string" ? json.detail : JSON.stringify(json.detail);
-                }
-            } catch {}
-            await Swal.fire({ icon: "error", title: "Falha", text: mensagem });
-            return;
-        }
-
-        const data = await resp.json().catch(() => ({}));
-        await Swal.fire({
-            icon: "success",
-            title: liberar ? "Avulso liberado" : "Avulso bloqueado",
-            text: `${data.atualizados ?? 0} entregador(es) atualizado(s).`,
-            timer: 2200,
-            showConfirmButton: false,
-        });
-        loadUsers();
-    } catch (err) {
-        await Swal.fire({
-            icon: "error",
-            title: "Erro inesperado",
-            text: err.message || "Falha ao atualizar permissões.",
-        });
-    }
-}
-
-async function aplicarPermissaoAvulsoExigeFotoLote() {
-    const escolha = await Swal.fire({
-        icon: "question",
-        title: "Obriga foto no avulso — todos os motoboys",
-        html: `
-            <p class="mb-2">Aplica a obrigatoriedade de foto a <strong>todos os entregadores</strong> desta base.</p>
-            <p class="text-muted small mb-0">Só vale para quem já pode lançar avulso. Motoboys precisarão entrar novamente no app para o token refletir a mudança.</p>
-        `,
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: "Exigir foto para todos",
-        denyButtonText: "Não exigir para todos",
-        cancelButtonText: "Cancelar",
-    });
-
-    if (!escolha.isConfirmed && !escolha.isDenied) return;
-
-    const exigir = !!escolha.isConfirmed;
-    try {
-        const resp = await fetch(`${API}/motoboys/permissoes-lote`, {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ avulso_exige_foto: exigir }),
-        });
-
-        if (!resp.ok) {
-            if (resp.status === 401) {
-                await Swal.fire({
-                    icon: "warning",
-                    title: "Sessão expirada",
-                    text: "Faça login novamente para continuar.",
-                });
-                location.href = "login.html";
-                return;
-            }
-            let mensagem = "Erro ao atualizar permissões.";
-            try {
-                const json = await resp.json();
-                if (json.detail) {
-                    mensagem = typeof json.detail === "string" ? json.detail : JSON.stringify(json.detail);
-                }
-            } catch {}
-            await Swal.fire({ icon: "error", title: "Falha", text: mensagem });
-            return;
-        }
-
-        const data = await resp.json().catch(() => ({}));
-        await Swal.fire({
-            icon: "success",
-            title: exigir ? "Foto obrigatória ativada" : "Foto obrigatória desativada",
-            text: `${data.atualizados ?? 0} entregador(es) atualizado(s).`,
-            timer: 2200,
-            showConfirmButton: false,
-        });
-        loadUsers();
-    } catch (err) {
-        await Swal.fire({
-            icon: "error",
-            title: "Erro inesperado",
-            text: err.message || "Falha ao atualizar permissões.",
         });
     }
 }

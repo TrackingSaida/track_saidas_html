@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="pt-br" data-layout="vertical" data-topbar="dark" data-sidebar="dark" data-sidebar-size="lg">
+  <head>
+    @@include("partials/title-meta.html", {"title": "Campos do Avulso"})
+    @@include("partials/head-css.html")
+  </head>
+  <body>
+    <script>
+      if (!window.TRACK_API_URL) window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
+    </script>
+    <div id="layout-wrapper">
+      @@include("partials/menu.html")
+      <div class="main-content">
+        <div class="page-content">
+          <div class="container-fluid">
+            @@include("partials/page-title.html", {"pagetitle": "Configuração", "title": "Campos do Avulso", "withSubtitle": false, "ownerTerm": ""})
+
+            <div class="alert alert-info py-2">
+              Defina campos dinâmicos para identificar avulsos na Coleta, Entrada e Saída. Não confundir com Campos Obrigatórios da entrega.
+            </div>
+
+            <div class="card">
+              <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex gap-2">
+                  <button class="btn btn-primary" id="btnAddCampo"><i class="ri-add-line me-1"></i> Novo campo</button>
+                  <button class="btn btn-soft-primary" id="btnEditCampo" disabled><i class="ri-edit-2-line me-1"></i> Editar</button>
+                  <button class="btn btn-soft-danger" id="btnDeleteCampo" disabled><i class="ri-delete-bin-line me-1"></i> Excluir</button>
+                </div>
+                <select id="filtroContexto" class="form-select" style="max-width:220px;">
+                  <option value="">Todos os contextos</option>
+                </select>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table align-middle table-nowrap">
+                    <thead class="table-light">
+                      <tr>
+                        <th style="width:48px;">Sel.</th>
+                        <th>Label</th>
+                        <th>Chave</th>
+                        <th>Contexto</th>
+                        <th>Tipo</th>
+                        <th>Flags</th>
+                        <th>Ordem</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbody-campos"></tbody>
+                  </table>
+                </div>
+                <div id="emptyCampos" class="text-center text-muted py-4 d-none">Nenhum campo cadastrado.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        @@include("partials/footer.html")
+      </div>
+    </div>
+
+    @@include("partials/customizer.html")
+    @@include("partials/vendor-scripts.html")
+
+    <div class="modal fade" id="oc-campo" tabindex="-1">
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="ocCampoLabel">Novo campo</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="formCampo">
+            <div class="modal-body">
+              <input type="hidden" id="campoId" />
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Label</label>
+                  <input type="text" id="campoLabel" class="form-control" required maxlength="80" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Chave (opcional)</label>
+                  <input type="text" id="campoChave" class="form-control" placeholder="gerada do label" />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Contexto</label>
+                  <select id="campoContexto" class="form-select"></select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Tipo</label>
+                  <select id="campoTipo" class="form-select"></select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Ordem</label>
+                  <input type="number" id="campoOrdem" class="form-control" value="0" />
+                </div>
+                <div class="col-12 d-none" id="wrapOpcoes">
+                  <label class="form-label">Opções (lista, uma por linha)</label>
+                  <textarea id="campoOpcoes" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="campoObrigatorio" />
+                    <label class="form-check-label" for="campoObrigatorio">Obrigatório</label>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="campoIdent" />
+                    <label class="form-check-label" for="campoIdent">Usar na identificação</label>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="campoSelecao" checked />
+                    <label class="form-check-label" for="campoSelecao">Exibir na seleção</label>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="campoAtivo" checked />
+                    <label class="form-check-label" for="campoAtivo">Ativo</label>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <div class="alert alert-secondary py-2 mb-0 small">
+                    Prévia da label: <strong id="campoPreviewLabel">AVULSO-000184</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="assets/js/app.js"></script>
+    <script src="assets/js/pages/tracking-campos-avulso.init.js?v=1.0"></script>
+  </body>
+</html>

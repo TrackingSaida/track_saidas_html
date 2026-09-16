@@ -13,8 +13,37 @@
   const inpCod = $("codigo");
   const btnReg = $("btnRegistrar");
   const btnLancarAvulso = $("btnLancarAvulso");
+  const btnSelecionarAvulso = $("btnSelecionarAvulso");
   const msg    = $("msgArea");
   const tbLast = $("ultimos-rows");
+
+  function ownerExigeSelecaoAvulso() {
+    const u = window.__USER__ || {};
+    const coletaOn = !(u.ignorar_coleta === true || window.IGNORAR_COLETA === true);
+    const entradaOn = u.entrada_obrigatoria_habilitada === true;
+    return coletaOn || entradaOn;
+  }
+
+  function syncAvulsoUiButtons() {
+    const exige = ownerExigeSelecaoAvulso();
+    if (btnSelecionarAvulso) {
+      btnSelecionarAvulso.classList.toggle("d-none", !exige);
+    }
+    if (btnLancarAvulso) {
+      if (exige) {
+        btnLancarAvulso.innerHTML = '<i class="ri-error-warning-line"></i> Cadastrar avulso não registrado';
+        btnLancarAvulso.classList.remove("btn-outline-primary");
+        btnLancarAvulso.classList.add("btn-outline-secondary");
+        btnLancarAvulso.title = "Fora do fluxo normal — exige motivo";
+      } else {
+        btnLancarAvulso.innerHTML = '<i class="ri-add-circle-line"></i> Lançar Avulso';
+        btnLancarAvulso.classList.add("btn-outline-primary");
+        btnLancarAvulso.classList.remove("btn-outline-secondary");
+        btnLancarAvulso.title = "";
+      }
+    }
+  }
+  syncAvulsoUiButtons();
 
   function normalizeNomeKey(nome){
     return String(nome || "")
@@ -631,10 +660,15 @@ function createRow(row){
       ? TrackAPI.registerSaida({ entregador_id, entregador, codigo, servico })
       : Promise.reject(new Error("TrackAPI.registerSaida não disponível"));
   }
-  function apiLancarAvulso({ motoboy_id, entregador, identificacao, quantidade, foto_object_key, photo_id }){
+  function apiLancarAvulso({ motoboy_id, entregador, identificacao, quantidade, foto_object_key, photo_id, campos, motivo_excepcional }){
     return window.TrackAPI?.lancarAvulso
-      ? TrackAPI.lancarAvulso({ motoboy_id, entregador, identificacao, quantidade, foto_object_key, photo_id })
+      ? TrackAPI.lancarAvulso({ motoboy_id, entregador, identificacao, quantidade, foto_object_key, photo_id, campos, motivo_excepcional })
       : Promise.reject(new Error("TrackAPI.lancarAvulso não disponível"));
+  }
+  function apiListAvulsosPendentes(opts){
+    return window.TrackAPI?.listAvulsosPendentes
+      ? TrackAPI.listAvulsosPendentes(opts)
+      : Promise.reject(new Error("TrackAPI.listAvulsosPendentes não disponível"));
   }
 
   function getApiBaseUrl() {
@@ -1246,7 +1280,11 @@ async function registrar() {
 
     if (res.status === 422 && res.code === "NAO_COLETADO") {
       revertOtimista();
-      if (window.IGNORAR_COLETA === true) {
+      const bloquear =
+        window.BLOQUEAR_SAIDA_SEM_COLETA === true ||
+        localStorage.getItem("bloquear_saida_sem_coleta") === "1" ||
+        window.__USER__?.bloquear_saida_sem_coleta === true;
+      if (window.IGNORAR_COLETA === true || bloquear) {
         showMsgIcon("erro", res.error || "Código não coletado.");
         Sound.play("err");
         return { ok:false, tipo:"nao_coletado", backend_processing_ms };
@@ -1552,6 +1590,147 @@ inpCod?.addEventListener("keydown", (e) => {
     registrarComLog("teclado");
   }
 });
+function buildCamposAvulsoHtml(campos) {
+  if (!Array.isArray(campos) || !campos.length) return "";
+  return campos.map((c) => {
+    const req = c.obrigatorio ? ' <span class="text-danger">*</span>' : "";
+    const id = `avulso-campo-${c.chave}`;
+    if (c.tipo === "lista") {
+      const opts = (c.opcoes || []).map((o) => `<option value="${String(o).replace(/"/g, "&quot;")}">${o}</option>`).join("");
+      return `<label class="form-label mb-1" for="${id}">${c.label}${req}</label>
+        <select id="${id}" class="form-select mb-3" data-avulso-chave="${c.chave}"><option value="">Selecione</option>${opts}</select>`;
+    }
+    const inputType = c.tipo === "numero" ? "number" : (c.tipo === "telefone" ? "tel" : "text");
+    return `<label class="form-label mb-1" for="${id}">${c.label}${req}</label>
+      <input id="${id}" type="${inputType}" class="form-control mb-3" data-avulso-chave="${c.chave}" />`;
+  }).join("");
+}
+
+function collectCamposAvulsoFromDom(campos) {
+  const out = {};
+  if (!Array.isArray(campos)) return out;
+  for (const c of campos) {
+    const el = document.getElementById(`avulso-campo-${c.chave}`);
+    if (!el) continue;
+    const v = String(el.value || "").trim();
+    if (v) out[c.chave] = v;
+  }
+  return out;
+}
+
+async function loadSchemaCamposAvulso(contexto) {
+  try {
+    const res = await window.TrackAPI?.schemaCamposAvulso?.({ contexto });
+    if (res?.ok && Array.isArray(res.data?.campos)) return res.data.campos;
+  } catch (_) {}
+  return [];
+}
+
+btnSelecionarAvulso?.addEventListener("click", async (e) => {
+  e.preventDefault();
+  const motoboyIdRaw = selEnt?.value?.trim() || "";
+  if (!motoboyIdRaw) {
+    showMsgIcon("erro", "Selecione o motoboy.");
+    Sound.play("err");
+    return;
+  }
+  const motoboyId = parseInt(motoboyIdRaw, 10);
+  const entregador = selEnt?.options[selEnt.selectedIndex]?.text?.trim() || entregadoresMap.get(motoboyIdRaw) || "";
+
+  let itemsCache = [];
+  async function renderLista(q) {
+    const res = await apiListAvulsosPendentes({ q: q || undefined, limit: 30, offset: 0 });
+    if (!res?.ok) {
+      Swal.showValidationMessage(res?.error || "Falha ao buscar pendentes.");
+      return;
+    }
+    itemsCache = Array.isArray(res.data?.items) ? res.data.items : [];
+    const box = document.getElementById("avulso-pendentes-lista");
+    if (!box) return;
+    if (!itemsCache.length) {
+      box.innerHTML = '<div class="text-muted small py-2">Nenhum avulso pendente encontrado.</div>';
+      return;
+    }
+    box.innerHTML = itemsCache.map((it, idx) => `
+      <label class="d-flex align-items-start gap-2 border rounded p-2 mb-2 text-start" style="cursor:pointer">
+        <input type="radio" name="avulso-pendente" value="${idx}" class="mt-1" ${idx === 0 ? "checked" : ""} />
+        <span>
+          <strong>${it.label || it.codigo || "—"}</strong>
+          <div class="small text-muted">${it.status || ""} · ${it.codigo || ""}</div>
+        </span>
+      </label>
+    `).join("");
+  }
+
+  const modal = await Swal.fire({
+    title: "Selecionar avulso",
+    html: `
+      <div class="text-start">
+        <label class="form-label mb-1" for="avulso-busca-q">Buscar</label>
+        <div class="input-group mb-3">
+          <input id="avulso-busca-q" class="form-control" placeholder="Código, pedido, destinatário..." />
+          <button type="button" class="btn btn-outline-secondary" id="avulso-busca-btn">Buscar</button>
+        </div>
+        <div id="avulso-pendentes-lista" style="max-height:280px;overflow:auto"></div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: "Atribuir ao motoboy",
+    cancelButtonText: "Cancelar",
+    focusConfirm: false,
+    didOpen: async () => {
+      const btn = document.getElementById("avulso-busca-btn");
+      const inp = document.getElementById("avulso-busca-q");
+      const run = () => renderLista(inp?.value?.trim() || "");
+      btn?.addEventListener("click", (ev) => { ev.preventDefault(); run(); });
+      inp?.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); run(); } });
+      await run();
+    },
+    preConfirm: () => {
+      const checked = document.querySelector('input[name="avulso-pendente"]:checked');
+      if (!checked) {
+        Swal.showValidationMessage("Selecione um avulso pendente.");
+        return null;
+      }
+      const idx = parseInt(checked.value, 10);
+      const item = itemsCache[idx];
+      if (!item?.codigo) {
+        Swal.showValidationMessage("Avulso inválido.");
+        return null;
+      }
+      return item;
+    },
+  });
+  if (!modal.isConfirmed || !modal.value) return;
+  const item = modal.value;
+  const res = await apiLerSaida({
+    motoboy_id: motoboyId,
+    entregador,
+    codigo: item.codigo,
+    servico: "Avulso",
+  });
+  if (!res?.ok) {
+    showMsgIcon("erro", parseApiDetailError(res, "Erro ao atribuir avulso."));
+    Sound.play("err");
+    return;
+  }
+  const row = res.data?.data || res.data || {};
+  appendOrUpdateRow({
+    tsFmt: new Date().toLocaleString("pt-BR"),
+    entregador,
+    codigo: row.codigo || item.codigo,
+    servico: row.servico || "Avulso",
+    status: row.status || "Saiu",
+    id_saida: row.id_saida || item.id_saida,
+    duplicado: !!row.duplicado,
+  });
+  codigosLidosSessao.add(String(row.codigo || item.codigo || ""));
+  updateSummary();
+  showMsgIcon("ok", `Avulso ${item.codigo} atribuído.`);
+  Sound.play("ok");
+  try { window.leituraStartScanner?.(); } catch (_) {}
+});
+
 btnLancarAvulso?.addEventListener("click", async (e) => {
   e.preventDefault();
   const motoboyIdRaw = selEnt?.value?.trim() || "";
@@ -1566,10 +1745,11 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
   const isRootAdmin = roleUser === 0 || roleUser === 1;
   const isStaff = [0, 1, 2, 3].includes(roleUser);
   const exigeFotoMotoboy = !!(motoboysMetaMap.get(motoboyIdRaw)?.avulso_exige_foto);
-  // Root/admin nunca têm obrigação de foto, mesmo com flag do entregador.
   const exigeFoto = exigeFotoMotoboy && !isRootAdmin;
-  // Staff sempre vê a opção (opcional); demais só quando obrigatório.
   const mostrarFoto = exigeFoto || isStaff;
+  const excepcional = ownerExigeSelecaoAvulso();
+  const camposCfg = await loadSchemaCamposAvulso("SAIDA_AVULSO");
+  const camposHtml = buildCamposAvulsoHtml(camposCfg);
   const fotoFieldHtml = mostrarFoto
     ? `
         <label class="form-label mb-1" for="avulso-foto">Imagem ${exigeFoto ? '<span class="text-danger">*</span>' : '<span class="text-muted">(opcional)</span>'}</label>
@@ -1577,13 +1757,22 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
         ${exigeFoto ? '<div class="form-text mb-3">Este entregador exige foto ao lançar avulso.</div>' : '<div class="mb-3"></div>'}
       `
     : "";
+  const motivoHtml = excepcional
+    ? `
+      <div class="alert alert-warning py-2 small">Cadastro fora do fluxo normal (Coleta/Entrada ativos). Informe o motivo.</div>
+      <label class="form-label mb-1" for="avulso-motivo">Motivo <span class="text-danger">*</span></label>
+      <textarea id="avulso-motivo" class="form-control mb-3" rows="2" maxlength="500" placeholder="Por que este avulso não foi registrado antes?"></textarea>
+    `
+    : "";
   const modal = await Swal.fire({
-    title: "Lançar Avulso",
+    title: excepcional ? "Cadastrar avulso não registrado" : "Lançar Avulso",
     html: `
       <div class="text-start">
+        ${motivoHtml}
         <label class="form-label mb-1" for="avulso-identificacao">Identificação</label>
         <input id="avulso-identificacao" class="form-control mb-1" maxlength="32" placeholder="Ex.: Cliente João" />
-        <div class="form-text mb-3">Até 32 caracteres para identificar o lote na operação.</div>
+        <div class="form-text mb-3">Até 32 caracteres (legado / referência rápida).</div>
+        ${camposHtml}
         <label class="form-label mb-1" for="avulso-quantidade">Quantidade</label>
         <input id="avulso-quantidade" type="number" min="1" max="50" step="1" class="form-control mb-1" value="1" />
         <div class="form-text ${mostrarFoto ? "mb-3" : ""}">Informe entre 1 e 50 pacotes por lançamento.</div>
@@ -1595,16 +1784,21 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     cancelButtonText: "Cancelar",
     focusConfirm: false,
     preConfirm: () => {
-      const identificacaoEl = document.getElementById("avulso-identificacao");
-      const quantidadeEl = document.getElementById("avulso-quantidade");
+      const identificacaoVal = String(document.getElementById("avulso-identificacao")?.value || "").trim().slice(0, 32);
+      const quantidadeVal = parseInt(String(document.getElementById("avulso-quantidade")?.value || "1").trim(), 10);
       const fotoEl = document.getElementById("avulso-foto");
-      const identificacaoVal = identificacaoEl ? String(identificacaoEl.value || "").trim().slice(0, 32) : "";
-      const quantidadeRaw = quantidadeEl ? String(quantidadeEl.value || "").trim() : "1";
-      const quantidadeVal = parseInt(quantidadeRaw, 10);
       const fotoFile = fotoEl && fotoEl.files && fotoEl.files[0] ? fotoEl.files[0] : null;
-      if (identificacaoVal.length > 32) {
-        Swal.showValidationMessage("Identificação deve ter no máximo 32 caracteres.");
+      const motivoVal = String(document.getElementById("avulso-motivo")?.value || "").trim();
+      const campos = collectCamposAvulsoFromDom(camposCfg);
+      if (excepcional && !motivoVal) {
+        Swal.showValidationMessage("Motivo obrigatório para cadastro excepcional.");
         return null;
+      }
+      for (const c of camposCfg) {
+        if (c.obrigatorio && !campos[c.chave] && !(c.chave === "identificacao" && identificacaoVal)) {
+          Swal.showValidationMessage(`Campo obrigatório: ${c.label}`);
+          return null;
+        }
       }
       if (!Number.isFinite(quantidadeVal) || quantidadeVal < 1) {
         Swal.showValidationMessage("Quantidade mínima é 1.");
@@ -1618,28 +1812,11 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
         Swal.showValidationMessage("Foto obrigatória para este entregador.");
         return null;
       }
-      return { identificacao: identificacaoVal, quantidade: quantidadeVal, fotoFile };
+      return { identificacao: identificacaoVal, quantidade: quantidadeVal, fotoFile, campos, motivo: motivoVal };
     },
   });
   if (!modal.isConfirmed || !modal.value) return;
-  const identificacao = modal.value.identificacao || "";
-  const quantidade = modal.value.quantidade;
-  const fotoFile = modal.value.fotoFile || null;
-  if (identificacao.length > 32) {
-    showMsgIcon("erro", "Identificação deve ter no máximo 32 caracteres.");
-    Sound.play("err");
-    return;
-  }
-  if (!Number.isFinite(quantidade) || quantidade < 1 || quantidade > 50) {
-    showMsgIcon("erro", "Quantidade deve estar entre 1 e 50.");
-    Sound.play("err");
-    return;
-  }
-  if (exigeFoto && !fotoFile) {
-    showMsgIcon("erro", "Foto obrigatória para este entregador.");
-    Sound.play("err");
-    return;
-  }
+  const { identificacao, quantidade, fotoFile, campos, motivo } = modal.value;
   let fotoPayload = {};
   if (fotoFile) {
     try {
@@ -1657,6 +1834,8 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     quantidade,
     foto_object_key: fotoPayload.foto_object_key,
     photo_id: fotoPayload.photo_id,
+    campos: Object.keys(campos || {}).length ? campos : undefined,
+    motivo_excepcional: excepcional ? motivo : undefined,
   });
   if (!res?.ok) {
     showMsgIcon("erro", parseApiDetailError(res, "Erro ao lançar avulso."));

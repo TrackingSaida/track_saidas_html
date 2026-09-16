@@ -59,7 +59,7 @@
                                     <th>Contato</th>
                                     <th>Valor (R$)</th>
                                     <th>Modo</th>
-                                    <th>Ignorar Coleta</th>
+                                    <th>Controle de coleta</th>
                                     <th>Teste</th>
                                     <th>Ativo</th>
                                 </tr>
@@ -169,40 +169,47 @@
                   <div class="row g-3">
                     <div class="col-12">
                       <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerIgnorarToggle">
-                        <label class="form-check-label">Ignorar Coleta</label>
+                        <input class="form-check-input" type="checkbox" id="ownerColetaHabilitadaToggle">
+                        <label class="form-check-label">Controle de coleta</label>
                       </div>
-                      <small class="text-muted d-block mt-1">Quando ativo, nenhuma função de coleta será exibida ou aceita.</small>
+                      <small class="text-muted d-block mt-1">Habilita o registro de coletas por Base/Seller, com acompanhamento e fechamento das coletas.</small>
                     </div>
-                    <div class="col-12">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerDevolucaoToggle">
-                        <label class="form-check-label">Permitir devolução de pacotes pelo app do entregador (com foto)</label>
-                      </div>
-                      <small class="text-muted d-block mt-1">Quando ativo, o motoboy vê o atalho Devolver pacotes e pode cancelar com comprovante.</small>
-                    </div>
-                    <div class="col-12">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerEntradaToggle">
-                        <label class="form-check-label">Exigir entrada na base antes da saída</label>
-                      </div>
-                      <small class="text-muted d-block mt-1">Quando ativo, o operador registra entrada e a saída só é permitida com entrada prévia.</small>
-                    </div>
-                    <div class="col-12">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerConferenciaToggle">
-                        <label class="form-check-label">Habilitar conferência de saída</label>
-                      </div>
-                      <small class="text-muted d-block mt-1">Quando ativo, após o motoboy começar a entrega a saída fica pendente de conferência operacional.</small>
-                    </div>
-                    <div class="col-12">
-                      <label class="form-label">Modo de Operação</label>
+                    <div class="col-12" id="ownerModoOperacaoWrap">
+                      <label class="form-label">Forma de registro da coleta</label>
                       <select id="ownerModoOperacao" class="form-select">
                         <option value="codigo">Coleta por leitura</option>
                         <option value="coleta_manual">Coleta manual</option>
                         <option value="ambos">Leitura e manual</option>
                       </select>
-                      <small class="text-muted">Aplicado somente quando &quot;Ignorar Coleta&quot; estiver desativado.</small>
+                      <small class="text-muted">Define como os pacotes serão registrados durante a coleta.</small>
+                    </div>
+                    <div class="col-12" id="ownerBloquearSaidaSemColetaWrap">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="ownerBloquearSaidaSemColetaToggle">
+                        <label class="form-check-label">Bloquear saída sem coleta</label>
+                      </div>
+                      <small class="text-muted d-block mt-1">Quando ativo, impede registrar a saída de pacotes que ainda não foram coletados. Quando desativado, o sistema avisa e permite registrar mesmo assim.</small>
+                    </div>
+                    <div class="col-12">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="ownerEntradaToggle">
+                        <label class="form-check-label">Controle de entrada</label>
+                      </div>
+                      <small class="text-muted d-block mt-1">Permite registrar a entrada dos pacotes sem controle de coleta por Base/Seller. A entrada ou a coleta valida o pacote para saída.</small>
+                    </div>
+                    <div class="col-12">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="ownerConferenciaToggle">
+                        <label class="form-check-label">Conferência diária das saídas</label>
+                      </div>
+                      <small class="text-muted d-block mt-1">Permite registrar se as saídas dos entregadores foram conferidas no dia, mantendo essa informação no fechamento.</small>
+                    </div>
+                    <div class="col-12">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="ownerDevolucaoToggle">
+                        <label class="form-check-label">Devolução de pacotes pelo app</label>
+                      </div>
+                      <small class="text-muted d-block mt-1">Permite registrar pelo aplicativo a devolução de pacotes, incluindo foto quando aplicável.</small>
                     </div>
                     <div class="col-12">
                       <div class="form-check form-switch">

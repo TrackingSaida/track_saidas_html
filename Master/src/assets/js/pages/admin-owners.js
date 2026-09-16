@@ -93,7 +93,7 @@ function initOwners() {
         ev.target.value = maskCellphone(ev.target.value);
     });
 
-    document.getElementById("ownerIgnorarToggle").addEventListener("change", syncModoOperacaoSelect);
+    document.getElementById("ownerColetaHabilitadaToggle").addEventListener("change", syncModoOperacaoSelect);
 
     loadOwners();
 }
@@ -194,7 +194,7 @@ function renderTable() {
 
             <td>R$ ${Number(o.valor).toFixed(2)}</td>
             <td>${o.ignorar_coleta ? "Sem coleta" : o.modo_operacao === "coleta_manual" ? "Manual" : o.modo_operacao === "ambos" ? "Leitura e manual" : "Leitura"}</td>
-            <td>${o.ignorar_coleta ? "Sim" : "Não"}</td>
+            <td>${o.ignorar_coleta ? "Não" : "Sim"}</td>
             <td>${o.teste ? "Sim" : "Não"}</td>
             <td>${o.ativo ? "Sim" : "Não"}</td>
         </tr>
@@ -264,12 +264,16 @@ function goToPage(n) {
 
 
 // -------------------------------------------------------------------------
-// Ignorar coleta é a chave geral; o modo fica preservado para uma reativação futura.
+// Controle de coleta (API: coleta_habilitada = !ignorar_coleta); modo só se on.
 // -------------------------------------------------------------------------
 function syncModoOperacaoSelect() {
-    const ignorar = document.getElementById("ownerIgnorarToggle").checked;
+    const coletaOn = document.getElementById("ownerColetaHabilitadaToggle").checked;
+    const wrap = document.getElementById("ownerModoOperacaoWrap");
     const sel = document.getElementById("ownerModoOperacao");
-    sel.disabled = ignorar;
+    const bloquearWrap = document.getElementById("ownerBloquearSaidaSemColetaWrap");
+    if (wrap) wrap.classList.toggle("d-none", !coletaOn);
+    if (sel) sel.disabled = !coletaOn;
+    if (bloquearWrap) bloquearWrap.classList.toggle("d-none", !coletaOn);
 }
 
 // -------------------------------------------------------------------------
@@ -299,7 +303,8 @@ function openEdit(o) {
     document.getElementById("ownerContato").value = o.contato || "";
     document.getElementById("ownerValor").value = Number(o.valor).toFixed(2);
 
-    document.getElementById("ownerIgnorarToggle").checked = o.ignorar_coleta;
+    document.getElementById("ownerColetaHabilitadaToggle").checked = !o.ignorar_coleta;
+    document.getElementById("ownerBloquearSaidaSemColetaToggle").checked = !!o.bloquear_saida_sem_coleta;
     document.getElementById("ownerDevolucaoToggle").checked = !!o.devolucao_sub_base_habilitada;
     document.getElementById("ownerEntradaToggle").checked = !!o.entrada_obrigatoria_habilitada;
     document.getElementById("ownerConferenciaToggle").checked = !!o.conferencia_saida_habilitada;
@@ -329,7 +334,8 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
         contato: document.getElementById("ownerContato").value.trim(),
         valor: Number(document.getElementById("ownerValor").value),
         modo_operacao: document.getElementById("ownerModoOperacao").value || "codigo",
-        ignorar_coleta: document.getElementById("ownerIgnorarToggle").checked,
+        ignorar_coleta: !document.getElementById("ownerColetaHabilitadaToggle").checked,
+        bloquear_saida_sem_coleta: document.getElementById("ownerBloquearSaidaSemColetaToggle").checked,
         devolucao_sub_base_habilitada: document.getElementById("ownerDevolucaoToggle").checked,
         entrada_obrigatoria_habilitada: document.getElementById("ownerEntradaToggle").checked,
         conferencia_saida_habilitada: document.getElementById("ownerConferenciaToggle").checked,
