@@ -300,13 +300,11 @@ async function fillOwnerIdentidade(idOwner) {
     const btnRem = document.getElementById("btnOwnerRemoverLogo");
     if (sloganEl) sloganEl.value = "";
     if (img) {
-        img.removeAttribute("src");
-        img.classList.add("d-none");
+        img.src = "assets/images/logo_rotevo.png";
+        img.alt = "Logo padrão ROTEVO (fallback)";
+        img.classList.remove("d-none");
     }
-    if (ph) {
-        ph.textContent = "Logo padrão ROTEVO";
-        ph.classList.remove("d-none");
-    }
+    if (ph) ph.classList.add("d-none");
     if (btnRem) btnRem.classList.add("d-none");
     if (!idOwner) return;
 
@@ -325,15 +323,33 @@ async function fillOwnerIdentidade(idOwner) {
             }).then(r => (r.ok ? r.json() : null));
             if (presign && presign.download_url && img) {
                 img.src = presign.download_url;
+                img.alt = "Preview da logo";
                 img.classList.remove("d-none");
                 if (ph) ph.classList.add("d-none");
             } else if (ph) {
+                if (img) img.classList.add("d-none");
                 ph.textContent = "Logo cadastrada (preview indisponível)";
+                ph.classList.remove("d-none");
             }
         }
     } catch (_) {
         /* preview opcional */
     }
+}
+
+async function readApiError(resp, fallback) {
+    let detail = "";
+    try {
+        const j = await resp.json();
+        detail = j.detail || j.message || "";
+        if (Array.isArray(detail)) detail = detail.map((e) => e.msg || e).join("; ");
+    } catch (_) {}
+    if (typeof detail === "string" && detail.trim()) return detail.trim();
+    if (resp.status === 403) return "Acesso negado para esta operação.";
+    if (resp.status === 413) return "Arquivo muito grande. Use até 5 MB.";
+    if (resp.status === 422) return "Arquivo inválido. Use PNG, JPG ou WEBP até 5 MB.";
+    if (resp.status === 502 || resp.status === 503) return "Serviço de upload indisponível no momento.";
+    return fallback || "Não foi possível concluir a operação. Tente novamente.";
 }
 
 function openEdit(o) {
@@ -438,19 +454,48 @@ document.getElementById("ownerLogoFile")?.addEventListener("change", async (ev) 
     ev.target.value = "";
     const id = document.getElementById("ownerId")?.value;
     if (!file || !id) return;
+
+    let toSend = file;
+    try {
+        if (typeof window.openLogoCropModal === "function") {
+            toSend = await window.openLogoCropModal(file, { title: "Ajustar logo da etiqueta" });
+            if (!toSend) return;
+        }
+    } catch (err) {
+        Swal.fire({ icon: "error", title: "Erro", text: err.message || "Não foi possível abrir o recorte." });
+        return;
+    }
+
+    const btn = document.getElementById("btnOwnerEnviarLogo");
+    const prevLabel = btn?.innerHTML;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Enviando…';
+    }
+    if (window.Swal) {
+        Swal.fire({ title: "Enviando logo…", allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+    }
+
     const fd = new FormData();
-    fd.append("file", file);
+    fd.append("file", toSend);
     try {
         const resp = await fetch(`${API}/${id}/logo`, {
             method: "POST",
             credentials: "include",
             body: fd,
         });
-        if (!resp.ok) throw new Error("Falha ao enviar logo.");
+        if (!resp.ok) throw new Error(await readApiError(resp, "Falha ao enviar logo."));
+        if (window.Swal && Swal.isLoading()) Swal.close();
         await fillOwnerIdentidade(id);
         Swal.fire({ icon: "success", title: "Logo atualizada", timer: 1200, showConfirmButton: false });
     } catch (err) {
+        if (window.Swal && Swal.isLoading()) Swal.close();
         Swal.fire({ icon: "error", title: "Erro", text: err.message || "Erro ao enviar logo." });
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = prevLabel || "Enviar logo";
+        }
     }
 });
 
@@ -458,14 +503,19 @@ document.getElementById("btnOwnerRemoverLogo")?.addEventListener("click", async 
     const id = document.getElementById("ownerId")?.value;
     if (!id) return;
     try {
+        if (window.Swal) {
+            Swal.fire({ title: "Removendo logo…", allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+        }
         const resp = await fetch(`${API}/${id}/logo`, {
             method: "DELETE",
             credentials: "include",
         });
-        if (!resp.ok) throw new Error("Falha ao remover logo.");
+        if (!resp.ok) throw new Error(await readApiError(resp, "Falha ao remover logo."));
+        if (window.Swal && Swal.isLoading()) Swal.close();
         await fillOwnerIdentidade(id);
         Swal.fire({ icon: "success", title: "Logo removida", timer: 1200, showConfirmButton: false });
     } catch (err) {
+        if (window.Swal && Swal.isLoading()) Swal.close();
         Swal.fire({ icon: "error", title: "Erro", text: err.message || "Erro ao remover logo." });
     }
 });
