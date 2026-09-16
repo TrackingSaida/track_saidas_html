@@ -2,7 +2,7 @@
 
     console.log("[tracking-reset] iniciado");
 
-    const API_URL = window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api";
+    const API_URL = window.getTrackApiUrl();
 
     const params = new URLSearchParams(window.location.search);
     const identifier = params.get("identifier");

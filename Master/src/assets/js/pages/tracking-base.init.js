@@ -6,7 +6,7 @@
 (function () {
   "use strict";
 
-  const API_URL = "https://track-saidas-api.onrender.com/api";
+  const API_URL = window.getTrackApiUrl();
   const API_BASES = `${API_URL}/base/`;
   const API_OWNER_ME = `${API_URL}/owner/me`;
 

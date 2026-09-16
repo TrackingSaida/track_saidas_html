@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  const API_URL = window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api";
+  const API_URL = window.getTrackApiUrl();
   const API_ENTREGADORES = `${API_URL.replace(/\/+$/, "")}/entregadores`;
   const API_PRECOS_GLOBAL = `${API_ENTREGADORES}/precos/global`;
   const API_PRECOS_INDIVIDUAIS = `${API_ENTREGADORES}/precos/individuais`;

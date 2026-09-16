@@ -4,7 +4,7 @@
  * Ao voltar da autenticação (query ml=ok), atualiza a lista e mostra feedback.
  * Acesso: role 0 (root) sempre; role 1 (admin) só quando tipo_owner === "base".
  */
-const API_BASE = "https://track-saidas-api.onrender.com/api";
+const API_BASE = window.getTrackApiUrl();
 
 let me = null;
 

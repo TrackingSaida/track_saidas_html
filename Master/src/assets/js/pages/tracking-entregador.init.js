@@ -1,5 +1,5 @@
 /* =================== Config =================== */
-const API_URL          = "https://track-saidas-api.onrender.com/api";
+const API_URL          = window.getTrackApiUrl();
 const API_ENTREGADORES = `${API_URL}/entregadores/`;
 
 /* =================== Telefone / WhatsApp =================== */

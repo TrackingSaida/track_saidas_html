@@ -1,4 +1,4 @@
-const API = "https://track-saidas-api.onrender.com/api/owner";
+const API = `${window.getTrackApiUrl()}/owner`;
 
 // ---------------------------------------------------------------------
 // MÁSCARA CELULAR — (99) 99999-9999
@@ -38,7 +38,7 @@ function gerarLinkWhatsapp(contatoRaw) {
 // SOMENTE ADMIN
 // -------------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", async () => {
-    const me = await fetch("https://track-saidas-api.onrender.com/api/auth/me", {
+    const me = await fetch(`${window.getTrackApiUrl()}/auth/me`, {
         credentials: "include"
     }).then(r => r.ok ? r.json() : null);
 
