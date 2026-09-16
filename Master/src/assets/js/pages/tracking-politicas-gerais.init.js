@@ -5,12 +5,28 @@
   const API = `${API_URL}/politicas`;
   const qs = (s) => document.querySelector(s);
 
+  const MSG_FALHA = "Não foi possível concluir a operação. Tente novamente.";
+
+  function mensagemUsuario(raw, fallback) {
+    const text = String(raw || "").trim();
+    if (!text) return fallback || MSG_FALHA;
+    const tecnico =
+      /psycopg|sqlalchemy|undefinedcolumn|programmingerror|operationalerror|traceback|sqlstate|does not exist|sqlalche\.me|left outer join|\[sql:|select\s+.+\s+from\s+/i.test(
+        text
+      ) ||
+      text.length > 240 ||
+      (text.includes("\n") && text.length > 120);
+    if (tecnico) return fallback || MSG_FALHA;
+    return text;
+  }
+
   function toast(msg, ok = true) {
+    const text = ok ? msg : mensagemUsuario(msg, MSG_FALHA);
     if (window.Swal) {
-      Swal.fire({ icon: ok ? "success" : "error", title: ok ? "Salvo" : "Erro", text: msg, timer: ok ? 1600 : undefined, showConfirmButton: !ok });
+      Swal.fire({ icon: ok ? "success" : "error", title: ok ? "Salvo" : "Erro", text, timer: ok ? 1600 : undefined, showConfirmButton: !ok });
       return;
     }
-    alert(msg);
+    alert(text);
   }
 
   async function http(url, options = {}) {
@@ -31,7 +47,7 @@
         detail = j.detail || j.message || detail;
         if (Array.isArray(detail)) detail = detail.map((e) => e.msg || e).join("; ");
       } catch (_) {}
-      throw new Error(typeof detail === "string" ? detail : "Falha na requisição");
+      throw new Error(mensagemUsuario(typeof detail === "string" ? detail : "", MSG_FALHA));
     }
     return r.json().catch(() => null);
   }
