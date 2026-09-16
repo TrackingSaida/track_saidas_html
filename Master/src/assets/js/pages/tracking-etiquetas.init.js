@@ -2,7 +2,7 @@
 // Página manual de geração de etiquetas PDF (100x150mm).
 
 (function () {
-  var API_URL = (window.TRACK_API_URL || "/api").replace(/\/$/, "") + "/etiquetas/gerar";
+  var API_URL = window.getTrackApiUrl() + "/etiquetas/gerar";
 
   var inpCodigo = document.getElementById("etiqueta-codigo");
   var btnGerar = document.getElementById("btn-gerar-etiqueta");

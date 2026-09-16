@@ -1009,7 +1009,7 @@ function setupPagerEvents() {
   function gerarEtiquetaPdf(opts) {
     var codigo = typeof opts === "string" ? opts : (opts?.codigo || "");
     if (!codigo) return;
-    var apiUrl = (window.TRACK_API_URL || "/api").replace(/\/$/, "") + "/etiquetas/gerar";
+    var apiUrl = window.getTrackApiUrl() + "/etiquetas/gerar";
     var body = { codigo: codigo };
     if (opts?.id_saida != null && !isNaN(opts.id_saida)) body.id_saida = opts.id_saida;
     if (opts?.servico) body.servico = opts.servico;

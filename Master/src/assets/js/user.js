@@ -2,7 +2,7 @@
   // ==========================================================
   // CONFIG
   // ==========================================================
-  const API_ORIGIN = "https://track-saidas-api.onrender.com";
+  const API_ORIGIN = window.getTrackApiOrigin();
   const LOGIN_PAGE = "auth-signin-tracking-v2.html";
 
   // ==========================================================
@@ -244,7 +244,7 @@
 
   if (w.ensureAuth) return;
 
-  const API_ORIGIN = "https://track-saidas-api.onrender.com";
+  const API_ORIGIN = window.getTrackApiOrigin();
   const API_ME = `${API_ORIGIN}/api/auth/me`;
 
   async function ensureAuth() {

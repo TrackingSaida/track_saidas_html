@@ -2,10 +2,7 @@
 // Login - TrackingSaídas
 // =========================
 
-// Base da API de autenticação
-const API_AUTH = (typeof window !== 'undefined' && window.API_AUTH)
-  ? String(window.API_AUTH)
-  : 'https://track-saidas-api.onrender.com/api/auth';
+const API_AUTH = window.getTrackApiUrl() + '/auth';
 
 function getParam(name) {
   const u = new URL(window.location.href);
