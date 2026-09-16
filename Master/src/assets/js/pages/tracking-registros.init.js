@@ -529,6 +529,7 @@ function augmentEntregadoresFromRows(rows){
     var s = String(status).replace(/_/g, " ").trim();
     var lower = s.toLowerCase();
     if (lower === "na base") return "Na Base";
+    if (lower === "etiquetado") return "Etiqueta gerada";
     if (lower === "saiu" || lower === "saiu para entrega") return "SAIU PARA ENTREGA";
     if (lower === "encerrado sistema" || lower === "encerrado pelo sistema" || lower === "encerrado_sistema" || lower === "encerrado") {
       return "Encerrado";

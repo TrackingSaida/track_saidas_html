@@ -583,6 +583,10 @@ function isAvulsoGerado(raw) {
   return /^AVULSO(-[A-Z0-9-]+)?$/i.test(toAsciiDigits(String(raw || "")).toUpperCase().trim());
 }
 
+function isCodigoRte(raw) {
+  return /^RTE[0-9]{11,}$/i.test(toAsciiDigits(String(raw || "")).toUpperCase().trim());
+}
+
 function isTelefoneBrasil(raw, allDigits) {
   let digits = String(allDigits != null ? allDigits : toAsciiDigits(String(raw || "")).replace(/\D+/g, ""));
   if (!digits) return null;
@@ -608,6 +612,7 @@ function classifyCodigoText(codigoRaw) {
   const mlRun = allDigits.match(/4[5-9]\d{9,}/);
   if (mlRun) return { ok: true, servico: "Mercado Livre", codigo: mlRun[0].slice(0, 11) };
   if (isAvulsoGerado(raw)) return { ok: true, servico: "Avulso", codigo: raw.trim().toUpperCase() };
+  if (isCodigoRte(raw)) return { ok: true, servico: "Avulso", codigo: raw.trim().toUpperCase() };
   const phone = isTelefoneBrasil(raw, allDigits);
   if (phone) return { ok: true, servico: "Avulso", codigo: phone };
   return { ok: false, motivo: "Padrão não configurado" };
@@ -657,6 +662,10 @@ function classifyCodigo(rawInput){
   }
 
   if (isAvulsoGerado(raw)) {
+    return { ok:true, servico:"Avulso", codigo: raw.trim().toUpperCase() };
+  }
+
+  if (isCodigoRte(raw)) {
     return { ok:true, servico:"Avulso", codigo: raw.trim().toUpperCase() };
   }
 
