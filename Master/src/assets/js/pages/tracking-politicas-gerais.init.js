@@ -5,6 +5,7 @@
   const API = `${API_URL}/politicas`;
   const API_IDENT = `${API_URL}/owner/me/identidade`;
   const API_LOGO = `${API_URL}/owner/me/logo`;
+  const FALLBACK_LOGO = "assets/images/logo_rotevo.png";
   const qs = (s) => document.querySelector(s);
 
   const MSG_FALHA = "Não foi possível concluir a operação. Tente novamente.";
@@ -12,6 +13,14 @@
   function mensagemUsuario(raw, fallback) {
     const text = String(raw || "").trim();
     if (!text) return fallback || MSG_FALHA;
+
+    // Mensagens de negócio/API já amigáveis — não mascarar.
+    const amigavel =
+      /upload|logo|armazenamento|b2|credencial|formato|imagem|arquivo|sessão|acesso restrito|sub_base|owner|indisponível|pré-visualização|preview|máximo|5 mb|png|jpg|webp/i.test(
+        text
+      ) && text.length <= 240;
+    if (amigavel) return text;
+
     const tecnico =
       /psycopg|sqlalchemy|undefinedcolumn|programmingerror|operationalerror|traceback|sqlstate|does not exist|sqlalche\.me|left outer join|\[sql:|select\s+.+\s+from\s+/i.test(
         text
@@ -25,10 +34,51 @@
   function toast(msg, ok = true) {
     const text = ok ? msg : mensagemUsuario(msg, MSG_FALHA);
     if (window.Swal) {
-      Swal.fire({ icon: ok ? "success" : "error", title: ok ? "Salvo" : "Erro", text, timer: ok ? 1600 : undefined, showConfirmButton: !ok });
+      Swal.fire({
+        icon: ok ? "success" : "error",
+        title: ok ? "Salvo" : "Erro",
+        text,
+        timer: ok ? 1600 : undefined,
+        showConfirmButton: !ok,
+      });
       return;
     }
     alert(text);
+  }
+
+  function loading(title) {
+    if (!window.Swal) return;
+    Swal.fire({
+      title: title || "Carregando…",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => Swal.showLoading(),
+    });
+  }
+
+  function closeLoading() {
+    if (!window.Swal) return;
+    try {
+      if (Swal.isLoading()) Swal.close();
+    } catch (_) {}
+  }
+
+  async function parseErrorDetail(r) {
+    let detail = r.statusText || "";
+    try {
+      const j = await r.json();
+      detail = j.detail || j.message || detail;
+      if (Array.isArray(detail)) detail = detail.map((e) => e.msg || e).join("; ");
+    } catch (_) {}
+    if (typeof detail !== "string") detail = "";
+    if (!detail) {
+      if (r.status === 403) detail = "Acesso negado para esta operação.";
+      else if (r.status === 413) detail = "Arquivo muito grande. Use até 5 MB.";
+      else if (r.status === 422) detail = "Arquivo inválido. Use PNG, JPG ou WEBP até 5 MB.";
+      else if (r.status === 502 || r.status === 503) detail = "Serviço de upload indisponível no momento.";
+      else if (r.status >= 500) detail = "Erro interno ao processar a logo. Tente novamente.";
+    }
+    return mensagemUsuario(detail, MSG_FALHA);
   }
 
   async function http(url, options = {}) {
@@ -40,21 +90,34 @@
     if (options.body instanceof FormData) {
       delete opts.headers["Content-Type"];
     }
-    const r = await fetch(url, opts);
+    let r;
+    try {
+      r = await fetch(url, opts);
+    } catch (_) {
+      throw new Error("Falha de rede ao comunicar com o servidor.");
+    }
     if (r.status === 401) {
       location.href = "login.html";
       throw new Error("Sessão expirada");
     }
     if (!r.ok) {
-      let detail = r.statusText;
-      try {
-        const j = await r.json();
-        detail = j.detail || j.message || detail;
-        if (Array.isArray(detail)) detail = detail.map((e) => e.msg || e).join("; ");
-      } catch (_) {}
-      throw new Error(mensagemUsuario(typeof detail === "string" ? detail : "", MSG_FALHA));
+      throw new Error(await parseErrorDetail(r));
     }
     return r.json().catch(() => null);
+  }
+
+  function setLogoBusy(busy) {
+    const btn = qs("#btnEnviarLogo");
+    const rem = qs("#btnRemoverLogo");
+    if (btn) {
+      btn.disabled = !!busy;
+      btn.innerHTML = busy
+        ? '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Enviando…'
+        : "Enviar logo";
+    }
+    if (rem) rem.disabled = !!busy;
+    const box = qs("#logoPreviewBox");
+    if (box) box.classList.toggle("opacity-50", !!busy);
   }
 
   function syncUiDeps() {
@@ -92,6 +155,17 @@
     syncUiDeps();
   }
 
+  function showFallbackPreview() {
+    const img = qs("#logoPreview");
+    const ph = qs("#logoPlaceholder");
+    if (img) {
+      img.src = FALLBACK_LOGO;
+      img.alt = "Logo padrão ROTEVO (fallback)";
+      img.classList.remove("d-none");
+    }
+    if (ph) ph.classList.add("d-none");
+  }
+
   async function fillIdentidade(data) {
     if (qs("#nomeExibicao")) qs("#nomeExibicao").value = data?.nome_fantasia || "";
     if (qs("#sloganEtiqueta")) qs("#sloganEtiqueta").value = data?.slogan || "";
@@ -105,6 +179,12 @@
           img.src = presign.download_url;
           img.classList.remove("d-none");
           if (ph) ph.classList.add("d-none");
+        } else {
+          if (img) img.classList.add("d-none");
+          if (ph) {
+            ph.textContent = "Logo cadastrada (preview indisponível)";
+            ph.classList.remove("d-none");
+          }
         }
       } catch (_) {
         if (img) img.classList.add("d-none");
@@ -115,14 +195,7 @@
       }
       if (btnRem) btnRem.classList.remove("d-none");
     } else {
-      if (img) {
-        img.removeAttribute("src");
-        img.classList.add("d-none");
-      }
-      if (ph) {
-        ph.textContent = "Logo padrão ROTEVO será utilizada";
-        ph.classList.remove("d-none");
-      }
+      showFallbackPreview();
       if (btnRem) btnRem.classList.add("d-none");
     }
   }
@@ -201,24 +274,65 @@
 
   async function uploadLogo(file) {
     if (!file) return;
+    let toSend = file;
+    try {
+      if (typeof window.openLogoCropModal === "function") {
+        toSend = await window.openLogoCropModal(file, { title: "Ajustar logo da etiqueta" });
+        if (!toSend) return;
+      }
+    } catch (e) {
+      toast(e.message || "Não foi possível abrir o recorte.", false);
+      return;
+    }
+
     const fd = new FormData();
-    fd.append("file", file);
+    fd.append("file", toSend);
+    setLogoBusy(true);
+    loading("Enviando logo…");
+    // preview local imediato
+    const img = qs("#logoPreview");
+    const ph = qs("#logoPlaceholder");
+    const localUrl = URL.createObjectURL(toSend);
+    if (img) {
+      img.src = localUrl;
+      img.classList.remove("d-none");
+    }
+    if (ph) ph.classList.add("d-none");
+
     try {
       const data = await http(API_LOGO, { method: "POST", body: fd, headers: { Accept: "application/json" } });
+      closeLoading();
       await fillIdentidade(data);
       toast("Logo atualizada.");
     } catch (e) {
+      closeLoading();
       toast(e.message || "Erro ao enviar logo.", false);
+      // restaura estado do servidor
+      try {
+        const ident = await http(API_IDENT);
+        await fillIdentidade(ident);
+      } catch (_) {
+        showFallbackPreview();
+      }
+    } finally {
+      URL.revokeObjectURL(localUrl);
+      setLogoBusy(false);
     }
   }
 
   async function removeLogo() {
+    setLogoBusy(true);
+    loading("Removendo logo…");
     try {
       const data = await http(API_LOGO, { method: "DELETE" });
+      closeLoading();
       await fillIdentidade(data);
       toast("Logo removida.");
     } catch (e) {
+      closeLoading();
       toast(e.message || "Erro ao remover logo.", false);
+    } finally {
+      setLogoBusy(false);
     }
   }
 
