@@ -128,7 +128,7 @@
   }
 
   async function load() {
-    const me = await http(`${API_URL}/users/me`);
+    const me = await http(`${API_URL}/auth/me`);
     if (!me || ![0, 1].includes(Number(me.role))) {
       toast("Acesso restrito a administradores.", false);
       location.href = "index.html";
