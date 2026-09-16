@@ -705,7 +705,8 @@
           <div class="small mb-1"><strong id="bulk-summary-count">0</strong> pedidos selecionados</div>
           <div class="small mb-1">Serviço: <span id="bulk-summary-servico">—</span></div>
           <div class="small mb-1">Status: <span id="bulk-summary-status">—</span></div>
-          <div class="small">Motoboy atual: <span id="bulk-summary-motoboy">—</span></div>
+          <div class="small mb-1">Motoboy atual: <span id="bulk-summary-motoboy">—</span></div>
+          <div class="small d-none" id="bulk-summary-base-row"><span data-owner-term="base">Base</span> atual: <span id="bulk-summary-base">—</span></div>
         </div>
 
         <div class="mb-2">
@@ -731,13 +732,13 @@
               <option value="Avulso">Avulso</option>
             </select>
           </div>
-        </div>
-
-        <div class="mb-3 d-none" id="bulk-base-group">
-          <label class="form-label fw-semibold" data-owner-term="base">Base</label>
-          <select id="bulk-base" class="form-select">
-            <option value="">Não alterar</option>
-          </select>
+          <div class="mb-3 d-none" id="bulk-base-group">
+            <label class="form-label fw-semibold" data-owner-term="base">Base</label>
+            <select id="bulk-base" class="form-select">
+              <option value="">Não alterar</option>
+            </select>
+            <div id="bulk-base-hint" class="form-text small mt-1"></div>
+          </div>
         </div>
 
         <div id="bulk-motoboy-hint" class="alert alert-info py-2 px-3 small mb-0">
@@ -857,8 +858,7 @@
   <script src="assets/libs/sweetalert2/sweetalert2.min.js"></script>
 
   <!-- Sequência original dos scripts (mantida) -->
-  <script>window.TRACK_API_URL="https://track-saidas-api.onrender.com/api";</script>
-  <script src="assets/js/components/date-picker-dashboard.js"></script>
+<script src="assets/js/components/date-picker-dashboard.js"></script>
   <script src="assets/js/pages/tracking-api-leitura-registros.init.js" defer></script>
   <script src="assets/js/pages/tracking-registros.init.js" defer></script>
   <script src="assets/js/app.js"></script>

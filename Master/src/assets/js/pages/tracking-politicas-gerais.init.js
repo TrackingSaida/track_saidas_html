@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const API_URL = (window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api").replace(/\/+$/, "");
+  const API_URL = window.getTrackApiUrl().replace(/\/+$/, "");
   const API = `${API_URL}/politicas`;
   const API_IDENT = `${API_URL}/owner/me/identidade`;
   const API_LOGO = `${API_URL}/owner/me/logo`;

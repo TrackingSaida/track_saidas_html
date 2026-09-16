@@ -92,7 +92,7 @@
   const nav = document.getElementById("navbar-nav");
   if (!nav) return;
 
-  const API_BASE = "https://track-saidas-api.onrender.com";
+  const API_BASE = window.getTrackApiOrigin();
   const LOGIN_URL = "auth-login-tracking.html";
 
   const fetchOpts = {

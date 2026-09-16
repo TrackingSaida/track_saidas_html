@@ -1,5 +1,5 @@
-const API = "https://track-saidas-api.onrender.com/api/users";
-const API_BASE = "https://track-saidas-api.onrender.com/api";
+const API_BASE = window.getTrackApiUrl();
+const API = `${API_BASE}/users`;
 
 // =====================================================================
 // MÁSCARA DOCUMENTO — CPF 11 dígitos ou RG

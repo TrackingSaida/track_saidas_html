@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var API_BASE = (window.TRACK_API_URL || "/api").replace(/\/$/, "");
+  var API_BASE = window.getTrackApiUrl().replace(/\/$/, "");
   var API_GERAR = API_BASE + "/etiquetas/gerar";
   var API_ENVIOS = API_BASE + "/etiquetas/envios-proprios";
   var API_REMETENTES = API_BASE + "/etiquetas/remetentes";
