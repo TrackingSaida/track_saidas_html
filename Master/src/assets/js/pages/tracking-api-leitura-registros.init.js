@@ -305,7 +305,17 @@
     }
   };
 
-  window.TrackAPI.lancarAvulso = async function ({ identificacao, quantidade, motoboy_id, entregador_id, entregador, foto_object_key, photo_id }) {
+  window.TrackAPI.lancarAvulso = async function ({
+    identificacao,
+    quantidade,
+    motoboy_id,
+    entregador_id,
+    entregador,
+    foto_object_key,
+    photo_id,
+    campos,
+    motivo_excepcional,
+  }) {
     try {
       const body = { quantidade };
       if (identificacao != null) body.identificacao = identificacao;
@@ -314,6 +324,8 @@
       if (entregador != null) body.entregador = entregador;
       if (foto_object_key) body.foto_object_key = foto_object_key;
       if (photo_id) body.photo_id = photo_id;
+      if (campos && typeof campos === "object") body.campos = campos;
+      if (motivo_excepcional) body.motivo_excepcional = motivo_excepcional;
       const res = await req("/pedidos/lancar-avulso", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -329,11 +341,55 @@
         data?.error ||
         null
       );
-      return { ok: res.ok, status: res.status, data, error, code: data?.code };
+      const code = data?.code || (errDetail && typeof errDetail === "object" ? errDetail.code : null);
+      return { ok: res.ok, status: res.status, data, error, code };
     } catch (err) {
       return { ok: false, status: 0, error: String(err?.message || err) };
     }
   };
+
+  window.TrackAPI.listAvulsosPendentes = async function ({ q, limit, offset } = {}) {
+    try {
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      if (limit != null) params.set("limit", String(limit));
+      if (offset != null) params.set("offset", String(offset));
+      const qs = params.toString();
+      const res = await req(`/avulsos/pendentes${qs ? `?${qs}` : ""}`, { method: "GET" });
+      let data = null;
+      try { data = await res.json(); } catch {}
+      return { ok: res.ok, status: res.status, data, error: res.ok ? null : (data?.detail || data?.message || "Erro") };
+    } catch (err) {
+      return { ok: false, status: 0, error: String(err?.message || err) };
+    }
+  };
+
+  window.TrackAPI.schemaCamposAvulso = async function ({ contexto } = {}) {
+    try {
+      const params = new URLSearchParams();
+      params.set("contexto", contexto || "TODOS_AVULSO");
+      const res = await req(`/configuracoes/campos-avulso/schema?${params}`, { method: "GET" });
+      let data = null;
+      try { data = await res.json(); } catch {}
+      return { ok: res.ok, status: res.status, data, error: res.ok ? null : (data?.detail || data?.message || "Erro") };
+    } catch (err) {
+      return { ok: false, status: 0, error: String(err?.message || err) };
+    }
+  };
+
+  window.TrackAPI.getAvulsoDetalhe = async function (idSaida) {
+    try {
+      const res = await req(`/avulsos/${encodeURIComponent(String(idSaida))}`, { method: "GET" });
+      let data = null;
+      try { data = await res.json(); } catch {}
+      return { ok: res.ok, status: res.status, data, error: res.ok ? null : (data?.detail || data?.message || "Erro") };
+    } catch (err) {
+      return { ok: false, status: 0, error: String(err?.message || err) };
+    }
+  };
+
+  /** @deprecated use schemaCamposAvulso para formulários operacionais */
+  window.TrackAPI.listCamposAvulso = window.TrackAPI.schemaCamposAvulso;
 
   // ============================================================
   // BUSCAR POR CÓDIGO

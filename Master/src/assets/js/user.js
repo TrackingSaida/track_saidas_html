@@ -11,6 +11,7 @@
   window.__USER__ = null;
   window.IGNORAR_COLETA = false;
   window.MODO_OPERACAO = "codigo";
+  window.BLOQUEAR_SAIDA_SEM_COLETA = false;
 
   // ==========================================================
   // Helpers
@@ -135,10 +136,15 @@
     window.IGNORAR_COLETA = !!user?.ignorar_coleta;
     window.MODO_OPERACAO = user?.modo_operacao || "codigo";
     window.TIPO_OWNER = (user?.tipo_owner || "subbase").toLowerCase();
+    window.BLOQUEAR_SAIDA_SEM_COLETA = !!user?.bloquear_saida_sem_coleta;
     try {
       localStorage.setItem(
         "ignorar_coleta",
         window.IGNORAR_COLETA ? "1" : "0"
+      );
+      localStorage.setItem(
+        "bloquear_saida_sem_coleta",
+        window.BLOQUEAR_SAIDA_SEM_COLETA ? "1" : "0"
       );
     } catch (_) {}
 

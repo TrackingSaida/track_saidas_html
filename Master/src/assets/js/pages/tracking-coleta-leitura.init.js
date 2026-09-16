@@ -583,6 +583,10 @@ function isAvulsoGerado(raw) {
   return /^AVULSO(-[A-Z0-9-]+)?$/i.test(toAsciiDigits(String(raw || "")).toUpperCase().trim());
 }
 
+function isCodigoRte(raw) {
+  return /^RTE[0-9]{11,}$/i.test(toAsciiDigits(String(raw || "")).toUpperCase().trim());
+}
+
 function isTelefoneBrasil(raw, allDigits) {
   let digits = String(allDigits != null ? allDigits : toAsciiDigits(String(raw || "")).replace(/\D+/g, ""));
   if (!digits) return null;
@@ -608,6 +612,7 @@ function classifyCodigoText(codigoRaw) {
   const mlRun = allDigits.match(/4[5-9]\d{9,}/);
   if (mlRun) return { ok: true, servico: "Mercado Livre", codigo: mlRun[0].slice(0, 11) };
   if (isAvulsoGerado(raw)) return { ok: true, servico: "Avulso", codigo: raw.trim().toUpperCase() };
+  if (isCodigoRte(raw)) return { ok: true, servico: "Avulso", codigo: raw.trim().toUpperCase() };
   const phone = isTelefoneBrasil(raw, allDigits);
   if (phone) return { ok: true, servico: "Avulso", codigo: phone };
   return { ok: false, motivo: "Padrão não configurado" };
@@ -657,6 +662,10 @@ function classifyCodigo(rawInput){
   }
 
   if (isAvulsoGerado(raw)) {
+    return { ok:true, servico:"Avulso", codigo: raw.trim().toUpperCase() };
+  }
+
+  if (isCodigoRte(raw)) {
     return { ok:true, servico:"Avulso", codigo: raw.trim().toUpperCase() };
   }
 
@@ -1202,12 +1211,37 @@ document.addEventListener("DOMContentLoaded", async () => {
         `
       : "";
 
+    let camposCfg = [];
+    try {
+      const schRes = await fetch(`${getBaseUrl()}/configuracoes/campos-avulso/schema?contexto=COLETA_AVULSO`, {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+      if (schRes.ok) {
+        const schData = await schRes.json();
+        if (Array.isArray(schData?.campos)) camposCfg = schData.campos;
+      }
+    } catch (_) {}
+    const camposHtml = (camposCfg || []).map((c) => {
+      const req = c.obrigatorio ? ' <span class="text-danger">*</span>' : "";
+      const id = `avulso-campo-${c.chave}`;
+      if (c.tipo === "lista") {
+        const opts = (c.opcoes || []).map((o) => `<option value="${String(o).replace(/"/g, "&quot;")}">${o}</option>`).join("");
+        return `<label class="form-label mb-1" for="${id}">${c.label}${req}</label>
+          <select id="${id}" class="form-select mb-3"><option value="">Selecione</option>${opts}</select>`;
+      }
+      const inputType = c.tipo === "numero" ? "number" : (c.tipo === "telefone" ? "tel" : "text");
+      return `<label class="form-label mb-1" for="${id}">${c.label}${req}</label>
+        <input id="${id}" type="${inputType}" class="form-control mb-3" />`;
+    }).join("");
+
     const modal = await Swal.fire({
       title: "Lançar Avulso (coleta)",
       html: `
         <div class="text-start">
           <label class="form-label mb-1" for="avulso-identificacao">Identificação</label>
           <input id="avulso-identificacao" class="form-control mb-3" maxlength="32" placeholder="Ex.: Cliente João" />
+          ${camposHtml}
           <label class="form-label mb-1" for="avulso-quantidade">Quantidade</label>
           <input id="avulso-quantidade" type="number" min="1" max="50" step="1" class="form-control ${mostrarFoto ? "mb-3" : ""}" value="1" />
           ${fotoFieldHtml}
@@ -1222,6 +1256,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         const quantidadeVal = parseInt(String(document.getElementById("avulso-quantidade")?.value || "1").trim(), 10);
         const fotoEl = document.getElementById("avulso-foto");
         const fotoFile = fotoEl && fotoEl.files && fotoEl.files[0] ? fotoEl.files[0] : null;
+        const campos = {};
+        for (const c of camposCfg) {
+          const el = document.getElementById(`avulso-campo-${c.chave}`);
+          const v = String(el?.value || "").trim();
+          if (v) campos[c.chave] = v;
+          if (c.obrigatorio && !v && !(c.chave === "identificacao" && identificacaoVal)) {
+            Swal.showValidationMessage(`Campo obrigatório: ${c.label}`);
+            return null;
+          }
+        }
         if (!Number.isFinite(quantidadeVal) || quantidadeVal < 1) {
           Swal.showValidationMessage("Quantidade mínima é 1.");
           return null;
@@ -1234,7 +1278,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           Swal.showValidationMessage("Foto obrigatória para este usuário.");
           return null;
         }
-        return { identificacao: identificacaoVal, quantidade: quantidadeVal, fotoFile };
+        return { identificacao: identificacaoVal, quantidade: quantidadeVal, fotoFile, campos };
       },
     });
     if (!modal.isConfirmed || !modal.value) return;
@@ -1254,6 +1298,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       identificacao: modal.value.identificacao || null,
       quantidade: modal.value.quantidade,
     };
+    if (modal.value.campos && Object.keys(modal.value.campos).length) body.campos = modal.value.campos;
     if (fotoPayload.foto_object_key) body.foto_object_key = fotoPayload.foto_object_key;
     if (fotoPayload.photo_id) body.photo_id = fotoPayload.photo_id;
 
