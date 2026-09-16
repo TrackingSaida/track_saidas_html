@@ -995,7 +995,7 @@ function setupPagerEvents() {
         e.stopPropagation();
         var idSaida = btn.dataset.idSaida ? parseInt(btn.dataset.idSaida, 10) : null;
         var servico = btn.dataset.servico || null;
-        gerarEtiquetaPdf({ codigo: codigo, id_saida: idSaida, servico: servico });
+        escolherGeracaoEtiqueta({ codigo: codigo, id_saida: idSaida, servico: servico });
         return;
       }
       if (e.target.closest(".rowchk")) return;
@@ -1005,6 +1005,62 @@ function setupPagerEvents() {
         if (id) openDetailPanel(id);
       }
     });
+  }
+
+  function isCodigoEnvioProprio(codigo) {
+    return /^RTE[0-9]{11,}$/i.test(String(codigo || "").trim());
+  }
+
+  function escolherGeracaoEtiqueta(opts) {
+    var codigo = opts && opts.codigo ? String(opts.codigo).trim() : "";
+    if (!codigo) return;
+    if (!isCodigoEnvioProprio(codigo) || !window.Swal) {
+      gerarEtiquetaPdf(opts);
+      return;
+    }
+    Swal.fire({
+      title: "Envio próprio do sistema",
+      text: "Este código foi gerado pelo ROTEVO. O que deseja gerar?",
+      icon: "question",
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: "Etiqueta de envio (reimpressão)",
+      denyButtonText: "Somente QR Code",
+      cancelButtonText: "Cancelar",
+      reverseButtons: true,
+    }).then(function (result) {
+      if (result.isConfirmed) reimprimirEtiquetaEnvioProprio(codigo);
+      else if (result.isDenied) gerarEtiquetaPdf(opts);
+    });
+  }
+
+  function reimprimirEtiquetaEnvioProprio(codigo) {
+    var apiUrl = window.getTrackApiUrl() + "/etiquetas/envios-proprios/reimpressao/" + encodeURIComponent(codigo);
+    fetch(apiUrl, {
+      method: "GET",
+      credentials: "include",
+      headers: { Accept: "application/pdf" },
+    })
+      .then(function (res) {
+        if (!res.ok) {
+          return res.json().then(function (body) {
+            var d = body.detail || body.message || "Erro ao reimprimir etiqueta";
+            if (typeof d !== "string") d = "Erro ao reimprimir etiqueta";
+            throw new Error(d);
+          }).catch(function (e) {
+            if (e instanceof Error && e.message) throw e;
+            throw new Error("Erro ao reimprimir etiqueta");
+          });
+        }
+        return res.blob();
+      })
+      .then(function (blob) {
+        var url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+      })
+      .catch(function (err) {
+        notify(err.message || "Falha ao reimprimir etiqueta de envio.", "error");
+      });
   }
 
   function gerarEtiquetaPdf(opts) {
