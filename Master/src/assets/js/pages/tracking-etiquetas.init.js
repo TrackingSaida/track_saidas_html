@@ -49,6 +49,38 @@
     return digits;
   }
 
+  function maskPhone(value) {
+    var digits = String(value || "").replace(/\D/g, "").slice(0, 11);
+    if (digits.length >= 7) return digits.replace(/^(\d{2})(\d{5})(\d{0,4}).*/, "($1) $2-$3");
+    if (digits.length >= 3) return digits.replace(/^(\d{2})(\d{0,5}).*/, "($1) $2");
+    if (digits.length >= 1) return digits.replace(/^(\d{0,2}).*/, "($1");
+    return digits;
+  }
+
+  function onlyDigits(value) {
+    return String(value || "").replace(/\D/g, "");
+  }
+
+  function isPhoneOk(value) {
+    if (!value) return true; // opcional
+    var d = onlyDigits(value);
+    return d.length === 10 || d.length === 11;
+  }
+
+  function isCepOk(value) {
+    return onlyDigits(value).length === 8;
+  }
+
+  function isUfOk(value) {
+    return /^[A-Za-z]{2}$/.test(String(value || "").trim());
+  }
+
+  function formatPhoneForPayload(value) {
+    var d = onlyDigits(value);
+    if (!d) return null;
+    return d;
+  }
+
   function showPreview(blob, meta) {
     if (lastPreviewUrl) {
       try {
@@ -249,16 +281,30 @@
 
   function partyFromPrefix(prefix) {
     return {
-      nome: val(prefix + "Nome"),
-      telefone: val(prefix + "Telefone") || null,
-      cep: val(prefix + "Cep").replace(/\D/g, "") || null,
-      rua: val(prefix + "Rua"),
-      numero: val(prefix + "Numero"),
-      complemento: val(prefix + "Complemento") || null,
-      bairro: val(prefix + "Bairro"),
-      cidade: val(prefix + "Cidade"),
-      uf: val(prefix + "Uf").toUpperCase(),
+      nome: val(prefix + "Nome").slice(0, 120),
+      telefone: formatPhoneForPayload(val(prefix + "Telefone")),
+      cep: onlyDigits(val(prefix + "Cep")) || null,
+      rua: val(prefix + "Rua").slice(0, 180),
+      numero: val(prefix + "Numero").slice(0, 20),
+      complemento: val(prefix + "Complemento").slice(0, 80) || null,
+      bairro: val(prefix + "Bairro").slice(0, 80),
+      cidade: val(prefix + "Cidade").slice(0, 80),
+      uf: val(prefix + "Uf").toUpperCase().slice(0, 2),
     };
+  }
+
+  function validateParty(party, label) {
+    if (!party.nome) return "Informe o nome do " + label + ".";
+    if (!isCepOk(party.cep)) return "CEP do " + label + " inválido. Use 8 dígitos.";
+    if (!party.rua) return "Informe a rua do " + label + ".";
+    if (!party.numero) return "Informe o número do " + label + ".";
+    if (!party.bairro) return "Informe o bairro do " + label + ".";
+    if (!party.cidade) return "Informe a cidade do " + label + ".";
+    if (!isUfOk(party.uf)) return "UF do " + label + " inválida. Use 2 letras (ex.: SP).";
+    if (party.telefone && !isPhoneOk(party.telefone)) {
+      return "Telefone do " + label + " inválido. Use DDD + número (10 ou 11 dígitos).";
+    }
+    return null;
   }
 
   function setCepStatus(prefix, msg, isError) {
@@ -325,27 +371,25 @@
   function criarEnvioProprio() {
     var origem = (document.querySelector('input[name="origemRemetente"]:checked') || {}).value || "seller";
     var dest = partyFromPrefix("dest");
-    var requiredDest = ["nome", "cep", "rua", "numero", "bairro", "cidade", "uf"];
-    for (var i = 0; i < requiredDest.length; i++) {
-      if (!dest[requiredDest[i]]) {
-        toast("Preencha os dados obrigatórios do destinatário.");
-        return;
-      }
+    var destErr = validateParty(dest, "destinatário");
+    if (destErr) {
+      toast(destErr);
+      return;
     }
 
     var payload = {
       origem_remetente: origem,
       destinatario: dest,
       peso_kg: null,
-      dimensoes: val("dimensoes") || null,
-      observacao: val("observacaoEnvio") || null,
+      dimensoes: val("dimensoes").slice(0, 40) || null,
+      observacao: val("observacaoEnvio").slice(0, 500) || null,
     };
 
     var pesoRaw = val("pesoKg");
     if (pesoRaw) {
       var pesoNum = Number(pesoRaw);
-      if (!isFinite(pesoNum) || pesoNum < 0) {
-        toast("Peso inválido.");
+      if (!isFinite(pesoNum) || pesoNum < 0 || pesoNum > 9999) {
+        toast("Peso inválido. Use um valor entre 0 e 9999 kg.");
         return;
       }
       payload.peso_kg = pesoNum;
@@ -362,16 +406,19 @@
         toast("Seller sem endereço completo. Atualize o cadastro da Base antes de gerar.");
         return;
       }
+      var telSeller = formatPhoneForPayload(val("remetenteTelefoneSeller"));
+      if (telSeller && !isPhoneOk(telSeller)) {
+        toast("Telefone do remetente inválido. Use DDD + número (10 ou 11 dígitos).");
+        return;
+      }
       payload.id_base = idBase;
-      payload.remetente_telefone = val("remetenteTelefoneSeller") || null;
+      payload.remetente_telefone = telSeller;
     } else {
       var remManual = partyFromPrefix("rem");
-      var requiredRem = ["nome", "cep", "rua", "numero", "bairro", "cidade", "uf"];
-      for (var j = 0; j < requiredRem.length; j++) {
-        if (!remManual[requiredRem[j]]) {
-          toast("Preencha os dados obrigatórios do remetente.");
-          return;
-        }
+      var remErr = validateParty(remManual, "remetente");
+      if (remErr) {
+        toast(remErr);
+        return;
       }
       payload.remetente = remManual;
     }
@@ -441,13 +488,38 @@
     if (!el) return;
     var prefix = id.indexOf("rem") === 0 ? "rem" : "dest";
     el.addEventListener("input", function () {
-      var before = el.value;
-      el.value = maskCep(before);
-      var digits = String(el.value || "").replace(/\D/g, "");
+      el.value = maskCep(el.value);
+      var digits = onlyDigits(el.value);
       if (digits.length === 8) buscarCep(id, prefix);
     });
     el.addEventListener("blur", function () {
       buscarCep(id, prefix);
+    });
+  });
+
+  ["remetenteTelefoneSeller", "remTelefone", "destTelefone"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", function () {
+      el.value = maskPhone(el.value);
+    });
+    el.addEventListener("blur", function () {
+      var raw = el.value;
+      if (!raw) return;
+      el.value = maskPhone(raw);
+      if (!isPhoneOk(el.value)) {
+        el.classList.add("is-invalid");
+      } else {
+        el.classList.remove("is-invalid");
+      }
+    });
+  });
+
+  ["remUf", "destUf"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", function () {
+      el.value = String(el.value || "").replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 2);
     });
   });
 
