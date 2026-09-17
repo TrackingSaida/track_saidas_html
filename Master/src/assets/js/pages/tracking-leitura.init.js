@@ -24,12 +24,22 @@
     return coletaOn || entradaOn;
   }
 
+  function podeLancarAvulso() {
+    const u = window.__USER__ || {};
+    const role = Number(u.role);
+    if ([0, 1, 2, 3].includes(role)) return true;
+    if (role === 4) return u.pode_lancar_avulso !== false;
+    return false;
+  }
+
   function syncAvulsoUiButtons() {
     const exige = ownerExigeSelecaoAvulso();
+    const podeLancar = podeLancarAvulso();
     if (btnSelecionarAvulso) {
-      btnSelecionarAvulso.classList.toggle("d-none", !exige);
+      btnSelecionarAvulso.classList.remove("d-none");
     }
     if (btnLancarAvulso) {
+      btnLancarAvulso.classList.toggle("d-none", !podeLancar);
       if (exige) {
         btnLancarAvulso.innerHTML = '<i class="ri-error-warning-line"></i> Cadastrar avulso não registrado';
         btnLancarAvulso.classList.remove("btn-outline-primary");
@@ -1599,19 +1609,52 @@ inpCod?.addEventListener("keydown", (e) => {
     registrarComLog("teclado");
   }
 });
+function avulsoCampoInputAttrs(c) {
+  const tipo = String(c.tipo || "texto");
+  const ph = c.placeholder || "";
+  const hint = c.tipo_hint || "";
+  if (tipo === "lista") return { kind: "lista" };
+  const inputType = tipo === "numero" ? "number" : (tipo === "telefone" ? "tel" : "text");
+  const inputmode = tipo === "cep" || tipo === "numero" ? "numeric" : (tipo === "telefone" ? "tel" : "text");
+  const extra = tipo === "cep" ? ' maxlength="9" data-mask="cep"' : (tipo === "telefone" ? ' maxlength="16" data-mask="tel"' : (tipo === "primeiro_nome" || tipo === "segundo_nome" ? ' data-mask="nome" autocomplete="off"' : ""));
+  return { kind: "input", inputType, inputmode, ph, hint, extra };
+}
+
+function bindAvulsoCampoMasks(root) {
+  (root || document).querySelectorAll("[data-mask]").forEach((el) => {
+    el.addEventListener("input", () => {
+      const mask = el.getAttribute("data-mask");
+      if (mask === "cep") {
+        const d = String(el.value || "").replace(/\D/g, "").slice(0, 8);
+        el.value = d.length > 5 ? d.slice(0, 5) + "-" + d.slice(5) : d;
+      } else if (mask === "tel") {
+        const d = String(el.value || "").replace(/\D/g, "").slice(0, 11);
+        if (d.length <= 2) el.value = d;
+        else if (d.length <= 6) el.value = "(" + d.slice(0, 2) + ") " + d.slice(2);
+        else if (d.length <= 10) el.value = "(" + d.slice(0, 2) + ") " + d.slice(2, 6) + "-" + d.slice(6);
+        else el.value = "(" + d.slice(0, 2) + ") " + d.slice(2, 7) + "-" + d.slice(7);
+      } else if (mask === "nome") {
+        el.value = String(el.value || "").replace(/[0-9]/g, "");
+      }
+    });
+  });
+}
+
 function buildCamposAvulsoHtml(campos) {
   if (!Array.isArray(campos) || !campos.length) return "";
   return campos.map((c) => {
     const req = c.obrigatorio ? ' <span class="text-danger">*</span>' : "";
     const id = `avulso-campo-${c.chave}`;
-    if (c.tipo === "lista") {
+    const attrs = avulsoCampoInputAttrs(c);
+    if (c.tipo === "lista" || attrs.kind === "lista") {
       const opts = (c.opcoes || []).map((o) => `<option value="${String(o).replace(/"/g, "&quot;")}">${o}</option>`).join("");
       return `<label class="form-label mb-1" for="${id}">${c.label}${req}</label>
         <select id="${id}" class="form-select mb-3" data-avulso-chave="${c.chave}"><option value="">Selecione</option>${opts}</select>`;
     }
-    const inputType = c.tipo === "numero" ? "number" : (c.tipo === "telefone" ? "tel" : "text");
+    const hint = attrs.hint ? `<div class="form-text mb-3">${attrs.hint}</div>` : '<div class="mb-3"></div>';
     return `<label class="form-label mb-1" for="${id}">${c.label}${req}</label>
-      <input id="${id}" type="${inputType}" class="form-control mb-3" data-avulso-chave="${c.chave}" />`;
+      <input id="${id}" type="${attrs.inputType}" inputmode="${attrs.inputmode}" class="form-control" data-avulso-chave="${c.chave}" placeholder="${String(attrs.ph || "").replace(/"/g, "&quot;")}"${attrs.extra} />
+      ${hint}`;
   }).join("");
 }
 
@@ -1647,17 +1690,34 @@ btnSelecionarAvulso?.addEventListener("click", async (e) => {
   const entregador = selEnt?.options[selEnt.selectedIndex]?.text?.trim() || entregadoresMap.get(motoboyIdRaw) || "";
 
   let itemsCache = [];
-  async function renderLista(q) {
-    const res = await apiListAvulsosPendentes({ q: q || undefined, limit: 30, offset: 0 });
+
+  function itemMeta(it) {
+    const status = it.status_label || it.status || "";
+    const motoboy = it.motoboy_nome ? `Motoboy: ${it.motoboy_nome}` : "Sem motoboy";
+    return [status, motoboy, it.codigo].filter(Boolean).join(" · ");
+  }
+
+  async function renderLista({ q, todosDoDia } = {}) {
+    const res = await apiListAvulsosPendentes({
+      q: q || undefined,
+      todos_do_dia: !!todosDoDia,
+      limit: 50,
+      offset: 0,
+    });
     if (!res?.ok) {
-      Swal.showValidationMessage(res?.error || "Falha ao buscar pendentes.");
+      Swal.showValidationMessage(res?.error || "Falha ao buscar avulsos.");
       return;
     }
-    itemsCache = Array.isArray(res.data?.items) ? res.data.items : [];
+    const data = res.data || {};
+    itemsCache = Array.isArray(data.items) ? data.items : [];
     const box = document.getElementById("avulso-pendentes-lista");
     if (!box) return;
+    if (data.ambiguo) {
+      box.innerHTML = `<div class="alert alert-warning py-2 small mb-0">${data.mensagem || "Há vários avulsos. Refine a busca."}</div>`;
+      return;
+    }
     if (!itemsCache.length) {
-      box.innerHTML = '<div class="text-muted small py-2">Nenhum avulso pendente encontrado.</div>';
+      box.innerHTML = `<div class="text-muted small py-2">${data.mensagem || "Digite para buscar os avulsos de hoje."}</div>`;
       return;
     }
     box.innerHTML = itemsCache.map((it, idx) => `
@@ -1665,7 +1725,7 @@ btnSelecionarAvulso?.addEventListener("click", async (e) => {
         <input type="radio" name="avulso-pendente" value="${idx}" class="mt-1" ${idx === 0 ? "checked" : ""} />
         <span>
           <strong>${it.label || it.codigo || "—"}</strong>
-          <div class="small text-muted">${it.status || ""} · ${it.codigo || ""}</div>
+          <div class="small text-muted">${itemMeta(it)}</div>
         </span>
       </label>
     `).join("");
@@ -1675,30 +1735,35 @@ btnSelecionarAvulso?.addEventListener("click", async (e) => {
     title: "Selecionar avulso",
     html: `
       <div class="text-start">
+        <p class="small text-muted mb-2">Busca por contém nos avulsos de hoje. Se alguém compartilhou a etiqueta, leia o código no fluxo normal.</p>
         <label class="form-label mb-1" for="avulso-busca-q">Buscar</label>
-        <div class="input-group mb-3">
-          <input id="avulso-busca-q" class="form-control" placeholder="Código, pedido, destinatário..." />
-          <button type="button" class="btn btn-outline-secondary" id="avulso-busca-btn">Buscar</button>
+        <div class="input-group mb-2">
+          <input id="avulso-busca-q" class="form-control" placeholder="Nome, CEP, código..." />
+          <button type="button" class="btn btn-primary" id="avulso-busca-btn">Buscar</button>
         </div>
-        <div id="avulso-pendentes-lista" style="max-height:280px;overflow:auto"></div>
+        <button type="button" class="btn btn-link btn-sm px-0 mb-2" id="avulso-todos-dia">Ver todos de hoje</button>
+        <div id="avulso-pendentes-lista" style="max-height:280px;overflow:auto">
+          <div class="text-muted small py-2">Digite para buscar os avulsos de hoje.</div>
+        </div>
       </div>
     `,
     showCancelButton: true,
     confirmButtonText: "Atribuir ao motoboy",
     cancelButtonText: "Cancelar",
     focusConfirm: false,
-    didOpen: async () => {
+    didOpen: () => {
       const btn = document.getElementById("avulso-busca-btn");
       const inp = document.getElementById("avulso-busca-q");
-      const run = () => renderLista(inp?.value?.trim() || "");
+      const todos = document.getElementById("avulso-todos-dia");
+      const run = () => renderLista({ q: inp?.value?.trim() || "" });
       btn?.addEventListener("click", (ev) => { ev.preventDefault(); run(); });
+      todos?.addEventListener("click", (ev) => { ev.preventDefault(); renderLista({ todosDoDia: true }); });
       inp?.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); run(); } });
-      await run();
     },
     preConfirm: () => {
       const checked = document.querySelector('input[name="avulso-pendente"]:checked');
       if (!checked) {
-        Swal.showValidationMessage("Selecione um avulso pendente.");
+        Swal.showValidationMessage("Selecione um avulso.");
         return null;
       }
       const idx = parseInt(checked.value, 10);
@@ -1792,6 +1857,7 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     confirmButtonText: "Confirmar",
     cancelButtonText: "Cancelar",
     focusConfirm: false,
+    didOpen: () => bindAvulsoCampoMasks(Swal.getHtmlContainer()),
     preConfirm: () => {
       const identificacaoVal = String(document.getElementById("avulso-identificacao")?.value || "").trim().slice(0, 32);
       const quantidadeVal = parseInt(String(document.getElementById("avulso-quantidade")?.value || "1").trim(), 10);

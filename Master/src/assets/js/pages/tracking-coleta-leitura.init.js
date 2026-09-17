@@ -1186,6 +1186,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     return { foto_object_key: objectKey, photo_id: (data && data.photo_id) || photoId };
   }
 
+  (function syncPermissaoAvulsoColeta() {
+    const u = window.__USER__ || {};
+    const role = Number(u.role);
+    const pode = [0, 1, 2, 3].includes(role) || (role === 4 && u.pode_lancar_avulso !== false);
+    const btn = qs("#btnLancarAvulso");
+    if (btn && !pode) btn.classList.add("d-none");
+  })();
+
   qs("#btnLancarAvulso")?.addEventListener("click", async (e) => {
     e.preventDefault();
     if (!BASE_ATUAL) {
@@ -1231,8 +1239,11 @@ document.addEventListener("DOMContentLoaded", async () => {
           <select id="${id}" class="form-select mb-3"><option value="">Selecione</option>${opts}</select>`;
       }
       const inputType = c.tipo === "numero" ? "number" : (c.tipo === "telefone" ? "tel" : "text");
+      const ph = String(c.placeholder || "").replace(/"/g, "&quot;");
+      const hint = c.tipo_hint ? `<div class="form-text mb-3">${c.tipo_hint}</div>` : '<div class="mb-3"></div>';
       return `<label class="form-label mb-1" for="${id}">${c.label}${req}</label>
-        <input id="${id}" type="${inputType}" class="form-control mb-3" />`;
+        <input id="${id}" type="${inputType}" class="form-control" placeholder="${ph}" />
+        ${hint}`;
     }).join("");
 
     const modal = await Swal.fire({

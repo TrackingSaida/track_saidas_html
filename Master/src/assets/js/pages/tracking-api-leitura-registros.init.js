@@ -348,10 +348,14 @@
     }
   };
 
-  window.TrackAPI.listAvulsosPendentes = async function ({ q, limit, offset } = {}) {
+  window.TrackAPI.listAvulsosPendentes = async function ({ q, identificadores, todos_do_dia, limit, offset } = {}) {
     try {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
+      if (identificadores && typeof identificadores === "object" && Object.keys(identificadores).length) {
+        params.set("identificadores", JSON.stringify(identificadores));
+      }
+      if (todos_do_dia) params.set("todos_do_dia", "true");
       if (limit != null) params.set("limit", String(limit));
       if (offset != null) params.set("offset", String(offset));
       const qs = params.toString();

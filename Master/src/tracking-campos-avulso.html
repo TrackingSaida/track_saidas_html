@@ -15,8 +15,15 @@
           <div class="container-fluid">
             @@include("partials/page-title.html", {"pagetitle": "Configuração", "title": "Campos do Avulso", "withSubtitle": false, "ownerTerm": ""})
 
-            <div class="alert alert-info py-2">
-              Defina campos dinâmicos para identificar avulsos na Coleta, Entrada e Saída. Não confundir com Campos Obrigatórios da entrega.
+            <div class="alert alert-info">
+              <strong>Para que serve esta tela?</strong>
+              <p class="mb-2 mt-1">Aqui você define os dados que identificam um avulso (pacote sem código de marketplace). Esses dados aparecem no lançamento da Coleta, da Entrada e da Saída, e também na busca do motoboy.</p>
+              <ul class="mb-0 small">
+                <li>Marque <strong>Usar na identificação</strong> nos campos que localizam o pacote (primeiro nome, segundo nome, CEP).</li>
+                <li>Marque <strong>Exibir na seleção</strong> para o motoboy ver o dado na lista do dia.</li>
+                <li>A <strong>chave</strong> é o nome interno do campo. Se deixar em branco, o sistema gera a partir do label. Não altere depois que já existirem avulsos lançados.</li>
+                <li>O motoboy busca por contém nos avulsos de <strong>hoje</strong>. Avulso de outro dia só aparece se a busca achar um único pacote.</li>
+              </ul>
             </div>
 
             <div class="card">
@@ -36,9 +43,9 @@
                     <thead class="table-light">
                       <tr>
                         <th style="width:48px;">Sel.</th>
-                        <th>Label</th>
+                        <th>Nome</th>
                         <th>Chave</th>
-                        <th>Contexto</th>
+                        <th>Onde aparece</th>
                         <th>Tipo</th>
                         <th>Flags</th>
                         <th>Ordem</th>
@@ -72,46 +79,55 @@
               <input type="hidden" id="campoId" />
               <div class="row g-3">
                 <div class="col-md-6">
-                  <label class="form-label">Label</label>
-                  <input type="text" id="campoLabel" class="form-control" required maxlength="80" />
+                  <label class="form-label">Nome do campo</label>
+                  <input type="text" id="campoLabel" class="form-control" required maxlength="80" placeholder="Ex.: Primeiro nome" />
+                  <div class="form-text">Texto que o operador vê no lançamento. Use linguagem simples.</div>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Chave (opcional)</label>
-                  <input type="text" id="campoChave" class="form-control" placeholder="gerada do label" />
+                  <input type="text" id="campoChave" class="form-control" placeholder="gerada automaticamente" />
+                  <div class="form-text">Identificador interno estável. Se vazio, sai do nome (Primeiro nome → <code>primeiro_nome</code>). Use a mesma chave se o dado for o mesmo em todos os fluxos. Evite mudar depois de já haver avulsos.</div>
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">Contexto</label>
+                  <label class="form-label">Onde aparece</label>
                   <select id="campoContexto" class="form-select"></select>
+                  <div class="form-text" id="hintContexto">Todos os fluxos: Coleta, Entrada e Saída.</div>
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">Tipo</label>
+                  <label class="form-label">Tipo e formato</label>
                   <select id="campoTipo" class="form-select"></select>
+                  <div class="form-text" id="hintTipo">O sistema valida o formato na hora do lançamento.</div>
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">Ordem</label>
+                  <label class="form-label">Ordem na tela</label>
                   <input type="number" id="campoOrdem" class="form-control" value="0" />
+                  <div class="form-text">Menor número aparece primeiro no formulário.</div>
                 </div>
                 <div class="col-12 d-none" id="wrapOpcoes">
-                  <label class="form-label">Opções (lista, uma por linha)</label>
-                  <textarea id="campoOpcoes" class="form-control" rows="3"></textarea>
+                  <label class="form-label">Opções da lista (uma por linha)</label>
+                  <textarea id="campoOpcoes" class="form-control" rows="3" placeholder="Opção A&#10;Opção B"></textarea>
+                  <div class="form-text">Obrigatório para o tipo Lista. O operador só poderá escolher uma destas opções.</div>
                 </div>
                 <div class="col-md-4">
                   <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" id="campoObrigatorio" />
                     <label class="form-check-label" for="campoObrigatorio">Obrigatório</label>
                   </div>
+                  <div class="form-text">O operador precisa preencher ao lançar o avulso.</div>
                 </div>
                 <div class="col-md-4">
                   <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" id="campoIdent" />
                     <label class="form-check-label" for="campoIdent">Usar na identificação</label>
                   </div>
+                  <div class="form-text">Entra no rótulo amigável e na busca de avulso de outro dia.</div>
                 </div>
                 <div class="col-md-4">
                   <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" id="campoSelecao" checked />
                     <label class="form-check-label" for="campoSelecao">Exibir na seleção</label>
                   </div>
+                  <div class="form-text">Mostra o valor na lista do dia para o motoboy escolher.</div>
                 </div>
                 <div class="col-12">
                   <div class="form-check form-switch">
@@ -121,7 +137,7 @@
                 </div>
                 <div class="col-12">
                   <div class="alert alert-secondary py-2 mb-0 small">
-                    Prévia da label: <strong id="campoPreviewLabel">AVULSO-000184</strong>
+                    Prévia na lista: <strong id="campoPreviewLabel">AVULSO-000184</strong>
                   </div>
                 </div>
               </div>
@@ -136,6 +152,6 @@
     </div>
 
     <script src="assets/js/app.js"></script>
-    <script src="assets/js/pages/tracking-campos-avulso.init.js?v=1.1"></script>
+    <script src="assets/js/pages/tracking-campos-avulso.init.js?v=1.2"></script>
   </body>
 </html>
