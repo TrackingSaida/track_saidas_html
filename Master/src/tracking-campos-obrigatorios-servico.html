@@ -1,17 +1,22 @@
 <!doctype html>
 <html lang="pt-br" data-layout="vertical" data-topbar="dark" data-sidebar="dark" data-sidebar-size="lg">
   <head>
-    @@include("partials/title-meta.html", {"title": "Campos obrigatórios por serviço"})
+    @@include("partials/title-meta.html", {"title": "Comprovante da entrega"})
     @@include("partials/head-css.html")
   </head>
   <body>
-<div id="layout-wrapper">
+    <div id="layout-wrapper">
       @@include("partials/menu.html")
 
       <div class="main-content">
         <div class="page-content">
           <div class="container-fluid">
-            @@include("partials/page-title.html", {"pagetitle": "Configuração", "title": "Campos obrigatórios por serviço", "withSubtitle": false, "ownerTerm": ""})
+            @@include("partials/page-title.html", {"pagetitle": "Configuração", "title": "Comprovante da entrega", "withSubtitle": false, "ownerTerm": ""})
+
+            <div class="alert alert-info">
+              <strong>Para que serve esta tela?</strong>
+              <p class="mb-0 mt-1">Aqui você define o que o motoboy precisa preencher ao concluir a entrega ou a ausência (foto, recebedor, documento). Vale para Shopee, Mercado Livre e Avulso. Os dados para identificar um avulso ficam em <strong>Dados do avulso</strong>.</p>
+            </div>
 
             <div class="card">
               <div class="card-header d-flex align-items-center justify-content-between">
@@ -39,7 +44,7 @@
                         <th style="width:56px;">Sel.</th>
                         <th>Serviço</th>
                         <th>Contexto</th>
-                        <th>Campos obrigatórios</th>
+                        <th>O que exigir</th>
                         <th>Status</th>
                       </tr>
                     </thead>
@@ -80,9 +85,9 @@
                     <select id="ruleContexto" class="form-select"></select>
                   </div>
                   <div class="mb-3">
-                    <label class="form-label">Campos obrigatórios</label>
+                    <label class="form-label">O que exigir</label>
                     <div id="ruleCamposChecklist" class="border rounded p-2" style="max-height: 210px; overflow:auto;"></div>
-                    <div class="form-text">Marque um ou mais campos obrigatórios.</div>
+                    <div class="form-text">Marque o que o motoboy precisa preencher na baixa.</div>
                   </div>
                   <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" id="ruleAtivo" checked>

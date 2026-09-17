@@ -140,22 +140,43 @@
         },
         {
           id: "campos",
-          title: "Campos obrigatórios",
-          summary: "O que o motoboy precisa preencher por serviço.",
+          title: "Comprovante da entrega",
+          summary: "O que o motoboy precisa preencher na baixa, por serviço.",
           href: "tracking-campos-obrigatorios-servico.html",
           roles: ADMIN_ROLES,
           steps: [
             {
-              title: "Abra Configuração → Campos Obrigatórios",
+              title: "Abra Configuração → Comprovante da entrega",
               text: "Clique em Nova regra para definir o que é obrigatório em cada serviço.",
             },
             {
               title: "Escolha o serviço e o contexto",
-              text: "A regra vale para aquele serviço no momento da entrega, como endereço ou comprovante.",
+              text: "A regra vale para aquele serviço no momento da entrega ou da ausência, como foto ou recebedor.",
             },
             {
               title: "Salve a regra",
-              text: "O aplicativo passa a exigir esses campos. Regras inativas não são aplicadas.",
+              text: "O aplicativo passa a exigir esses dados na baixa. Regras inativas não são aplicadas.",
+            },
+          ],
+        },
+        {
+          id: "dados-avulso",
+          title: "Dados do avulso",
+          summary: "O que identificar um pacote sem etiqueta de marketplace.",
+          href: "tracking-campos-avulso.html",
+          roles: ADMIN_ROLES,
+          steps: [
+            {
+              title: "Abra Configuração → Dados do avulso",
+              text: "Cadastre o que o operador preenche no lançamento: primeiro nome, segundo nome, CEP, telefone.",
+            },
+            {
+              title: "Escolha o tipo pelo formato",
+              text: "Nome e bairro são Texto. CEP, telefone, número, lista e foto têm validação própria.",
+            },
+            {
+              title: "Marque identificação e lista",
+              text: "Identificação entra na busca. Exibir na seleção mostra o valor na lista do dia para o motoboy.",
             },
           ],
         },
@@ -248,7 +269,7 @@
             },
             {
               title: "Informe os dados",
-              text: "Preencha identificação, serviço e o que a tela pedir. Confirme para gravar o pacote.",
+              text: "Preencha os dados do avulso configurados em Configuração → Dados do avulso. Confirme para gravar o pacote.",
             },
             {
               title: "Foto, se for obrigatória",
