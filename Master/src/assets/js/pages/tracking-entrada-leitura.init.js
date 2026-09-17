@@ -16,6 +16,15 @@
   let modoMonitor = false;
   let busy = false;
 
+  function podeLancarAvulso() {
+    const u = window.__USER__ || {};
+    const role = Number(u.role);
+    if ([0, 1, 2, 3].includes(role)) return true;
+    if (role === 4) return u.pode_lancar_avulso !== false;
+    return false;
+  }
+  if (btnAvulso && !podeLancarAvulso()) btnAvulso.classList.add("d-none");
+
   try {
     if (localStorage.getItem("entradaModoMonitor") === "1") modoMonitor = true;
   } catch (_) {}
@@ -252,8 +261,11 @@
           <select id="${id}" class="form-select mb-3"><option value="">Selecione</option>${opts}</select>`;
       }
       const inputType = c.tipo === "numero" ? "number" : (c.tipo === "telefone" ? "tel" : "text");
+      const ph = String(c.placeholder || "").replace(/"/g, "&quot;");
+      const hint = c.tipo_hint ? `<div class="form-text mb-3">${c.tipo_hint}</div>` : '<div class="mb-3"></div>';
       return `<label class="form-label mb-1" for="${id}">${c.label}${req}</label>
-        <input id="${id}" type="${inputType}" class="form-control mb-3" />`;
+        <input id="${id}" type="${inputType}" class="form-control" placeholder="${ph}" />
+        ${hint}`;
     }).join("");
 
     const { value: formValues } = await Swal.fire({

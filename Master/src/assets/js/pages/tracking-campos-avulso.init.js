@@ -56,15 +56,48 @@
     return r.json().catch(() => null);
   }
 
+  function metaItems(list) {
+    return (list || []).map((item) =>
+      typeof item === "string" ? { id: item, label: item, badges: [item], hint: "" } : item
+    );
+  }
+
+  function metaId(item) {
+    return item && typeof item === "object" ? item.id : item;
+  }
+
   function fillSelects() {
     const ctx = qs("#campoContexto");
     const tipo = qs("#campoTipo");
     const filtro = qs("#filtroContexto");
-    ctx.innerHTML = META.contextos.map((c) => `<option value="${c}">${c}</option>`).join("");
-    tipo.innerHTML = META.tipos.map((t) => `<option value="${t}">${t}</option>`).join("");
+    const contextos = metaItems(META.contextos);
+    const tipos = metaItems(META.tipos);
+    ctx.innerHTML = contextos.map((c) => `<option value="${metaId(c)}">${c.label || metaId(c)}</option>`).join("");
+    tipo.innerHTML = tipos.map((t) => `<option value="${metaId(t)}">${t.label || metaId(t)}</option>`).join("");
     filtro.innerHTML =
-      `<option value="">Todos os contextos</option>` +
-      META.contextos.map((c) => `<option value="${c}">${c}</option>`).join("");
+      `<option value="">Todos os fluxos</option>` +
+      contextos.map((c) => `<option value="${metaId(c)}">${c.label || metaId(c)}</option>`).join("");
+  }
+
+  function updateHints() {
+    const contextos = metaItems(META.contextos);
+    const tipos = metaItems(META.tipos);
+    const ctx = contextos.find((c) => metaId(c) === qs("#campoContexto")?.value);
+    const tipo = tipos.find((t) => metaId(t) === qs("#campoTipo")?.value);
+    const hintCtx = qs("#hintContexto");
+    const hintTipo = qs("#hintTipo");
+    if (hintCtx) hintCtx.textContent = ctx?.hint || "Escolha em quais operações este campo aparece.";
+    if (hintTipo) hintTipo.textContent = tipo?.hint || "O sistema valida o formato na hora do lançamento.";
+  }
+
+  function contextoBadges(r) {
+    const badges = r.contexto_badges && r.contexto_badges.length
+      ? r.contexto_badges
+      : metaItems(META.contextos).find((c) => metaId(c) === r.contexto)?.badges || [r.contexto_label || r.contexto];
+    const colors = { Coleta: "bg-primary-subtle text-primary", Entrada: "bg-success-subtle text-success", Saída: "bg-warning-subtle text-warning" };
+    return badges
+      .map((b) => `<span class="badge ${colors[b] || "bg-secondary-subtle text-secondary"} me-1">${b}</span>`)
+      .join("");
   }
 
   function flagsHtml(r) {
@@ -93,8 +126,8 @@
         <td><input type="radio" class="form-check-input sel" name="selCampo" value="${r.id}"></td>
         <td>${r.label}</td>
         <td><code>${r.chave}</code></td>
-        <td>${r.contexto}</td>
-        <td>${r.tipo}</td>
+        <td>${contextoBadges(r)}</td>
+        <td>${r.tipo_label || (r.tipo || "").replace(/^./, (c) => c.toUpperCase())}</td>
         <td>${flagsHtml(r)}</td>
         <td>${r.ordem}</td>
         <td>${r.ativo ? '<span class="badge bg-success-subtle text-success">Ativo</span>' : '<span class="badge bg-secondary-subtle text-secondary">Inativo</span>'}</td>
@@ -124,6 +157,7 @@
     qs("#campoSelecao").checked = true;
     qs("#campoAtivo").checked = true;
     syncTipo();
+    updateHints();
     updatePreview();
     modal().show();
   }
@@ -144,6 +178,7 @@
     qs("#campoSelecao").checked = !!row.exibir_na_selecao;
     qs("#campoAtivo").checked = !!row.ativo;
     syncTipo();
+    updateHints();
     updatePreview();
     modal().show();
   }
@@ -151,6 +186,7 @@
   function syncTipo() {
     const isLista = qs("#campoTipo").value === "lista";
     qs("#wrapOpcoes").classList.toggle("d-none", !isLista);
+    updateHints();
     updatePreview();
   }
 
@@ -228,6 +264,7 @@
     qs("#btnDeleteCampo")?.addEventListener("click", remove);
     qs("#filtroContexto")?.addEventListener("change", render);
     qs("#campoTipo")?.addEventListener("change", syncTipo);
+    qs("#campoContexto")?.addEventListener("change", updateHints);
     qs("#campoLabel")?.addEventListener("input", updatePreview);
     qs("#campoIdent")?.addEventListener("change", updatePreview);
     qs("#campoSelecao")?.addEventListener("change", updatePreview);
