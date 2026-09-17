@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const API_URL = window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api";
+  const API_URL = window.getTrackApiUrl();
   const API_RULES = `${API_URL.replace(/\/+$/, "")}/configuracoes/campos-obrigatorios-pedido`;
   const API_META = `${API_RULES}/meta`;
   const qs = (s) => document.querySelector(s);

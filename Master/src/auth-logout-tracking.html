@@ -82,8 +82,7 @@
       sessionStorage.removeItem('access_token');
     } catch (_) {}
 
-    window.TRACK_API_URL = window.TRACK_API_URL || 'https://track-saidas-api.onrender.com/api';
-    fetch((window.TRACK_API_URL.replace(/\/+$/, '') + '/auth/logout'), {
+    fetch((window.getTrackApiUrl() + '/auth/logout'), {
       method: 'POST',
       credentials: 'include'
     }).catch(function () {});

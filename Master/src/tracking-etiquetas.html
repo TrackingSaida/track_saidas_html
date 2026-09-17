@@ -16,31 +16,189 @@
 
           @@include("partials/page-title.html", {"pagetitle": "Operação", "title": "Gerar Etiqueta", "withSubtitle": false, "ownerTerm": ""})
 
-          <div class="card">
-            <div class="card-body">
-              <div class="row g-3 align-items-end">
-                <div class="col-md-6">
-                  <label class="form-label">Código de rastreio</label>
-                  <input type="text" id="etiqueta-codigo" class="form-control" placeholder="Ex.: BR1234567890123" />
+          <div class="row g-3">
+            <!-- Fluxo 1: código existente (inalterado) -->
+            <div class="col-lg-6">
+              <div class="card h-100">
+                <div class="card-header">
+                  <h5 class="card-title mb-0">Gerar etiqueta de código existente</h5>
                 </div>
-                <div class="col-md-4">
-                  <button type="button" id="btn-gerar-etiqueta" class="btn btn-primary">
-                    <i class="ri-printer-line me-1"></i> Gerar
+                <div class="card-body">
+                  <p class="text-muted small">Imprime a etiqueta 100×150 mm a partir de um código já conhecido (Shopee, Mercado Livre ou avulso).</p>
+                  <div class="row g-3 align-items-end">
+                    <div class="col-md-8">
+                      <label class="form-label" for="etiqueta-codigo">Código de rastreio</label>
+                      <input type="text" id="etiqueta-codigo" class="form-control" placeholder="Ex.: BR1234567890123" />
+                    </div>
+                    <div class="col-md-4">
+                      <button type="button" id="btn-gerar-etiqueta" class="btn btn-primary w-100">
+                        <i class="ri-printer-line me-1"></i> Gerar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Fluxo 2: envio próprio -->
+            <div class="col-lg-6">
+              <div class="card h-100">
+                <div class="card-header">
+                  <h5 class="card-title mb-0">Criar envio próprio</h5>
+                </div>
+                <div class="card-body">
+                  <p class="text-muted small mb-3">
+                    Gera um código ROTEVO (RTE…), registra o pedido como etiqueta gerada e imprime a etiqueta com a identidade da sua base.
+                  </p>
+                  <div class="mb-3">
+                    <label class="form-label fw-medium">Código</label>
+                    <input type="text" class="form-control" value="Será gerado pelo ROTEVO" disabled readonly>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label fw-medium d-block">Remetente</label>
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="radio" name="origemRemetente" id="origemSeller" value="seller" checked>
+                      <label class="form-check-label" for="origemSeller">Seller cadastrado</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="radio" name="origemRemetente" id="origemManual" value="manual">
+                      <label class="form-check-label" for="origemManual">Manual</label>
+                    </div>
+                  </div>
+
+                  <div id="blocoRemetenteSeller" class="mb-3">
+                    <label class="form-label" for="selectRemetente">Seller / Base</label>
+                    <select id="selectRemetente" class="form-select">
+                      <option value="">Carregando…</option>
+                    </select>
+                    <small id="hintRemetenteSeller" class="text-muted d-block mt-1"></small>
+                    <div class="mt-2">
+                      <label class="form-label" for="remetenteTelefoneSeller">Telefone do remetente (opcional)</label>
+                      <input type="tel" id="remetenteTelefoneSeller" class="form-control" inputmode="tel" maxlength="15" placeholder="(11) 99999-9999" autocomplete="tel">
+                    </div>
+                  </div>
+
+                  <div id="blocoRemetenteManual" class="mb-3 d-none">
+                    <div class="row g-2">
+                      <div class="col-12">
+                        <label class="form-label" for="remNome">Nome</label>
+                        <input type="text" id="remNome" class="form-control" maxlength="120" autocomplete="name">
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label" for="remCep">CEP</label>
+                        <input type="text" id="remCep" class="form-control" inputmode="numeric" maxlength="9" placeholder="00000-000" autocomplete="postal-code">
+                        <div id="remCepHelp" class="form-text small text-muted">Digite o CEP e saia do campo para preencher o endereço.</div>
+                      </div>
+                      <div class="col-md-8">
+                        <label class="form-label" for="remTelefone">Telefone (opcional)</label>
+                        <input type="tel" id="remTelefone" class="form-control" inputmode="tel" maxlength="15" placeholder="(11) 99999-9999" autocomplete="tel">
+                      </div>
+                      <div class="col-md-8">
+                        <label class="form-label" for="remRua">Rua</label>
+                        <input type="text" id="remRua" class="form-control" maxlength="180" autocomplete="street-address">
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label" for="remNumero">Número</label>
+                        <input type="text" id="remNumero" class="form-control" maxlength="20">
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label" for="remComplemento">Complemento</label>
+                        <input type="text" id="remComplemento" class="form-control" maxlength="80">
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label" for="remBairro">Bairro</label>
+                        <input type="text" id="remBairro" class="form-control" maxlength="80">
+                      </div>
+                      <div class="col-md-8">
+                        <label class="form-label" for="remCidade">Cidade</label>
+                        <input type="text" id="remCidade" class="form-control" maxlength="80">
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label" for="remUf">UF</label>
+                        <input type="text" id="remUf" class="form-control text-uppercase" maxlength="2" placeholder="SP" inputmode="text">
+                      </div>
+                    </div>
+                  </div>
+
+                  <hr class="my-3">
+                  <h6 class="fw-semibold mb-2">Destinatário</h6>
+                  <div class="row g-2 mb-3">
+                    <div class="col-12">
+                      <label class="form-label" for="destNome">Nome</label>
+                      <input type="text" id="destNome" class="form-control" maxlength="120" autocomplete="name">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label" for="destCep">CEP</label>
+                      <input type="text" id="destCep" class="form-control" inputmode="numeric" maxlength="9" placeholder="00000-000" autocomplete="postal-code">
+                      <div id="destCepHelp" class="form-text small text-muted">Digite o CEP e saia do campo para preencher o endereço.</div>
+                    </div>
+                    <div class="col-md-8">
+                      <label class="form-label" for="destTelefone">Telefone (opcional)</label>
+                      <input type="tel" id="destTelefone" class="form-control" inputmode="tel" maxlength="15" placeholder="(11) 99999-9999" autocomplete="tel">
+                    </div>
+                    <div class="col-md-8">
+                      <label class="form-label" for="destRua">Rua</label>
+                      <input type="text" id="destRua" class="form-control" maxlength="180" autocomplete="street-address">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label" for="destNumero">Número</label>
+                      <input type="text" id="destNumero" class="form-control" maxlength="20">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label" for="destComplemento">Complemento</label>
+                      <input type="text" id="destComplemento" class="form-control" maxlength="80">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label" for="destBairro">Bairro</label>
+                      <input type="text" id="destBairro" class="form-control" maxlength="80">
+                    </div>
+                    <div class="col-md-8">
+                      <label class="form-label" for="destCidade">Cidade</label>
+                      <input type="text" id="destCidade" class="form-control" maxlength="80">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label" for="destUf">UF</label>
+                      <input type="text" id="destUf" class="form-control text-uppercase" maxlength="2" placeholder="SP" inputmode="text">
+                    </div>
+                  </div>
+
+                  <div class="row g-2 mb-3">
+                    <div class="col-md-4">
+                      <label class="form-label" for="pesoKg">Peso (kg, opcional)</label>
+                      <input type="number" step="0.01" min="0" max="9999" id="pesoKg" class="form-control" placeholder="—">
+                    </div>
+                    <div class="col-md-8">
+                      <label class="form-label" for="dimensoes">Dimensões (opcional)</label>
+                      <input type="text" id="dimensoes" class="form-control" maxlength="40" placeholder="Ex.: 20x15x10 cm">
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label" for="observacaoEnvio">Observação (opcional)</label>
+                      <textarea id="observacaoEnvio" class="form-control" rows="2" maxlength="500"></textarea>
+                    </div>
+                  </div>
+
+                  <button type="button" id="btn-criar-envio-proprio" class="btn btn-success">
+                    <i class="ri-qr-code-line me-1"></i> Gerar envio e etiqueta
                   </button>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Preview opcional via iframe -->
-          <div class="card d-none" id="preview-card">
-            <div class="card-header">
+          <!-- Preview -->
+          <div class="card d-none mt-3" id="preview-card">
+            <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
               <h5 class="card-title mb-0">Pré-visualização</h5>
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span id="preview-meta" class="text-muted small"></span>
+                <a id="btn-download-pdf" class="btn btn-sm btn-soft-primary d-none" download>Baixar PDF</a>
+              </div>
             </div>
             <div class="card-body">
               <iframe
                 id="preview-iframe"
                 class="etiquetas-preview-frame"
+                title="Pré-visualização da etiqueta"
               ></iframe>
             </div>
           </div>
@@ -54,8 +212,7 @@
   @@include("partials/customizer.html")
   @@include("partials/vendor-scripts.html")
 
-  <script>window.TRACK_API_URL = window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api";</script>
-  <script src="assets/js/pages/tracking-etiquetas.init.js" defer></script>
+<script src="assets/js/pages/tracking-etiquetas.init.js?v=1.4" defer></script>
   <script src="assets/js/app.js"></script>
 </body>
 </html>

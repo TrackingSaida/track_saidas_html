@@ -529,6 +529,7 @@ function augmentEntregadoresFromRows(rows){
     var s = String(status).replace(/_/g, " ").trim();
     var lower = s.toLowerCase();
     if (lower === "na base") return "Na Base";
+    if (lower === "etiquetado") return "Etiqueta gerada";
     if (lower === "saiu" || lower === "saiu para entrega") return "SAIU PARA ENTREGA";
     if (lower === "encerrado sistema" || lower === "encerrado pelo sistema" || lower === "encerrado_sistema" || lower === "encerrado") {
       return "Encerrado";
@@ -994,7 +995,7 @@ function setupPagerEvents() {
         e.stopPropagation();
         var idSaida = btn.dataset.idSaida ? parseInt(btn.dataset.idSaida, 10) : null;
         var servico = btn.dataset.servico || null;
-        gerarEtiquetaPdf({ codigo: codigo, id_saida: idSaida, servico: servico });
+        escolherGeracaoEtiqueta({ codigo: codigo, id_saida: idSaida, servico: servico });
         return;
       }
       if (e.target.closest(".rowchk")) return;
@@ -1006,10 +1007,66 @@ function setupPagerEvents() {
     });
   }
 
+  function isCodigoEnvioProprio(codigo) {
+    return /^RTE[0-9]{11,}$/i.test(String(codigo || "").trim());
+  }
+
+  function escolherGeracaoEtiqueta(opts) {
+    var codigo = opts && opts.codigo ? String(opts.codigo).trim() : "";
+    if (!codigo) return;
+    if (!isCodigoEnvioProprio(codigo) || !window.Swal) {
+      gerarEtiquetaPdf(opts);
+      return;
+    }
+    Swal.fire({
+      title: "Envio próprio do sistema",
+      text: "Este código foi gerado pelo ROTEVO. O que deseja gerar?",
+      icon: "question",
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: "Etiqueta de envio (reimpressão)",
+      denyButtonText: "Somente QR Code",
+      cancelButtonText: "Cancelar",
+      reverseButtons: true,
+    }).then(function (result) {
+      if (result.isConfirmed) reimprimirEtiquetaEnvioProprio(codigo);
+      else if (result.isDenied) gerarEtiquetaPdf(opts);
+    });
+  }
+
+  function reimprimirEtiquetaEnvioProprio(codigo) {
+    var apiUrl = window.getTrackApiUrl() + "/etiquetas/envios-proprios/reimpressao/" + encodeURIComponent(codigo);
+    fetch(apiUrl, {
+      method: "GET",
+      credentials: "include",
+      headers: { Accept: "application/pdf" },
+    })
+      .then(function (res) {
+        if (!res.ok) {
+          return res.json().then(function (body) {
+            var d = body.detail || body.message || "Erro ao reimprimir etiqueta";
+            if (typeof d !== "string") d = "Erro ao reimprimir etiqueta";
+            throw new Error(d);
+          }).catch(function (e) {
+            if (e instanceof Error && e.message) throw e;
+            throw new Error("Erro ao reimprimir etiqueta");
+          });
+        }
+        return res.blob();
+      })
+      .then(function (blob) {
+        var url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+      })
+      .catch(function (err) {
+        notify(err.message || "Falha ao reimprimir etiqueta de envio.", "error");
+      });
+  }
+
   function gerarEtiquetaPdf(opts) {
     var codigo = typeof opts === "string" ? opts : (opts?.codigo || "");
     if (!codigo) return;
-    var apiUrl = (window.TRACK_API_URL || "/api").replace(/\/$/, "") + "/etiquetas/gerar";
+    var apiUrl = window.getTrackApiUrl() + "/etiquetas/gerar";
     var body = { codigo: codigo };
     if (opts?.id_saida != null && !isNaN(opts.id_saida)) body.id_saida = opts.id_saida;
     if (opts?.servico) body.servico = opts.servico;
@@ -1944,8 +2001,15 @@ function setupPagerEvents() {
 
   function supportsColetaStatus(){
     var ignorar = (window.__USER__ && window.__USER__.ignorar_coleta === true) || window.IGNORAR_COLETA === true;
-    var modo = (window.__USER__ && window.__USER__.modo_operacao) || window.MODO_OPERACAO || "codigo";
     return !ignorar;
+  }
+
+  function labelBase(term){
+    var key = term || "base";
+    if (typeof window.ownerTerm === "function") return window.ownerTerm(key);
+    if (key === "base_lower") return "base";
+    if (key === "base_obrigatoria_nao_coletado") return "Base obrigatória para 'Não Coletado'.";
+    return "Base";
   }
 
   function getAllowedStatusOptions(){
@@ -1965,13 +2029,17 @@ function setupPagerEvents() {
     selectEl.innerHTML = html;
   }
 
+  function syncEditBaseVisibility(){
+    var permitirBase = supportsColetaStatus() || eSta?.value === "Não Coletado" || eSta?.value === "Coletado";
+    var exigirBase = eSta?.value === "Não Coletado";
+    eBaseGrp?.classList.toggle("d-none", !permitirBase);
+    if (eBase) eBase.required = exigirBase;
+    if (!permitirBase && eBase) eBase.value = "";
+  }
+
   if (eSta){
     eSta.addEventListener("change", () => {
-      var permitirBase = eSta.value === "Não Coletado" || eSta.value === "Coletado";
-      var exigirBase = eSta.value === "Não Coletado";
-      eBaseGrp?.classList.toggle("d-none", !permitirBase);
-      if (eBase) eBase.required = exigirBase;
-      if (!permitirBase && eBase) eBase.value = "";
+      syncEditBaseVisibility();
       updateEditSaveState();
     });
   }
@@ -2052,6 +2120,7 @@ function setupPagerEvents() {
     if (eSta) eSta.disabled = isCanceladoAtual && !podeReverter;
     if (eMotoboy) eMotoboy.disabled = isCanceladoAtual && !podeReverter;
     if (eSrv) eSrv.disabled = isCanceladoAtual && !podeReverter;
+    if (eBase) eBase.disabled = isCanceladoAtual && !podeReverter;
 
     eSta?.dispatchEvent(new Event("change"));
     editInitialState = {
@@ -2118,7 +2187,16 @@ function setupPagerEvents() {
       if (!isEditChanged()) return notify("Nenhuma alteração para salvar.", "info");
 
       if (eSta?.value === "Não Coletado" && eBase && !eBase.value)
-        return notify(typeof window.ownerTerm === "function" ? window.ownerTerm("base_obrigatoria_nao_coletado") : "Base obrigatória para 'Não Coletado'.", "warning");
+        return notify(labelBase("base_obrigatoria_nao_coletado"), "warning");
+
+      var motoboyChanged = (eMotoboy?.value || "") !== (editInitialState?.motoboy || "");
+      var statusChanged = (eSta?.value || "") !== (editInitialState?.status || "");
+      var baseChanged = (eBase?.value || "") !== (editInitialState?.base || "");
+      var cohortEntregue = (editInitialState?.status || "") === "Entregue";
+      var cohortCancelado = (editInitialState?.status || "") === "Cancelado";
+
+      if (cohortEntregue && baseChanged && !motoboyChanged && !statusChanged)
+        return notify("Pedidos entregues não permitem alterar apenas o " + labelBase("base_lower") + ".", "warning");
 
       function mapStatusToApi(v){
         return (
@@ -2132,11 +2210,6 @@ function setupPagerEvents() {
           "saiu"
         );
       }
-
-      var motoboyChanged = (eMotoboy?.value || "") !== (editInitialState?.motoboy || "");
-      var statusChanged = (eSta?.value || "") !== (editInitialState?.status || "");
-      var cohortEntregue = (editInitialState?.status || "") === "Entregue";
-      var cohortCancelado = (editInitialState?.status || "") === "Cancelado";
 
       var payload = {
         codigo:     eCod.value,
@@ -2152,7 +2225,11 @@ function setupPagerEvents() {
         }
       }
 
-      if ((eSta.value === "Não Coletado" || eSta.value === "Coletado") && eBase?.value)
+      if (eBase?.value && (
+        eSta.value === "Não Coletado" ||
+        eSta.value === "Coletado" ||
+        baseChanged
+      ))
         payload.base = eBase.value;
 
       if (!TrackAPI?.updateSaida)
@@ -2161,7 +2238,7 @@ function setupPagerEvents() {
       if ((eMotoboy?.value || "") !== editInitialState.motoboy) camposAlterados.push("Motoboy");
       if ((eSta?.value || "") !== editInitialState.status) camposAlterados.push("Status");
       if ((eSrv?.value || "") !== editInitialState.servico) camposAlterados.push("Serviço");
-      if ((eBase?.value || "") !== editInitialState.base) camposAlterados.push(typeof window.ownerTerm === "function" ? window.ownerTerm("base") : "Base");
+      if ((eBase?.value || "") !== editInitialState.base) camposAlterados.push(labelBase("base"));
 
       var confirmMsg = "Campos alterados: " + (camposAlterados.length ? camposAlterados.join(", ") : "nenhum");
       var confirmTitle = "Confirmar alterações";
@@ -2234,11 +2311,13 @@ function setupPagerEvents() {
   var bulkSummaryServico = document.getElementById("bulk-summary-servico");
   var bulkSummaryStatus = document.getElementById("bulk-summary-status");
   var bulkSummaryMotoboy = document.getElementById("bulk-summary-motoboy");
+  var bulkSummaryBase = document.getElementById("bulk-summary-base");
   var bulkMotoboy  = document.getElementById("bulk-motoboy");
   var bulkStatus   = document.getElementById("bulk-status");
   var bulkServico  = document.getElementById("bulk-servico");
   var bulkBaseGrp  = document.getElementById("bulk-base-group");
   var bulkBase     = document.getElementById("bulk-base");
+  var bulkBaseHint = document.getElementById("bulk-base-hint");
   var bulkApplyBtn = document.getElementById("bulk-apply");
   var bulkCurrentIds = [];
   var bulkCurrentCohortStatus = "";
@@ -2262,11 +2341,20 @@ function setupPagerEvents() {
     return "none";
   }
 
+  function syncBulkBaseVisibility(){
+    var show = supportsColetaStatus() || bulkStatus?.value === "Não Coletado" || bulkStatus?.value === "Coletado";
+    bulkBaseGrp?.classList.toggle("d-none", !show);
+    if (!show && bulkBase) bulkBase.value = "";
+    if (bulkBaseHint) {
+      bulkBaseHint.textContent = show
+        ? ("Vale para todos os pedidos selecionados, com ou sem " + labelBase("base_lower") + " informado.")
+        : "";
+    }
+  }
+
   if (bulkStatus){
     bulkStatus.addEventListener("change", () => {
-      var show = bulkStatus.value === "Não Coletado" || bulkStatus.value === "Coletado";
-      bulkBaseGrp?.classList.toggle("d-none", !show);
-      if (!show && bulkBase) bulkBase.value = "";
+      syncBulkBaseVisibility();
       updateBulkApplyState();
     });
   }
@@ -2274,9 +2362,12 @@ function setupPagerEvents() {
   if (bulkServico) bulkServico.addEventListener("change", updateBulkApplyState);
   if (bulkBase) bulkBase.addEventListener("change", updateBulkApplyState);
 
-  function uniqueValueOrDifferent(values, emptyLabel){
-    var uniq = Array.from(new Set(values.map(function(v){ return String(v || "").trim(); }).filter(Boolean)));
+  function uniqueValueOrDifferent(values, emptyLabel, keepEmpty){
+    var mapped = (values || []).map(function(v){ return String(v || "").trim(); });
+    if (!keepEmpty) mapped = mapped.filter(Boolean);
+    var uniq = Array.from(new Set(mapped));
     if (!uniq.length) return emptyLabel || "Não definido";
+    if (keepEmpty && uniq.length === 1 && !uniq[0]) return emptyLabel || "Não definido";
     return uniq.length === 1 ? uniq[0] : "valores diferentes";
   }
 
@@ -2314,6 +2405,9 @@ function setupPagerEvents() {
     if (bulkSummaryServico) bulkSummaryServico.textContent = uniqueValueOrDifferent(registros.map(function(r){ return r?.servico; }), "Não definido");
     if (bulkSummaryStatus) bulkSummaryStatus.textContent = uniqueValueOrDifferent(registros.map(function(r){ return r?.status; }), "Não definido");
     if (bulkSummaryMotoboy) bulkSummaryMotoboy.textContent = uniqueValueOrDifferent(registros.map(function(r){ return r?.entregador; }), "Não definido");
+    if (bulkSummaryBase) bulkSummaryBase.textContent = uniqueValueOrDifferent(registros.map(function(r){ return r?.base || r?.seller; }), "Não informado", true);
+    var bulkSummaryBaseRow = document.getElementById("bulk-summary-base-row");
+    bulkSummaryBaseRow?.classList.toggle("d-none", !supportsColetaStatus());
 
     function fillBulkBases(bases){
       if (bulkBase && Array.isArray(bases)){
@@ -2331,9 +2425,9 @@ function setupPagerEvents() {
       fillBulkStatusOptions(registros);
       bulkStatus.value = "";
       if (bulkServico) bulkServico.value = "";
-      bulkBaseGrp?.classList.add("d-none");
       if (bulkBase) bulkBase.value = "";
       if (bulkMotoboy) bulkMotoboy.value = "";
+      syncBulkBaseVisibility();
       var bulkMotoboyHint = document.getElementById("bulk-motoboy-hint");
       if (bulkMotoboyHint) {
         bulkMotoboyHint.textContent = bulkCurrentCohortStatus === "entregue"
@@ -2389,14 +2483,22 @@ function setupPagerEvents() {
         delete body.status;
       }
       if (bulkServico?.value) body.servico = normalizeServicoForEdit(bulkServico.value, "");
-      if ((bulkStatus?.value === "Não Coletado" || bulkStatus?.value === "Coletado") && bulkBase?.value)
-        body.base = bulkBase.value;
+      if (bulkBase?.value) body.base = bulkBase.value;
+
+      if (
+        body.base &&
+        !body.status &&
+        !body.motoboy_id &&
+        (bulkCurrentCohortStatus === "entregue" || bulkCurrentCohortStatus === "cancelado")
+      ) {
+        return notify("Pedidos finalizados não permitem alterar apenas o " + labelBase("base_lower") + ".", "warning");
+      }
 
       var campos = [];
       if (bulkMotoboy?.value) campos.push("Motoboy");
       if (bulkStatus?.value) campos.push("Status");
       if (bulkServico?.value) campos.push("Serviço");
-      if (body.base) campos.push(typeof window.ownerTerm === "function" ? window.ownerTerm("base") : "Base");
+      if (body.base) campos.push(labelBase("base"));
 
       var bulkConfirmTitle = "Confirmar alterações em lote";
       var bulkConfirmMsg = "Aplicar alterações em " + ids.length + " registros?\nCampos: " + campos.join(", ");

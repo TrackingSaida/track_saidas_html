@@ -5,9 +5,6 @@
     @@include("partials/head-css.html")
   </head>
   <body>
-    <script>
-      if (!window.TRACK_API_URL) window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
-    </script>
     <div id="layout-wrapper">
       @@include("partials/menu.html")
 
@@ -122,6 +119,42 @@
                 </div>
               </div>
 
+              <div class="card mb-3">
+                <div class="card-header fw-semibold">Identidade visual</div>
+                <div class="card-body">
+                  <p class="text-muted small mb-3">
+                    A logo da sua operação será exibida nas etiquetas.
+                    Caso nenhuma logo seja cadastrada, será utilizada a identidade do ROTEVO.
+                  </p>
+                  <div class="mb-3">
+                    <label class="form-label fw-medium" for="nomeExibicao">Nome exibido nas etiquetas</label>
+                    <input type="text" class="form-control" id="nomeExibicao" maxlength="120" placeholder="Ex.: Rotevo" style="max-width: 420px;">
+                    <small class="text-muted">Se vazio, usa o nome de usuário da base.</small>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label fw-medium" for="sloganEtiqueta">Slogan (opcional)</label>
+                    <input type="text" class="form-control" id="sloganEtiqueta" maxlength="120" placeholder="Ex.: Mais que entregas, conexões." style="max-width: 420px;">
+                  </div>
+                  <div class="d-flex align-items-start gap-3 flex-wrap">
+                    <div id="logoPreviewBox" class="border rounded p-2 bg-light" style="width:220px;height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
+                      <img id="logoPreview" alt="Preview da logo" class="d-none" style="max-width:100%;max-height:64px;object-fit:contain;">
+                      <span id="logoPlaceholder" class="text-muted small text-center">Logo padrão ROTEVO será utilizada</span>
+                    </div>
+                    <div>
+                      <input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" class="d-none">
+                      <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-soft-primary" id="btnEnviarLogo">Enviar logo</button>
+                        <button type="button" class="btn btn-soft-secondary d-none" id="btnRemoverLogo">Remover logo</button>
+                      </div>
+                      <small class="text-muted d-block mt-2">PNG, JPG ou WEBP até 5 MB. Após selecionar, você pode recortar a marca.</small>
+                    </div>
+                  </div>
+                  <div class="mt-3">
+                    <button type="button" class="btn btn-primary" id="btnSalvarIdentidade">Salvar identidade</button>
+                  </div>
+                </div>
+              </div>
+
               <div class="d-flex justify-content-end gap-2 mb-4">
                 <button type="button" class="btn btn-soft-secondary" id="btnRecarregar">Recarregar</button>
                 <button type="submit" class="btn btn-primary" id="btnSalvarPoliticas">Salvar políticas</button>
@@ -135,6 +168,7 @@
 
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
-    <script src="assets/js/pages/tracking-politicas-gerais.init.js?v=1.1"></script>
+    <script src="assets/js/pages/logo-crop-modal.js?v=1.0"></script>
+    <script src="assets/js/pages/tracking-politicas-gerais.init.js?v=1.2"></script>
   </body>
 </html>

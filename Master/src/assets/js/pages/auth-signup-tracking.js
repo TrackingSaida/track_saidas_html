@@ -2,7 +2,7 @@
 // Signup - ROTEVO (wizard empresa / responsável / acesso)
 // =========================
 
-const API_SIGNUP = 'https://track-saidas-api.onrender.com/api/public/signup';
+const API_SIGNUP = window.getTrackApiUrl() + '/public/signup';
 
 (function () {
   'use strict';

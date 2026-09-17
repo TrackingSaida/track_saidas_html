@@ -228,6 +228,43 @@
               </div>
             </div>
           </div>
+
+          <div class="row g-3 mt-1">
+            <div class="col-12">
+              <div class="card mb-0">
+                <div class="card-header bg-light fw-semibold">Identidade visual (etiquetas)</div>
+                <div class="card-body">
+                  <p class="text-muted small mb-3">
+                    Logo e slogan usados nas etiquetas de envio próprio deste Owner.
+                    Sem logo, a etiqueta usa a marca ROTEVO no cabeçalho (mantendo o nome da base).
+                  </p>
+                  <div class="row g-3 align-items-start">
+                    <div class="col-md-6">
+                      <label class="form-label" for="ownerSlogan">Slogan (opcional)</label>
+                      <input type="text" id="ownerSlogan" class="form-control" maxlength="120" placeholder="Ex.: Mais que entregas, conexões.">
+                      <small class="text-muted d-block mt-1">O nome fantasia acima é o nome exibido na etiqueta.</small>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="d-flex align-items-start gap-3 flex-wrap">
+                        <div class="border rounded p-2 bg-light" id="ownerLogoPreviewBox" style="width:200px;height:80px;display:flex;align-items:center;justify-content:center;">
+                          <img id="ownerLogoPreview" alt="Preview da logo" class="d-none" style="max-width:100%;max-height:64px;object-fit:contain;">
+                          <span id="ownerLogoPlaceholder" class="text-muted small text-center">Logo padrão ROTEVO</span>
+                        </div>
+                        <div>
+                          <input type="file" id="ownerLogoFile" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" class="d-none">
+                          <div class="d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn btn-sm btn-soft-primary" id="btnOwnerEnviarLogo">Enviar logo</button>
+                            <button type="button" class="btn btn-sm btn-soft-secondary d-none" id="btnOwnerRemoverLogo">Remover</button>
+                          </div>
+                          <small class="text-muted d-block mt-2">PNG, JPG ou WEBP até 5 MB. Após selecionar, você pode recortar.</small>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -238,7 +275,8 @@
   </div>
 </div>
 
-<script src="assets/js/pages/admin-owners.js?v=1.0"></script>
+<script src="assets/js/pages/logo-crop-modal.js?v=1.0"></script>
+<script src="assets/js/pages/admin-owners.js?v=1.2"></script>
 
 </body>
 </html>
