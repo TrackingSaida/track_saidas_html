@@ -125,7 +125,6 @@
       <tr data-id="${r.id}">
         <td><input type="radio" class="form-check-input sel" name="selCampo" value="${r.id}"></td>
         <td>${r.label}</td>
-        <td><code>${r.chave}</code></td>
         <td>${contextoBadges(r)}</td>
         <td>${r.tipo_label || (r.tipo || "").replace(/^./, (c) => c.toUpperCase())}</td>
         <td>${flagsHtml(r)}</td>
@@ -147,7 +146,6 @@
     qs("#ocCampoLabel").textContent = "Novo campo";
     qs("#campoId").value = "";
     qs("#campoLabel").value = "";
-    qs("#campoChave").value = "";
     qs("#campoContexto").value = "TODOS_AVULSO";
     qs("#campoTipo").value = "texto";
     qs("#campoOrdem").value = "0";
@@ -168,9 +166,10 @@
     qs("#ocCampoLabel").textContent = "Editar campo";
     qs("#campoId").value = row.id;
     qs("#campoLabel").value = row.label;
-    qs("#campoChave").value = row.chave;
     qs("#campoContexto").value = row.contexto;
-    qs("#campoTipo").value = row.tipo;
+    const tipoSel = qs("#campoTipo");
+    const tipoIds = Array.from(tipoSel.options).map((o) => o.value);
+    tipoSel.value = tipoIds.includes(row.tipo) ? row.tipo : "texto";
     qs("#campoOrdem").value = row.ordem;
     qs("#campoOpcoes").value = (row.opcoes || []).join("\n");
     qs("#campoObrigatorio").checked = !!row.obrigatorio;
@@ -204,7 +203,6 @@
     const id = qs("#campoId").value;
     const payload = {
       label: qs("#campoLabel").value.trim(),
-      chave: qs("#campoChave").value.trim() || null,
       contexto: qs("#campoContexto").value,
       tipo: qs("#campoTipo").value,
       ordem: Number(qs("#campoOrdem").value || 0),
