@@ -26,7 +26,8 @@
                     </div>
                     <div class="mb-3">
                       <label class="form-label">Mensagem</label>
-                      <textarea id="aviso-mensagem" class="form-control" rows="4" maxlength="500" placeholder="Escreva o aviso..."></textarea>
+                      <textarea id="aviso-mensagem" class="form-control" rows="4" maxlength="1000" placeholder="Escreva o aviso... Pode incluir links https://..."></textarea>
+                      <div class="form-text">Até 1000 caracteres. Links http/https ficam clicáveis no app.</div>
                     </div>
                     <div class="form-check form-switch mb-2">
                       <input class="form-check-input" type="checkbox" id="aviso-urgente" />
@@ -77,6 +78,46 @@
                           <tr><td colspan="4" class="text-muted text-center py-4">Carregando…</td></tr>
                         </tbody>
                       </table>
+                    </div>
+                    <div id="aviso-detalhe" class="border rounded p-3 mt-3 bg-light-subtle">
+                      <div class="text-muted" id="aviso-detalhe-vazio">Selecione um aviso no histórico para ver a mensagem.</div>
+                      <div id="aviso-detalhe-conteudo" class="d-none">
+                        <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start mb-2">
+                          <div>
+                            <h6 class="mb-1" id="aviso-detalhe-titulo"></h6>
+                            <div class="small text-muted">
+                              <span id="aviso-detalhe-quando"></span>
+                              · <span id="aviso-detalhe-prioridade"></span>
+                              · <span id="aviso-detalhe-destinatarios"></span>
+                            </div>
+                          </div>
+                          <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-sm btn-soft-secondary" id="btn-usar-novo-aviso" title="Copia texto e destinatários para o formulário à esquerda">Usar no novo aviso</button>
+                            <button type="button" class="btn btn-sm btn-soft-primary" id="btn-editar-aviso">Editar</button>
+                            <button type="button" class="btn btn-sm btn-primary" id="btn-reenviar-aviso">Reenviar</button>
+                          </div>
+                        </div>
+                        <div id="aviso-detalhe-mensagem" class="mb-0" style="white-space: pre-wrap;"></div>
+                        <div id="aviso-editar-form" class="d-none mt-3 pt-3 border-top">
+                          <div class="mb-2">
+                            <label class="form-label">Título</label>
+                            <input type="text" id="aviso-edit-titulo" class="form-control" maxlength="120" />
+                          </div>
+                          <div class="mb-2">
+                            <label class="form-label">Mensagem</label>
+                            <textarea id="aviso-edit-mensagem" class="form-control" rows="4" maxlength="1000"></textarea>
+                          </div>
+                          <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="aviso-edit-urgente" />
+                            <label class="form-check-label" for="aviso-edit-urgente">Urgente</label>
+                          </div>
+                          <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-primary" id="btn-salvar-aviso">Salvar alterações</button>
+                            <button type="button" class="btn btn-sm btn-light" id="btn-cancelar-edicao">Cancelar</button>
+                          </div>
+                          <div class="form-text mt-2">Salvar corrige o texto na base e <strong>não</strong> envia push de novo. Use Reenviar para notificar novamente.</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
