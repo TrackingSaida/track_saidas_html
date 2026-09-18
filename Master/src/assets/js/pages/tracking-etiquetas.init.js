@@ -26,6 +26,24 @@
   var lastPreviewUrl = null;
   var cepBusy = {};
 
+  function currentTipoOwner(user) {
+    var u = user || window.__USER__ || window.CURRENT_USER || {};
+    return String(window.TIPO_OWNER || u.tipo_owner || "").toLowerCase();
+  }
+
+  function currentRole(user) {
+    var u = user || window.__USER__ || window.CURRENT_USER || {};
+    return Number(u.role);
+  }
+
+  function denyIfNotBaseOwner(user) {
+    if (currentTipoOwner(user) === "base") return false;
+    if (currentRole(user) === 0) return false;
+    toast("Disponível apenas para Owner tipo Base.", false);
+    window.location.href = "index.html";
+    return true;
+  }
+
   function toast(msg, ok) {
     if (window.Swal) {
       Swal.fire({
@@ -463,6 +481,7 @@
       });
   }
 
+  function bootEtiquetas() {
   if (btnGerar) {
     btnGerar.addEventListener("click", function () {
       gerarEtiqueta(inpCodigo && inpCodigo.value);
@@ -524,7 +543,20 @@
   });
 
   syncOrigemRemetente();
-  loadRemetentes();
+  if (currentTipoOwner() === "base") {
+    loadRemetentes();
+  } else if (hintRemetente) {
+    hintRemetente.textContent = "Disponível apenas para Owner tipo Base.";
+    hintRemetente.className = "text-danger d-block mt-1";
+    if (btnCriarEnvio) btnCriarEnvio.disabled = true;
+  }
 
   window.gerarEtiqueta = gerarEtiqueta;
+}
+
+  var authP = window.ensureAuthUser ? window.ensureAuthUser() : Promise.resolve(window.__USER__);
+  Promise.resolve(authP).then(function (user) {
+    if (denyIfNotBaseOwner(user || window.__USER__)) return;
+    bootEtiquetas();
+  });
 })();
