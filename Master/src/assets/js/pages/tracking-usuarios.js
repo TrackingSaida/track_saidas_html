@@ -65,7 +65,13 @@ function roleDisplayName(role) {
 }
 
 function ensureRootRoleOptions() {
-    if (!isCurrentUserRoot()) return;
+    if (!isCurrentUserRoot()) {
+        const roleSelect = document.getElementById("role");
+        if (roleSelect) {
+            roleSelect.querySelectorAll('option[value="0"]').forEach(opt => opt.remove());
+        }
+        return;
+    }
     const filterRole = document.getElementById("filterRole");
     if (filterRole && !filterRole.querySelector('option[value="0"]')) {
         const opt = document.createElement("option");
@@ -282,27 +288,29 @@ function toggleMotoboySection() {
     document.getElementById("coletaPermissaoFormGroup")?.classList.toggle("d-none", ignorarColeta);
     document.getElementById("coletaPermissaoDetailGroup")?.classList.toggle("d-none", ignorarColeta);
 
-    // Para Admin (1) e Operador (2): Username e E-mail obrigatórios com sinalização (*)
-    // Para Motoboy (4): esses campos não são obrigatórios
-    const isAdminOrOperador = (role === 1 || role === 2);
-    ["reqUsername", "reqEmail"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = isAdminOrOperador ? "" : "none";
-    });
+    // Username obrigatório para staff (não motoboy). E-mail é sempre opcional.
+    const usernameRequired = (role !== 4);
+    const reqUsername = document.getElementById("reqUsername");
+    if (reqUsername) reqUsername.style.display = usernameRequired ? "" : "none";
+    const reqEmail = document.getElementById("reqEmail");
+    if (reqEmail) reqEmail.style.display = "none";
     const usernameEl = document.getElementById("username");
     const emailEl = document.getElementById("email");
     const passwordEl = document.getElementById("password");
     const passwordConfirmEl = document.getElementById("passwordConfirm");
-    [usernameEl, emailEl].forEach(el => {
-        if (!el) return;
-        if (isAdminOrOperador) {
-            el.classList.add("field-required");
-            el.setAttribute("required", "required");
+    if (usernameEl) {
+        if (usernameRequired) {
+            usernameEl.classList.add("field-required");
+            usernameEl.setAttribute("required", "required");
         } else {
-            el.classList.remove("field-required");
-            el.removeAttribute("required");
+            usernameEl.classList.remove("field-required");
+            usernameEl.removeAttribute("required");
         }
-    });
+    }
+    if (emailEl) {
+        emailEl.classList.remove("field-required");
+        emailEl.removeAttribute("required");
+    }
     [passwordEl, passwordConfirmEl].forEach(el => {
         if (!el) return;
         el.classList.remove("field-required");
@@ -464,7 +472,7 @@ function renderTable() {
             <td>${(typeof window.formatPersonName === "function" ? window.formatPersonName(u.sobrenome || "") : (u.sobrenome || "")) || "-"}</td>
             <td>${formatDataNascimento(u.data_nascimento)}</td>
             <td>${u.username}</td>
-            <td>${u.email}</td>
+            <td>${u.email || "—"}</td>
            <td>
     ${(() => {
         const formatted = u.contato ? maskCellphone(u.contato) : null;
@@ -628,6 +636,7 @@ async function openCreate() {
     document.getElementById("password").value = "";
     document.getElementById("passwordConfirm").value = "";
     document.getElementById("statusToggle").checked = true;
+    ensureRootRoleOptions();
     document.getElementById("role").value = 2;
 
     document.getElementById("documento").value = "";
@@ -683,9 +692,11 @@ async function openEdit(id) {
     document.getElementById("dataNascimento").value = (data.data_nascimento || "").toString().slice(0, 10);
     document.getElementById("username").value = data.username;
     document.getElementById("contato").value = data.contato || "";
-    document.getElementById("email").value = data.email;
+    document.getElementById("email").value = data.email || "";
     document.getElementById("statusToggle").checked = data.status;
-    document.getElementById("role").value = data.role || 2;
+    ensureRootRoleOptions();
+    const roleVal = Number(data.role);
+    document.getElementById("role").value = Number.isFinite(roleVal) ? String(roleVal) : "2";
 
     const m = data.motoboy || {};
     document.getElementById("documento").value = m.documento || "";
@@ -806,22 +817,19 @@ async function saveUser(ev) {
     if (!sobrenome) erros.push("Sobrenome é obrigatório.");
     if (!contato) erros.push("Contato é obrigatório.");
 
-    // Para Administrador e Operador: Username, E-mail e Senha obrigatórios
-    const isAdminOrOperador = (role === 1 || role === 2);
-    if (isAdminOrOperador) {
-        if (!username) {
-            erros.push("Username é obrigatório para este perfil.");
-            document.getElementById("username").classList.add("is-invalid");
-        }
-        if (!email) {
-            erros.push("E-mail é obrigatório para este perfil.");
-            document.getElementById("email").classList.add("is-invalid");
-        } else if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
-            erros.push("Formato de e-mail inválido.");
-            document.getElementById("email").classList.add("is-invalid");
-        }
-    } else if (email && !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+    if (role === 0 && !isCurrentUserRoot()) {
+        erros.push("Não é permitido criar ou promover usuário root.");
+    }
+
+    // Username obrigatório para staff; e-mail opcional (valida formato se preenchido).
+    const usernameRequired = (role !== 4);
+    if (usernameRequired && !username) {
+        erros.push("Username é obrigatório para este perfil.");
+        document.getElementById("username").classList.add("is-invalid");
+    }
+    if (email && !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
         erros.push("Formato de e-mail inválido.");
+        document.getElementById("email").classList.add("is-invalid");
     }
 
     const isNew = !id;
@@ -870,7 +878,7 @@ async function saveUser(ev) {
         sobrenome,
         username,
         contato: contato.replace(/\D/g, ""),
-        email,
+        email: email || null,
         status,
         role,
         data_nascimento: (document.getElementById("dataNascimento").value || "").trim() || null
