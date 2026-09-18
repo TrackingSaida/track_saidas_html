@@ -21,6 +21,8 @@
   var hintRemetente = document.getElementById("hintRemetenteSeller");
   var blocoSeller = document.getElementById("blocoRemetenteSeller");
   var blocoManual = document.getElementById("blocoRemetenteManual");
+  var colGerarEtiqueta = document.getElementById("col-gerar-etiqueta");
+  var colEnvioProprio = document.getElementById("col-envio-proprio");
 
   var remetentesCache = [];
   var lastPreviewUrl = null;
@@ -29,19 +31,6 @@
   function currentTipoOwner(user) {
     var u = user || window.__USER__ || window.CURRENT_USER || {};
     return String(window.TIPO_OWNER || u.tipo_owner || "").toLowerCase();
-  }
-
-  function currentRole(user) {
-    var u = user || window.__USER__ || window.CURRENT_USER || {};
-    return Number(u.role);
-  }
-
-  function denyIfNotBaseOwner(user) {
-    if (currentTipoOwner(user) === "base") return false;
-    if (currentRole(user) === 0) return false;
-    toast("Disponível apenas para Owner tipo Base.", false);
-    window.location.href = "index.html";
-    return true;
   }
 
   function toast(msg, ok) {
@@ -387,6 +376,10 @@
   }
 
   function criarEnvioProprio() {
+    if (currentTipoOwner() !== "base") {
+      toast("Disponível apenas para Owner tipo Base.", false);
+      return;
+    }
     var origem = (document.querySelector('input[name="origemRemetente"]:checked') || {}).value || "seller";
     var dest = partyFromPrefix("dest");
     var destErr = validateParty(dest, "destinatário");
@@ -545,9 +538,12 @@
   syncOrigemRemetente();
   if (currentTipoOwner() === "base") {
     loadRemetentes();
-  } else if (hintRemetente) {
-    hintRemetente.textContent = "Disponível apenas para Owner tipo Base.";
-    hintRemetente.className = "text-danger d-block mt-1";
+  } else {
+    if (colEnvioProprio) colEnvioProprio.classList.add("d-none");
+    if (colGerarEtiqueta) {
+      colGerarEtiqueta.classList.remove("col-lg-6");
+      colGerarEtiqueta.classList.add("col-lg-12");
+    }
     if (btnCriarEnvio) btnCriarEnvio.disabled = true;
   }
 
@@ -555,8 +551,7 @@
 }
 
   var authP = window.ensureAuthUser ? window.ensureAuthUser() : Promise.resolve(window.__USER__);
-  Promise.resolve(authP).then(function (user) {
-    if (denyIfNotBaseOwner(user || window.__USER__)) return;
+  Promise.resolve(authP).then(function () {
     bootEtiquetas();
   });
 })();
