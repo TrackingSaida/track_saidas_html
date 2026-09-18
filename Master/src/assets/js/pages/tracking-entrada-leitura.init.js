@@ -268,15 +268,27 @@
         ${hint}`;
     }).join("");
 
+    const usarLegado = !camposCfg.length;
+    const identificacaoHtml = usarLegado
+      ? (
+        '<label class="form-label mb-1" for="swal-ident">Identificação</label>' +
+        '<input id="swal-ident" class="form-control mb-3" placeholder="Ex.: Cliente João">'
+      )
+      : "";
+    const quantidadeHtml = usarLegado
+      ? (
+        '<label class="form-label mb-1" for="swal-qtd">Quantidade</label>' +
+        '<input id="swal-qtd" type="number" min="1" max="50" value="1" class="form-control ' + (mostrarFoto ? "mb-3" : "") + '" placeholder="Quantidade">'
+      )
+      : "";
+
     const { value: formValues } = await Swal.fire({
       title: "Lançar Avulso (entrada)",
       html:
         '<div class="text-start">' +
-        '<label class="form-label mb-1" for="swal-ident">Identificação</label>' +
-        '<input id="swal-ident" class="form-control mb-3" placeholder="Ex.: Cliente João">' +
+        identificacaoHtml +
         camposHtml +
-        '<label class="form-label mb-1" for="swal-qtd">Quantidade</label>' +
-        '<input id="swal-qtd" type="number" min="1" max="50" value="1" class="form-control ' + (mostrarFoto ? "mb-3" : "") + '" placeholder="Quantidade">' +
+        quantidadeHtml +
         fotoFieldHtml +
         "</div>",
       focusConfirm: false,
@@ -284,27 +296,33 @@
       confirmButtonText: "Criar",
       cancelButtonText: "Cancelar",
       preConfirm: () => {
-        const qtd = Number(document.getElementById("swal-qtd").value || 0);
+        const qtd = usarLegado
+          ? Number(document.getElementById("swal-qtd")?.value || 0)
+          : 1;
         const fotoEl = document.getElementById("swal-foto");
         const fotoFile = fotoEl && fotoEl.files && fotoEl.files[0] ? fotoEl.files[0] : null;
-        const identificacao = (document.getElementById("swal-ident").value || "").trim() || null;
+        const identificacao = usarLegado
+          ? ((document.getElementById("swal-ident")?.value || "").trim() || null)
+          : null;
         const campos = {};
         for (const c of camposCfg) {
           const el = document.getElementById(`avulso-campo-${c.chave}`);
           const v = String(el?.value || "").trim();
           if (v) campos[c.chave] = v;
-          if (c.obrigatorio && !v && !(c.chave === "identificacao" && identificacao)) {
+          if (c.obrigatorio && !v) {
             Swal.showValidationMessage(`Campo obrigatório: ${c.label}`);
             return false;
           }
         }
-        if (!qtd || qtd < 1) {
-          Swal.showValidationMessage("Informe a quantidade.");
-          return false;
-        }
-        if (qtd > 50) {
-          Swal.showValidationMessage("Quantidade máxima é 50.");
-          return false;
+        if (usarLegado) {
+          if (!qtd || qtd < 1) {
+            Swal.showValidationMessage("Informe a quantidade.");
+            return false;
+          }
+          if (qtd > 50) {
+            Swal.showValidationMessage("Quantidade máxima é 50.");
+            return false;
+          }
         }
         if (exigeFoto && !fotoFile) {
           Swal.showValidationMessage("Foto obrigatória para este usuário.");

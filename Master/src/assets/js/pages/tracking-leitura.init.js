@@ -1824,6 +1824,21 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
   const excepcional = ownerExigeSelecaoAvulso();
   const camposCfg = await loadSchemaCamposAvulso("SAIDA_AVULSO");
   const camposHtml = buildCamposAvulsoHtml(camposCfg);
+  const usarLegado = !camposCfg.length;
+  const identificacaoHtml = usarLegado
+    ? `
+        <label class="form-label mb-1" for="avulso-identificacao">Identificação</label>
+        <input id="avulso-identificacao" class="form-control mb-1" maxlength="32" placeholder="Ex.: Cliente João" />
+        <div class="form-text mb-3">Até 32 caracteres (legado / referência rápida).</div>
+      `
+    : "";
+  const quantidadeHtml = usarLegado
+    ? `
+        <label class="form-label mb-1" for="avulso-quantidade">Quantidade</label>
+        <input id="avulso-quantidade" type="number" min="1" max="50" step="1" class="form-control mb-1" value="1" />
+        <div class="form-text ${mostrarFoto ? "mb-3" : ""}">Informe entre 1 e 50 pacotes por lançamento.</div>
+      `
+    : "";
   const fotoFieldHtml = mostrarFoto
     ? `
         <label class="form-label mb-1" for="avulso-foto">Imagem ${exigeFoto ? '<span class="text-danger">*</span>' : '<span class="text-muted">(opcional)</span>'}</label>
@@ -1843,13 +1858,9 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     html: `
       <div class="text-start">
         ${motivoHtml}
-        <label class="form-label mb-1" for="avulso-identificacao">Identificação</label>
-        <input id="avulso-identificacao" class="form-control mb-1" maxlength="32" placeholder="Ex.: Cliente João" />
-        <div class="form-text mb-3">Até 32 caracteres (legado / referência rápida).</div>
+        ${identificacaoHtml}
         ${camposHtml}
-        <label class="form-label mb-1" for="avulso-quantidade">Quantidade</label>
-        <input id="avulso-quantidade" type="number" min="1" max="50" step="1" class="form-control mb-1" value="1" />
-        <div class="form-text ${mostrarFoto ? "mb-3" : ""}">Informe entre 1 e 50 pacotes por lançamento.</div>
+        ${quantidadeHtml}
         ${fotoFieldHtml}
       </div>
     `,
@@ -1859,8 +1870,12 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     focusConfirm: false,
     didOpen: () => bindAvulsoCampoMasks(Swal.getHtmlContainer()),
     preConfirm: () => {
-      const identificacaoVal = String(document.getElementById("avulso-identificacao")?.value || "").trim().slice(0, 32);
-      const quantidadeVal = parseInt(String(document.getElementById("avulso-quantidade")?.value || "1").trim(), 10);
+      const identificacaoVal = usarLegado
+        ? String(document.getElementById("avulso-identificacao")?.value || "").trim().slice(0, 32)
+        : "";
+      const quantidadeVal = usarLegado
+        ? parseInt(String(document.getElementById("avulso-quantidade")?.value || "1").trim(), 10)
+        : 1;
       const fotoEl = document.getElementById("avulso-foto");
       const fotoFile = fotoEl && fotoEl.files && fotoEl.files[0] ? fotoEl.files[0] : null;
       const motivoVal = String(document.getElementById("avulso-motivo")?.value || "").trim();
@@ -1870,18 +1885,20 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
         return null;
       }
       for (const c of camposCfg) {
-        if (c.obrigatorio && !campos[c.chave] && !(c.chave === "identificacao" && identificacaoVal)) {
+        if (c.obrigatorio && !campos[c.chave]) {
           Swal.showValidationMessage(`Campo obrigatório: ${c.label}`);
           return null;
         }
       }
-      if (!Number.isFinite(quantidadeVal) || quantidadeVal < 1) {
-        Swal.showValidationMessage("Quantidade mínima é 1.");
-        return null;
-      }
-      if (quantidadeVal > 50) {
-        Swal.showValidationMessage("Quantidade máxima é 50.");
-        return null;
+      if (usarLegado) {
+        if (!Number.isFinite(quantidadeVal) || quantidadeVal < 1) {
+          Swal.showValidationMessage("Quantidade mínima é 1.");
+          return null;
+        }
+        if (quantidadeVal > 50) {
+          Swal.showValidationMessage("Quantidade máxima é 50.");
+          return null;
+        }
       }
       if (exigeFoto && !fotoFile) {
         Swal.showValidationMessage("Foto obrigatória para este entregador.");
