@@ -31,6 +31,88 @@
     return text;
   }
 
+  let baselinePoliticas = "";
+  let baselineIdentidade = "";
+  let hydrating = false;
+
+  function snapshotPoliticas() {
+    return JSON.stringify({
+      coleta: !!qs("#coletaHabilitada")?.checked,
+      modo: qs("#modoOperacao")?.value || "",
+      bloquear: !!qs("#bloquearSaidaSemColeta")?.checked,
+      entrada: !!qs("#entradaHabilitada")?.checked,
+      conferencia: !!qs("#conferenciaHabilitada")?.checked,
+      devolucao: !!qs("#devolucaoHabilitada")?.checked,
+      podeColeta: !!qs("#defPodeColeta")?.checked,
+      podeSaida: !!qs("#defPodeSaida")?.checked,
+      digitar: !!qs("#defDigitarManual")?.checked,
+      avulso: !!qs("#defLancarAvulso")?.checked,
+      foto: !!qs("#defAvulsoFoto")?.checked,
+      aplicar: !!qs("#aplicarAosMotoboys")?.checked,
+    });
+  }
+
+  function snapshotIdentidade() {
+    return JSON.stringify({
+      nome: (qs("#nomeExibicao")?.value || "").trim(),
+      slogan: (qs("#sloganEtiqueta")?.value || "").trim(),
+    });
+  }
+
+  function isPoliticasDirty() {
+    return snapshotPoliticas() !== baselinePoliticas;
+  }
+
+  function isIdentidadeDirty() {
+    return snapshotIdentidade() !== baselineIdentidade;
+  }
+
+  function isDirty() {
+    return isPoliticasDirty() || isIdentidadeDirty();
+  }
+
+  function dirtyMessage() {
+    const pol = isPoliticasDirty();
+    const ident = isIdentidadeDirty();
+    if (pol && ident) {
+      return "Você alterou políticas e identidade. Salve para aplicar. Se sair sem salvar, as mudanças serão perdidas.";
+    }
+    if (pol) {
+      return "Você alterou as políticas. Salve para aplicar. Se sair sem salvar, as mudanças serão perdidas.";
+    }
+    if (ident) {
+      return "Você alterou a identidade das etiquetas. Salve para aplicar. Se sair sem salvar, as mudanças serão perdidas.";
+    }
+    return "Nenhuma alteração para salvar.";
+  }
+
+  function renderDirty() {
+    const dirty = isDirty();
+    const dock = qs("#politicasSaveDock");
+    const msg = qs("#politicasDirtyMsg");
+    const saveBtn = qs("#btnSalvarPoliticas");
+    const disc = qs("#btnRecarregar");
+    if (dock) dock.classList.toggle("is-dirty", dirty);
+    if (msg) {
+      msg.textContent = dirtyMessage();
+      msg.classList.toggle("fw-semibold", dirty);
+      msg.classList.toggle("text-muted", !dirty);
+    }
+    if (saveBtn) saveBtn.disabled = !dirty;
+    if (disc) disc.textContent = dirty ? "Descartar" : "Recarregar";
+  }
+
+  function markClean() {
+    baselinePoliticas = snapshotPoliticas();
+    baselineIdentidade = snapshotIdentidade();
+    renderDirty();
+  }
+
+  function onFormChanged() {
+    if (hydrating) return;
+    renderDirty();
+  }
+
   function toast(msg, ok = true) {
     const text = ok ? msg : mensagemUsuario(msg, MSG_FALHA);
     if (window.Swal) {
@@ -201,20 +283,25 @@
   }
 
   async function load() {
-    const me = await http(`${API_URL}/auth/me`);
-    if (!me || ![0, 1].includes(Number(me.role))) {
-      toast("Acesso restrito a administradores.", false);
-      location.href = "index.html";
-      return;
+    hydrating = true;
+    try {
+      const me = await http(`${API_URL}/auth/me`);
+      if (!me || ![0, 1].includes(Number(me.role))) {
+        toast("Acesso restrito a administradores.", false);
+        location.href = "index.html";
+        return;
+      }
+      const data = await http(API);
+      fillForm(data);
+      const ident = await http(API_IDENT);
+      await fillIdentidade(ident);
+    } finally {
+      hydrating = false;
+      markClean();
     }
-    const data = await http(API);
-    fillForm(data);
-    const ident = await http(API_IDENT);
-    await fillIdentidade(ident);
   }
 
-  async function save(ev) {
-    ev.preventDefault();
+  async function savePoliticas() {
     const aplicar = !!qs("#aplicarAosMotoboys")?.checked;
     if (aplicar) {
       const conf = await Swal.fire({
@@ -225,7 +312,7 @@
         confirmButtonText: "Aplicar e salvar",
         cancelButtonText: "Cancelar",
       });
-      if (!conf.isConfirmed) return;
+      if (!conf.isConfirmed) return false;
     }
 
     const payload = {
@@ -247,16 +334,20 @@
       aplicar_padroes_aos_motoboys: aplicar,
     };
 
+    hydrating = true;
     try {
       const data = await http(API, { method: "PATCH", body: JSON.stringify(payload) });
       fillForm(data);
-      toast("Políticas salvas.");
-    } catch (e) {
-      toast(e.message || "Erro ao salvar.", false);
+    } finally {
+      hydrating = false;
     }
+    baselinePoliticas = snapshotPoliticas();
+    renderDirty();
+    return true;
   }
 
   async function saveIdentidade() {
+    hydrating = true;
     try {
       const data = await http(API_IDENT, {
         method: "PATCH",
@@ -266,9 +357,68 @@
         }),
       });
       await fillIdentidade(data);
-      toast("Identidade salva.");
+    } finally {
+      hydrating = false;
+    }
+    baselineIdentidade = snapshotIdentidade();
+    renderDirty();
+  }
+
+  async function saveAll(ev) {
+    if (ev) ev.preventDefault();
+    const polDirty = isPoliticasDirty();
+    const identDirty = isIdentidadeDirty();
+    if (!polDirty && !identDirty) return true;
+    try {
+      if (polDirty) {
+        const ok = await savePoliticas();
+        if (!ok) return false;
+      }
+      if (identDirty) await saveIdentidade();
+      if (polDirty && identDirty) toast("Alterações salvas.");
+      else if (polDirty) toast("Políticas salvas.");
+      else toast("Identidade salva.");
+      return true;
     } catch (e) {
-      toast(e.message || "Erro ao salvar identidade.", false);
+      toast(e.message || "Erro ao salvar.", false);
+      renderDirty();
+      return false;
+    }
+  }
+
+  async function confirmLeave() {
+    if (!isDirty()) return true;
+    const r = await Swal.fire({
+      icon: "warning",
+      title: "Alterações não salvas",
+      text: "Se sair agora, as mudanças desta tela serão perdidas.",
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: "Salvar e sair",
+      denyButtonText: "Sair sem salvar",
+      cancelButtonText: "Continuar nesta tela",
+    });
+    if (r.isConfirmed) return saveAll();
+    if (r.isDenied) return true;
+    return false;
+  }
+
+  async function descartarOuRecarregar() {
+    if (isDirty()) {
+      const conf = await Swal.fire({
+        icon: "warning",
+        title: "Descartar alterações?",
+        text: "As mudanças voltam ao último valor salvo.",
+        showCancelButton: true,
+        confirmButtonText: "Descartar",
+        cancelButtonText: "Continuar editando",
+      });
+      if (!conf.isConfirmed) return;
+    }
+    try {
+      await load();
+    } catch (e) {
+      toast(e.message || "Falha ao recarregar.", false);
     }
   }
 
@@ -303,6 +453,8 @@
       const data = await http(API_LOGO, { method: "POST", body: fd, headers: { Accept: "application/json" } });
       closeLoading();
       await fillIdentidade(data);
+      baselineIdentidade = snapshotIdentidade();
+      renderDirty();
       toast("Logo atualizada.");
     } catch (e) {
       closeLoading();
@@ -327,6 +479,8 @@
       const data = await http(API_LOGO, { method: "DELETE" });
       closeLoading();
       await fillIdentidade(data);
+      baselineIdentidade = snapshotIdentidade();
+      renderDirty();
       toast("Logo removida.");
     } catch (e) {
       closeLoading();
@@ -340,9 +494,10 @@
     ["#coletaHabilitada", "#entradaHabilitada", "#defLancarAvulso"].forEach((sel) => {
       qs(sel)?.addEventListener("change", syncUiDeps);
     });
-    qs("#btnRecarregar")?.addEventListener("click", () => load().catch((e) => toast(e.message, false)));
-    qs("#formPoliticas")?.addEventListener("submit", (ev) => save(ev));
-    qs("#btnSalvarIdentidade")?.addEventListener("click", () => saveIdentidade());
+    qs("#formPoliticas")?.addEventListener("input", onFormChanged);
+    qs("#formPoliticas")?.addEventListener("change", onFormChanged);
+    qs("#btnRecarregar")?.addEventListener("click", () => descartarOuRecarregar());
+    qs("#formPoliticas")?.addEventListener("submit", (ev) => saveAll(ev));
     qs("#btnEnviarLogo")?.addEventListener("click", () => qs("#logoFile")?.click());
     qs("#logoFile")?.addEventListener("change", (ev) => {
       const f = ev.target.files && ev.target.files[0];
@@ -350,6 +505,27 @@
       ev.target.value = "";
     });
     qs("#btnRemoverLogo")?.addEventListener("click", () => removeLogo());
+    window.addEventListener("beforeunload", (e) => {
+      if (!isDirty()) return;
+      e.preventDefault();
+      e.returnValue = "";
+    });
+    document.addEventListener(
+      "click",
+      (ev) => {
+        const a = ev.target.closest && ev.target.closest("a[href]");
+        if (!a || !isDirty()) return;
+        const href = a.getAttribute("href") || "";
+        if (!href || href.startsWith("#") || href.toLowerCase().startsWith("javascript:")) return;
+        if (a.target === "_blank" || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button !== 0) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        confirmLeave().then((ok) => {
+          if (ok) window.location.href = a.href;
+        });
+      },
+      true
+    );
     load().catch((e) => toast(e.message || "Falha ao carregar.", false));
   });
 })();
