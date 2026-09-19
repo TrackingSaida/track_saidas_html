@@ -172,7 +172,7 @@
             },
             {
               title: "Escolha o tipo pelo formato",
-              text: "Nome e bairro são Texto. CEP, telefone, número, lista e foto têm validação própria.",
+              text: "Nome e bairro são Texto. CEP, telefone, número e lista têm validação própria. Foto do avulso fica na política do motoboy.",
             },
             {
               title: "Marque identificação e lista",
