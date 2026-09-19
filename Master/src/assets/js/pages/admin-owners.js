@@ -359,7 +359,7 @@ function openEdit(o) {
     document.getElementById("ownerUsername").value = o.username;
     document.getElementById("ownerNomeFantasia").value = o.nome_fantasia || "";
     document.getElementById("ownerEmail").value = o.email;
-    document.getElementById("ownerContato").value = o.contato || "";
+    document.getElementById("ownerContato").value = maskCellphone(o.contato || "");
     document.getElementById("ownerValor").value = Number(o.valor).toFixed(2);
 
     document.getElementById("ownerColetaHabilitadaToggle").checked = !o.ignorar_coleta;

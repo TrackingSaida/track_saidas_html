@@ -56,6 +56,7 @@
     return JSON.stringify({
       nome: (qs("#nomeExibicao")?.value || "").trim(),
       slogan: (qs("#sloganEtiqueta")?.value || "").trim(),
+      contato: (qs("#contatoEtiqueta")?.value || "").trim(),
     });
   }
 
@@ -248,9 +249,27 @@
     if (ph) ph.classList.add("d-none");
   }
 
+  function maskPhone(value) {
+    const digits = String(value || "").replace(/\D/g, "").slice(0, 11);
+    if (digits.length >= 7) return digits.replace(/^(\d{2})(\d{5})(\d{0,4}).*/, "($1) $2-$3");
+    if (digits.length >= 3) return digits.replace(/^(\d{2})(\d{0,5}).*/, "($1) $2");
+    if (digits.length >= 1) return digits.replace(/^(\d{0,2}).*/, "($1");
+    return digits;
+  }
+
+  function contatoDigits(value) {
+    return String(value || "").replace(/\D/g, "");
+  }
+
+  function isContatoOk(value) {
+    const d = contatoDigits(value);
+    return !d || d.length === 10 || d.length === 11;
+  }
+
   async function fillIdentidade(data) {
     if (qs("#nomeExibicao")) qs("#nomeExibicao").value = data?.nome_fantasia || "";
     if (qs("#sloganEtiqueta")) qs("#sloganEtiqueta").value = data?.slogan || "";
+    if (qs("#contatoEtiqueta")) qs("#contatoEtiqueta").value = maskPhone(data?.contato || "");
     const img = qs("#logoPreview");
     const ph = qs("#logoPlaceholder");
     const btnRem = qs("#btnRemoverLogo");
@@ -347,6 +366,12 @@
   }
 
   async function saveIdentidade() {
+    const contatoRaw = (qs("#contatoEtiqueta")?.value || "").trim();
+    if (!isContatoOk(contatoRaw)) {
+      toast("Contato inválido. Use DDD + número (10 ou 11 dígitos).", false);
+      qs("#contatoEtiqueta")?.focus();
+      return false;
+    }
     hydrating = true;
     try {
       const data = await http(API_IDENT, {
@@ -354,6 +379,7 @@
         body: JSON.stringify({
           nome_fantasia: (qs("#nomeExibicao")?.value || "").trim() || null,
           slogan: (qs("#sloganEtiqueta")?.value || "").trim() || null,
+          contato: contatoDigits(contatoRaw) || "",
         }),
       });
       await fillIdentidade(data);
@@ -362,6 +388,7 @@
     }
     baselineIdentidade = snapshotIdentidade();
     renderDirty();
+    return true;
   }
 
   async function saveAll(ev) {
@@ -374,7 +401,10 @@
         const ok = await savePoliticas();
         if (!ok) return false;
       }
-      if (identDirty) await saveIdentidade();
+      if (identDirty) {
+        const okIdent = await saveIdentidade();
+        if (!okIdent) return false;
+      }
       if (polDirty && identDirty) toast("Alterações salvas.");
       else if (polDirty) toast("Políticas salvas.");
       else toast("Identidade salva.");
@@ -496,6 +526,11 @@
     });
     qs("#formPoliticas")?.addEventListener("input", onFormChanged);
     qs("#formPoliticas")?.addEventListener("change", onFormChanged);
+    qs("#contatoEtiqueta")?.addEventListener("input", (ev) => {
+      ev.target.value = maskPhone(ev.target.value);
+      if (isContatoOk(ev.target.value)) ev.target.classList.remove("is-invalid");
+      else ev.target.classList.add("is-invalid");
+    });
     qs("#btnRecarregar")?.addEventListener("click", () => descartarOuRecarregar());
     qs("#formPoliticas")?.addEventListener("submit", (ev) => saveAll(ev));
     qs("#btnEnviarLogo")?.addEventListener("click", () => qs("#logoFile")?.click());
