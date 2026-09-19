@@ -7,7 +7,7 @@
 document.addEventListener("DOMContentLoaded", async () => {
   "use strict";
 
-  var _base = (window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api").replace(new RegExp("/+$"), "");
+  var _base = window.getTrackApiUrl();
   const API_URL = _base;
   const API_RESUMO = _base + "/entregadores/resumo";
   const API_ENTREGADORES = _base + "/entregadores";

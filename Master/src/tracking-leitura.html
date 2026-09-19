@@ -53,9 +53,12 @@
                     </div>
                   </div>
 
-                  <div class="col-md-4 d-flex gap-2">
+                  <div class="col-md-4 d-flex gap-2 flex-wrap">
                     <button id="btnRegistrar" class="btn btn-success flex-fill">
                       <i class="ri-scan-line"></i> Registrar
+                    </button>
+                    <button id="btnSelecionarAvulso" type="button" class="btn btn-primary">
+                      <i class="ri-search-line"></i> Selecionar avulso
                     </button>
                     <button id="btnLancarAvulso" type="button" class="btn btn-outline-primary">
                       <i class="ri-add-circle-line"></i> Lançar Avulso
@@ -187,7 +190,6 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 
     <script>
-      window.TRACK_API_URL = "https://track-saidas-api.onrender.com/api";
       window.ENABLE_STATUS_CHECK = false;
     </script>
 

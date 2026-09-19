@@ -1,4 +1,4 @@
-/* Avisos da base — envio e histórico (admin) */
+/* Avisos da base — envio, histórico, detalhe, editar e reenviar (admin) */
 (function () {
   "use strict";
 
@@ -7,6 +7,10 @@
 
   /** @type {{ id: number, nome: string, enabled: boolean }[]} */
   let motoboysState = [];
+  /** @type {object[]} */
+  let historicoRows = [];
+  /** @type {object|null} */
+  let selectedAviso = null;
 
   async function api(path, opts = {}) {
     const res = await fetch(`${API_URL}${path}`, {
@@ -29,8 +33,7 @@
   function fmtWhen(iso) {
     if (!iso) return "—";
     try {
-      const d = new Date(iso);
-      return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+      return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
     } catch {
       return iso;
     }
@@ -42,6 +45,50 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function linkifyHtml(text) {
+    const escaped = escapeHtml(text);
+    // Só http/https — sem HTML livre nem javascript:
+    return escaped.replace(/https?:\/\/[^\s<]+/gi, (match) => {
+      return `<a href="${match}" target="_blank" rel="noopener noreferrer">${match}</a>`;
+    });
+  }
+
+  function copiarParaNovoAviso() {
+    if (!selectedAviso) return;
+    const tituloEl = qs("#aviso-titulo");
+    const msgEl = qs("#aviso-mensagem");
+    const urgEl = qs("#aviso-urgente");
+    const todosEl = qs("#aviso-todos");
+    if (tituloEl) tituloEl.value = selectedAviso.titulo || "";
+    if (msgEl) msgEl.value = selectedAviso.mensagem || "";
+    if (urgEl) urgEl.checked = (selectedAviso.prioridade || "") === "urgente";
+
+    const ids = Array.isArray(selectedAviso.motoboy_ids)
+      ? selectedAviso.motoboy_ids.map(Number)
+      : [];
+    if (todosEl) {
+      todosEl.checked = false;
+      syncTodosUi();
+    }
+    const idSet = new Set(ids);
+    motoboysState = motoboysState.map((m) => ({
+      ...m,
+      enabled: idSet.has(Number(m.id)),
+    }));
+    renderMotoboysList();
+
+    if (window.Swal) {
+      Swal.fire({
+        icon: "info",
+        title: "Copiado para Novo aviso",
+        text: "Ajuste os destinatários à esquerda se precisar e envie.",
+        timer: 2200,
+        showConfirmButton: false,
+      });
+    }
+    qs("#aviso-titulo")?.focus();
   }
 
   function renderMotoboysList() {
@@ -85,16 +132,19 @@
           const nomeRaw = m.nome || "Motoboy " + id;
           return {
             id,
-            nome: (typeof window.formatPersonName === "function")
-              ? window.formatPersonName(nomeRaw)
-              : nomeRaw,
+            nome:
+              typeof window.formatPersonName === "function"
+                ? window.formatPersonName(nomeRaw)
+                : nomeRaw,
             enabled: false,
           };
         })
         .filter(Boolean)
-        .sort((a, b) => (typeof window.comparePersonNames === "function"
-          ? window.comparePersonNames(a.nome, b.nome)
-          : a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })));
+        .sort((a, b) =>
+          typeof window.comparePersonNames === "function"
+            ? window.comparePersonNames(a.nome, b.nome)
+            : a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })
+        );
       renderMotoboysList();
     } catch (e) {
       motoboysState = [];
@@ -105,20 +155,64 @@
     }
   }
 
+  function clearSelection() {
+    selectedAviso = null;
+    qs("#aviso-detalhe-vazio")?.classList.remove("d-none");
+    qs("#aviso-detalhe-conteudo")?.classList.add("d-none");
+    qs("#aviso-editar-form")?.classList.add("d-none");
+    document.querySelectorAll("#avisos-tbody tr.table-active").forEach((tr) => {
+      tr.classList.remove("table-active");
+    });
+  }
+
+  function showDetail(aviso, tr) {
+    selectedAviso = aviso;
+    document.querySelectorAll("#avisos-tbody tr.table-active").forEach((row) => {
+      row.classList.remove("table-active");
+    });
+    if (tr) tr.classList.add("table-active");
+
+    qs("#aviso-detalhe-vazio")?.classList.add("d-none");
+    qs("#aviso-detalhe-conteudo")?.classList.remove("d-none");
+    qs("#aviso-editar-form")?.classList.add("d-none");
+
+    const urg = (aviso.prioridade || "") === "urgente";
+    qs("#aviso-detalhe-titulo").textContent = aviso.titulo || "";
+    qs("#aviso-detalhe-quando").textContent = fmtWhen(aviso.criado_em);
+    qs("#aviso-detalhe-prioridade").textContent = urg ? "Urgente" : "Normal";
+    qs("#aviso-detalhe-destinatarios").textContent =
+      `${aviso.destinatarios_count ?? 0} destinatário(s)`;
+    qs("#aviso-detalhe-mensagem").innerHTML = linkifyHtml(aviso.mensagem || "");
+  }
+
+  async function selectAviso(id, tr) {
+    try {
+      const aviso = await api(`/avisos/${id}`);
+      const idx = historicoRows.findIndex((r) => Number(r.id) === Number(id));
+      if (idx >= 0) historicoRows[idx] = { ...historicoRows[idx], ...aviso };
+      showDetail(aviso, tr);
+    } catch (e) {
+      if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: e.message });
+      else alert(e.message);
+    }
+  }
+
   async function loadHistorico() {
     const tbody = qs("#avisos-tbody");
     if (!tbody) return;
+    const keepId = selectedAviso && selectedAviso.id;
     tbody.innerHTML = `<tr><td colspan="4" class="text-muted text-center py-4">Carregando…</td></tr>`;
     try {
-      const rows = await api("/avisos?limit=40");
-      if (!rows.length) {
+      historicoRows = (await api("/avisos?limit=40")) || [];
+      if (!historicoRows.length) {
         tbody.innerHTML = `<tr><td colspan="4" class="text-muted text-center py-4">Nenhum aviso enviado ainda.</td></tr>`;
+        clearSelection();
         return;
       }
-      tbody.innerHTML = rows
+      tbody.innerHTML = historicoRows
         .map((a) => {
           const urg = (a.prioridade || "") === "urgente";
-          return `<tr>
+          return `<tr data-aviso-id="${a.id}" style="cursor:pointer;">
             <td class="text-nowrap">${fmtWhen(a.criado_em)}</td>
             <td>${escapeHtml(a.titulo)}</td>
             <td>${urg ? '<span class="badge bg-danger">Urgente</span>' : '<span class="badge bg-secondary">Normal</span>'}</td>
@@ -126,6 +220,18 @@
           </tr>`;
         })
         .join("");
+
+      tbody.querySelectorAll("tr[data-aviso-id]").forEach((tr) => {
+        tr.addEventListener("click", () => {
+          void selectAviso(Number(tr.getAttribute("data-aviso-id")), tr);
+        });
+      });
+
+      if (keepId) {
+        const tr = tbody.querySelector(`tr[data-aviso-id="${keepId}"]`);
+        if (tr) void selectAviso(keepId, tr);
+        else clearSelection();
+      }
     } catch (e) {
       tbody.innerHTML = `<tr><td colspan="4" class="text-danger text-center py-4">${escapeHtml(e.message)}</td></tr>`;
     }
@@ -136,7 +242,6 @@
     const wrap = qs("#wrap-motoboys");
     if (wrap) wrap.style.display = todos ? "none" : "";
     if (!todos) {
-      // Ao abrir a lista, cada motoboy começa desligado — habilitar manualmente
       motoboysState = motoboysState.map((m) => ({ ...m, enabled: false }));
       renderMotoboysList();
     }
@@ -199,10 +304,113 @@
     }
   }
 
+  function openEditForm() {
+    if (!selectedAviso) return;
+    qs("#aviso-edit-titulo").value = selectedAviso.titulo || "";
+    qs("#aviso-edit-mensagem").value = selectedAviso.mensagem || "";
+    qs("#aviso-edit-urgente").checked = (selectedAviso.prioridade || "") === "urgente";
+    qs("#aviso-editar-form")?.classList.remove("d-none");
+  }
+
+  function closeEditForm() {
+    qs("#aviso-editar-form")?.classList.add("d-none");
+  }
+
+  async function salvarEdicao() {
+    if (!selectedAviso) return;
+    const titulo = (qs("#aviso-edit-titulo")?.value || "").trim();
+    const mensagem = (qs("#aviso-edit-mensagem")?.value || "").trim();
+    const urgente = !!qs("#aviso-edit-urgente")?.checked;
+    if (!titulo || !mensagem) {
+      if (window.Swal) Swal.fire({ icon: "warning", title: "Preencha título e mensagem" });
+      else alert("Preencha título e mensagem");
+      return;
+    }
+    const btn = qs("#btn-salvar-aviso");
+    if (btn) btn.disabled = true;
+    try {
+      const updated = await api(`/avisos/${selectedAviso.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          titulo,
+          mensagem,
+          prioridade: urgente ? "urgente" : "normal",
+        }),
+      });
+      if (window.Swal) {
+        await Swal.fire({
+          icon: "success",
+          title: "Aviso atualizado",
+          text: "Alterações salvas. Nenhum push foi enviado.",
+        });
+      }
+      closeEditForm();
+      await loadHistorico();
+      const tr = qs(`#avisos-tbody tr[data-aviso-id="${updated.id}"]`);
+      showDetail(updated, tr);
+    } catch (e) {
+      if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: e.message });
+      else alert(e.message);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function reenviar() {
+    if (!selectedAviso) return;
+    const urg = (selectedAviso.prioridade || "") === "urgente";
+    const confirmText = urg
+      ? "Reenviar este aviso urgente? Os motoboys ativos receberão push de novo e o aviso urgente voltará a bloquear no app."
+      : "Reenviar este aviso para os motoboys ainda ativos?";
+
+    if (window.Swal) {
+      const result = await Swal.fire({
+        icon: "question",
+        title: "Reenviar aviso?",
+        text: confirmText,
+        showCancelButton: true,
+        confirmButtonText: "Reenviar",
+        cancelButtonText: "Cancelar",
+      });
+      if (!result.isConfirmed) return;
+    } else if (!window.confirm(confirmText)) {
+      return;
+    }
+
+    const btn = qs("#btn-reenviar-aviso");
+    if (btn) btn.disabled = true;
+    try {
+      const created = await api(`/avisos/${selectedAviso.id}/reenviar`, { method: "POST" });
+      const count = created?.destinatarios_count ?? 0;
+      if (window.Swal) {
+        await Swal.fire({
+          icon: "success",
+          title: "Aviso reenviado",
+          text: `Novo aviso criado para ${count} motoboy(s) ativo(s).`,
+        });
+      } else {
+        alert(`Novo aviso criado para ${count} motoboy(s) ativo(s).`);
+      }
+      await loadHistorico();
+      const tr = qs(`#avisos-tbody tr[data-aviso-id="${created.id}"]`);
+      if (tr) void selectAviso(created.id, tr);
+    } catch (e) {
+      if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: e.message });
+      else alert(e.message);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     qs("#aviso-todos")?.addEventListener("change", syncTodosUi);
     qs("#btn-enviar-aviso")?.addEventListener("click", () => void enviar());
     qs("#btn-atualizar-avisos")?.addEventListener("click", () => void loadHistorico());
+    qs("#btn-usar-novo-aviso")?.addEventListener("click", copiarParaNovoAviso);
+    qs("#btn-editar-aviso")?.addEventListener("click", openEditForm);
+    qs("#btn-cancelar-edicao")?.addEventListener("click", closeEditForm);
+    qs("#btn-salvar-aviso")?.addEventListener("click", () => void salvarEdicao());
+    qs("#btn-reenviar-aviso")?.addEventListener("click", () => void reenviar());
     syncTodosUi();
     void loadMotoboys();
     void loadHistorico();

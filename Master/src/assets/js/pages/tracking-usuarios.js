@@ -1,5 +1,5 @@
-const API = "https://track-saidas-api.onrender.com/api/users";
-const API_BASE = "https://track-saidas-api.onrender.com/api";
+const API_BASE = window.getTrackApiUrl();
+const API = `${API_BASE}/users`;
 
 // =====================================================================
 // MÁSCARA DOCUMENTO — CPF 11 dígitos ou RG
@@ -65,7 +65,13 @@ function roleDisplayName(role) {
 }
 
 function ensureRootRoleOptions() {
-    if (!isCurrentUserRoot()) return;
+    if (!isCurrentUserRoot()) {
+        const roleSelect = document.getElementById("role");
+        if (roleSelect) {
+            roleSelect.querySelectorAll('option[value="0"]').forEach(opt => opt.remove());
+        }
+        return;
+    }
     const filterRole = document.getElementById("filterRole");
     if (filterRole && !filterRole.querySelector('option[value="0"]')) {
         const opt = document.createElement("option");
@@ -203,14 +209,6 @@ function initUsers() {
     if (btnReset) {
         btnReset.addEventListener("click", resetPasswordFromSelection);
     }
-    const btnPermAvulso = document.getElementById("btnPermAvulsoLote");
-    if (btnPermAvulso) {
-        btnPermAvulso.addEventListener("click", aplicarPermissaoAvulsoLote);
-    }
-    const btnPermAvulsoFoto = document.getElementById("btnPermAvulsoFotoLote");
-    if (btnPermAvulsoFoto) {
-        btnPermAvulsoFoto.addEventListener("click", aplicarPermissaoAvulsoExigeFotoLote);
-    }
 
     document.getElementById("toggleAtivos").addEventListener("change", applyFilters);
     document.getElementById("search").addEventListener("input", applyFilters);
@@ -290,27 +288,29 @@ function toggleMotoboySection() {
     document.getElementById("coletaPermissaoFormGroup")?.classList.toggle("d-none", ignorarColeta);
     document.getElementById("coletaPermissaoDetailGroup")?.classList.toggle("d-none", ignorarColeta);
 
-    // Para Admin (1) e Operador (2): Username e E-mail obrigatórios com sinalização (*)
-    // Para Motoboy (4): esses campos não são obrigatórios
-    const isAdminOrOperador = (role === 1 || role === 2);
-    ["reqUsername", "reqEmail"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = isAdminOrOperador ? "" : "none";
-    });
+    // Username obrigatório para staff (não motoboy). E-mail é sempre opcional.
+    const usernameRequired = (role !== 4);
+    const reqUsername = document.getElementById("reqUsername");
+    if (reqUsername) reqUsername.style.display = usernameRequired ? "" : "none";
+    const reqEmail = document.getElementById("reqEmail");
+    if (reqEmail) reqEmail.style.display = "none";
     const usernameEl = document.getElementById("username");
     const emailEl = document.getElementById("email");
     const passwordEl = document.getElementById("password");
     const passwordConfirmEl = document.getElementById("passwordConfirm");
-    [usernameEl, emailEl].forEach(el => {
-        if (!el) return;
-        if (isAdminOrOperador) {
-            el.classList.add("field-required");
-            el.setAttribute("required", "required");
+    if (usernameEl) {
+        if (usernameRequired) {
+            usernameEl.classList.add("field-required");
+            usernameEl.setAttribute("required", "required");
         } else {
-            el.classList.remove("field-required");
-            el.removeAttribute("required");
+            usernameEl.classList.remove("field-required");
+            usernameEl.removeAttribute("required");
         }
-    });
+    }
+    if (emailEl) {
+        emailEl.classList.remove("field-required");
+        emailEl.removeAttribute("required");
+    }
     [passwordEl, passwordConfirmEl].forEach(el => {
         if (!el) return;
         el.classList.remove("field-required");
@@ -472,7 +472,7 @@ function renderTable() {
             <td>${(typeof window.formatPersonName === "function" ? window.formatPersonName(u.sobrenome || "") : (u.sobrenome || "")) || "-"}</td>
             <td>${formatDataNascimento(u.data_nascimento)}</td>
             <td>${u.username}</td>
-            <td>${u.email}</td>
+            <td>${u.email || "—"}</td>
            <td>
     ${(() => {
         const formatted = u.contato ? maskCellphone(u.contato) : null;
@@ -596,7 +596,34 @@ function goToPage(n) {
 // CREATE
 // =====================================================================
 
-function openCreate() {
+async function applyPadroesMotoboyDefaults() {
+    const fallback = {
+        pode_realizar_coleta: false,
+        pode_ler_saida: true,
+        pode_digitar_codigo_manual: false,
+        pode_lancar_avulso: true,
+        avulso_exige_foto: true,
+    };
+    let pad = fallback;
+    try {
+        const r = await fetch(`${API_BASE}/politicas`, { credentials: "include", headers: { Accept: "application/json" } });
+        if (r.ok) {
+            const data = await r.json();
+            if (data?.padroes_motoboy) pad = { ...fallback, ...data.padroes_motoboy };
+        }
+    } catch (_) {}
+    document.getElementById("podeLerColeta").checked = !!pad.pode_realizar_coleta;
+    document.getElementById("podeLerSaida").checked = pad.pode_ler_saida !== false;
+    document.getElementById("podeDigitarCodigoManual").checked = !!pad.pode_digitar_codigo_manual;
+    const podeAvulsoCreate = document.getElementById("podeLancarAvulso");
+    if (podeAvulsoCreate) podeAvulsoCreate.checked = pad.pode_lancar_avulso !== false;
+    const avulsoExigeCreate = document.getElementById("avulsoExigeFoto");
+    if (avulsoExigeCreate) {
+        avulsoExigeCreate.checked = !!(pad.pode_lancar_avulso !== false && pad.avulso_exige_foto);
+    }
+}
+
+async function openCreate() {
     document.getElementById("ocLabel").textContent = "Novo Usuário";
     document.getElementById("userId").value = "";
 
@@ -609,6 +636,7 @@ function openCreate() {
     document.getElementById("password").value = "";
     document.getElementById("passwordConfirm").value = "";
     document.getElementById("statusToggle").checked = true;
+    ensureRootRoleOptions();
     document.getElementById("role").value = 2;
 
     document.getElementById("documento").value = "";
@@ -623,13 +651,7 @@ function openCreate() {
     document.getElementById("bairro").value = "";
     document.getElementById("cidade").value = "";
     document.getElementById("estado").value = "";
-    document.getElementById("podeLerColeta").checked = false;
-    document.getElementById("podeLerSaida").checked = true;
-    document.getElementById("podeDigitarCodigoManual").checked = true;
-    const podeAvulsoCreate = document.getElementById("podeLancarAvulso");
-    if (podeAvulsoCreate) podeAvulsoCreate.checked = true;
-    const avulsoExigeCreate = document.getElementById("avulsoExigeFoto");
-    if (avulsoExigeCreate) avulsoExigeCreate.checked = false;
+    await applyPadroesMotoboyDefaults();
 
     document.getElementById("groupPassword").classList.remove("d-none");
     document.getElementById("groupPasswordConfirm").classList.remove("d-none");
@@ -670,9 +692,11 @@ async function openEdit(id) {
     document.getElementById("dataNascimento").value = (data.data_nascimento || "").toString().slice(0, 10);
     document.getElementById("username").value = data.username;
     document.getElementById("contato").value = data.contato || "";
-    document.getElementById("email").value = data.email;
+    document.getElementById("email").value = data.email || "";
     document.getElementById("statusToggle").checked = data.status;
-    document.getElementById("role").value = data.role || 2;
+    ensureRootRoleOptions();
+    const roleVal = Number(data.role);
+    document.getElementById("role").value = Number.isFinite(roleVal) ? String(roleVal) : "2";
 
     const m = data.motoboy || {};
     document.getElementById("documento").value = m.documento || "";
@@ -793,22 +817,19 @@ async function saveUser(ev) {
     if (!sobrenome) erros.push("Sobrenome é obrigatório.");
     if (!contato) erros.push("Contato é obrigatório.");
 
-    // Para Administrador e Operador: Username, E-mail e Senha obrigatórios
-    const isAdminOrOperador = (role === 1 || role === 2);
-    if (isAdminOrOperador) {
-        if (!username) {
-            erros.push("Username é obrigatório para este perfil.");
-            document.getElementById("username").classList.add("is-invalid");
-        }
-        if (!email) {
-            erros.push("E-mail é obrigatório para este perfil.");
-            document.getElementById("email").classList.add("is-invalid");
-        } else if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
-            erros.push("Formato de e-mail inválido.");
-            document.getElementById("email").classList.add("is-invalid");
-        }
-    } else if (email && !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+    if (role === 0 && !isCurrentUserRoot()) {
+        erros.push("Não é permitido criar ou promover usuário root.");
+    }
+
+    // Username obrigatório para staff; e-mail opcional (valida formato se preenchido).
+    const usernameRequired = (role !== 4);
+    if (usernameRequired && !username) {
+        erros.push("Username é obrigatório para este perfil.");
+        document.getElementById("username").classList.add("is-invalid");
+    }
+    if (email && !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
         erros.push("Formato de e-mail inválido.");
+        document.getElementById("email").classList.add("is-invalid");
     }
 
     const isNew = !id;
@@ -857,7 +878,7 @@ async function saveUser(ev) {
         sobrenome,
         username,
         contato: contato.replace(/\D/g, ""),
-        email,
+        email: email || null,
         status,
         role,
         data_nascimento: (document.getElementById("dataNascimento").value || "").trim() || null
@@ -1113,136 +1134,6 @@ async function resetPasswordFromSelection() {
             icon: "error",
             title: "Erro inesperado",
             text: err.message || "Falha ao resetar senha.",
-        });
-    }
-}
-
-async function aplicarPermissaoAvulsoLote() {
-    const escolha = await Swal.fire({
-        icon: "question",
-        title: "Lançar avulso — todos os motoboys",
-        html: `
-            <p class="mb-2">Aplica a permissão a <strong>todos os entregadores</strong> desta base.</p>
-            <p class="text-muted small mb-0">Motoboys precisarão entrar novamente no app para o token refletir a mudança.</p>
-        `,
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: "Liberar para todos",
-        denyButtonText: "Bloquear para todos",
-        cancelButtonText: "Cancelar",
-    });
-
-    if (!escolha.isConfirmed && !escolha.isDenied) return;
-
-    const liberar = !!escolha.isConfirmed;
-    try {
-        const resp = await fetch(`${API}/motoboys/permissoes-lote`, {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ pode_lancar_avulso: liberar }),
-        });
-
-        if (!resp.ok) {
-            if (resp.status === 401) {
-                await Swal.fire({
-                    icon: "warning",
-                    title: "Sessão expirada",
-                    text: "Faça login novamente para continuar.",
-                });
-                location.href = "login.html";
-                return;
-            }
-            let mensagem = "Erro ao atualizar permissões.";
-            try {
-                const json = await resp.json();
-                if (json.detail) {
-                    mensagem = typeof json.detail === "string" ? json.detail : JSON.stringify(json.detail);
-                }
-            } catch {}
-            await Swal.fire({ icon: "error", title: "Falha", text: mensagem });
-            return;
-        }
-
-        const data = await resp.json().catch(() => ({}));
-        await Swal.fire({
-            icon: "success",
-            title: liberar ? "Avulso liberado" : "Avulso bloqueado",
-            text: `${data.atualizados ?? 0} entregador(es) atualizado(s).`,
-            timer: 2200,
-            showConfirmButton: false,
-        });
-        loadUsers();
-    } catch (err) {
-        await Swal.fire({
-            icon: "error",
-            title: "Erro inesperado",
-            text: err.message || "Falha ao atualizar permissões.",
-        });
-    }
-}
-
-async function aplicarPermissaoAvulsoExigeFotoLote() {
-    const escolha = await Swal.fire({
-        icon: "question",
-        title: "Obriga foto no avulso — todos os motoboys",
-        html: `
-            <p class="mb-2">Aplica a obrigatoriedade de foto a <strong>todos os entregadores</strong> desta base.</p>
-            <p class="text-muted small mb-0">Só vale para quem já pode lançar avulso. Motoboys precisarão entrar novamente no app para o token refletir a mudança.</p>
-        `,
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: "Exigir foto para todos",
-        denyButtonText: "Não exigir para todos",
-        cancelButtonText: "Cancelar",
-    });
-
-    if (!escolha.isConfirmed && !escolha.isDenied) return;
-
-    const exigir = !!escolha.isConfirmed;
-    try {
-        const resp = await fetch(`${API}/motoboys/permissoes-lote`, {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ avulso_exige_foto: exigir }),
-        });
-
-        if (!resp.ok) {
-            if (resp.status === 401) {
-                await Swal.fire({
-                    icon: "warning",
-                    title: "Sessão expirada",
-                    text: "Faça login novamente para continuar.",
-                });
-                location.href = "login.html";
-                return;
-            }
-            let mensagem = "Erro ao atualizar permissões.";
-            try {
-                const json = await resp.json();
-                if (json.detail) {
-                    mensagem = typeof json.detail === "string" ? json.detail : JSON.stringify(json.detail);
-                }
-            } catch {}
-            await Swal.fire({ icon: "error", title: "Falha", text: mensagem });
-            return;
-        }
-
-        const data = await resp.json().catch(() => ({}));
-        await Swal.fire({
-            icon: "success",
-            title: exigir ? "Foto obrigatória ativada" : "Foto obrigatória desativada",
-            text: `${data.atualizados ?? 0} entregador(es) atualizado(s).`,
-            timer: 2200,
-            showConfirmButton: false,
-        });
-        loadUsers();
-    } catch (err) {
-        await Swal.fire({
-            icon: "error",
-            title: "Erro inesperado",
-            text: err.message || "Falha ao atualizar permissões.",
         });
     }
 }

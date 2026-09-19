@@ -4,9 +4,10 @@
   <meta charset="utf-8" />
   <title>ROTEVO</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="assets/js/api-config.js"></script>
 
 <script>
-  const API_AUTH = 'https://track-saidas-api.onrender.com/api/auth';
+  const API_AUTH = window.getTrackApiUrl() + '/auth';
 
   function getCookie(name) {
     return document.cookie

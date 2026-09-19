@@ -13,8 +13,47 @@
   const inpCod = $("codigo");
   const btnReg = $("btnRegistrar");
   const btnLancarAvulso = $("btnLancarAvulso");
+  const btnSelecionarAvulso = $("btnSelecionarAvulso");
   const msg    = $("msgArea");
   const tbLast = $("ultimos-rows");
+
+  function ownerExigeSelecaoAvulso() {
+    const u = window.__USER__ || {};
+    const coletaOn = !(u.ignorar_coleta === true || window.IGNORAR_COLETA === true);
+    const entradaOn = u.entrada_obrigatoria_habilitada === true;
+    return coletaOn || entradaOn;
+  }
+
+  function podeLancarAvulso() {
+    const u = window.__USER__ || {};
+    const role = Number(u.role);
+    if ([0, 1, 2, 3].includes(role)) return true;
+    if (role === 4) return u.pode_lancar_avulso !== false;
+    return false;
+  }
+
+  function syncAvulsoUiButtons() {
+    const exige = ownerExigeSelecaoAvulso();
+    const podeLancar = podeLancarAvulso();
+    if (btnSelecionarAvulso) {
+      btnSelecionarAvulso.classList.remove("d-none");
+    }
+    if (btnLancarAvulso) {
+      btnLancarAvulso.classList.toggle("d-none", !podeLancar);
+      if (exige) {
+        btnLancarAvulso.innerHTML = '<i class="ri-error-warning-line"></i> Cadastrar avulso não registrado';
+        btnLancarAvulso.classList.remove("btn-outline-primary");
+        btnLancarAvulso.classList.add("btn-outline-secondary");
+        btnLancarAvulso.title = "Fora do fluxo normal — exige motivo";
+      } else {
+        btnLancarAvulso.innerHTML = '<i class="ri-add-circle-line"></i> Lançar Avulso';
+        btnLancarAvulso.classList.add("btn-outline-primary");
+        btnLancarAvulso.classList.remove("btn-outline-secondary");
+        btnLancarAvulso.title = "";
+      }
+    }
+  }
+  syncAvulsoUiButtons();
 
   function normalizeNomeKey(nome){
     return String(nome || "")
@@ -354,6 +393,10 @@ function showMsgIcon(tipo, texto) {
     return /^AVULSO(-[A-Z0-9-]+)?$/i.test(toAsciiDigits(String(raw || "")).toUpperCase().trim());
   }
 
+  function isCodigoRte(raw) {
+    return /^RTE[0-9]{11,}$/i.test(toAsciiDigits(String(raw || "")).toUpperCase().trim());
+  }
+
   function isTelefoneBrasil(raw, allDigits) {
     let digits = String(allDigits != null ? allDigits : toAsciiDigits(String(raw || "")).replace(/\D+/g, ""));
     if (!digits) return null;
@@ -379,6 +422,7 @@ function showMsgIcon(tipo, texto) {
     const mlRun = allDigits.match(/4[5-9]\d{9,}/);
     if (mlRun) return { ok: true, servico: "Mercado Livre", codigo: mlRun[0].slice(0, 11) };
     if (isAvulsoGerado(raw)) return { ok: true, servico: "Avulso", codigo: raw.trim().toUpperCase() };
+    if (isCodigoRte(raw)) return { ok: true, servico: "Avulso", codigo: raw.trim().toUpperCase() };
     const phone = isTelefoneBrasil(raw, allDigits);
     if (phone) return { ok: true, servico: "Avulso", codigo: phone };
     return { ok: false, motivo: "Padrão não configurado" };
@@ -432,6 +476,10 @@ function classifyCodigo(rawInput){
   }
 
   if (isAvulsoGerado(raw)) {
+    return { ok:true, servico:"Avulso", codigo: raw.trim().toUpperCase() };
+  }
+
+  if (isCodigoRte(raw)) {
     return { ok:true, servico:"Avulso", codigo: raw.trim().toUpperCase() };
   }
 
@@ -631,10 +679,15 @@ function createRow(row){
       ? TrackAPI.registerSaida({ entregador_id, entregador, codigo, servico })
       : Promise.reject(new Error("TrackAPI.registerSaida não disponível"));
   }
-  function apiLancarAvulso({ motoboy_id, entregador, identificacao, quantidade, foto_object_key, photo_id }){
+  function apiLancarAvulso({ motoboy_id, entregador, identificacao, quantidade, foto_object_key, photo_id, campos, motivo_excepcional }){
     return window.TrackAPI?.lancarAvulso
-      ? TrackAPI.lancarAvulso({ motoboy_id, entregador, identificacao, quantidade, foto_object_key, photo_id })
+      ? TrackAPI.lancarAvulso({ motoboy_id, entregador, identificacao, quantidade, foto_object_key, photo_id, campos, motivo_excepcional })
       : Promise.reject(new Error("TrackAPI.lancarAvulso não disponível"));
+  }
+  function apiListAvulsosPendentes(opts){
+    return window.TrackAPI?.listAvulsosPendentes
+      ? TrackAPI.listAvulsosPendentes(opts)
+      : Promise.reject(new Error("TrackAPI.listAvulsosPendentes não disponível"));
   }
 
   function getApiBaseUrl() {
@@ -1246,7 +1299,11 @@ async function registrar() {
 
     if (res.status === 422 && res.code === "NAO_COLETADO") {
       revertOtimista();
-      if (window.IGNORAR_COLETA === true) {
+      const bloquear =
+        window.BLOQUEAR_SAIDA_SEM_COLETA === true ||
+        localStorage.getItem("bloquear_saida_sem_coleta") === "1" ||
+        window.__USER__?.bloquear_saida_sem_coleta === true;
+      if (window.IGNORAR_COLETA === true || bloquear) {
         showMsgIcon("erro", res.error || "Código não coletado.");
         Sound.play("err");
         return { ok:false, tipo:"nao_coletado", backend_processing_ms };
@@ -1552,6 +1609,202 @@ inpCod?.addEventListener("keydown", (e) => {
     registrarComLog("teclado");
   }
 });
+function avulsoCampoInputAttrs(c) {
+  const tipo = String(c.tipo || "texto");
+  const ph = c.placeholder || "";
+  const hint = c.tipo_hint || "";
+  if (tipo === "lista") return { kind: "lista" };
+  const inputType = tipo === "numero" ? "number" : (tipo === "telefone" ? "tel" : "text");
+  const inputmode = tipo === "cep" || tipo === "numero" ? "numeric" : (tipo === "telefone" ? "tel" : "text");
+  const extra = tipo === "cep" ? ' maxlength="9" data-mask="cep"' : (tipo === "telefone" ? ' maxlength="16" data-mask="tel"' : (tipo === "primeiro_nome" || tipo === "segundo_nome" ? ' data-mask="nome" autocomplete="off"' : ""));
+  return { kind: "input", inputType, inputmode, ph, hint, extra };
+}
+
+function bindAvulsoCampoMasks(root) {
+  (root || document).querySelectorAll("[data-mask]").forEach((el) => {
+    el.addEventListener("input", () => {
+      const mask = el.getAttribute("data-mask");
+      if (mask === "cep") {
+        const d = String(el.value || "").replace(/\D/g, "").slice(0, 8);
+        el.value = d.length > 5 ? d.slice(0, 5) + "-" + d.slice(5) : d;
+      } else if (mask === "tel") {
+        const d = String(el.value || "").replace(/\D/g, "").slice(0, 11);
+        if (d.length <= 2) el.value = d;
+        else if (d.length <= 6) el.value = "(" + d.slice(0, 2) + ") " + d.slice(2);
+        else if (d.length <= 10) el.value = "(" + d.slice(0, 2) + ") " + d.slice(2, 6) + "-" + d.slice(6);
+        else el.value = "(" + d.slice(0, 2) + ") " + d.slice(2, 7) + "-" + d.slice(7);
+      } else if (mask === "nome") {
+        el.value = String(el.value || "").replace(/[0-9]/g, "");
+      }
+    });
+  });
+}
+
+function buildCamposAvulsoHtml(campos) {
+  if (!Array.isArray(campos) || !campos.length) return "";
+  return campos.map((c) => {
+    const req = c.obrigatorio ? ' <span class="text-danger">*</span>' : "";
+    const id = `avulso-campo-${c.chave}`;
+    const attrs = avulsoCampoInputAttrs(c);
+    if (c.tipo === "lista" || attrs.kind === "lista") {
+      const opts = (c.opcoes || []).map((o) => `<option value="${String(o).replace(/"/g, "&quot;")}">${o}</option>`).join("");
+      return `<label class="form-label mb-1" for="${id}">${c.label}${req}</label>
+        <select id="${id}" class="form-select mb-3" data-avulso-chave="${c.chave}"><option value="">Selecione</option>${opts}</select>`;
+    }
+    const hint = attrs.hint ? `<div class="form-text mb-3">${attrs.hint}</div>` : '<div class="mb-3"></div>';
+    return `<label class="form-label mb-1" for="${id}">${c.label}${req}</label>
+      <input id="${id}" type="${attrs.inputType}" inputmode="${attrs.inputmode}" class="form-control" data-avulso-chave="${c.chave}" placeholder="${String(attrs.ph || "").replace(/"/g, "&quot;")}"${attrs.extra} />
+      ${hint}`;
+  }).join("");
+}
+
+function collectCamposAvulsoFromDom(campos) {
+  const out = {};
+  if (!Array.isArray(campos)) return out;
+  for (const c of campos) {
+    const el = document.getElementById(`avulso-campo-${c.chave}`);
+    if (!el) continue;
+    const v = String(el.value || "").trim();
+    if (v) out[c.chave] = v;
+  }
+  return out;
+}
+
+async function loadSchemaCamposAvulso(contexto) {
+  try {
+    const res = await window.TrackAPI?.schemaCamposAvulso?.({ contexto });
+    if (res?.ok && Array.isArray(res.data?.campos)) return res.data.campos;
+  } catch (_) {}
+  return [];
+}
+
+btnSelecionarAvulso?.addEventListener("click", async (e) => {
+  e.preventDefault();
+  const motoboyIdRaw = selEnt?.value?.trim() || "";
+  if (!motoboyIdRaw) {
+    showMsgIcon("erro", "Selecione o motoboy.");
+    Sound.play("err");
+    return;
+  }
+  const motoboyId = parseInt(motoboyIdRaw, 10);
+  const entregador = selEnt?.options[selEnt.selectedIndex]?.text?.trim() || entregadoresMap.get(motoboyIdRaw) || "";
+
+  let itemsCache = [];
+
+  function itemMeta(it) {
+    const status = it.status_label || it.status || "";
+    const motoboy = it.motoboy_nome ? `Motoboy: ${it.motoboy_nome}` : "Sem motoboy";
+    return [status, motoboy, it.codigo].filter(Boolean).join(" · ");
+  }
+
+  async function renderLista({ q, todosDoDia } = {}) {
+    const res = await apiListAvulsosPendentes({
+      q: q || undefined,
+      todos_do_dia: !!todosDoDia,
+      limit: 50,
+      offset: 0,
+    });
+    if (!res?.ok) {
+      Swal.showValidationMessage(res?.error || "Falha ao buscar avulsos.");
+      return;
+    }
+    const data = res.data || {};
+    itemsCache = Array.isArray(data.items) ? data.items : [];
+    const box = document.getElementById("avulso-pendentes-lista");
+    if (!box) return;
+    if (data.ambiguo) {
+      box.innerHTML = `<div class="alert alert-warning py-2 small mb-0">${data.mensagem || "Há vários avulsos. Refine a busca."}</div>`;
+      return;
+    }
+    if (!itemsCache.length) {
+      box.innerHTML = `<div class="text-muted small py-2">${data.mensagem || "Digite para buscar os avulsos de hoje."}</div>`;
+      return;
+    }
+    box.innerHTML = itemsCache.map((it, idx) => `
+      <label class="d-flex align-items-start gap-2 border rounded p-2 mb-2 text-start" style="cursor:pointer">
+        <input type="radio" name="avulso-pendente" value="${idx}" class="mt-1" ${idx === 0 ? "checked" : ""} />
+        <span>
+          <strong>${it.label || it.codigo || "—"}</strong>
+          <div class="small text-muted">${itemMeta(it)}</div>
+        </span>
+      </label>
+    `).join("");
+  }
+
+  const modal = await Swal.fire({
+    title: "Selecionar avulso",
+    html: `
+      <div class="text-start">
+        <p class="small text-muted mb-2">Busca por contém nos avulsos de hoje. Se alguém compartilhou a etiqueta, leia o código no fluxo normal.</p>
+        <label class="form-label mb-1" for="avulso-busca-q">Buscar</label>
+        <div class="input-group mb-2">
+          <input id="avulso-busca-q" class="form-control" placeholder="Nome, CEP, código..." />
+          <button type="button" class="btn btn-primary" id="avulso-busca-btn">Buscar</button>
+        </div>
+        <button type="button" class="btn btn-link btn-sm px-0 mb-2" id="avulso-todos-dia">Ver todos de hoje</button>
+        <div id="avulso-pendentes-lista" style="max-height:280px;overflow:auto">
+          <div class="text-muted small py-2">Digite para buscar os avulsos de hoje.</div>
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: "Atribuir ao motoboy",
+    cancelButtonText: "Cancelar",
+    focusConfirm: false,
+    didOpen: () => {
+      const btn = document.getElementById("avulso-busca-btn");
+      const inp = document.getElementById("avulso-busca-q");
+      const todos = document.getElementById("avulso-todos-dia");
+      const run = () => renderLista({ q: inp?.value?.trim() || "" });
+      btn?.addEventListener("click", (ev) => { ev.preventDefault(); run(); });
+      todos?.addEventListener("click", (ev) => { ev.preventDefault(); renderLista({ todosDoDia: true }); });
+      inp?.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); run(); } });
+    },
+    preConfirm: () => {
+      const checked = document.querySelector('input[name="avulso-pendente"]:checked');
+      if (!checked) {
+        Swal.showValidationMessage("Selecione um avulso.");
+        return null;
+      }
+      const idx = parseInt(checked.value, 10);
+      const item = itemsCache[idx];
+      if (!item?.codigo) {
+        Swal.showValidationMessage("Avulso inválido.");
+        return null;
+      }
+      return item;
+    },
+  });
+  if (!modal.isConfirmed || !modal.value) return;
+  const item = modal.value;
+  const res = await apiLerSaida({
+    motoboy_id: motoboyId,
+    entregador,
+    codigo: item.codigo,
+    servico: "Avulso",
+  });
+  if (!res?.ok) {
+    showMsgIcon("erro", parseApiDetailError(res, "Erro ao atribuir avulso."));
+    Sound.play("err");
+    return;
+  }
+  const row = res.data?.data || res.data || {};
+  appendOrUpdateRow({
+    tsFmt: new Date().toLocaleString("pt-BR"),
+    entregador,
+    codigo: row.codigo || item.codigo,
+    servico: row.servico || "Avulso",
+    status: row.status || "Saiu",
+    id_saida: row.id_saida || item.id_saida,
+    duplicado: !!row.duplicado,
+  });
+  codigosLidosSessao.add(String(row.codigo || item.codigo || ""));
+  updateSummary();
+  showMsgIcon("ok", `Avulso ${item.codigo} atribuído.`);
+  Sound.play("ok");
+  try { window.leituraStartScanner?.(); } catch (_) {}
+});
+
 btnLancarAvulso?.addEventListener("click", async (e) => {
   e.preventDefault();
   const motoboyIdRaw = selEnt?.value?.trim() || "";
@@ -1566,10 +1819,26 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
   const isRootAdmin = roleUser === 0 || roleUser === 1;
   const isStaff = [0, 1, 2, 3].includes(roleUser);
   const exigeFotoMotoboy = !!(motoboysMetaMap.get(motoboyIdRaw)?.avulso_exige_foto);
-  // Root/admin nunca têm obrigação de foto, mesmo com flag do entregador.
   const exigeFoto = exigeFotoMotoboy && !isRootAdmin;
-  // Staff sempre vê a opção (opcional); demais só quando obrigatório.
   const mostrarFoto = exigeFoto || isStaff;
+  const excepcional = ownerExigeSelecaoAvulso();
+  const camposCfg = await loadSchemaCamposAvulso("SAIDA_AVULSO");
+  const camposHtml = buildCamposAvulsoHtml(camposCfg);
+  const usarLegado = !camposCfg.length;
+  const identificacaoHtml = usarLegado
+    ? `
+        <label class="form-label mb-1" for="avulso-identificacao">Identificação</label>
+        <input id="avulso-identificacao" class="form-control mb-1" maxlength="32" placeholder="Ex.: Cliente João" />
+        <div class="form-text mb-3">Até 32 caracteres (legado / referência rápida).</div>
+      `
+    : "";
+  const quantidadeHtml = usarLegado
+    ? `
+        <label class="form-label mb-1" for="avulso-quantidade">Quantidade</label>
+        <input id="avulso-quantidade" type="number" min="1" max="50" step="1" class="form-control mb-1" value="1" />
+        <div class="form-text ${mostrarFoto ? "mb-3" : ""}">Informe entre 1 e 50 pacotes por lançamento.</div>
+      `
+    : "";
   const fotoFieldHtml = mostrarFoto
     ? `
         <label class="form-label mb-1" for="avulso-foto">Imagem ${exigeFoto ? '<span class="text-danger">*</span>' : '<span class="text-muted">(opcional)</span>'}</label>
@@ -1577,16 +1846,21 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
         ${exigeFoto ? '<div class="form-text mb-3">Este entregador exige foto ao lançar avulso.</div>' : '<div class="mb-3"></div>'}
       `
     : "";
+  const motivoHtml = excepcional
+    ? `
+      <div class="alert alert-warning py-2 small">Cadastro fora do fluxo normal (Coleta/Entrada ativos). Informe o motivo.</div>
+      <label class="form-label mb-1" for="avulso-motivo">Motivo <span class="text-danger">*</span></label>
+      <textarea id="avulso-motivo" class="form-control mb-3" rows="2" maxlength="500" placeholder="Por que este avulso não foi registrado antes?"></textarea>
+    `
+    : "";
   const modal = await Swal.fire({
-    title: "Lançar Avulso",
+    title: excepcional ? "Cadastrar avulso não registrado" : "Lançar Avulso",
     html: `
       <div class="text-start">
-        <label class="form-label mb-1" for="avulso-identificacao">Identificação</label>
-        <input id="avulso-identificacao" class="form-control mb-1" maxlength="32" placeholder="Ex.: Cliente João" />
-        <div class="form-text mb-3">Até 32 caracteres para identificar o lote na operação.</div>
-        <label class="form-label mb-1" for="avulso-quantidade">Quantidade</label>
-        <input id="avulso-quantidade" type="number" min="1" max="50" step="1" class="form-control mb-1" value="1" />
-        <div class="form-text ${mostrarFoto ? "mb-3" : ""}">Informe entre 1 e 50 pacotes por lançamento.</div>
+        ${motivoHtml}
+        ${identificacaoHtml}
+        ${camposHtml}
+        ${quantidadeHtml}
         ${fotoFieldHtml}
       </div>
     `,
@@ -1594,52 +1868,47 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     confirmButtonText: "Confirmar",
     cancelButtonText: "Cancelar",
     focusConfirm: false,
+    didOpen: () => bindAvulsoCampoMasks(Swal.getHtmlContainer()),
     preConfirm: () => {
-      const identificacaoEl = document.getElementById("avulso-identificacao");
-      const quantidadeEl = document.getElementById("avulso-quantidade");
+      const identificacaoVal = usarLegado
+        ? String(document.getElementById("avulso-identificacao")?.value || "").trim().slice(0, 32)
+        : "";
+      const quantidadeVal = usarLegado
+        ? parseInt(String(document.getElementById("avulso-quantidade")?.value || "1").trim(), 10)
+        : 1;
       const fotoEl = document.getElementById("avulso-foto");
-      const identificacaoVal = identificacaoEl ? String(identificacaoEl.value || "").trim().slice(0, 32) : "";
-      const quantidadeRaw = quantidadeEl ? String(quantidadeEl.value || "").trim() : "1";
-      const quantidadeVal = parseInt(quantidadeRaw, 10);
       const fotoFile = fotoEl && fotoEl.files && fotoEl.files[0] ? fotoEl.files[0] : null;
-      if (identificacaoVal.length > 32) {
-        Swal.showValidationMessage("Identificação deve ter no máximo 32 caracteres.");
+      const motivoVal = String(document.getElementById("avulso-motivo")?.value || "").trim();
+      const campos = collectCamposAvulsoFromDom(camposCfg);
+      if (excepcional && !motivoVal) {
+        Swal.showValidationMessage("Motivo obrigatório para cadastro excepcional.");
         return null;
       }
-      if (!Number.isFinite(quantidadeVal) || quantidadeVal < 1) {
-        Swal.showValidationMessage("Quantidade mínima é 1.");
-        return null;
+      for (const c of camposCfg) {
+        if (c.obrigatorio && !campos[c.chave]) {
+          Swal.showValidationMessage(`Campo obrigatório: ${c.label}`);
+          return null;
+        }
       }
-      if (quantidadeVal > 50) {
-        Swal.showValidationMessage("Quantidade máxima é 50.");
-        return null;
+      if (usarLegado) {
+        if (!Number.isFinite(quantidadeVal) || quantidadeVal < 1) {
+          Swal.showValidationMessage("Quantidade mínima é 1.");
+          return null;
+        }
+        if (quantidadeVal > 50) {
+          Swal.showValidationMessage("Quantidade máxima é 50.");
+          return null;
+        }
       }
       if (exigeFoto && !fotoFile) {
         Swal.showValidationMessage("Foto obrigatória para este entregador.");
         return null;
       }
-      return { identificacao: identificacaoVal, quantidade: quantidadeVal, fotoFile };
+      return { identificacao: identificacaoVal, quantidade: quantidadeVal, fotoFile, campos, motivo: motivoVal };
     },
   });
   if (!modal.isConfirmed || !modal.value) return;
-  const identificacao = modal.value.identificacao || "";
-  const quantidade = modal.value.quantidade;
-  const fotoFile = modal.value.fotoFile || null;
-  if (identificacao.length > 32) {
-    showMsgIcon("erro", "Identificação deve ter no máximo 32 caracteres.");
-    Sound.play("err");
-    return;
-  }
-  if (!Number.isFinite(quantidade) || quantidade < 1 || quantidade > 50) {
-    showMsgIcon("erro", "Quantidade deve estar entre 1 e 50.");
-    Sound.play("err");
-    return;
-  }
-  if (exigeFoto && !fotoFile) {
-    showMsgIcon("erro", "Foto obrigatória para este entregador.");
-    Sound.play("err");
-    return;
-  }
+  const { identificacao, quantidade, fotoFile, campos, motivo } = modal.value;
   let fotoPayload = {};
   if (fotoFile) {
     try {
@@ -1657,6 +1926,8 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     quantidade,
     foto_object_key: fotoPayload.foto_object_key,
     photo_id: fotoPayload.photo_id,
+    campos: Object.keys(campos || {}).length ? campos : undefined,
+    motivo_excepcional: excepcional ? motivo : undefined,
   });
   if (!res?.ok) {
     showMsgIcon("erro", parseApiDetailError(res, "Erro ao lançar avulso."));

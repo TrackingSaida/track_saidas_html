@@ -59,7 +59,7 @@
                                     <th>Contato</th>
                                     <th>Valor (R$)</th>
                                     <th>Modo</th>
-                                    <th>Ignorar Coleta</th>
+                                    <th>Controle de coleta</th>
                                     <th>Teste</th>
                                     <th>Ativo</th>
                                 </tr>
@@ -150,8 +150,12 @@
                       <input type="email" id="ownerEmail" class="form-control" required>
                     </div>
                     <div class="col-12">
-                      <label class="form-label">Contato</label>
-                      <input type="text" id="ownerContato" class="form-control">
+                      <label class="form-label" for="ownerContato">Contato</label>
+                      <div class="input-group">
+                        <span class="input-group-text"><i class="ri-phone-line" aria-hidden="true"></i></span>
+                        <input type="tel" id="ownerContato" class="form-control" inputmode="tel" maxlength="15" placeholder="(11) 99999-9999" autocomplete="tel">
+                      </div>
+                      <small class="text-muted d-block mt-1">Telefone da operação. Também aparece na etiqueta, abaixo da logo.</small>
                     </div>
                     <div class="col-12">
                       <label class="form-label">Valor por saída (R$)</label>
@@ -169,40 +173,47 @@
                   <div class="row g-3">
                     <div class="col-12">
                       <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerIgnorarToggle">
-                        <label class="form-check-label">Ignorar Coleta</label>
+                        <input class="form-check-input" type="checkbox" id="ownerColetaHabilitadaToggle">
+                        <label class="form-check-label">Controle de coleta</label>
                       </div>
-                      <small class="text-muted d-block mt-1">Quando ativo, nenhuma função de coleta será exibida ou aceita.</small>
+                      <small class="text-muted d-block mt-1">Habilita o registro de coletas por Base/Seller, com acompanhamento e fechamento das coletas.</small>
                     </div>
-                    <div class="col-12">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerDevolucaoToggle">
-                        <label class="form-check-label">Permitir devolução de pacotes pelo app do entregador (com foto)</label>
-                      </div>
-                      <small class="text-muted d-block mt-1">Quando ativo, o motoboy vê o atalho Devolver pacotes e pode cancelar com comprovante.</small>
-                    </div>
-                    <div class="col-12">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerEntradaToggle">
-                        <label class="form-check-label">Exigir entrada na base antes da saída</label>
-                      </div>
-                      <small class="text-muted d-block mt-1">Quando ativo, o operador registra entrada e a saída só é permitida com entrada prévia.</small>
-                    </div>
-                    <div class="col-12">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerConferenciaToggle">
-                        <label class="form-check-label">Habilitar conferência de saída</label>
-                      </div>
-                      <small class="text-muted d-block mt-1">Quando ativo, após o motoboy começar a entrega a saída fica pendente de conferência operacional.</small>
-                    </div>
-                    <div class="col-12">
-                      <label class="form-label">Modo de Operação</label>
+                    <div class="col-12" id="ownerModoOperacaoWrap">
+                      <label class="form-label">Forma de registro da coleta</label>
                       <select id="ownerModoOperacao" class="form-select">
                         <option value="codigo">Coleta por leitura</option>
                         <option value="coleta_manual">Coleta manual</option>
                         <option value="ambos">Leitura e manual</option>
                       </select>
-                      <small class="text-muted">Aplicado somente quando &quot;Ignorar Coleta&quot; estiver desativado.</small>
+                      <small class="text-muted">Define como os pacotes serão registrados durante a coleta.</small>
+                    </div>
+                    <div class="col-12" id="ownerBloquearSaidaSemColetaWrap">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="ownerBloquearSaidaSemColetaToggle">
+                        <label class="form-check-label">Bloquear saída sem coleta</label>
+                      </div>
+                      <small class="text-muted d-block mt-1">Quando ativo, impede registrar a saída de pacotes que ainda não foram coletados. Quando desativado, o sistema avisa e permite registrar mesmo assim.</small>
+                    </div>
+                    <div class="col-12">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="ownerEntradaToggle">
+                        <label class="form-check-label">Controle de entrada</label>
+                      </div>
+                      <small class="text-muted d-block mt-1">Permite registrar a entrada dos pacotes sem controle de coleta por Base/Seller. A entrada ou a coleta valida o pacote para saída.</small>
+                    </div>
+                    <div class="col-12">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="ownerConferenciaToggle">
+                        <label class="form-check-label">Conferência diária das saídas</label>
+                      </div>
+                      <small class="text-muted d-block mt-1">Permite registrar se as saídas dos entregadores foram conferidas no dia, mantendo essa informação no fechamento.</small>
+                    </div>
+                    <div class="col-12">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="ownerDevolucaoToggle">
+                        <label class="form-check-label">Devolução de pacotes pelo app</label>
+                      </div>
+                      <small class="text-muted d-block mt-1">Permite registrar pelo aplicativo a devolução de pacotes, incluindo foto quando aplicável.</small>
                     </div>
                     <div class="col-12">
                       <div class="form-check form-switch">
@@ -221,6 +232,43 @@
               </div>
             </div>
           </div>
+
+          <div class="row g-3 mt-1">
+            <div class="col-12">
+              <div class="card mb-0">
+                <div class="card-header bg-light fw-semibold">Identidade visual (etiquetas)</div>
+                <div class="card-body">
+                  <p class="text-muted small mb-3">
+                    Logo e slogan usados nas etiquetas de envio próprio deste Owner.
+                    Sem logo, a etiqueta usa a marca ROTEVO no cabeçalho (mantendo o nome da base).
+                  </p>
+                  <div class="row g-3 align-items-start">
+                    <div class="col-md-6">
+                      <label class="form-label" for="ownerSlogan">Slogan (opcional)</label>
+                      <input type="text" id="ownerSlogan" class="form-control" maxlength="120" placeholder="Ex.: Mais que entregas, conexões.">
+                      <small class="text-muted d-block mt-1">O nome fantasia acima é o nome exibido na etiqueta.</small>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="d-flex align-items-start gap-3 flex-wrap">
+                        <div class="border rounded p-2 bg-light" id="ownerLogoPreviewBox" style="width:200px;height:80px;display:flex;align-items:center;justify-content:center;">
+                          <img id="ownerLogoPreview" alt="Preview da logo" class="d-none" style="max-width:100%;max-height:64px;object-fit:contain;">
+                          <span id="ownerLogoPlaceholder" class="text-muted small text-center">Logo padrão ROTEVO</span>
+                        </div>
+                        <div>
+                          <input type="file" id="ownerLogoFile" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" class="d-none">
+                          <div class="d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn btn-sm btn-soft-primary" id="btnOwnerEnviarLogo">Enviar logo</button>
+                            <button type="button" class="btn btn-sm btn-soft-secondary d-none" id="btnOwnerRemoverLogo">Remover</button>
+                          </div>
+                          <small class="text-muted d-block mt-2">PNG, JPG ou WEBP até 5 MB. Após selecionar, você pode recortar.</small>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -231,7 +279,8 @@
   </div>
 </div>
 
-<script src="assets/js/pages/admin-owners.js?v=1.0"></script>
+<script src="assets/js/pages/logo-crop-modal.js?v=1.0"></script>
+<script src="assets/js/pages/admin-owners.js?v=1.3"></script>
 
 </body>
 </html>

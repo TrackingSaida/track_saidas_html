@@ -2,9 +2,11 @@ const browsersync = require('browser-sync').create();
 const cached = require('gulp-cached');
 const del = require('del');
 const fileinclude = require('gulp-file-include');
+const fs = require('fs');
 const gulp = require('gulp');
 const gulpif = require('gulp-if');
 const npmdist = require('gulp-npm-dist');
+const path = require('path');
 const replace = require('gulp-replace');
 const uglify = require('gulp-uglify');
 const useref = require('gulp-useref-plus');
@@ -14,6 +16,54 @@ const autoprefixer = require("gulp-autoprefixer");
 const sourcemaps = require("gulp-sourcemaps");
 const cleanCSS = require('gulp-clean-css');
 const rtlcss = require('gulp-rtlcss');
+
+function loadLocalEnv() {
+  const candidates = [
+    path.join(__dirname, '.env'),
+    path.join(__dirname, '..', '.env'),
+  ];
+  candidates.forEach(function (envPath) {
+    if (!fs.existsSync(envPath)) return;
+    fs.readFileSync(envPath, 'utf8').split(/\r?\n/).forEach(function (line) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.charAt(0) === '#') return;
+      const eq = trimmed.indexOf('=');
+      if (eq <= 0) return;
+      const key = trimmed.slice(0, eq).trim();
+      let value = trimmed.slice(eq + 1).trim();
+      if (
+        (value.charAt(0) === '"' && value.charAt(value.length - 1) === '"') ||
+        (value.charAt(0) === "'" && value.charAt(value.length - 1) === "'")
+      ) {
+        value = value.slice(1, -1);
+      }
+      if (process.env[key] === undefined) process.env[key] = value;
+    });
+  });
+}
+
+loadLocalEnv();
+
+function resolveApiUrl() {
+  const raw = process.env.API_URL || process.env.VITE_API_URL || '';
+  const url = String(raw).trim().replace(/\/+$/, '');
+  if (!url) {
+    throw new Error(
+      '[TRACK API] API_URL (ou VITE_API_URL) não configurada. ' +
+      'Defina a URL da API no ambiente de build, sem fallback para produção. ' +
+      'Homologação: https://rotevo-api-homol.onrender.com/api | ' +
+      'Produção: https://track-saidas-api.onrender.com/api'
+    );
+  }
+  if (!/^https?:\/\//i.test(url)) {
+    throw new Error('[TRACK API] API_URL inválida: deve começar com http:// ou https://. Valor: ' + url);
+  }
+  return url;
+}
+
+function injectApiUrl() {
+  return replace(/__INJECT_API_URL__/g, resolveApiUrl());
+}
 
 const isSourceMap = true;
 
@@ -114,10 +164,16 @@ gulp.task('watch', function () {
   gulp.watch([paths.src.html.files, paths.src.partials.files], gulp.series('fileinclude', 'browsersyncReload'));
 });
 
+gulp.task('assert-api-url', function (callback) {
+  resolveApiUrl();
+  callback();
+});
+
 gulp.task('js', function () {
   return gulp
     .src(paths.src.js.main)
     .pipe(replace('##imagesPath##', assetsPath))
+    .pipe(injectApiUrl())
     .pipe(uglify())
     .pipe(gulp.dest(paths.dist.js.dir));
 });
@@ -126,6 +182,7 @@ gulp.task('jsPages', function () {
   return gulp
     .src(paths.src.js.files)
     .pipe(replace('##imagesPath##', assetsPath))
+    .pipe(injectApiUrl())
     .pipe(uglify())
     .pipe(gulp.dest(paths.dist.js.files));
 });
@@ -134,6 +191,7 @@ gulp.task('jsComponents', function () {
   return gulp
     .src('./src/assets/js/components/**/*.js')
     .pipe(replace('##imagesPath##', assetsPath))
+    .pipe(injectApiUrl())
     .pipe(gulp.dest('./dist/assets/js/components'));
 });
 
@@ -220,6 +278,7 @@ gulp.task('fileinclude', function (callback) {
       nameJudia:'test'
     }))
     .pipe(replace('##imagesPath##', assetsPath))
+    .pipe(injectApiUrl())
     .pipe(cached())
     .pipe(gulp.dest(paths.dist.base.dir));
 });
@@ -272,6 +331,7 @@ gulp.task('html', function () {
     .pipe(replace(/href="(.{0,10})node_modules/g, 'href="$1assets/libs'))
     .pipe(replace(/src="(.{0,10})node_modules/g, 'src="$1assets/libs'))
     .pipe(replace('##imagesPath##', assetsPath))
+    .pipe(injectApiUrl())
     .pipe(useref())
     .pipe(cached())
     .pipe(gulpif('*.js', uglify()))
@@ -280,6 +340,7 @@ gulp.task('html', function () {
 });
 
 gulp.task('build', gulp.series(
+  'assert-api-url',
   gulp.parallel('clean:packageLock', 'clean:dist', 'copy:all', 'copy:libs'),
   'bootstrap',
   'scss',
@@ -291,4 +352,4 @@ gulp.task('build', gulp.series(
 ));
 
 
-gulp.task('default', gulp.series(gulp.parallel('clean:packageLock', 'clean:dist', 'copy:all', 'copy:libs', 'fileinclude', 'bootstrap', 'scss', 'icons', 'js', 'jsPages', 'jsComponents', 'html'), gulp.parallel('browsersync', 'watch')));
+gulp.task('default', gulp.series('assert-api-url', gulp.parallel('clean:packageLock', 'clean:dist', 'copy:all', 'copy:libs', 'fileinclude', 'bootstrap', 'scss', 'icons', 'js', 'jsPages', 'jsComponents', 'html'), gulp.parallel('browsersync', 'watch')));

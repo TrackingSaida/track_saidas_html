@@ -529,6 +529,7 @@ function augmentEntregadoresFromRows(rows){
     var s = String(status).replace(/_/g, " ").trim();
     var lower = s.toLowerCase();
     if (lower === "na base") return "Na Base";
+    if (lower === "etiquetado") return "Etiqueta gerada";
     if (lower === "saiu" || lower === "saiu para entrega") return "SAIU PARA ENTREGA";
     if (lower === "encerrado sistema" || lower === "encerrado pelo sistema" || lower === "encerrado_sistema" || lower === "encerrado") {
       return "Encerrado";
@@ -994,7 +995,7 @@ function setupPagerEvents() {
         e.stopPropagation();
         var idSaida = btn.dataset.idSaida ? parseInt(btn.dataset.idSaida, 10) : null;
         var servico = btn.dataset.servico || null;
-        gerarEtiquetaPdf({ codigo: codigo, id_saida: idSaida, servico: servico });
+        escolherGeracaoEtiqueta({ codigo: codigo, id_saida: idSaida, servico: servico });
         return;
       }
       if (e.target.closest(".rowchk")) return;
@@ -1006,10 +1007,66 @@ function setupPagerEvents() {
     });
   }
 
+  function isCodigoEnvioProprio(codigo) {
+    return /^RTE[0-9]{11,}$/i.test(String(codigo || "").trim());
+  }
+
+  function escolherGeracaoEtiqueta(opts) {
+    var codigo = opts && opts.codigo ? String(opts.codigo).trim() : "";
+    if (!codigo) return;
+    if (!isCodigoEnvioProprio(codigo) || !window.Swal) {
+      gerarEtiquetaPdf(opts);
+      return;
+    }
+    Swal.fire({
+      title: "Envio próprio do sistema",
+      text: "Este código foi gerado pelo ROTEVO. O que deseja gerar?",
+      icon: "question",
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: "Etiqueta de envio (reimpressão)",
+      denyButtonText: "Somente QR Code",
+      cancelButtonText: "Cancelar",
+      reverseButtons: true,
+    }).then(function (result) {
+      if (result.isConfirmed) reimprimirEtiquetaEnvioProprio(codigo);
+      else if (result.isDenied) gerarEtiquetaPdf(opts);
+    });
+  }
+
+  function reimprimirEtiquetaEnvioProprio(codigo) {
+    var apiUrl = window.getTrackApiUrl() + "/etiquetas/envios-proprios/reimpressao/" + encodeURIComponent(codigo);
+    fetch(apiUrl, {
+      method: "GET",
+      credentials: "include",
+      headers: { Accept: "application/pdf" },
+    })
+      .then(function (res) {
+        if (!res.ok) {
+          return res.json().then(function (body) {
+            var d = body.detail || body.message || "Erro ao reimprimir etiqueta";
+            if (typeof d !== "string") d = "Erro ao reimprimir etiqueta";
+            throw new Error(d);
+          }).catch(function (e) {
+            if (e instanceof Error && e.message) throw e;
+            throw new Error("Erro ao reimprimir etiqueta");
+          });
+        }
+        return res.blob();
+      })
+      .then(function (blob) {
+        var url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+      })
+      .catch(function (err) {
+        notify(err.message || "Falha ao reimprimir etiqueta de envio.", "error");
+      });
+  }
+
   function gerarEtiquetaPdf(opts) {
     var codigo = typeof opts === "string" ? opts : (opts?.codigo || "");
     if (!codigo) return;
-    var apiUrl = (window.TRACK_API_URL || "/api").replace(/\/$/, "") + "/etiquetas/gerar";
+    var apiUrl = window.getTrackApiUrl() + "/etiquetas/gerar";
     var body = { codigo: codigo };
     if (opts?.id_saida != null && !isNaN(opts.id_saida)) body.id_saida = opts.id_saida;
     if (opts?.servico) body.servico = opts.servico;
@@ -1501,6 +1558,29 @@ function setupPagerEvents() {
       var enderecoCompleto = endParts.length ? endParts.join(", ") : (d.endereco_formatado || "—");
       var destContato = (d.dest_contato && d.dest_contato.trim()) ? d.dest_contato : "";
 
+      var avulsoHtml = "";
+      var servicoLower = String(saida.servico || "").toLowerCase();
+      if (servicoLower.indexOf("avulso") >= 0 || String(saida.codigo || "").toUpperCase().indexOf("AVULSO-") === 0) {
+        try {
+          var avulsoRes = await fetch(base + "/avulsos/" + encodeURIComponent(String(idSaida)), { credentials: "include" });
+          if (avulsoRes.ok) {
+            var avulso = await avulsoRes.json();
+            var camposObj = avulso.campos || {};
+            var campoLinhas = Object.keys(camposObj).map(function(k) {
+              return "<p><strong>" + escapeHtml(k) + ":</strong> " + escapeHtml(String(camposObj[k])) + "</p>";
+            }).join("");
+            avulsoHtml =
+              '<div class="pedido-card mt-3">' +
+                "<h5>Identificação do avulso</h5>" +
+                (avulso.label ? "<p><strong>Resumo:</strong> " + escapeHtml(avulso.label) + "</p>" : "") +
+                (avulso.origem_label ? "<p><strong>Origem:</strong> " + escapeHtml(avulso.origem_label) + "</p>" : "") +
+                (avulso.avulso_criado_excepcional ? '<p class="text-warning mb-1">Cadastrado fora do fluxo normal na saída.</p>' : "") +
+                (campoLinhas || (avulso.base ? "<p><strong>Referência:</strong> " + escapeHtml(avulso.base) + "</p>" : "<p class=\"text-muted mb-0\">Sem campos extras.</p>")) +
+              "</div>";
+          }
+        } catch (_) {}
+      }
+
       var fotoUrls = d.foto_urls && Array.isArray(d.foto_urls) ? d.foto_urls : [];
       var fotosTipadas = d.fotos && Array.isArray(d.fotos) ? d.fotos : [];
       var urlsByKey = {};
@@ -1572,6 +1652,7 @@ function setupPagerEvents() {
               '<p><strong>Destino:</strong> ' + escapeHtml(enderecoCompleto) + '</p>' +
               (destContato ? '<p><strong>Contato destino:</strong> ' + escapeHtml(destContato) + '</p>' : '') +
               ocorrenciaHtml +
+              avulsoHtml +
             '</div>' +
             '<div class="pedido-card historico-card">' +
               '<h5>Histórico</h5>' +

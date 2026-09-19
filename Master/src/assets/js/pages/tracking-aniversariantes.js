@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const API_URL = (window.TRACK_API_URL || "https://track-saidas-api.onrender.com/api").replace(/\/+$/, "");
+  const API_URL = window.getTrackApiUrl();
   const MESES_NOMES = [
     "",
     "Janeiro",

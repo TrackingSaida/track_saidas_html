@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="pt-br" data-layout="vertical" data-topbar="dark" data-sidebar="dark" data-sidebar-size="lg">
+  <head>
+    @@include("partials/title-meta.html", {"title": "Políticas gerais"})
+    @@include("partials/head-css.html")
+    <style>
+      .politicas-save-dock {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1030;
+        background: var(--vz-secondary-bg, #fff);
+        border-top: 1px solid var(--vz-border-color, #e9ebec);
+      }
+      .politicas-save-dock.is-dirty {
+        background: var(--vz-warning-bg-subtle, #fff8e5);
+        border-top-color: var(--vz-warning-border-subtle, #f7b84b);
+      }
+      .politicas-save-dock-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 12px 24px;
+      }
+      .politicas-page {
+        padding-bottom: 96px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="layout-wrapper">
+      @@include("partials/menu.html")
+
+      <div class="main-content">
+        <div class="page-content">
+          <div class="container-fluid">
+            @@include("partials/page-title.html", {"pagetitle": "Configuração", "title": "Políticas gerais", "withSubtitle": false, "ownerTerm": ""})
+
+            <form id="formPoliticas" class="politicas-page">
+              <div class="card mb-3">
+                <div class="card-header fw-semibold">Operação</div>
+                <div class="card-body">
+                  <div class="mb-3">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="coletaHabilitada">
+                      <label class="form-check-label fw-medium" for="coletaHabilitada">Controle de coleta</label>
+                    </div>
+                    <small class="text-muted d-block mt-1">Habilita o registro de coletas por Base/Seller, com acompanhamento e fechamento das coletas.</small>
+                  </div>
+
+                  <div class="mb-3 ms-3 ps-2 border-start" id="modoOperacaoWrap">
+                    <label class="form-label fw-medium" for="modoOperacao">Forma de registro da coleta</label>
+                    <select id="modoOperacao" class="form-select" style="max-width: 320px;">
+                      <option value="codigo">Coleta por leitura</option>
+                      <option value="coleta_manual">Coleta manual</option>
+                      <option value="ambos">Leitura e manual</option>
+                    </select>
+                    <small class="text-muted d-block mt-1">Define como os pacotes serão registrados durante a coleta.</small>
+                  </div>
+
+                  <div class="mb-3 ms-3 ps-2 border-start" id="bloquearSaidaSemColetaWrap">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="bloquearSaidaSemColeta">
+                      <label class="form-check-label fw-medium" for="bloquearSaidaSemColeta">Bloquear saída sem coleta</label>
+                    </div>
+                    <small class="text-muted d-block mt-1">Quando ativo, impede registrar a saída de pacotes que ainda não foram coletados. Quando desativado, o sistema avisa e permite registrar mesmo assim.</small>
+                  </div>
+
+                  <div class="mb-3">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="entradaHabilitada">
+                      <label class="form-check-label fw-medium" for="entradaHabilitada">Controle de entrada</label>
+                    </div>
+                    <small class="text-muted d-block mt-1">Permite registrar a entrada dos pacotes sem controle de coleta por Base/Seller. A entrada ou a coleta valida o pacote para saída.</small>
+                  </div>
+
+                  <div id="hintColetaEntrada" class="alert alert-info py-2 d-none" role="status">
+                    Para realizar a saída, basta que o pacote tenha sido registrado em uma das operações: Coleta ou Entrada.
+                  </div>
+
+                  <div class="mb-3">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="conferenciaHabilitada">
+                      <label class="form-check-label fw-medium" for="conferenciaHabilitada">Conferência diária das saídas</label>
+                    </div>
+                    <small class="text-muted d-block mt-1">Permite registrar se as saídas dos entregadores foram conferidas no dia, mantendo essa informação no fechamento.</small>
+                  </div>
+
+                  <div class="mb-0">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="devolucaoHabilitada">
+                      <label class="form-check-label fw-medium" for="devolucaoHabilitada">Devolução de pacotes pelo app</label>
+                    </div>
+                    <small class="text-muted d-block mt-1">Permite registrar pelo aplicativo a devolução de pacotes, incluindo foto quando aplicável.</small>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card mb-3">
+                <div class="card-header fw-semibold">Padrões do Motoboy</div>
+                <div class="card-body">
+                  <p class="text-muted small">Valores aplicados a <strong>novos</strong> motoboys. Exceções individuais continuam no cadastro de Usuários.</p>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="defPodeColeta">
+                        <label class="form-check-label" for="defPodeColeta">Pode realizar coleta</label>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="defPodeSaida" checked>
+                        <label class="form-check-label" for="defPodeSaida">Pode ler saídas</label>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="defDigitarManual">
+                        <label class="form-check-label" for="defDigitarManual">Pode digitar código manualmente</label>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="defLancarAvulso" checked>
+                        <label class="form-check-label" for="defLancarAvulso">Pode lançar avulso</label>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="defAvulsoFoto" checked>
+                        <label class="form-check-label" for="defAvulsoFoto">Obriga foto no avulso</label>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="aplicarAosMotoboys">
+                        <label class="form-check-label" for="aplicarAosMotoboys">Aplicar também a todos os motoboys existentes</label>
+                      </div>
+                      <small class="text-muted">Sobrescreve as permissões atuais dos motoboys desta base.</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card mb-3">
+                <div class="card-header fw-semibold">Identidade visual</div>
+                <div class="card-body">
+                  <p class="text-muted small mb-3">
+                    A logo da sua operação será exibida nas etiquetas.
+                    Caso nenhuma logo seja cadastrada, será utilizada a identidade do ROTEVO.
+                    Nome, slogan e contato só valem depois de clicar em Salvar.
+                  </p>
+                  <div class="mb-3">
+                    <label class="form-label fw-medium" for="nomeExibicao">Nome exibido nas etiquetas</label>
+                    <input type="text" class="form-control" id="nomeExibicao" maxlength="120" placeholder="Ex.: Rotevo" style="max-width: 420px;">
+                    <small class="text-muted">Se vazio, usa o nome de usuário da base.</small>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label fw-medium" for="sloganEtiqueta">Slogan (opcional)</label>
+                    <input type="text" class="form-control" id="sloganEtiqueta" maxlength="120" placeholder="Ex.: Mais que entregas, conexões." style="max-width: 420px;">
+                  </div>
+                  <div class="mb-3" style="max-width: 420px;">
+                    <label class="form-label fw-medium" for="contatoEtiqueta">Contato (opcional)</label>
+                    <div class="input-group">
+                      <span class="input-group-text"><i class="ri-phone-line" aria-hidden="true"></i></span>
+                      <input type="tel" class="form-control" id="contatoEtiqueta" inputmode="tel" maxlength="15" placeholder="(11) 99999-9999" autocomplete="tel">
+                    </div>
+                    <small class="text-muted">Telefone exibido no cabeçalho da etiqueta, abaixo da logo.</small>
+                  </div>
+                  <div class="d-flex align-items-start gap-3 flex-wrap">
+                    <div id="logoPreviewBox" class="border rounded p-2 bg-light" style="width:220px;height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
+                      <img id="logoPreview" alt="Preview da logo" class="d-none" style="max-width:100%;max-height:64px;object-fit:contain;">
+                      <span id="logoPlaceholder" class="text-muted small text-center">Logo padrão ROTEVO será utilizada</span>
+                    </div>
+                    <div>
+                      <input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" class="d-none">
+                      <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-soft-primary" id="btnEnviarLogo">Enviar logo</button>
+                        <button type="button" class="btn btn-soft-secondary d-none" id="btnRemoverLogo">Remover logo</button>
+                      </div>
+                      <small class="text-muted d-block mt-2">PNG, JPG ou WEBP até 5 MB. Após selecionar, você pode recortar a marca.</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </form>
+
+            <div id="politicasSaveDock" class="politicas-save-dock" role="status">
+              <div class="politicas-save-dock-inner">
+                <p id="politicasDirtyMsg" class="mb-0 text-muted">Nenhuma alteração para salvar.</p>
+                <div class="d-flex gap-2 flex-wrap">
+                  <button type="button" class="btn btn-soft-secondary" id="btnRecarregar">Recarregar</button>
+                  <button type="submit" form="formPoliticas" class="btn btn-primary" id="btnSalvarPoliticas" disabled>Salvar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        @@include("partials/footer.html")
+      </div>
+    </div>
+
+    @@include("partials/customizer.html")
+    @@include("partials/vendor-scripts.html")
+    <script src="assets/js/pages/logo-crop-modal.js?v=1.0"></script>
+    <script src="assets/js/pages/tracking-politicas-gerais.init.js?v=1.4"></script>
+  </body>
+</html>

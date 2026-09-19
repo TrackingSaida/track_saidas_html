@@ -2,7 +2,7 @@
   // ==========================================================
   // CONFIG
   // ==========================================================
-  const API_ORIGIN = "https://track-saidas-api.onrender.com";
+  const API_ORIGIN = window.getTrackApiOrigin();
   const LOGIN_PAGE = "auth-signin-tracking-v2.html";
 
   // ==========================================================
@@ -11,6 +11,7 @@
   window.__USER__ = null;
   window.IGNORAR_COLETA = false;
   window.MODO_OPERACAO = "codigo";
+  window.BLOQUEAR_SAIDA_SEM_COLETA = false;
 
   // ==========================================================
   // Helpers
@@ -135,10 +136,15 @@
     window.IGNORAR_COLETA = !!user?.ignorar_coleta;
     window.MODO_OPERACAO = user?.modo_operacao || "codigo";
     window.TIPO_OWNER = (user?.tipo_owner || "subbase").toLowerCase();
+    window.BLOQUEAR_SAIDA_SEM_COLETA = !!user?.bloquear_saida_sem_coleta;
     try {
       localStorage.setItem(
         "ignorar_coleta",
         window.IGNORAR_COLETA ? "1" : "0"
+      );
+      localStorage.setItem(
+        "bloquear_saida_sem_coleta",
+        window.BLOQUEAR_SAIDA_SEM_COLETA ? "1" : "0"
       );
     } catch (_) {}
 
@@ -244,7 +250,7 @@
 
   if (w.ensureAuth) return;
 
-  const API_ORIGIN = "https://track-saidas-api.onrender.com";
+  const API_ORIGIN = window.getTrackApiOrigin();
   const API_ME = `${API_ORIGIN}/api/auth/me`;
 
   async function ensureAuth() {

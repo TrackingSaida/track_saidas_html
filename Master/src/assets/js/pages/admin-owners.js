@@ -1,4 +1,4 @@
-const API = "https://track-saidas-api.onrender.com/api/owner";
+const API = `${window.getTrackApiUrl()}/owner`;
 
 // ---------------------------------------------------------------------
 // MÁSCARA CELULAR — (99) 99999-9999
@@ -38,7 +38,7 @@ function gerarLinkWhatsapp(contatoRaw) {
 // SOMENTE ADMIN
 // -------------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", async () => {
-    const me = await fetch("https://track-saidas-api.onrender.com/api/auth/me", {
+    const me = await fetch(`${window.getTrackApiUrl()}/auth/me`, {
         credentials: "include"
     }).then(r => r.ok ? r.json() : null);
 
@@ -93,7 +93,7 @@ function initOwners() {
         ev.target.value = maskCellphone(ev.target.value);
     });
 
-    document.getElementById("ownerIgnorarToggle").addEventListener("change", syncModoOperacaoSelect);
+    document.getElementById("ownerColetaHabilitadaToggle").addEventListener("change", syncModoOperacaoSelect);
 
     loadOwners();
 }
@@ -194,7 +194,7 @@ function renderTable() {
 
             <td>R$ ${Number(o.valor).toFixed(2)}</td>
             <td>${o.ignorar_coleta ? "Sem coleta" : o.modo_operacao === "coleta_manual" ? "Manual" : o.modo_operacao === "ambos" ? "Leitura e manual" : "Leitura"}</td>
-            <td>${o.ignorar_coleta ? "Sim" : "Não"}</td>
+            <td>${o.ignorar_coleta ? "Não" : "Sim"}</td>
             <td>${o.teste ? "Sim" : "Não"}</td>
             <td>${o.ativo ? "Sim" : "Não"}</td>
         </tr>
@@ -264,12 +264,16 @@ function goToPage(n) {
 
 
 // -------------------------------------------------------------------------
-// Ignorar coleta é a chave geral; o modo fica preservado para uma reativação futura.
+// Controle de coleta (API: coleta_habilitada = !ignorar_coleta); modo só se on.
 // -------------------------------------------------------------------------
 function syncModoOperacaoSelect() {
-    const ignorar = document.getElementById("ownerIgnorarToggle").checked;
+    const coletaOn = document.getElementById("ownerColetaHabilitadaToggle").checked;
+    const wrap = document.getElementById("ownerModoOperacaoWrap");
     const sel = document.getElementById("ownerModoOperacao");
-    sel.disabled = ignorar;
+    const bloquearWrap = document.getElementById("ownerBloquearSaidaSemColetaWrap");
+    if (wrap) wrap.classList.toggle("d-none", !coletaOn);
+    if (sel) sel.disabled = !coletaOn;
+    if (bloquearWrap) bloquearWrap.classList.toggle("d-none", !coletaOn);
 }
 
 // -------------------------------------------------------------------------
@@ -289,6 +293,65 @@ function openEditFromSelection() {
 // -------------------------------------------------------------------------
 // ABRIR MODAL COM DADOS
 // -------------------------------------------------------------------------
+async function fillOwnerIdentidade(idOwner) {
+    const sloganEl = document.getElementById("ownerSlogan");
+    const img = document.getElementById("ownerLogoPreview");
+    const ph = document.getElementById("ownerLogoPlaceholder");
+    const btnRem = document.getElementById("btnOwnerRemoverLogo");
+    if (sloganEl) sloganEl.value = "";
+    if (img) {
+        img.src = "assets/images/logo_rotevo.png";
+        img.alt = "Logo padrão ROTEVO (fallback)";
+        img.classList.remove("d-none");
+    }
+    if (ph) ph.classList.add("d-none");
+    if (btnRem) btnRem.classList.add("d-none");
+    if (!idOwner) return;
+
+    try {
+        const ident = await fetch(`${API}/${idOwner}/identidade`, { credentials: "include" })
+            .then(r => (r.ok ? r.json() : null));
+        if (!ident) return;
+        if (sloganEl) sloganEl.value = ident.slogan || "";
+        if (ident.tem_logo) {
+            if (btnRem) btnRem.classList.remove("d-none");
+            const presign = await fetch(`${API}/${idOwner}/logo/presign-get`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: "{}",
+            }).then(r => (r.ok ? r.json() : null));
+            if (presign && presign.download_url && img) {
+                img.src = presign.download_url;
+                img.alt = "Preview da logo";
+                img.classList.remove("d-none");
+                if (ph) ph.classList.add("d-none");
+            } else if (ph) {
+                if (img) img.classList.add("d-none");
+                ph.textContent = "Logo cadastrada (preview indisponível)";
+                ph.classList.remove("d-none");
+            }
+        }
+    } catch (_) {
+        /* preview opcional */
+    }
+}
+
+async function readApiError(resp, fallback) {
+    let detail = "";
+    try {
+        const j = await resp.json();
+        detail = j.detail || j.message || "";
+        if (Array.isArray(detail)) detail = detail.map((e) => e.msg || e).join("; ");
+    } catch (_) {}
+    if (typeof detail === "string" && detail.trim()) return detail.trim();
+    if (resp.status === 403) return "Acesso negado para esta operação.";
+    if (resp.status === 413) return "Arquivo muito grande. Use até 5 MB.";
+    if (resp.status === 422) return "Arquivo inválido. Use PNG, JPG ou WEBP até 5 MB.";
+    if (resp.status === 502 || resp.status === 503) return "Serviço de upload indisponível no momento.";
+    return fallback || "Não foi possível concluir a operação. Tente novamente.";
+}
+
 function openEdit(o) {
     document.getElementById("ownerId").value = o.id_owner;
     document.getElementById("ownerSubBase").value = o.sub_base;
@@ -296,10 +359,11 @@ function openEdit(o) {
     document.getElementById("ownerUsername").value = o.username;
     document.getElementById("ownerNomeFantasia").value = o.nome_fantasia || "";
     document.getElementById("ownerEmail").value = o.email;
-    document.getElementById("ownerContato").value = o.contato || "";
+    document.getElementById("ownerContato").value = maskCellphone(o.contato || "");
     document.getElementById("ownerValor").value = Number(o.valor).toFixed(2);
 
-    document.getElementById("ownerIgnorarToggle").checked = o.ignorar_coleta;
+    document.getElementById("ownerColetaHabilitadaToggle").checked = !o.ignorar_coleta;
+    document.getElementById("ownerBloquearSaidaSemColetaToggle").checked = !!o.bloquear_saida_sem_coleta;
     document.getElementById("ownerDevolucaoToggle").checked = !!o.devolucao_sub_base_habilitada;
     document.getElementById("ownerEntradaToggle").checked = !!o.entrada_obrigatoria_habilitada;
     document.getElementById("ownerConferenciaToggle").checked = !!o.conferencia_saida_habilitada;
@@ -308,6 +372,7 @@ function openEdit(o) {
     document.getElementById("ownerAtivoToggle").checked = o.ativo;
 
     syncModoOperacaoSelect();
+    fillOwnerIdentidade(o.id_owner);
 
     new bootstrap.Modal("#oc-owner").show();
 }
@@ -329,7 +394,8 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
         contato: document.getElementById("ownerContato").value.trim(),
         valor: Number(document.getElementById("ownerValor").value),
         modo_operacao: document.getElementById("ownerModoOperacao").value || "codigo",
-        ignorar_coleta: document.getElementById("ownerIgnorarToggle").checked,
+        ignorar_coleta: !document.getElementById("ownerColetaHabilitadaToggle").checked,
+        bloquear_saida_sem_coleta: document.getElementById("ownerBloquearSaidaSemColetaToggle").checked,
         devolucao_sub_base_habilitada: document.getElementById("ownerDevolucaoToggle").checked,
         entrada_obrigatoria_habilitada: document.getElementById("ownerEntradaToggle").checked,
         conferencia_saida_habilitada: document.getElementById("ownerConferenciaToggle").checked,
@@ -348,6 +414,18 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
 
         if (!resp.ok) throw new Error("Erro ao salvar.");
 
+        const slogan = (document.getElementById("ownerSlogan")?.value || "").trim() || null;
+        const identResp = await fetch(`${API}/${id}/identidade`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+                nome_fantasia: body.nome_fantasia,
+                slogan,
+            }),
+        });
+        if (!identResp.ok) throw new Error("Dados salvos, mas falhou ao salvar identidade.");
+
         Swal.fire({
             icon: "success",
             title: "Salvo com sucesso!",
@@ -364,5 +442,80 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
             title: "Erro ao salvar",
             text: err.message
         });
+    }
+});
+
+document.getElementById("btnOwnerEnviarLogo")?.addEventListener("click", () => {
+    document.getElementById("ownerLogoFile")?.click();
+});
+
+document.getElementById("ownerLogoFile")?.addEventListener("change", async (ev) => {
+    const file = ev.target.files && ev.target.files[0];
+    ev.target.value = "";
+    const id = document.getElementById("ownerId")?.value;
+    if (!file || !id) return;
+
+    let toSend = file;
+    try {
+        if (typeof window.openLogoCropModal === "function") {
+            toSend = await window.openLogoCropModal(file, { title: "Ajustar logo da etiqueta" });
+            if (!toSend) return;
+        }
+    } catch (err) {
+        Swal.fire({ icon: "error", title: "Erro", text: err.message || "Não foi possível abrir o recorte." });
+        return;
+    }
+
+    const btn = document.getElementById("btnOwnerEnviarLogo");
+    const prevLabel = btn?.innerHTML;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Enviando…';
+    }
+    if (window.Swal) {
+        Swal.fire({ title: "Enviando logo…", allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+    }
+
+    const fd = new FormData();
+    fd.append("file", toSend);
+    try {
+        const resp = await fetch(`${API}/${id}/logo`, {
+            method: "POST",
+            credentials: "include",
+            body: fd,
+        });
+        if (!resp.ok) throw new Error(await readApiError(resp, "Falha ao enviar logo."));
+        if (window.Swal && Swal.isLoading()) Swal.close();
+        await fillOwnerIdentidade(id);
+        Swal.fire({ icon: "success", title: "Logo atualizada", timer: 1200, showConfirmButton: false });
+    } catch (err) {
+        if (window.Swal && Swal.isLoading()) Swal.close();
+        Swal.fire({ icon: "error", title: "Erro", text: err.message || "Erro ao enviar logo." });
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = prevLabel || "Enviar logo";
+        }
+    }
+});
+
+document.getElementById("btnOwnerRemoverLogo")?.addEventListener("click", async () => {
+    const id = document.getElementById("ownerId")?.value;
+    if (!id) return;
+    try {
+        if (window.Swal) {
+            Swal.fire({ title: "Removendo logo…", allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+        }
+        const resp = await fetch(`${API}/${id}/logo`, {
+            method: "DELETE",
+            credentials: "include",
+        });
+        if (!resp.ok) throw new Error(await readApiError(resp, "Falha ao remover logo."));
+        if (window.Swal && Swal.isLoading()) Swal.close();
+        await fillOwnerIdentidade(id);
+        Swal.fire({ icon: "success", title: "Logo removida", timer: 1200, showConfirmButton: false });
+    } catch (err) {
+        if (window.Swal && Swal.isLoading()) Swal.close();
+        Swal.fire({ icon: "error", title: "Erro", text: err.message || "Erro ao remover logo." });
     }
 });

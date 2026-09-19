@@ -16,6 +16,15 @@
   let modoMonitor = false;
   let busy = false;
 
+  function podeLancarAvulso() {
+    const u = window.__USER__ || {};
+    const role = Number(u.role);
+    if ([0, 1, 2, 3].includes(role)) return true;
+    if (role === 4) return u.pode_lancar_avulso !== false;
+    return false;
+  }
+  if (btnAvulso && !podeLancarAvulso()) btnAvulso.classList.add("d-none");
+
   try {
     if (localStorage.getItem("entradaModoMonitor") === "1") modoMonitor = true;
   } catch (_) {}
@@ -238,14 +247,48 @@
       )
       : "";
 
+    let camposCfg = [];
+    try {
+      const sch = await req("/configuracoes/campos-avulso/schema?contexto=ENTRADA_AVULSO", { method: "GET" });
+      if (sch?.ok && Array.isArray(sch.data?.campos)) camposCfg = sch.data.campos;
+    } catch (_) {}
+    const camposHtml = (camposCfg || []).map((c) => {
+      const req = c.obrigatorio ? ' <span class="text-danger">*</span>' : "";
+      const id = `avulso-campo-${c.chave}`;
+      if (c.tipo === "lista") {
+        const opts = (c.opcoes || []).map((o) => `<option value="${String(o).replace(/"/g, "&quot;")}">${o}</option>`).join("");
+        return `<label class="form-label mb-1" for="${id}">${c.label}${req}</label>
+          <select id="${id}" class="form-select mb-3"><option value="">Selecione</option>${opts}</select>`;
+      }
+      const inputType = c.tipo === "numero" ? "number" : (c.tipo === "telefone" ? "tel" : "text");
+      const ph = String(c.placeholder || "").replace(/"/g, "&quot;");
+      const hint = c.tipo_hint ? `<div class="form-text mb-3">${c.tipo_hint}</div>` : '<div class="mb-3"></div>';
+      return `<label class="form-label mb-1" for="${id}">${c.label}${req}</label>
+        <input id="${id}" type="${inputType}" class="form-control" placeholder="${ph}" />
+        ${hint}`;
+    }).join("");
+
+    const usarLegado = !camposCfg.length;
+    const identificacaoHtml = usarLegado
+      ? (
+        '<label class="form-label mb-1" for="swal-ident">Identificação</label>' +
+        '<input id="swal-ident" class="form-control mb-3" placeholder="Ex.: Cliente João">'
+      )
+      : "";
+    const quantidadeHtml = usarLegado
+      ? (
+        '<label class="form-label mb-1" for="swal-qtd">Quantidade</label>' +
+        '<input id="swal-qtd" type="number" min="1" max="50" value="1" class="form-control ' + (mostrarFoto ? "mb-3" : "") + '" placeholder="Quantidade">'
+      )
+      : "";
+
     const { value: formValues } = await Swal.fire({
       title: "Lançar Avulso (entrada)",
       html:
         '<div class="text-start">' +
-        '<label class="form-label mb-1" for="swal-ident">Identificação</label>' +
-        '<input id="swal-ident" class="form-control mb-3" placeholder="Ex.: Cliente João">' +
-        '<label class="form-label mb-1" for="swal-qtd">Quantidade</label>' +
-        '<input id="swal-qtd" type="number" min="1" max="50" value="1" class="form-control ' + (mostrarFoto ? "mb-3" : "") + '" placeholder="Quantidade">' +
+        identificacaoHtml +
+        camposHtml +
+        quantidadeHtml +
         fotoFieldHtml +
         "</div>",
       focusConfirm: false,
@@ -253,26 +296,39 @@
       confirmButtonText: "Criar",
       cancelButtonText: "Cancelar",
       preConfirm: () => {
-        const qtd = Number(document.getElementById("swal-qtd").value || 0);
+        const qtd = usarLegado
+          ? Number(document.getElementById("swal-qtd")?.value || 0)
+          : 1;
         const fotoEl = document.getElementById("swal-foto");
         const fotoFile = fotoEl && fotoEl.files && fotoEl.files[0] ? fotoEl.files[0] : null;
-        if (!qtd || qtd < 1) {
-          Swal.showValidationMessage("Informe a quantidade.");
-          return false;
+        const identificacao = usarLegado
+          ? ((document.getElementById("swal-ident")?.value || "").trim() || null)
+          : null;
+        const campos = {};
+        for (const c of camposCfg) {
+          const el = document.getElementById(`avulso-campo-${c.chave}`);
+          const v = String(el?.value || "").trim();
+          if (v) campos[c.chave] = v;
+          if (c.obrigatorio && !v) {
+            Swal.showValidationMessage(`Campo obrigatório: ${c.label}`);
+            return false;
+          }
         }
-        if (qtd > 50) {
-          Swal.showValidationMessage("Quantidade máxima é 50.");
-          return false;
+        if (usarLegado) {
+          if (!qtd || qtd < 1) {
+            Swal.showValidationMessage("Informe a quantidade.");
+            return false;
+          }
+          if (qtd > 50) {
+            Swal.showValidationMessage("Quantidade máxima é 50.");
+            return false;
+          }
         }
         if (exigeFoto && !fotoFile) {
           Swal.showValidationMessage("Foto obrigatória para este usuário.");
           return false;
         }
-        return {
-          identificacao: (document.getElementById("swal-ident").value || "").trim() || null,
-          quantidade: qtd,
-          fotoFile,
-        };
+        return { identificacao, quantidade: qtd, fotoFile, campos };
       },
     });
     if (!formValues) return;
@@ -295,6 +351,7 @@
       identificacao: formValues.identificacao,
       quantidade: formValues.quantidade,
     };
+    if (formValues.campos && Object.keys(formValues.campos).length) body.campos = formValues.campos;
     if (fotoPayload.foto_object_key) body.foto_object_key = fotoPayload.foto_object_key;
     if (fotoPayload.photo_id) body.photo_id = fotoPayload.photo_id;
 
