@@ -49,6 +49,9 @@
       avulso: !!qs("#defLancarAvulso")?.checked,
       foto: !!qs("#defAvulsoFoto")?.checked,
       aplicar: !!qs("#aplicarAosMotoboys")?.checked,
+      prefixos: (qs("#coberturaPrefixos")?.value || "").trim(),
+      limite: qs("#limiteDiarioDefault")?.value || "",
+      expiracao: qs("#expiracaoDias")?.value || "",
     });
   }
 
@@ -235,6 +238,10 @@
     qs("#defLancarAvulso").checked = pad.pode_lancar_avulso !== false;
     qs("#defAvulsoFoto").checked = !!pad.avulso_exige_foto;
     qs("#aplicarAosMotoboys").checked = false;
+    const cob = data?.cobertura || {};
+    if (qs("#coberturaPrefixos")) qs("#coberturaPrefixos").value = (cob.prefixos || []).join(", ");
+    if (qs("#limiteDiarioDefault")) qs("#limiteDiarioDefault").value = cob.limite_diario_default || 50;
+    if (qs("#expiracaoDias")) qs("#expiracaoDias").value = cob.expiracao_dias || 30;
     syncUiDeps();
   }
 
@@ -351,6 +358,14 @@
         avulso_exige_foto: !!qs("#defAvulsoFoto").checked,
       },
       aplicar_padroes_aos_motoboys: aplicar,
+      cobertura: {
+        prefixos: String(qs("#coberturaPrefixos")?.value || "")
+          .split(/[\s,;]+/)
+          .map((s) => s.trim())
+          .filter(Boolean),
+        limite_diario_default: Number(qs("#limiteDiarioDefault")?.value || 50),
+        expiracao_dias: Number(qs("#expiracaoDias")?.value || 30),
+      },
     };
 
     hydrating = true;

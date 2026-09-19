@@ -146,6 +146,28 @@
               </div>
 
               <div class="card mb-3">
+                <div class="card-header fw-semibold">Área de Cobertura</div>
+                <div class="card-body">
+                  <p class="text-muted small">Prefixos de CEP (ex.: 064, 066). Vazio permite qualquer CEP. O seller do portal é bloqueado fora da lista; a operação só recebe aviso.</p>
+                  <div class="mb-3">
+                    <label class="form-label" for="coberturaPrefixos">Prefixos</label>
+                    <textarea class="form-control" id="coberturaPrefixos" rows="3" placeholder="064, 066, 063, 061" style="max-width: 420px;"></textarea>
+                    <small class="text-muted">Separe por vírgula ou quebra de linha. Use os dígitos iniciais do CEP.</small>
+                  </div>
+                  <div class="row g-3" style="max-width: 420px;">
+                    <div class="col-6">
+                      <label class="form-label" for="limiteDiarioDefault">Limite diário padrão</label>
+                      <input type="number" class="form-control" id="limiteDiarioDefault" min="1" max="9999" value="50">
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label" for="expiracaoDias">Expirar etiqueta (dias)</label>
+                      <input type="number" class="form-control" id="expiracaoDias" min="1" max="365" value="30">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card mb-3">
                 <div class="card-header fw-semibold">Identidade visual</div>
                 <div class="card-body">
                   <p class="text-muted small mb-3">
@@ -206,6 +228,6 @@
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
     <script src="assets/js/pages/logo-crop-modal.js?v=1.0"></script>
-    <script src="assets/js/pages/tracking-politicas-gerais.init.js?v=1.4"></script>
+    <script src="assets/js/pages/tracking-politicas-gerais.init.js?v=1.5"></script>
   </body>
 </html>

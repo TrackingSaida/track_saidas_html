@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  @@include("partials/title-meta.html", {"title": "Acompanhar pedidos"})
+  @@include("partials/head-css.html")
+</head>
+<body class="bg-light">
+  @@include("partials/portal-nav.html")
+  <main class="container py-4">
+    <h1 class="h4 mb-3">Acompanhar pedidos</h1>
+    <div class="card mb-3">
+      <div class="card-body">
+        <form id="formFiltros" class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label" for="filtroQ">Código ou destinatário</label>
+            <input class="form-control" id="filtroQ" placeholder="Buscar">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" for="filtroCanal">Canal de venda</label>
+            <select class="form-select" id="filtroCanal">
+              <option value="">Todos</option>
+              <option value="site">Site</option>
+              <option value="mercado_livre">Mercado Livre</option>
+              <option value="shopee">Shopee</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" for="filtroStatus">Status</label>
+            <select class="form-select" id="filtroStatus">
+              <option value="">Todos</option>
+              <option value="aguardando_coleta">Aguardando coleta</option>
+              <option value="coletado">Coletado</option>
+              <option value="em_entrega">Saiu para entrega</option>
+              <option value="ausente">Destinatário ausente</option>
+              <option value="entregue">Entregue</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div id="listaLoading" class="text-muted">Carregando pedidos…</div>
+        <div id="listaErro" class="text-danger d-none"></div>
+        <div id="listaVazia" class="text-muted d-none">Nenhum pedido encontrado.</div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Canal</th>
+                <th>Destinatário</th>
+                <th>Status</th>
+                <th>Data</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbodyPedidos"></tbody>
+          </table>
+        </div>
+        <p id="listaTotal" class="small text-muted mt-3 mb-0 d-none"></p>
+      </div>
+    </div>
+  </main>
+  <script src="assets/js/plugins.js"></script>
+  <script src="assets/js/pages/portal-common.js"></script>
+  <script src="assets/js/pages/portal-pedidos.init.js"></script>
+</body>
+</html>

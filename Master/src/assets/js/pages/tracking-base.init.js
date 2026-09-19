@@ -88,17 +88,20 @@ async function http(url, options = {}) {
 
   const r = await fetch(url, opts);
 
-  if (!r.ok) {
-    // Tenta pegar o texto do erro
-    let errText = "";
-    try {
-      errText = await r.text();
-    } catch (e) {}
-
-    const err = new Error(errText || r.statusText);
-    err.status = r.status;
-    throw err;
-  }
+    if (!r.ok) {
+      let errText = "";
+      try {
+        errText = await r.text();
+      } catch (e) {}
+      try {
+        const j = JSON.parse(errText);
+        if (typeof j.detail === "string") errText = j.detail;
+        else if (j.detail && typeof j.detail.message === "string") errText = j.detail.message;
+      } catch (e) {}
+      const err = new Error(errText || r.statusText);
+      err.status = r.status;
+      throw err;
+    }
 
   // Se houver JSON, retorna JSON
   try {
@@ -309,6 +312,7 @@ async function apiDelete(id) {
     wrap.classList.remove("d-none");
     if (empty) empty.classList.add("d-none");
     if (content) content.classList.remove("d-none");
+    loadPortalAcesso();
   }
 
   async function loadSellerDetail() {
@@ -467,6 +471,60 @@ async function apiDelete(id) {
     };
   }
 
+  let PORTAL_ACCESS = null;
+
+  function showPortalSenha(login, senha) {
+    const texto = `Login: ${login}\nSenha temporária: ${senha}\n\nCopie e envie ao seller. A senha não será exibida de novo.`;
+    if (window.Swal) {
+      Swal.fire({
+        icon: "success",
+        title: "Acesso ao portal",
+        html: `<p class="text-start mb-2"><strong>Login:</strong> ${login}</p>
+               <p class="text-start mb-0"><strong>Senha temporária:</strong> ${senha}</p>
+               <p class="text-muted small text-start mt-3 mb-0">Copie e envie ao seller. Ele deve trocar a senha no primeiro acesso.</p>`,
+      });
+      return;
+    }
+    alert(texto);
+  }
+
+  async function loadPortalAcesso() {
+    const statusEl = qs("#portal-seller-status");
+    const btnLib = qs("#btnPortalLiberar");
+    const btnReset = qs("#btnPortalReset");
+    const btnOff = qs("#btnPortalDesativar");
+    PORTAL_ACCESS = null;
+    if (!SELECTED_ID || !statusEl) return;
+    try {
+      const data = await http(`${API_URL}/portal/acessos?id_base=${encodeURIComponent(SELECTED_ID)}`);
+      PORTAL_ACCESS = data;
+      const st = data?.status || "sem_acesso";
+      if (st === "ativo") {
+        statusEl.textContent = `Acesso ativo. Login: ${data.acesso?.login || "—"}.`;
+        btnLib?.classList.add("d-none");
+        btnReset?.classList.remove("d-none");
+        btnOff?.classList.remove("d-none");
+      } else if (st === "desativado") {
+        statusEl.textContent = "Acesso desativado.";
+        btnLib?.classList.add("d-none");
+        btnReset?.classList.remove("d-none");
+        btnOff?.classList.add("d-none");
+      } else {
+        statusEl.textContent = data?.endereco_completo
+          ? "Sem acesso ao portal."
+          : "Complete o endereço do seller para liberar o portal.";
+        btnLib?.classList.remove("d-none");
+        btnReset?.classList.add("d-none");
+        btnOff?.classList.add("d-none");
+      }
+    } catch (_) {
+      statusEl.textContent = "Portal indisponível para esta operação.";
+      btnLib?.classList.add("d-none");
+      btnReset?.classList.add("d-none");
+      btnOff?.classList.add("d-none");
+    }
+  }
+
   // =======================================================
   // Eventos
   // =======================================================
@@ -603,6 +661,47 @@ async function apiDelete(id) {
       openForm("create");
       qs("#btnHeaderEdit").disabled = true;
       qs("#btnHeaderDel").disabled = true;
+    });
+
+    qs("#btnPortalLiberar")?.addEventListener("click", async () => {
+      if (!SELECTED_ID) return;
+      try {
+        const data = await http(`${API_URL}/portal/acessos`, {
+          method: "POST",
+          body: JSON.stringify({ id_base: Number(SELECTED_ID) }),
+        });
+        showPortalSenha(data.login, data.senha_temporaria);
+        await loadPortalAcesso();
+      } catch (err) {
+        toast(err.message || "Não foi possível liberar o portal.", false);
+      }
+    });
+
+    qs("#btnPortalReset")?.addEventListener("click", async () => {
+      const id = PORTAL_ACCESS?.acesso?.id;
+      if (!id) return;
+      try {
+        const data = await http(`${API_URL}/portal/acessos/${id}/reset-senha`, { method: "POST", body: "{}" });
+        showPortalSenha(data.login, data.senha_temporaria);
+        await loadPortalAcesso();
+      } catch (err) {
+        toast(err.message || "Não foi possível resetar a senha.", false);
+      }
+    });
+
+    qs("#btnPortalDesativar")?.addEventListener("click", async () => {
+      const id = PORTAL_ACCESS?.acesso?.id;
+      if (!id) return;
+      try {
+        await http(`${API_URL}/portal/acessos/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ ativo: false }),
+        });
+        toast("Acesso ao portal desativado.");
+        await loadPortalAcesso();
+      } catch (err) {
+        toast(err.message || "Não foi possível desativar o acesso.", false);
+      }
     });
 
     qs("#btnHeaderEdit")?.addEventListener("click", async () => {
