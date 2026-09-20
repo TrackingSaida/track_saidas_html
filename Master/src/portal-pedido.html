@@ -3,21 +3,22 @@
 <head>
   @@include("partials/title-meta.html", {"title": "Pedido"})
   @@include("partials/head-css.html")
+  <link href="assets/css/portal-shell.css?v=1" rel="stylesheet">
 </head>
-<body class="bg-light">
-  @@include("partials/portal-nav.html")
-  <main class="container py-4" style="max-width: 760px;">
+<body>
+  @@include("partials/portal-shell.html")
+  <div class="portal-body" style="max-width: 760px;">
     <p class="mb-3"><a href="portal-pedidos.html">← Voltar aos pedidos</a></p>
     <div id="boxLoading" class="text-muted">Carregando pedido…</div>
-    <div id="boxErro" class="text-danger d-none"></div>
+    <div id="boxErro" class="alert alert-danger d-none"></div>
     <div id="boxPedido" class="d-none">
       <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
         <div>
-          <h1 class="h4 mb-1" id="pedidoCodigo">Pedido</h1>
+          <h1 class="portal-page-title mb-1" id="pedidoCodigo">Pedido</h1>
           <p class="text-muted mb-0" id="pedidoCanal"></p>
         </div>
         <div class="text-md-end">
-          <span class="badge bg-primary-subtle text-primary fs-6" id="pedidoStatus"></span>
+          <span id="pedidoStatus"></span>
         </div>
       </div>
       <div class="card mb-3">
@@ -32,17 +33,21 @@
         <div class="card-body">
           <h2 class="h6">Acompanhamento</h2>
           <div id="timelineVazia" class="text-muted d-none">Ainda não há eventos neste pedido.</div>
-          <ol id="timeline" class="list-group list-group-flush"></ol>
+          <ol id="timeline" class="list-group list-group-flush portal-detail-timeline"></ol>
         </div>
       </div>
-      <div id="boxAcoes" class="d-none">
+      <div id="boxAcoes" class="d-none d-flex flex-wrap gap-2">
         <button type="button" class="btn btn-soft-primary" id="btnPdf">Reimprimir etiqueta</button>
         <button type="button" class="btn btn-soft-danger d-none" id="btnCancelar">Cancelar etiqueta</button>
       </div>
     </div>
-  </main>
-  <script src="assets/js/plugins.js"></script>
-  <script src="assets/js/pages/portal-common.js"></script>
-  <script src="assets/js/pages/portal-pedido.init.js"></script>
+  </div>
+  </div><!-- /.portal-main -->
+</div><!-- /.portal-app -->
+
+<script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/plugins.js"></script>
+<script src="assets/js/pages/portal-common.js"></script>
+<script src="assets/js/pages/portal-pedido.init.js"></script>
 </body>
 </html>

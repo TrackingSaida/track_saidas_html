@@ -1,16 +1,72 @@
 <!doctype html>
 <html lang="pt-br">
 <head>
-  @@include("partials/title-meta.html", {"title": "Minhas etiquetas"})
+  @@include("partials/title-meta.html", {"title": "Etiquetas"})
   @@include("partials/head-css.html")
+  <link href="assets/css/portal-shell.css?v=1" rel="stylesheet">
 </head>
-<body class="bg-light">
-  @@include("partials/portal-nav.html")
-  <main class="container py-4">
-    <h1 class="h4 mb-3">Minhas etiquetas</h1>
+<body>
+  @@include("partials/portal-shell.html")
+  <div class="portal-body">
+    <h1 class="portal-page-title">Etiquetas</h1>
+    <p class="portal-page-sub">Reimprima, acompanhe ou cancele etiquetas emitidas.</p>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <form id="formFiltros" class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label" for="filtroQ">Código ou destinatário</label>
+            <input class="form-control" id="filtroQ" placeholder="Buscar">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" for="filtroStatus">Status</label>
+            <select class="form-select" id="filtroStatus">
+              <option value="">Todos</option>
+              <option value="aguardando_coleta">Aguardando coleta</option>
+              <option value="coletado">Coletado</option>
+              <option value="em_entrega">Saiu para entrega</option>
+              <option value="entregue">Entregue</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label" for="filtroDe">De</label>
+            <input type="date" class="form-control" id="filtroDe">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label" for="filtroAte">Até</label>
+            <input type="date" class="form-control" id="filtroAte">
+          </div>
+          <div class="col-md-1">
+            <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="portal-kpi-grid" id="kpiEtiquetas">
+      <div class="portal-kpi" style="cursor:default">
+        <p class="kpi-label">Total na lista</p>
+        <p class="kpi-value" id="kpiTotal">0</p>
+      </div>
+      <div class="portal-kpi" style="cursor:default">
+        <p class="kpi-label">Aguardando coleta</p>
+        <p class="kpi-value" id="kpiAguardando">0</p>
+      </div>
+      <div class="portal-kpi" style="cursor:default">
+        <p class="kpi-label">Canceláveis</p>
+        <p class="kpi-value" id="kpiCancelaveis">0</p>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-body">
-        <div id="listaVazia" class="text-muted d-none">Nenhuma etiqueta emitida ainda.</div>
+        <div id="listaLoading" class="text-muted d-none">Carregando…</div>
+        <div id="listaErro" class="alert alert-danger d-none"></div>
+        <div id="listaVazia" class="ps-empty d-none">
+          <i class="ri-price-tag-3-line" aria-hidden="true"></i>
+          Nenhuma etiqueta encontrada.
+        </div>
         <div class="table-responsive">
           <table class="table align-middle mb-0">
             <thead>
@@ -18,6 +74,7 @@
                 <th>Código</th>
                 <th>Destinatário</th>
                 <th>Status</th>
+                <th>Emissão</th>
                 <th></th>
               </tr>
             </thead>
@@ -26,9 +83,31 @@
         </div>
       </div>
     </div>
-  </main>
-  <script src="assets/js/plugins.js"></script>
-  <script src="assets/js/pages/portal-common.js"></script>
-  <script src="assets/js/pages/portal-etiquetas.init.js"></script>
+  </div>
+  </div><!-- /.portal-main -->
+</div><!-- /.portal-app -->
+
+<div class="modal fade" id="modalCancelar" tabindex="-1" aria-labelledby="modalCancelarLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title h5" id="modalCancelarLabel">Cancelar etiqueta</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0">Cancelar a etiqueta <strong id="cancelCodigo">—</strong>? Só é possível antes da coleta.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Manter</button>
+        <button type="button" class="btn btn-danger" id="btnConfirmarCancelar">Cancelar etiqueta</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/plugins.js"></script>
+<script src="assets/js/pages/portal-common.js"></script>
+<script src="assets/js/pages/portal-etiquetas.init.js"></script>
 </body>
 </html>
