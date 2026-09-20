@@ -35,6 +35,25 @@
   let baselineIdentidade = "";
   let hydrating = false;
 
+  function asBoolFlag(value, fallback) {
+    if (value === true || value === 1 || value === "true" || value === "1") return true;
+    if (value === false || value === 0 || value === "false" || value === "0") return false;
+    return fallback;
+  }
+
+  function fillAvulsoFlags(pad) {
+    const hasColeta = Object.prototype.hasOwnProperty.call(pad, "pode_criar_avulso_coleta");
+    const hasSaida = Object.prototype.hasOwnProperty.call(pad, "pode_criar_avulso_saida");
+    const legado = asBoolFlag(pad.pode_lancar_avulso, true);
+    if (hasColeta || hasSaida) {
+      qs("#defCriarAvulsoColeta").checked = asBoolFlag(pad.pode_criar_avulso_coleta, false);
+      qs("#defCriarAvulsoSaida").checked = asBoolFlag(pad.pode_criar_avulso_saida, false);
+      return;
+    }
+    qs("#defCriarAvulsoColeta").checked = legado;
+    qs("#defCriarAvulsoSaida").checked = legado;
+  }
+
   function snapshotPoliticas() {
     return JSON.stringify({
       coleta: !!qs("#coletaHabilitada")?.checked,
@@ -233,12 +252,7 @@
     qs("#defPodeColeta").checked = !!pad.pode_realizar_coleta;
     qs("#defPodeSaida").checked = pad.pode_ler_saida !== false;
     qs("#defDigitarManual").checked = !!pad.pode_digitar_codigo_manual;
-    qs("#defCriarAvulsoColeta").checked = pad.pode_criar_avulso_coleta !== undefined
-      ? pad.pode_criar_avulso_coleta !== false
-      : pad.pode_lancar_avulso !== false;
-    qs("#defCriarAvulsoSaida").checked = pad.pode_criar_avulso_saida !== undefined
-      ? pad.pode_criar_avulso_saida !== false
-      : pad.pode_lancar_avulso !== false;
+    fillAvulsoFlags(pad);
     qs("#defAvulsoFoto").checked = !!pad.avulso_exige_foto;
     qs("#aplicarAosMotoboys").checked = false;
     syncUiDeps();
@@ -355,6 +369,9 @@
         pode_digitar_codigo_manual: !!qs("#defDigitarManual").checked,
         pode_criar_avulso_coleta: !!qs("#defCriarAvulsoColeta").checked,
         pode_criar_avulso_saida: !!qs("#defCriarAvulsoSaida").checked,
+        pode_lancar_avulso: !!(
+          qs("#defCriarAvulsoColeta").checked || qs("#defCriarAvulsoSaida").checked
+        ),
         avulso_exige_foto: !!qs("#defAvulsoFoto").checked,
       },
       aplicar_padroes_aos_motoboys: aplicar,
@@ -363,7 +380,7 @@
     hydrating = true;
     try {
       const data = await http(API, { method: "PATCH", body: JSON.stringify(payload) });
-      fillForm(data);
+      if (data && data.padroes_motoboy) fillForm(data);
     } finally {
       hydrating = false;
     }

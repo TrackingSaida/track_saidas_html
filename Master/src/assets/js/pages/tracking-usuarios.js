@@ -333,9 +333,14 @@ function toggleMotoboySection() {
     if (modalBody) modalBody.scrollTop = 0;
 }
 
+function asBoolFlag(value, fallback) {
+    if (value === true || value === 1 || value === "true" || value === "1") return true;
+    if (value === false || value === 0 || value === "false" || value === "0") return false;
+    return fallback;
+}
+
 function flagAvulsoOuLegado(novo, legado) {
-    if (novo === undefined || novo === null) return legado !== false;
-    return novo !== false;
+    return asBoolFlag(novo, asBoolFlag(legado, true));
 }
 
 function toggleAvulsoExigeFotoVisibility() {
