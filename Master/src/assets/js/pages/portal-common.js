@@ -126,6 +126,52 @@
     );
   }
 
+  function formatRelative(iso) {
+    if (!iso) return "";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    var diffMs = Date.now() - d.getTime();
+    if (diffMs < 0) diffMs = 0;
+    var min = Math.floor(diffMs / 60000);
+    if (min < 1) return "Atualizado agora";
+    if (min < 60) return "Atualizado há " + min + " min";
+    var h = Math.floor(min / 60);
+    if (h < 24) return "Atualizado há " + h + " h";
+    var days = Math.floor(h / 24);
+    if (days === 1) return "Atualizado ontem";
+    if (days < 7) return "Atualizado há " + days + " dias";
+    return "Atualizado em " + formatDate(iso);
+  }
+
+  function renderTimeline(ol, vaziaEl, events) {
+    if (!ol) return;
+    ol.innerHTML = "";
+    events = events || [];
+    if (!events.length) {
+      if (vaziaEl) vaziaEl.classList.remove("d-none");
+      return;
+    }
+    if (vaziaEl) vaziaEl.classList.add("d-none");
+    events.forEach(function (ev, idx) {
+      var li = document.createElement("li");
+      li.className = "list-group-item px-0 portal-timeline-item" + (idx === 0 ? " is-current" : "");
+      var motoboy =
+        ev.motoboy_nome && String(ev.detalhe || "").indexOf(ev.motoboy_nome) === -1
+          ? '<div class="small mt-1">Entregador: ' + escapeHtml(ev.motoboy_nome) + "</div>"
+          : "";
+      li.innerHTML =
+        '<div class="fw-semibold">' +
+        escapeHtml(ev.titulo || "") +
+        "</div>" +
+        '<div class="small text-muted">' +
+        escapeHtml(formatDateTime(ev.quando)) +
+        "</div>" +
+        (ev.detalhe ? '<div class="small mt-1">' + escapeHtml(ev.detalhe) + "</div>" : "") +
+        motoboy;
+      ol.appendChild(li);
+    });
+  }
+
   function bindSair() {
     document.getElementById("btnSair")?.addEventListener("click", function () {
       setToken("");
@@ -306,6 +352,8 @@
     escapeHtml: escapeHtml,
     formatDateTime: formatDateTime,
     formatDate: formatDate,
+    formatRelative: formatRelative,
+    renderTimeline: renderTimeline,
     bindSair: bindSair,
     highlightNav: highlightNav,
     fillIdentity: fillIdentity,

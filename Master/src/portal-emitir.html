@@ -3,7 +3,7 @@
 <head>
   @@include("partials/title-meta.html", {"title": "Emitir etiqueta"})
   @@include("partials/head-css.html")
-  <link href="assets/css/portal-shell.css?v=2" rel="stylesheet">
+  <link href="assets/css/portal-shell.css?v=3" rel="stylesheet">
 </head>
 <body>
   @@include("partials/portal-shell.html")
@@ -174,15 +174,16 @@
 
           <div class="card d-none" id="stepRevisao">
             <div class="card-body">
-              <h2 class="h6 mb-3">Revisão</h2>
-              <div id="revisaoResumo" class="small"></div>
+              <h2 class="h6 mb-1">Revisão</h2>
+              <p class="ps-section-sub">Confira os dados antes de gerar a etiqueta</p>
+              <div id="revisaoResumo" class="ps-revisao"></div>
               <div class="d-flex justify-content-between mt-3">
                 <button type="button" class="btn btn-soft-secondary" id="btnStep3Back">Voltar</button>
                 <button type="button" class="btn btn-success" id="btnEmitir">
                   <span class="btn-label">Gerar etiqueta</span>
                 </button>
               </div>
-              <p id="emitirMsg" class="small mt-2 mb-0"></p>
+              <p id="emitirMsg" class="small mt-2 mb-0" aria-live="polite"></p>
             </div>
           </div>
         </div>
