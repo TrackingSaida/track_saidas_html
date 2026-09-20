@@ -281,6 +281,42 @@
       });
   }
 
+  function loadEnviosProprios() {
+    var tbody = document.getElementById("tbody-envios-proprios");
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" class="text-muted">Carregando…</td></tr>';
+    fetch(API_ENVIOS + "?page=1&per_page=20", { credentials: "include", headers: { Accept: "application/json" } })
+      .then(function (res) {
+        if (!res.ok) throw new Error("Falha ao listar envios.");
+        return res.json();
+      })
+      .then(function (data) {
+        var items = (data && data.items) || [];
+        if (!items.length) {
+          tbody.innerHTML = '<tr><td colspan="4" class="text-muted">Nenhum envio próprio ainda.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = "";
+        items.forEach(function (it) {
+          var tr = document.createElement("tr");
+          var podeCancelar = String(it.status || "").toUpperCase() === "ETIQUETADO";
+          tr.innerHTML =
+            "<td>" + (it.codigo || "") + "</td>" +
+            "<td>" + (it.dest_nome || "—") + "</td>" +
+            "<td>" + (it.status_label || "—") + "</td>" +
+            '<td class="text-end">' +
+            (podeCancelar
+              ? '<button type="button" class="btn btn-sm btn-soft-danger btn-cancelar-envio" data-id="' + it.id_envio + '">Cancelar</button>'
+              : "") +
+            "</td>";
+          tbody.appendChild(tr);
+        });
+      })
+      .catch(function () {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-muted">Não foi possível carregar os envios.</td></tr>';
+      });
+  }
+
   function val(id) {
     var el = document.getElementById(id);
     return el ? String(el.value || "").trim() : "";
@@ -465,6 +501,7 @@
         var meta = [out.codigo, out.idEnvio ? "envio #" + out.idEnvio : ""].filter(Boolean).join(" · ");
         showPreview(out.blob, meta);
         toast("Envio criado: " + (out.codigo || "ok"), true);
+        loadEnviosProprios();
       })
       .catch(function (err) {
         toast(err.message || "Falha ao criar envio.", false);
@@ -494,6 +531,31 @@
   });
   if (selectRemetente) selectRemetente.addEventListener("change", onRemetenteChange);
   if (btnCriarEnvio) btnCriarEnvio.addEventListener("click", criarEnvioProprio);
+  var btnReloadEnvios = document.getElementById("btn-recarregar-envios");
+  if (btnReloadEnvios) btnReloadEnvios.addEventListener("click", loadEnviosProprios);
+  document.addEventListener("click", function (ev) {
+    var btn = ev.target && ev.target.closest ? ev.target.closest(".btn-cancelar-envio") : null;
+    if (!btn) return;
+    var id = btn.getAttribute("data-id");
+    if (!id) return;
+    fetch(API_ENVIOS + "/" + id + "/cancelar", {
+      method: "POST",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    })
+      .then(function (res) {
+        if (!res.ok) {
+          return res.json().then(function (body) {
+            throw new Error(parseErrorBody(body));
+          });
+        }
+        toast("Etiqueta cancelada.", true);
+        loadEnviosProprios();
+      })
+      .catch(function (err) {
+        toast(err.message || "Não foi possível cancelar.", false);
+      });
+  });
 
   ["remCep", "destCep"].forEach(function (id) {
     var el = document.getElementById(id);
@@ -538,8 +600,11 @@
   syncOrigemRemetente();
   if (currentTipoOwner() === "base") {
     loadRemetentes();
+    loadEnviosProprios();
   } else {
     if (colEnvioProprio) colEnvioProprio.classList.add("d-none");
+    var cardEnvios = document.getElementById("card-envios-proprios");
+    if (cardEnvios) cardEnvios.classList.add("d-none");
     if (colGerarEtiqueta) {
       colGerarEtiqueta.classList.remove("col-lg-6");
       colGerarEtiqueta.classList.add("col-lg-12");
