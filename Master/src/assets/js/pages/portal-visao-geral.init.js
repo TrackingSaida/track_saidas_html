@@ -20,6 +20,7 @@
   var atencaoMsg = document.getElementById("atencaoMsg");
   var atencaoLink = document.getElementById("atencaoLink");
   var boxCustom = document.getElementById("boxCustomPeriodo");
+  var emptyPeriodo = document.getElementById("emptyPeriodo");
 
   function syncPeriodButtons() {
     document.querySelectorAll(".periodo-btn").forEach(function (btn) {
@@ -51,23 +52,57 @@
         ? "—"
         : String(kpis.taxa_sucesso).replace(".", ",") + "%";
     var cards = [
-      { key: "recebidos", label: "Recebidos", value: kpis.recebidos || 0, filter: "" },
+      {
+        key: "recebidos",
+        type: "recebidos",
+        label: "Recebidos",
+        value: kpis.recebidos || 0,
+        filter: "",
+      },
       {
         key: "aguardando_coleta",
+        type: "aguardando",
         label: "Aguardando coleta",
         value: kpis.aguardando_coleta || 0,
         filter: "aguardando_coleta",
       },
-      { key: "em_rota", label: "Em rota", value: kpis.em_rota || 0, filter: "em_entrega" },
-      { key: "entregues", label: "Entregues", value: kpis.entregues || 0, filter: "entregue" },
-      { key: "cancelados", label: "Cancelados", value: kpis.cancelados || 0, filter: "cancelado" },
-      { key: "taxa", label: "Taxa de sucesso", value: taxa, filter: "entregue", hint: "sobre finalizados" },
+      {
+        key: "em_rota",
+        type: "em_rota",
+        label: "Em rota",
+        value: kpis.em_rota || 0,
+        filter: "em_entrega",
+      },
+      {
+        key: "entregues",
+        type: "entregues",
+        label: "Entregues",
+        value: kpis.entregues || 0,
+        filter: "entregue",
+      },
+      {
+        key: "cancelados",
+        type: "cancelados",
+        label: "Cancelados",
+        value: kpis.cancelados || 0,
+        filter: "cancelado",
+      },
+      {
+        key: "taxa",
+        type: "taxa",
+        label: "Taxa de sucesso",
+        value: taxa,
+        filter: "entregue",
+        hint: "sobre finalizados",
+      },
     ];
     kpiGrid.innerHTML = cards
       .map(function (c) {
         var href = pedidosUrl(c.filter ? { status: c.filter } : {});
         return (
-          '<a class="portal-kpi" href="' +
+          '<a class="portal-kpi portal-kpi--' +
+          c.type +
+          '" href="' +
           href +
           '">' +
           '<p class="kpi-label">' +
@@ -81,6 +116,12 @@
         );
       })
       .join("");
+  }
+
+  function renderEmptyPeriodo(kpis) {
+    if (!emptyPeriodo) return;
+    var recebidos = Number((kpis || {}).recebidos || 0);
+    emptyPeriodo.classList.toggle("d-none", recebidos !== 0);
   }
 
   function renderAtencao(atencao) {
@@ -178,6 +219,7 @@
       }
       content.classList.remove("d-none");
       renderKpis(data.kpis);
+      renderEmptyPeriodo(data.kpis);
       renderAtencao(data.atencao);
       renderRecentes(data.recentes);
       renderCanais(data.por_canal);
@@ -213,6 +255,12 @@
     estado.de = document.getElementById("filtroDe").value || PS.todayISO();
     estado.ate = document.getElementById("filtroAte").value || PS.todayISO();
     estado.periodo = "custom";
+    syncPeriodButtons();
+    load();
+  });
+
+  document.getElementById("btnVer7d")?.addEventListener("click", function () {
+    estado.periodo = "7d";
     syncPeriodButtons();
     load();
   });

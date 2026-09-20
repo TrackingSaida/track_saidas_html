@@ -12,6 +12,8 @@
   var emitting = false;
   var lastPdfUrl = null;
   var step = 1;
+  var remetenteData = null;
+  var remModal = null;
 
   function digits(v) {
     return PS.digitsOnly(v);
@@ -29,13 +31,17 @@
     });
   }
 
-  function showHint(ok, message) {
-    var hint = document.getElementById("hintCep");
+  function showHint(elId, ok, message) {
+    var hint = document.getElementById(elId || "hintCep");
     if (!hint) return;
     hint.textContent = message || "";
-    hint.classList.remove("d-none", "ps-cobertura-ok", "ps-cobertura-bad", "text-danger", "text-success");
+    hint.classList.remove("d-none", "ps-cobertura-ok", "ps-cobertura-bad", "text-danger", "text-success", "text-muted");
     if (!message) {
       hint.classList.add("d-none");
+      return;
+    }
+    if (ok === null) {
+      hint.classList.add("text-muted");
       return;
     }
     hint.classList.add(ok ? "ps-cobertura-ok" : "ps-cobertura-bad");
@@ -90,7 +96,7 @@
     cep = digits(cep);
     if (cep.length !== 8) {
       cepCoberto = null;
-      showHint(false, "");
+      showHint("hintCep", false, "");
       return null;
     }
     try {
@@ -99,14 +105,109 @@
       coberturaInfo = cobData;
       cepCoberto = !!cobData.coberto;
       if (!cobData.coberto) {
-        showHint(false, cobData.message || "CEP fora da área de atendimento.");
+        showHint("hintCep", false, cobData.message || "CEP fora da área de atendimento.");
       } else {
-        showHint(true, "CEP atendido." + (cobData.regiao_nome ? " Região: " + cobData.regiao_nome + "." : ""));
+        showHint(
+          "hintCep",
+          true,
+          "CEP atendido." + (cobData.regiao_nome ? " Região: " + cobData.regiao_nome + "." : "")
+        );
       }
       renderAreas(cobData);
       return cobData;
     } catch (_) {
       return null;
+    }
+  }
+
+  function lookupCep(digitsCep) {
+    var api = String(window.getTrackApiUrl ? window.getTrackApiUrl() : "").replace(/\/+$/, "");
+    return fetch(api + "/cep/" + digitsCep)
+      .then(function (r) {
+        return r.json().then(function (j) {
+          if (!r.ok || (j && j.erro)) throw new Error("cep");
+          return j;
+        });
+      })
+      .catch(function () {
+        return fetch("https://viacep.com.br/ws/" + digitsCep + "/json/").then(function (r) {
+          return r.json().then(function (j) {
+            if (!r.ok || (j && j.erro)) throw new Error("cep");
+            return j;
+          });
+        });
+      });
+  }
+
+  function applyCepToFields(j, prefix) {
+    if (!j) return;
+    var rua = document.getElementById(prefix + "Rua");
+    var bairro = document.getElementById(prefix + "Bairro");
+    var cidade = document.getElementById(prefix + "Cidade");
+    var uf = document.getElementById(prefix + "Uf");
+    var log = j.logradouro || j.rua || "";
+    var bai = j.bairro || "";
+    var loc = j.localidade || j.cidade || "";
+    var ufVal = String(j.uf || "").toUpperCase();
+    if (log && rua) rua.value = log;
+    if (bai && bairro) bairro.value = bai;
+    if (loc && cidade) cidade.value = loc;
+    if (ufVal && uf) uf.value = ufVal;
+  }
+
+  async function buscarCepDest() {
+    var destCep = document.getElementById("destCep");
+    var btn = document.getElementById("btnBuscarCepDest");
+    var cep = digits(destCep && destCep.value);
+    if (cep.length !== 8) {
+      showHint("hintCep", false, "Informe um CEP válido com 8 dígitos.");
+      return;
+    }
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Buscando…";
+    }
+    showHint("hintCep", null, "Buscando CEP…");
+    try {
+      var j = await lookupCep(cep);
+      applyCepToFields(j, "dest");
+      showHint("hintCep", true, "Endereço preenchido.");
+      await checkCobertura(cep);
+    } catch (_) {
+      showHint("hintCep", false, "Não foi possível buscar este CEP.");
+      await checkCobertura(cep);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Buscar";
+      }
+    }
+  }
+
+  async function buscarCepRem() {
+    var remCep = document.getElementById("remCep");
+    var btn = document.getElementById("btnBuscarCepRem");
+    var cep = digits(remCep && remCep.value);
+    if (cep.length !== 8) {
+      showHint("hintCepRem", false, "Informe um CEP válido com 8 dígitos.");
+      return;
+    }
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Buscando…";
+    }
+    showHint("hintCepRem", null, "Buscando CEP…");
+    try {
+      var j = await lookupCep(cep);
+      applyCepToFields(j, "rem");
+      showHint("hintCepRem", true, "Endereço preenchido.");
+    } catch (_) {
+      showHint("hintCepRem", false, "Não foi possível buscar este CEP.");
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Buscar";
+      }
     }
   }
 
@@ -147,6 +248,33 @@
     boxEmitir.classList.remove("d-none");
   });
 
+  function formatRemetenteResumo(data) {
+    data = data || {};
+    return [data.nome, data.rua, data.numero, data.bairro, data.cidade, data.uf, data.cep]
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  function fillRemetenteForm(data) {
+    data = data || {};
+    var nome = document.getElementById("remNome");
+    var cep = document.getElementById("remCep");
+    var rua = document.getElementById("remRua");
+    var numero = document.getElementById("remNumero");
+    var complemento = document.getElementById("remComplemento");
+    var bairro = document.getElementById("remBairro");
+    var cidade = document.getElementById("remCidade");
+    var uf = document.getElementById("remUf");
+    if (nome) nome.value = data.nome || "";
+    if (cep) cep.value = PS.maskCep(data.cep || "");
+    if (rua) rua.value = data.rua || "";
+    if (numero) numero.value = data.numero || "";
+    if (complemento) complemento.value = data.complemento || "";
+    if (bairro) bairro.value = data.bairro || "";
+    if (cidade) cidade.value = data.cidade || "";
+    if (uf) uf.value = String(data.uf || "").toUpperCase();
+  }
+
   async function loadRemetente() {
     var el = document.getElementById("remetenteResumo");
     var res = await PS.req("/remetente");
@@ -155,10 +283,61 @@
       el.textContent = "Não foi possível carregar o remetente.";
       return;
     }
-    el.textContent = [data.nome, data.rua, data.numero, data.bairro, data.cidade, data.uf, data.cep]
-      .filter(Boolean)
-      .join(", ");
+    remetenteData = data;
+    el.textContent = formatRemetenteResumo(data) || "Cadastro incompleto — edite o remetente.";
+    fillRemetenteForm(data);
   }
+
+  document.getElementById("btnEditarRemetente")?.addEventListener("click", function () {
+    fillRemetenteForm(remetenteData || {});
+    showHint("hintCepRem", false, "");
+    var remMsg = document.getElementById("remMsg");
+    if (remMsg) remMsg.textContent = "";
+  });
+
+  document.getElementById("btnSalvarRemetente")?.addEventListener("click", async function () {
+    var btn = document.getElementById("btnSalvarRemetente");
+    var remMsg = document.getElementById("remMsg");
+    var body = {
+      cep: digits(document.getElementById("remCep").value),
+      rua: document.getElementById("remRua").value.trim(),
+      numero: document.getElementById("remNumero").value.trim(),
+      complemento: document.getElementById("remComplemento").value.trim() || null,
+      bairro: document.getElementById("remBairro").value.trim(),
+      cidade: document.getElementById("remCidade").value.trim(),
+      uf: String(document.getElementById("remUf").value || "").toUpperCase(),
+    };
+    if (body.cep.length !== 8 || !body.rua || !body.numero || !body.bairro || !body.cidade || !body.uf) {
+      if (remMsg) remMsg.textContent = "Preencha CEP, rua, número, bairro, cidade e UF.";
+      return;
+    }
+    if (btn) btn.disabled = true;
+    if (remMsg) remMsg.textContent = "Salvando…";
+    try {
+      var res = await PS.req("/remetente", {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok) {
+        if (remMsg) remMsg.textContent = PS.parseDetail(data);
+        return;
+      }
+      await loadRemetente();
+      if (remMsg) remMsg.textContent = "Cadastro atualizado.";
+      if (!remModal) {
+        var modalEl = document.getElementById("modalRemetente");
+        if (modalEl && window.bootstrap) {
+          remModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        }
+      }
+      if (remModal) remModal.hide();
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  });
 
   var destCep = document.getElementById("destCep");
   destCep?.addEventListener("input", function () {
@@ -166,33 +345,42 @@
   });
   destCep?.addEventListener("blur", async function () {
     var cep = digits(destCep.value);
-    await checkCobertura(cep);
     if (cep.length !== 8) return;
-    try {
-      var api = String(window.getTrackApiUrl()).replace(/\/+$/, "");
-      var r = await fetch(api + "/cep/" + cep);
-      var j = await r.json();
-      if (j && !j.erro) {
-        if (j.logradouro) document.getElementById("destRua").value = j.logradouro;
-        if (j.bairro) document.getElementById("destBairro").value = j.bairro;
-        if (j.localidade) document.getElementById("destCidade").value = j.localidade;
-        if (j.uf) document.getElementById("destUf").value = j.uf;
-      }
-    } catch (_) {}
+    await buscarCepDest();
+  });
+  document.getElementById("btnBuscarCepDest")?.addEventListener("click", function () {
+    buscarCepDest();
+  });
+
+  var remCep = document.getElementById("remCep");
+  remCep?.addEventListener("input", function () {
+    remCep.value = PS.maskCep(remCep.value);
+  });
+  document.getElementById("btnBuscarCepRem")?.addEventListener("click", function () {
+    buscarCepRem();
+  });
+
+  var destTelefone = document.getElementById("destTelefone");
+  destTelefone?.addEventListener("input", function () {
+    destTelefone.value = PS.maskPhone(destTelefone.value);
   });
 
   function collectDest() {
     return {
       nome: document.getElementById("destNome").value.trim(),
+      telefone: digits(document.getElementById("destTelefone").value),
       cep: digits(document.getElementById("destCep").value),
       rua: document.getElementById("destRua").value.trim(),
       numero: document.getElementById("destNumero").value.trim(),
+      complemento: document.getElementById("destComplemento").value.trim() || null,
       bairro: document.getElementById("destBairro").value.trim(),
       cidade: document.getElementById("destCidade").value.trim(),
-      uf: document.getElementById("destUf").value.trim().toUpperCase(),
-      telefone: digits(document.getElementById("destTelefone").value) || null,
-      complemento: document.getElementById("destComplemento").value.trim() || null,
+      uf: String(document.getElementById("destUf").value || "").trim().toUpperCase(),
     };
+  }
+
+  function collectReferencia() {
+    return (document.getElementById("destReferencia").value || "").trim() || null;
   }
 
   function collectPacote() {
@@ -202,11 +390,14 @@
       peso_kg: peso != null && !isNaN(peso) ? peso : null,
       dimensoes: document.getElementById("pacoteDimensoes").value.trim() || null,
       observacao: document.getElementById("pacoteObs").value.trim() || null,
+      pedido_loja: (document.getElementById("pacotePedidoLoja").value || "").trim() || null,
     };
   }
 
   function validateDest(dest) {
-    if (!dest.nome) return "Informe o nome do destinatário.";
+    if (!dest.nome) return "Informe o nome completo do destinatário.";
+    var telLen = (dest.telefone || "").length;
+    if (telLen < 10 || telLen > 11) return "Informe um telefone válido com DDD (10 ou 11 dígitos).";
     if (dest.cep.length !== 8) return "Informe um CEP válido.";
     if (!dest.rua || !dest.numero || !dest.bairro || !dest.cidade || !dest.uf) {
       return "Complete o endereço do destinatário.";
@@ -218,7 +409,7 @@
     var dest = collectDest();
     var err = validateDest(dest);
     if (err) {
-      showHint(false, err);
+      showHint("hintCep", false, err);
       return;
     }
     var cob = await checkCobertura(dest.cep);
@@ -233,8 +424,10 @@
   document.getElementById("btnStep2Next")?.addEventListener("click", function () {
     var dest = collectDest();
     var pac = collectPacote();
+    var referencia = collectReferencia();
     var rem = document.getElementById("remetenteResumo").textContent;
-    document.getElementById("revisaoResumo").innerHTML =
+    var telFmt = dest.telefone ? PS.maskPhone(dest.telefone) : "—";
+    var html =
       "<p><strong>Remetente:</strong> " +
       PS.escapeHtml(rem) +
       "</p>" +
@@ -246,12 +439,18 @@
           .filter(Boolean)
           .join(", ")
       ) +
+      "<br>Telefone: " +
+      PS.escapeHtml(telFmt) +
+      (dest.complemento ? "<br>Complemento: " + PS.escapeHtml(dest.complemento) : "") +
+      (referencia ? "<br>Referência: " + PS.escapeHtml(referencia) : "") +
       "</p>" +
       "<p><strong>Pacote:</strong> " +
       (pac.peso_kg != null ? PS.escapeHtml(pac.peso_kg) + " kg" : "peso não informado") +
       (pac.dimensoes ? " · " + PS.escapeHtml(pac.dimensoes) : "") +
+      (pac.pedido_loja ? "<br>Pedido do site: " + PS.escapeHtml(pac.pedido_loja) : "") +
       (pac.observacao ? "<br>Obs.: " + PS.escapeHtml(pac.observacao) : "") +
       "</p>";
+    document.getElementById("revisaoResumo").innerHTML = html;
     setStep(3);
   });
   document.getElementById("btnStep3Back")?.addEventListener("click", function () {
@@ -264,6 +463,7 @@
     var btn = document.getElementById("btnEmitir");
     var dest = collectDest();
     var pac = collectPacote();
+    var referencia = collectReferencia();
     var err = validateDest(dest);
     if (err) {
       msg.textContent = err;
@@ -286,7 +486,9 @@
         peso_kg: pac.peso_kg,
         dimensoes: pac.dimensoes,
         observacao: pac.observacao,
+        pedido_loja: pac.pedido_loja,
       };
+      if (referencia) body.referencia = referencia;
       var res = await PS.req("/envios", {
         method: "POST",
         body: JSON.stringify(body),
@@ -330,20 +532,38 @@
   document.getElementById("btnNovaEtiqueta")?.addEventListener("click", function () {
     boxSucesso.classList.add("d-none");
     boxEmitir.classList.remove("d-none");
-    ["destNome", "destCep", "destRua", "destNumero", "destBairro", "destCidade", "destUf", "destTelefone", "destComplemento", "pacotePeso", "pacoteDimensoes", "pacoteObs"].forEach(
-      function (id) {
-        var el = document.getElementById(id);
-        if (el) el.value = "";
-      }
-    );
+    [
+      "destNome",
+      "destCep",
+      "destRua",
+      "destNumero",
+      "destBairro",
+      "destCidade",
+      "destTelefone",
+      "destComplemento",
+      "destReferencia",
+      "pacotePeso",
+      "pacoteDimensoes",
+      "pacoteObs",
+      "pacotePedidoLoja",
+    ].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    var ufEl = document.getElementById("destUf");
+    if (ufEl) ufEl.value = "";
     cepCoberto = null;
-    showHint(false, "");
+    showHint("hintCep", false, "");
     document.getElementById("areasAtendidas").classList.add("d-none");
     setStep(1);
   });
 
   PS.bootShell().then(function (ok) {
     if (!ok) return;
+    var modalEl = document.getElementById("modalRemetente");
+    if (modalEl && window.bootstrap) {
+      remModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    }
     loadMe()
       .then(loadRemetente)
       .then(function () {

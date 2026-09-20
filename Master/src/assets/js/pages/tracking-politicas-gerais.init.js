@@ -177,7 +177,6 @@
       foto: !!qs("#defAvulsoFoto")?.checked,
       aplicar: !!qs("#aplicarAosMotoboys")?.checked,
       regioes: getRegioesFromUi(),
-      limite: qs("#limiteDiarioDefault")?.value || "",
       expiracao: qs("#expiracaoDias")?.value || "",
     });
   }
@@ -367,7 +366,6 @@
     qs("#aplicarAosMotoboys").checked = false;
     const cob = data?.cobertura || {};
     setRegioesFromApi(cob);
-    if (qs("#limiteDiarioDefault")) qs("#limiteDiarioDefault").value = cob.limite_diario_default || 50;
     if (qs("#expiracaoDias")) qs("#expiracaoDias").value = cob.expiracao_dias || 30;
     syncUiDeps();
   }
@@ -492,7 +490,6 @@
             prefixos: r.prefixos,
           }))
           .filter((r) => !!r.nome),
-        limite_diario_default: Number(qs("#limiteDiarioDefault")?.value || 50),
         expiracao_dias: Number(qs("#expiracaoDias")?.value || 30),
       },
     };
