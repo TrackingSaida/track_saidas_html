@@ -3,7 +3,7 @@
 <head>
   @@include("partials/title-meta.html", {"title": "Pedido"})
   @@include("partials/head-css.html")
-  <link href="assets/css/portal-shell.css?v=1" rel="stylesheet">
+  <link href="assets/css/portal-shell.css?v=3" rel="stylesheet">
 </head>
 <body>
   @@include("partials/portal-shell.html")
@@ -19,15 +19,19 @@
         </div>
         <div class="text-md-end">
           <span id="pedidoStatus"></span>
+          <div class="small text-muted mt-1" id="pedidoAtualizado"></div>
         </div>
       </div>
       <div class="card mb-3">
         <div class="card-body">
           <h2 class="h6">Destinatário</h2>
-          <p class="mb-1" id="destNome"></p>
+          <p class="mb-1 fw-semibold" id="destNome"></p>
           <p class="mb-1 text-muted" id="destEndereco"></p>
           <p class="mb-0" id="destTelefone"></p>
         </div>
+      </div>
+      <div id="boxRecebimento" class="alert alert-success d-none mb-3">
+        Recebido por: <strong id="recebimentoTxt"></strong>
       </div>
       <div class="card mb-3">
         <div class="card-body">

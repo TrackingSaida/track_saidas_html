@@ -4,7 +4,6 @@
   if (!PS) return;
 
   var esc = PS.escapeHtml;
-  var fmt = PS.formatDateTime;
   var id = PS.readQuery().get("id");
   var loading = document.getElementById("boxLoading");
   var erro = document.getElementById("boxErro");
@@ -43,34 +42,33 @@
         data.status,
         data.status_label
       );
+      var atualizado = document.getElementById("pedidoAtualizado");
+      if (atualizado) {
+        atualizado.textContent = PS.formatRelative(data.atualizado_em || data.created_at) || "";
+      }
       var dest = data.destinatario || {};
       document.getElementById("destNome").textContent = dest.nome || "—";
       document.getElementById("destEndereco").textContent = data.endereco || "—";
-      var tel = dest.telefone ? "Telefone: " + dest.telefone : "";
+      var tel = dest.telefone ? "Telefone: " + PS.maskPhone(dest.telefone) : "";
       document.getElementById("destTelefone").textContent = tel;
 
-      var ol = document.getElementById("timeline");
-      var vazia = document.getElementById("timelineVazia");
-      ol.innerHTML = "";
-      var events = data.timeline || [];
-      if (!events.length) {
-        vazia.classList.remove("d-none");
-      } else {
-        vazia.classList.add("d-none");
-        events.forEach(function (ev) {
-          var li = document.createElement("li");
-          li.className = "list-group-item px-0";
-          li.innerHTML =
-            '<div class="fw-semibold">' +
-            esc(ev.titulo || "") +
-            "</div>" +
-            '<div class="small text-muted">' +
-            esc(fmt(ev.quando)) +
-            "</div>" +
-            (ev.detalhe ? '<div class="small mt-1">' + esc(ev.detalhe) + "</div>" : "");
-          ol.appendChild(li);
-        });
+      var receb = document.getElementById("boxRecebimento");
+      if (receb) {
+        if (data.recebimento && data.recebimento.nome) {
+          receb.classList.remove("d-none");
+          var txt = data.recebimento.nome;
+          if (data.recebimento.tipo) txt += " (" + data.recebimento.tipo + ")";
+          document.getElementById("recebimentoTxt").textContent = txt;
+        } else {
+          receb.classList.add("d-none");
+        }
       }
+
+      PS.renderTimeline(
+        document.getElementById("timeline"),
+        document.getElementById("timelineVazia"),
+        data.timeline || []
+      );
 
       var acoes = document.getElementById("boxAcoes");
       var btnPdf = document.getElementById("btnPdf");

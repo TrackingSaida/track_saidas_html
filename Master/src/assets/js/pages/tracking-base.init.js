@@ -779,7 +779,20 @@ async function apiDelete(id) {
     });
 
     qs("#btnCopiarLinkPortal")?.addEventListener("click", () => {
-      copiarTextoPortal(portalSellerUrl(), "Link do portal copiado.");
+      const login = PORTAL_ACCESS?.acesso?.login || "";
+      if (!login) {
+        copiarTextoPortal(
+          "Portal do Seller — Rotevo\n\nLink: " + portalSellerUrl() + "\n\nAinda sem login liberado para este seller.",
+          "Link copiado. Liberar acesso para gerar o login."
+        );
+        return;
+      }
+      const texto =
+        "Portal do Seller — Rotevo\n\n" +
+        "Link: " + portalSellerUrl() + "\n" +
+        "Login: " + login + "\n\n" +
+        "Se o seller ainda não tiver senha, use Resetar senha e copie os dados do aviso.";
+      copiarTextoPortal(texto, "Link e login copiados. Cole e envie ao seller.");
     });
 
     qs("#btnHeaderEdit")?.addEventListener("click", async () => {

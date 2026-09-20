@@ -12,7 +12,6 @@
   var totalEl = document.getElementById("listaTotal");
   var drawerEl = document.getElementById("pedidoDrawer");
   var drawer = null;
-  var useDrawer = window.matchMedia("(min-width: 992px)").matches;
 
   function syncFiltersFromUrl() {
     var q = PS.readQuery();
@@ -73,6 +72,10 @@
       }
       items.forEach(function (it) {
         var tr = document.createElement("tr");
+        tr.className = "portal-pedido-row";
+        tr.setAttribute("data-id", String(it.id_saida));
+        tr.setAttribute("role", "button");
+        tr.tabIndex = 0;
         var cidade =
           (it.dest_cidade || "") + (it.dest_uf ? (it.dest_cidade ? " / " : "") + it.dest_uf : "");
         var extra = it.codigo_marketplace
@@ -98,14 +101,6 @@
           "</td>" +
           "<td>" +
           esc(fmt(it.atualizado_em || it.updated_at || it.created_at)) +
-          "</td>" +
-          '<td class="text-end">' +
-          '<button type="button" class="btn btn-sm btn-soft-primary btn-ver d-none d-lg-inline-block" data-id="' +
-          esc(it.id_saida) +
-          '">Ver</button> ' +
-          '<a class="btn btn-sm btn-soft-primary d-lg-none" href="portal-pedido.html?id=' +
-          encodeURIComponent(it.id_saida) +
-          '">Ver</a>' +
           "</td>";
         tbody.appendChild(tr);
       });
@@ -120,11 +115,11 @@
   }
 
   async function openDrawer(id) {
-    if (!drawerEl) {
+    if (!drawerEl || !window.bootstrap) {
       location.href = "portal-pedido.html?id=" + encodeURIComponent(id);
       return;
     }
-    if (!drawer && window.bootstrap) {
+    if (!drawer) {
       drawer = bootstrap.Offcanvas.getOrCreateInstance(drawerEl);
     }
     var loadingD = document.getElementById("drawerLoading");
@@ -133,7 +128,7 @@
     loadingD.classList.remove("d-none");
     erroD.classList.add("d-none");
     contentD.classList.add("d-none");
-    if (drawer) drawer.show();
+    drawer.show();
     try {
       var res = await PS.req("/pedidos/" + encodeURIComponent(id));
       var data = await res.json().catch(function () {
@@ -154,34 +149,36 @@
         data.status,
         data.status_label
       );
+      var rel = document.getElementById("drawerAtualizado");
+      if (rel) {
+        rel.textContent = PS.formatRelative(data.atualizado_em || data.created_at) || "";
+      }
       var dest = data.destinatario || {};
       document.getElementById("drawerDestNome").textContent = dest.nome || data.dest_nome || "—";
       document.getElementById("drawerDestEndereco").textContent = data.endereco || "—";
+      var telEl = document.getElementById("drawerDestTelefone");
+      if (telEl) {
+        telEl.textContent = dest.telefone ? "Telefone: " + PS.maskPhone(dest.telefone) : "";
+      }
+      var recebBox = document.getElementById("drawerRecebimento");
+      if (recebBox) {
+        if (data.recebimento && data.recebimento.nome) {
+          recebBox.classList.remove("d-none");
+          var rtxt = data.recebimento.nome;
+          if (data.recebimento.tipo) rtxt += " (" + data.recebimento.tipo + ")";
+          document.getElementById("drawerRecebimentoTxt").textContent = rtxt;
+        } else {
+          recebBox.classList.add("d-none");
+        }
+      }
       document.getElementById("drawerLinkCompleto").href =
         "portal-pedido.html?id=" + encodeURIComponent(id);
 
-      var ol = document.getElementById("drawerTimeline");
-      var vazia = document.getElementById("drawerTimelineVazia");
-      ol.innerHTML = "";
-      var events = data.timeline || [];
-      if (!events.length) {
-        vazia.classList.remove("d-none");
-      } else {
-        vazia.classList.add("d-none");
-        events.forEach(function (ev) {
-          var li = document.createElement("li");
-          li.className = "list-group-item px-0";
-          li.innerHTML =
-            '<div class="fw-semibold">' +
-            esc(ev.titulo || "") +
-            "</div>" +
-            '<div class="small text-muted">' +
-            esc(fmt(ev.quando)) +
-            "</div>" +
-            (ev.detalhe ? '<div class="small mt-1">' + esc(ev.detalhe) + "</div>" : "");
-          ol.appendChild(li);
-        });
-      }
+      PS.renderTimeline(
+        document.getElementById("drawerTimeline"),
+        document.getElementById("drawerTimelineVazia"),
+        data.timeline || []
+      );
     } catch (ex) {
       loadingD.classList.add("d-none");
       if (ex && ex.status === 401) return;
@@ -191,9 +188,17 @@
   }
 
   tbody.addEventListener("click", function (ev) {
-    var btn = ev.target.closest(".btn-ver");
-    if (!btn) return;
-    openDrawer(btn.getAttribute("data-id"));
+    var row = ev.target.closest("tr.portal-pedido-row");
+    if (!row) return;
+    openDrawer(row.getAttribute("data-id"));
+  });
+
+  tbody.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Enter" && ev.key !== " ") return;
+    var row = ev.target.closest("tr.portal-pedido-row");
+    if (!row) return;
+    ev.preventDefault();
+    openDrawer(row.getAttribute("data-id"));
   });
 
   document.getElementById("formFiltros")?.addEventListener("submit", function (ev) {
@@ -204,7 +209,6 @@
   PS.bootShell().then(function (ok) {
     if (!ok) return;
     syncFiltersFromUrl();
-    useDrawer = window.matchMedia("(min-width: 992px)").matches;
     load();
   });
 })();

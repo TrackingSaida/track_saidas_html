@@ -428,28 +428,45 @@
     var rem = document.getElementById("remetenteResumo").textContent;
     var telFmt = dest.telefone ? PS.maskPhone(dest.telefone) : "—";
     var html =
-      "<p><strong>Remetente:</strong> " +
+      '<section class="ps-revisao-block">' +
+      "<h3>Remetente</h3>" +
+      "<p>" +
       PS.escapeHtml(rem) +
       "</p>" +
-      "<p><strong>Destinatário:</strong> " +
+      "</section>" +
+      '<section class="ps-revisao-block">' +
+      "<h3>Destinatário</h3>" +
+      '<p class="ps-revisao-name">' +
       PS.escapeHtml(dest.nome) +
-      "<br>" +
+      "</p>" +
+      "<p>" +
       PS.escapeHtml(
-        [dest.rua, dest.numero, dest.bairro, dest.cidade, dest.uf, PS.maskCep(dest.cep)]
+        [dest.rua, dest.numero, dest.bairro, dest.cidade, dest.uf]
           .filter(Boolean)
           .join(", ")
       ) +
-      "<br>Telefone: " +
-      PS.escapeHtml(telFmt) +
-      (dest.complemento ? "<br>Complemento: " + PS.escapeHtml(dest.complemento) : "") +
-      (referencia ? "<br>Referência: " + PS.escapeHtml(referencia) : "") +
       "</p>" +
-      "<p><strong>Pacote:</strong> " +
-      (pac.peso_kg != null ? PS.escapeHtml(pac.peso_kg) + " kg" : "peso não informado") +
+      '<p class="ps-revisao-meta">CEP ' +
+      PS.escapeHtml(PS.maskCep(dest.cep)) +
+      " · Telefone " +
+      PS.escapeHtml(telFmt) +
+      "</p>" +
+      (dest.complemento
+        ? "<p>Complemento: " + PS.escapeHtml(dest.complemento) + "</p>"
+        : "") +
+      (referencia ? "<p>Referência: " + PS.escapeHtml(referencia) + "</p>" : "") +
+      "</section>" +
+      '<section class="ps-revisao-block">' +
+      "<h3>Pacote</h3>" +
+      "<p>" +
+      (pac.peso_kg != null ? PS.escapeHtml(String(pac.peso_kg)) + " kg" : "Peso não informado") +
       (pac.dimensoes ? " · " + PS.escapeHtml(pac.dimensoes) : "") +
-      (pac.pedido_loja ? "<br>Pedido do site: " + PS.escapeHtml(pac.pedido_loja) : "") +
-      (pac.observacao ? "<br>Obs.: " + PS.escapeHtml(pac.observacao) : "") +
-      "</p>";
+      "</p>" +
+      (pac.pedido_loja
+        ? "<p>Pedido do site: " + PS.escapeHtml(pac.pedido_loja) + "</p>"
+        : "") +
+      (pac.observacao ? "<p>Obs.: " + PS.escapeHtml(pac.observacao) + "</p>" : "") +
+      "</section>";
     document.getElementById("revisaoResumo").innerHTML = html;
     setStep(3);
   });
@@ -479,7 +496,13 @@
 
     emitting = true;
     btn.disabled = true;
-    msg.textContent = "Gerando…";
+    btn.setAttribute("aria-busy", "true");
+    var label = btn.querySelector(".btn-label");
+    if (label) {
+      label.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Gerando etiqueta…';
+    }
+    msg.textContent = "Gerando etiqueta, aguarde…";
     try {
       var body = {
         destinatario: dest,
@@ -526,6 +549,8 @@
     } finally {
       emitting = false;
       btn.disabled = false;
+      btn.removeAttribute("aria-busy");
+      if (label) label.textContent = "Gerar etiqueta";
     }
   });
 

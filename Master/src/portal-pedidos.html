@@ -3,7 +3,7 @@
 <head>
   @@include("partials/title-meta.html", {"title": "Pedidos"})
   @@include("partials/head-css.html")
-  <link href="assets/css/portal-shell.css?v=1" rel="stylesheet">
+  <link href="assets/css/portal-shell.css?v=3" rel="stylesheet">
 </head>
 <body>
   @@include("partials/portal-shell.html")
@@ -92,6 +92,7 @@
 <div class="offcanvas offcanvas-end" tabindex="-1" id="pedidoDrawer" aria-labelledby="pedidoDrawerLabel" style="width: min(420px, 100%);">
   <div class="offcanvas-header border-bottom">
     <div>
+      <p class="small text-uppercase text-muted mb-1 fw-semibold">Detalhes do pedido</p>
       <h2 class="offcanvas-title h5 mb-0" id="pedidoDrawerLabel">Pedido</h2>
       <p class="small text-muted mb-0" id="drawerCanal"></p>
     </div>
@@ -101,16 +102,21 @@
     <div id="drawerLoading" class="text-muted">Carregando…</div>
     <div id="drawerErro" class="alert alert-danger d-none"></div>
     <div id="drawerContent" class="d-none">
-      <div class="mb-3">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
         <span id="drawerStatus"></span>
+        <span class="small text-muted" id="drawerAtualizado"></span>
       </div>
       <h3 class="h6">Destinatário</h3>
-      <p class="mb-1" id="drawerDestNome"></p>
-      <p class="text-muted small mb-3" id="drawerDestEndereco"></p>
+      <p class="mb-1 fw-semibold" id="drawerDestNome"></p>
+      <p class="text-muted small mb-1" id="drawerDestEndereco"></p>
+      <p class="small mb-3" id="drawerDestTelefone"></p>
+      <div id="drawerRecebimento" class="alert alert-success py-2 small d-none">
+        Recebido por: <strong id="drawerRecebimentoTxt"></strong>
+      </div>
       <h3 class="h6">Acompanhamento</h3>
       <div id="drawerTimelineVazia" class="text-muted small d-none">Ainda não há eventos neste pedido.</div>
       <ol id="drawerTimeline" class="list-group list-group-flush portal-detail-timeline mb-3"></ol>
-      <a class="btn btn-soft-primary btn-sm" id="drawerLinkCompleto" href="#">Abrir página completa</a>
+      <a class="btn btn-soft-secondary btn-sm" id="drawerLinkCompleto" href="#">Abrir em página</a>
     </div>
   </div>
 </div>
