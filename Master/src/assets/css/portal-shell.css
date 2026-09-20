@@ -195,11 +195,60 @@
   cursor: pointer;
 }
 
+.portal-kpi--recebidos {
+  border: 2px solid #0d9488;
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.12) 0%, rgba(255, 255, 255, 0.92) 55%);
+}
+.portal-kpi--aguardando {
+  border: 2px solid #d97706;
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.12) 0%, rgba(255, 255, 255, 0.92) 55%);
+}
+.portal-kpi--em_rota {
+  border: 2px solid #2563eb;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(255, 255, 255, 0.92) 55%);
+}
+.portal-kpi--entregues {
+  border: 2px solid #16a34a;
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.12) 0%, rgba(255, 255, 255, 0.92) 55%);
+}
+.portal-kpi--cancelados {
+  border: 2px solid #dc2626;
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.12) 0%, rgba(255, 255, 255, 0.92) 55%);
+}
+.portal-kpi--taxa {
+  border: 2px solid #64748b;
+  background: linear-gradient(135deg, rgba(100, 116, 139, 0.12) 0%, rgba(255, 255, 255, 0.92) 55%);
+}
+
 a.portal-kpi:hover,
 a.portal-kpi:focus-visible {
-  border-color: #99f6e4;
-  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.12);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
   color: inherit;
+}
+
+.portal-kpi--recebidos:hover,
+.portal-kpi--recebidos:focus-visible {
+  border-color: #0f766e;
+}
+.portal-kpi--aguardando:hover,
+.portal-kpi--aguardando:focus-visible {
+  border-color: #b45309;
+}
+.portal-kpi--em_rota:hover,
+.portal-kpi--em_rota:focus-visible {
+  border-color: #1d4ed8;
+}
+.portal-kpi--entregues:hover,
+.portal-kpi--entregues:focus-visible {
+  border-color: #15803d;
+}
+.portal-kpi--cancelados:hover,
+.portal-kpi--cancelados:focus-visible {
+  border-color: #b91c1c;
+}
+.portal-kpi--taxa:hover,
+.portal-kpi--taxa:focus-visible {
+  border-color: #475569;
 }
 
 .portal-kpi .kpi-label {
@@ -307,6 +356,23 @@ a.portal-kpi:focus-visible {
   color: #94a3b8;
 }
 
+.ps-empty-cta {
+  text-align: center;
+  padding: 1.5rem 1.25rem;
+  margin-bottom: 1.25rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: var(--ps-radius);
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+  color: var(--ps-text);
+}
+
+.ps-empty-cta i {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #64748b;
+}
+
 .ps-attention {
   border: 1px solid #fdba74;
   background: #fff7ed;
@@ -343,6 +409,24 @@ a.portal-kpi:focus-visible {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--ps-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.ps-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .ps-step.is-active {
@@ -351,9 +435,137 @@ a.portal-kpi:focus-visible {
   color: #0f766e;
 }
 
+.ps-step.is-active .ps-step-num {
+  background: #0d9488;
+  color: #fff;
+}
+
 .ps-step.is-done {
   border-color: #99f6e4;
   color: #0f766e;
+}
+
+.ps-step.is-done .ps-step-num {
+  background: #99f6e4;
+  color: #0f766e;
+}
+
+/* Emitir — layout */
+.portal-eyebrow {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ps-cyan);
+  margin-bottom: 0.35rem;
+}
+
+.portal-emitir-header {
+  margin-bottom: 1rem;
+}
+
+.portal-emitir-header .portal-page-sub {
+  margin-bottom: 0.5rem;
+}
+
+.ps-remetente-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius);
+  background: #fff;
+  padding: 0.95rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.ps-remetente-box .ps-remetente-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.4rem;
+  background: rgba(13, 148, 136, 0.12);
+  color: #0f766e;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.ps-remetente-box .ps-remetente-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ps-remetente-box .ps-remetente-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ps-muted);
+  margin: 0 0 0.2rem;
+}
+
+.ps-remetente-box #remetenteResumo {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--ps-text);
+}
+
+.ps-tip-card {
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius);
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+  padding: 1rem 1.05rem;
+  margin-bottom: 1rem;
+}
+
+.ps-tip-card h3 {
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+  color: var(--ps-deep);
+}
+
+.ps-tip-card p {
+  font-size: 0.85rem;
+  color: var(--ps-muted);
+  margin: 0 0 0.75rem;
+}
+
+.ps-tip-card ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  color: var(--ps-text);
+}
+
+.ps-tip-card li + li {
+  margin-top: 0.35rem;
+}
+
+.ps-req-note {
+  font-size: 0.8rem;
+  color: var(--ps-muted);
+  margin: 0 0 1rem;
+}
+
+.ps-cep-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.ps-cep-row .form-control {
+  flex: 1;
+}
+
+.ps-section-sub {
+  font-size: 0.85rem;
+  color: var(--ps-muted);
+  margin: -0.35rem 0 1rem;
 }
 
 .ps-cobertura-ok {
