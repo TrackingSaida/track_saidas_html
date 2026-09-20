@@ -1189,7 +1189,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   (function syncPermissaoAvulsoColeta() {
     const u = window.__USER__ || {};
     const role = Number(u.role);
-    const pode = [0, 1, 2, 3].includes(role) || (role === 4 && u.pode_lancar_avulso !== false);
+    const pode = [0, 1, 2, 3].includes(role) || (role === 4 && (u.pode_criar_avulso_coleta !== undefined ? u.pode_criar_avulso_coleta !== false : u.pode_lancar_avulso !== false));
     const btn = qs("#btnLancarAvulso");
     if (btn && !pode) btn.classList.add("d-none");
   })();
