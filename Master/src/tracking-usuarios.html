@@ -187,8 +187,12 @@
                                 <div id="d-pode-codigo-manual">—</div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label text-primary fw-medium mb-1">Pode lançar avulso</label>
-                                <div id="d-pode-lancar-avulso">—</div>
+                                <label class="form-label text-primary fw-medium mb-1">Pode lançar avulso na coleta</label>
+                                <div id="d-pode-criar-avulso-coleta">—</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-primary fw-medium mb-1">Pode lançar avulso na saída</label>
+                                <div id="d-pode-criar-avulso-saida">—</div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label text-primary fw-medium mb-1">Obriga foto no avulso</label>
@@ -440,9 +444,18 @@
                     <div class="col-12">
                       <div class="mb-3">
                         <div class="form-check">
-                          <input class="form-check-input" type="checkbox" id="podeLancarAvulso" checked>
-                          <label class="form-check-label" for="podeLancarAvulso">Pode lançar avulso</label>
+                          <input class="form-check-input" type="checkbox" id="podeCriarAvulsoColeta" checked>
+                          <label class="form-check-label" for="podeCriarAvulsoColeta">Pode lançar avulso na coleta</label>
                           <div class="form-text">Exceção em relação ao padrão da base.</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div class="mb-3">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="podeCriarAvulsoSaida" checked>
+                          <label class="form-check-label" for="podeCriarAvulsoSaida">Pode lançar avulso na saída</label>
+                          <div class="form-text">Exceção: na saída, selecionar avulso continua liberado.</div>
                         </div>
                       </div>
                     </div>

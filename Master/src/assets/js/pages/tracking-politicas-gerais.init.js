@@ -46,7 +46,8 @@
       podeColeta: !!qs("#defPodeColeta")?.checked,
       podeSaida: !!qs("#defPodeSaida")?.checked,
       digitar: !!qs("#defDigitarManual")?.checked,
-      avulso: !!qs("#defLancarAvulso")?.checked,
+      avulsoColeta: !!qs("#defCriarAvulsoColeta")?.checked,
+      avulsoSaida: !!qs("#defCriarAvulsoSaida")?.checked,
       foto: !!qs("#defAvulsoFoto")?.checked,
       aplicar: !!qs("#aplicarAosMotoboys")?.checked,
     });
@@ -212,7 +213,7 @@
     if (bloquearWrap) bloquearWrap.classList.toggle("d-none", !coletaOn);
     const hint = qs("#hintColetaEntrada");
     if (hint) hint.classList.toggle("d-none", !(coletaOn && entradaOn));
-    const avulsoOn = !!qs("#defLancarAvulso")?.checked;
+    const avulsoOn = !!qs("#defCriarAvulsoColeta")?.checked || !!qs("#defCriarAvulsoSaida")?.checked;
     const foto = qs("#defAvulsoFoto");
     if (foto) {
       foto.disabled = !avulsoOn;
@@ -232,7 +233,12 @@
     qs("#defPodeColeta").checked = !!pad.pode_realizar_coleta;
     qs("#defPodeSaida").checked = pad.pode_ler_saida !== false;
     qs("#defDigitarManual").checked = !!pad.pode_digitar_codigo_manual;
-    qs("#defLancarAvulso").checked = pad.pode_lancar_avulso !== false;
+    qs("#defCriarAvulsoColeta").checked = pad.pode_criar_avulso_coleta !== undefined
+      ? pad.pode_criar_avulso_coleta !== false
+      : pad.pode_lancar_avulso !== false;
+    qs("#defCriarAvulsoSaida").checked = pad.pode_criar_avulso_saida !== undefined
+      ? pad.pode_criar_avulso_saida !== false
+      : pad.pode_lancar_avulso !== false;
     qs("#defAvulsoFoto").checked = !!pad.avulso_exige_foto;
     qs("#aplicarAosMotoboys").checked = false;
     syncUiDeps();
@@ -347,7 +353,8 @@
         pode_realizar_coleta: !!qs("#defPodeColeta").checked,
         pode_ler_saida: !!qs("#defPodeSaida").checked,
         pode_digitar_codigo_manual: !!qs("#defDigitarManual").checked,
-        pode_lancar_avulso: !!qs("#defLancarAvulso").checked,
+        pode_criar_avulso_coleta: !!qs("#defCriarAvulsoColeta").checked,
+        pode_criar_avulso_saida: !!qs("#defCriarAvulsoSaida").checked,
         avulso_exige_foto: !!qs("#defAvulsoFoto").checked,
       },
       aplicar_padroes_aos_motoboys: aplicar,
@@ -521,7 +528,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    ["#coletaHabilitada", "#entradaHabilitada", "#defLancarAvulso"].forEach((sel) => {
+    ["#coletaHabilitada", "#entradaHabilitada", "#defCriarAvulsoColeta", "#defCriarAvulsoSaida"].forEach((sel) => {
       qs(sel)?.addEventListener("change", syncUiDeps);
     });
     qs("#formPoliticas")?.addEventListener("input", onFormChanged);
