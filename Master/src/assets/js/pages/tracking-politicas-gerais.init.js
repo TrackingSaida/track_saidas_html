@@ -380,7 +380,16 @@
     hydrating = true;
     try {
       const data = await http(API, { method: "PATCH", body: JSON.stringify(payload) });
-      if (data && data.padroes_motoboy) fillForm(data);
+      const pad = data && data.padroes_motoboy ? data.padroes_motoboy : {};
+      fillForm({
+        ...(data || {}),
+        padroes_motoboy: {
+          ...pad,
+          pode_criar_avulso_coleta: payload.padroes_motoboy.pode_criar_avulso_coleta,
+          pode_criar_avulso_saida: payload.padroes_motoboy.pode_criar_avulso_saida,
+          pode_lancar_avulso: payload.padroes_motoboy.pode_lancar_avulso,
+        },
+      });
     } finally {
       hydrating = false;
     }
