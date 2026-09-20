@@ -339,8 +339,24 @@ function asBoolFlag(value, fallback) {
     return fallback;
 }
 
-function flagAvulsoOuLegado(novo, legado) {
-    return asBoolFlag(novo, asBoolFlag(legado, true));
+function fillAvulsoCheckboxes(obj, coletaEl, saidaEl) {
+    const src = obj || {};
+    const hasColeta = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_coleta");
+    const hasSaida = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_saida");
+    const legado = asBoolFlag(src.pode_lancar_avulso, true);
+    if (hasColeta || hasSaida) {
+        if (coletaEl) coletaEl.checked = asBoolFlag(src.pode_criar_avulso_coleta, false);
+        if (saidaEl) saidaEl.checked = asBoolFlag(src.pode_criar_avulso_saida, false);
+        return;
+    }
+    if (coletaEl) coletaEl.checked = legado;
+    if (saidaEl) saidaEl.checked = legado;
+}
+
+function flagAvulsoNovo(obj, key) {
+    const src = obj || {};
+    if (Object.prototype.hasOwnProperty.call(src, key)) return asBoolFlag(src[key], false);
+    return asBoolFlag(src.pode_lancar_avulso, true);
 }
 
 function toggleAvulsoExigeFotoVisibility() {
@@ -629,12 +645,7 @@ async function applyPadroesMotoboyDefaults() {
     document.getElementById("podeDigitarCodigoManual").checked = !!pad.pode_digitar_codigo_manual;
     const podeAvulsoColetaCreate = document.getElementById("podeCriarAvulsoColeta");
     const podeAvulsoSaidaCreate = document.getElementById("podeCriarAvulsoSaida");
-    if (podeAvulsoColetaCreate) {
-        podeAvulsoColetaCreate.checked = flagAvulsoOuLegado(pad.pode_criar_avulso_coleta, pad.pode_lancar_avulso);
-    }
-    if (podeAvulsoSaidaCreate) {
-        podeAvulsoSaidaCreate.checked = flagAvulsoOuLegado(pad.pode_criar_avulso_saida, pad.pode_lancar_avulso);
-    }
+    fillAvulsoCheckboxes(pad, podeAvulsoColetaCreate, podeAvulsoSaidaCreate);
     const avulsoExigeCreate = document.getElementById("avulsoExigeFoto");
     if (avulsoExigeCreate) {
         const anyCreate = (podeAvulsoColetaCreate?.checked || podeAvulsoSaidaCreate?.checked);
@@ -735,12 +746,7 @@ async function openEdit(id) {
     document.getElementById("podeDigitarCodigoManual").checked = !!m.pode_digitar_codigo_manual;
     const podeAvulsoColetaEdit = document.getElementById("podeCriarAvulsoColeta");
     const podeAvulsoSaidaEdit = document.getElementById("podeCriarAvulsoSaida");
-    if (podeAvulsoColetaEdit) {
-        podeAvulsoColetaEdit.checked = flagAvulsoOuLegado(m.pode_criar_avulso_coleta, m.pode_lancar_avulso);
-    }
-    if (podeAvulsoSaidaEdit) {
-        podeAvulsoSaidaEdit.checked = flagAvulsoOuLegado(m.pode_criar_avulso_saida, m.pode_lancar_avulso);
-    }
+    fillAvulsoCheckboxes(m, podeAvulsoColetaEdit, podeAvulsoSaidaEdit);
     const avulsoExigeEdit = document.getElementById("avulsoExigeFoto");
     if (avulsoExigeEdit) {
         avulsoExigeEdit.checked = !!(
@@ -794,8 +800,8 @@ function renderMotoboyDetail(data) {
     assign("d-pode-coleta", (m.pode_realizar_coleta ?? m.pode_ler_coleta) ? "Sim" : "Não");
     assign("d-pode-saida", m.pode_ler_saida !== false ? "Sim" : "Não");
     assign("d-pode-codigo-manual", m.pode_digitar_codigo_manual ? "Sim" : "Não");
-    assign("d-pode-criar-avulso-coleta", flagAvulsoOuLegado(m.pode_criar_avulso_coleta, m.pode_lancar_avulso) ? "Sim" : "Não");
-    assign("d-pode-criar-avulso-saida", flagAvulsoOuLegado(m.pode_criar_avulso_saida, m.pode_lancar_avulso) ? "Sim" : "Não");
+    assign("d-pode-criar-avulso-coleta", flagAvulsoNovo(m, "pode_criar_avulso_coleta") ? "Sim" : "Não");
+    assign("d-pode-criar-avulso-saida", flagAvulsoNovo(m, "pode_criar_avulso_saida") ? "Sim" : "Não");
     assign("d-avulso-exige-foto", m.avulso_exige_foto ? "Sim" : "Não");
 
     wrap.classList.remove("d-none");
