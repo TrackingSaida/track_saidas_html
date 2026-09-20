@@ -36,22 +36,28 @@
   let hydrating = false;
 
   function asBoolFlag(value, fallback) {
-    if (value === true || value === 1 || value === "true" || value === "1") return true;
-    if (value === false || value === 0 || value === "false" || value === "0") return false;
+    if (value === true) return true;
+    if (value === 1) return true;
+    if (value === "true") return true;
+    if (value === "1") return true;
+    if (value === false) return false;
+    if (value === 0) return false;
+    if (value === "false") return false;
+    if (value === "0") return false;
     return fallback;
   }
 
   function fillAvulsoFlags(pad) {
-    const hasColeta = Object.prototype.hasOwnProperty.call(pad, "pode_criar_avulso_coleta");
-    const hasSaida = Object.prototype.hasOwnProperty.call(pad, "pode_criar_avulso_saida");
-    const legado = asBoolFlag(pad.pode_lancar_avulso, true);
+    const src = pad || {};
+    const hasColeta = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_coleta");
+    const hasSaida = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_saida");
     if (hasColeta || hasSaida) {
-      qs("#defCriarAvulsoColeta").checked = asBoolFlag(pad.pode_criar_avulso_coleta, false);
-      qs("#defCriarAvulsoSaida").checked = asBoolFlag(pad.pode_criar_avulso_saida, false);
+      qs("#defCriarAvulsoColeta").checked = asBoolFlag(src.pode_criar_avulso_coleta, false);
+      qs("#defCriarAvulsoSaida").checked = asBoolFlag(src.pode_criar_avulso_saida, false);
       return;
     }
-    qs("#defCriarAvulsoColeta").checked = legado;
-    qs("#defCriarAvulsoSaida").checked = legado;
+    qs("#defCriarAvulsoColeta").checked = false;
+    qs("#defCriarAvulsoSaida").checked = false;
   }
 
   function snapshotPoliticas() {
@@ -134,15 +140,16 @@
     renderDirty();
   }
 
-  function toast(msg, ok = true) {
+  function toast(msg, ok = true, icon) {
     const text = ok ? msg : mensagemUsuario(msg, MSG_FALHA);
+    const kind = icon || (ok ? "success" : "error");
     if (window.Swal) {
       Swal.fire({
-        icon: ok ? "success" : "error",
-        title: ok ? "Salvo" : "Erro",
+        icon: kind,
+        title: kind === "warning" ? "Atenção" : ok ? "Salvo" : "Erro",
         text,
-        timer: ok ? 1600 : undefined,
-        showConfirmButton: !ok,
+        timer: ok && kind !== "warning" ? 1600 : undefined,
+        showConfirmButton: !ok || kind === "warning",
       });
       return;
     }
@@ -380,22 +387,35 @@
     hydrating = true;
     try {
       const data = await http(API, { method: "PATCH", body: JSON.stringify(payload) });
-      const pad = data && data.padroes_motoboy ? data.padroes_motoboy : {};
-      fillForm({
-        ...(data || {}),
-        padroes_motoboy: {
-          ...pad,
-          pode_criar_avulso_coleta: payload.padroes_motoboy.pode_criar_avulso_coleta,
-          pode_criar_avulso_saida: payload.padroes_motoboy.pode_criar_avulso_saida,
-          pode_lancar_avulso: payload.padroes_motoboy.pode_lancar_avulso,
-        },
-      });
+      fillForm(data || {});
+      baselinePoliticas = snapshotPoliticas();
+      renderDirty();
+      return { data: data || {}, aplicar };
     } finally {
       hydrating = false;
     }
-    baselinePoliticas = snapshotPoliticas();
-    renderDirty();
-    return true;
+  }
+
+  function toastPoliticasResult(result) {
+    const data = result && result.data ? result.data : {};
+    const aplicar = !!(result && result.aplicar);
+    if (!aplicar) {
+      toast("Políticas salvas.");
+      return;
+    }
+    const n = Number(data.motoboys_atualizados);
+    const sem = Number(data.motoboys_sem_perfil);
+    const nOk = Number.isFinite(n) ? n : 0;
+    const semOk = Number.isFinite(sem) ? sem : 0;
+    if (nOk === 0) {
+      toast("Políticas salvas. Nenhum motoboy desta base foi atualizado.", true, "warning");
+      return;
+    }
+    let msg = "Políticas salvas. " + nOk + " motoboy(s) atualizado(s).";
+    if (semOk > 0) {
+      msg += " " + semOk + " sem perfil de motoboy.";
+    }
+    toast(msg);
   }
 
   async function saveIdentidade() {
@@ -430,16 +450,17 @@
     const identDirty = isIdentidadeDirty();
     if (!polDirty && !identDirty) return true;
     try {
+      let politicasResult = null;
       if (polDirty) {
         const ok = await savePoliticas();
         if (!ok) return false;
+        politicasResult = ok;
       }
       if (identDirty) {
         const okIdent = await saveIdentidade();
         if (!okIdent) return false;
       }
-      if (polDirty && identDirty) toast("Alterações salvas.");
-      else if (polDirty) toast("Políticas salvas.");
+      if (polDirty) toastPoliticasResult(politicasResult);
       else toast("Identidade salva.");
       return true;
     } catch (e) {

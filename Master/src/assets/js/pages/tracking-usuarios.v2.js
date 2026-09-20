@@ -334,8 +334,14 @@ function toggleMotoboySection() {
 }
 
 function asBoolFlag(value, fallback) {
-    if (value === true || value === 1 || value === "true" || value === "1") return true;
-    if (value === false || value === 0 || value === "false" || value === "0") return false;
+    if (value === true) return true;
+    if (value === 1) return true;
+    if (value === "true") return true;
+    if (value === "1") return true;
+    if (value === false) return false;
+    if (value === 0) return false;
+    if (value === "false") return false;
+    if (value === "0") return false;
     return fallback;
 }
 
@@ -343,20 +349,19 @@ function fillAvulsoCheckboxes(obj, coletaEl, saidaEl) {
     const src = obj || {};
     const hasColeta = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_coleta");
     const hasSaida = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_saida");
-    const legado = asBoolFlag(src.pode_lancar_avulso, true);
     if (hasColeta || hasSaida) {
         if (coletaEl) coletaEl.checked = asBoolFlag(src.pode_criar_avulso_coleta, false);
         if (saidaEl) saidaEl.checked = asBoolFlag(src.pode_criar_avulso_saida, false);
         return;
     }
-    if (coletaEl) coletaEl.checked = legado;
-    if (saidaEl) saidaEl.checked = legado;
+    if (coletaEl) coletaEl.checked = false;
+    if (saidaEl) saidaEl.checked = false;
 }
 
 function flagAvulsoNovo(obj, key) {
     const src = obj || {};
     if (Object.prototype.hasOwnProperty.call(src, key)) return asBoolFlag(src[key], false);
-    return asBoolFlag(src.pode_lancar_avulso, true);
+    return false;
 }
 
 function toggleAvulsoExigeFotoVisibility() {
