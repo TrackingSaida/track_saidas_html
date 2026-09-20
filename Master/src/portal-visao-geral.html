@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  @@include("partials/title-meta.html", {"title": "Visão geral"})
+  @@include("partials/head-css.html")
+  <link href="assets/css/portal-shell.css?v=1" rel="stylesheet">
+</head>
+<body>
+  @@include("partials/portal-shell.html")
+  <div class="portal-body">
+    <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+      <div>
+        <h1 class="portal-page-title">Visão geral</h1>
+        <p class="portal-page-sub mb-0">Resumo das suas entregas no período selecionado.</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2 align-items-end" id="filtrosPeriodo">
+        <div class="btn-group" role="group" aria-label="Período">
+          <button type="button" class="btn btn-sm btn-soft-secondary periodo-btn" data-periodo="hoje">Hoje</button>
+          <button type="button" class="btn btn-sm btn-soft-secondary periodo-btn" data-periodo="7d">7 dias</button>
+          <button type="button" class="btn btn-sm btn-soft-secondary periodo-btn" data-periodo="30d">30 dias</button>
+          <button type="button" class="btn btn-sm btn-soft-secondary periodo-btn" data-periodo="custom">Personalizado</button>
+        </div>
+        <div id="boxCustomPeriodo" class="d-none d-flex flex-wrap gap-2 align-items-end">
+          <div>
+            <label class="form-label small mb-0" for="filtroDe">De</label>
+            <input type="date" class="form-control form-control-sm" id="filtroDe">
+          </div>
+          <div>
+            <label class="form-label small mb-0" for="filtroAte">Até</label>
+            <input type="date" class="form-control form-control-sm" id="filtroAte">
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" id="btnAplicarPeriodo">Aplicar</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="dashLoading" class="portal-kpi-grid" aria-hidden="true">
+      <div class="ps-skeleton ps-skeleton-kpi"></div>
+      <div class="ps-skeleton ps-skeleton-kpi"></div>
+      <div class="ps-skeleton ps-skeleton-kpi"></div>
+      <div class="ps-skeleton ps-skeleton-kpi"></div>
+      <div class="ps-skeleton ps-skeleton-kpi"></div>
+      <div class="ps-skeleton ps-skeleton-kpi"></div>
+    </div>
+
+    <div id="dashErro" class="alert alert-danger d-none" role="alert"></div>
+
+    <div id="dashContent" class="d-none">
+      <div id="bannerAtencao" class="ps-attention d-none">
+        <div>
+          <strong id="atencaoMsg">Atenção</strong>
+        </div>
+        <a class="btn btn-sm btn-warning" id="atencaoLink" href="portal-pedidos.html?status=ausente">Ver pedidos</a>
+      </div>
+
+      <div class="portal-kpi-grid" id="kpiGrid"></div>
+
+      <div class="row g-3">
+        <div class="col-lg-8">
+          <div class="card">
+            <div class="card-header fw-semibold">Pedidos recentes</div>
+            <div class="card-body p-0">
+              <div id="recentesVazio" class="ps-empty d-none">
+                <i class="ri-inbox-line" aria-hidden="true"></i>
+                Nenhum pedido neste período.
+              </div>
+              <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Destinatário</th>
+                      <th>Status</th>
+                      <th>Atualização</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodyRecentes"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card">
+            <div class="card-header fw-semibold">Por canal de venda</div>
+            <div class="card-body" id="porCanalBox">
+              <div class="ps-empty py-3 d-none" id="canalVazio">Sem dados no período.</div>
+              <ul class="list-group list-group-flush" id="listaCanais"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div><!-- /.portal-main -->
+</div><!-- /.portal-app -->
+
+<script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/plugins.js"></script>
+<script src="assets/js/pages/portal-common.js"></script>
+<script src="assets/js/pages/portal-visao-geral.init.js"></script>
+</body>
+</html>

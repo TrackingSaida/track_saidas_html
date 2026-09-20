@@ -34,6 +34,133 @@
   let baselinePoliticas = "";
   let baselineIdentidade = "";
   let hydrating = false;
+  /** @type {{nome: string, prefixos: string[]}[]} */
+  let regioesState = [];
+
+  function digitsOnly(v) {
+    return String(v || "").replace(/\D/g, "");
+  }
+
+  function normalizePrefixo(v) {
+    return digitsOnly(v);
+  }
+
+  function getRegioesFromUi() {
+    return regioesState.map((r) => ({
+      nome: String(r.nome || "").trim(),
+      prefixos: (r.prefixos || []).map(normalizePrefixo).filter((p) => p.length >= 2),
+    }));
+  }
+
+  function syncHiddenPrefixos() {
+    const all = [];
+    getRegioesFromUi().forEach((r) => {
+      r.prefixos.forEach((p) => {
+        if (!all.includes(p)) all.push(p);
+      });
+    });
+    const ta = qs("#coberturaPrefixos");
+    if (ta) ta.value = all.join(", ");
+  }
+
+  function renderRegioes() {
+    const list = qs("#regioesList");
+    const empty = qs("#regioesEmpty");
+    if (!list) return;
+    list.innerHTML = "";
+    const items = getRegioesFromUi();
+    if (empty) empty.classList.toggle("d-none", items.length > 0);
+
+    items.forEach((reg, idx) => {
+      const card = document.createElement("div");
+      card.className = "ps-regiao-card";
+      card.setAttribute("data-idx", String(idx));
+
+      const chips = (reg.prefixos || [])
+        .map(
+          (p) =>
+            `<span class="ps-prefix-chip">${escapeHtml(p)}` +
+            `<button type="button" class="btn-rm-prefix" data-idx="${idx}" data-prefix="${escapeHtml(p)}" aria-label="Remover prefixo">&times;</button></span>`
+        )
+        .join("");
+
+      card.innerHTML =
+        `<div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">` +
+        `<div class="flex-grow-1" style="min-width:180px;max-width:320px;">` +
+        `<label class="form-label small mb-1">Nome da região</label>` +
+        `<input type="text" class="form-control form-control-sm regiao-nome" data-idx="${idx}" value="${escapeAttr(reg.nome)}" maxlength="120" placeholder="Ex.: Zona Sul">` +
+        `</div>` +
+        `<button type="button" class="btn btn-sm btn-soft-danger btn-rm-regiao" data-idx="${idx}">Remover região</button>` +
+        `</div>` +
+        `<div class="ps-regiao-chips mt-2">${chips || '<span class="text-muted small">Nenhum prefixo</span>'}</div>` +
+        `<div class="input-group input-group-sm mt-2" style="max-width:280px;">` +
+        `<input type="text" class="form-control regiao-prefix-input" data-idx="${idx}" inputmode="numeric" placeholder="Prefixo (ex.: 064)" maxlength="8">` +
+        `<button type="button" class="btn btn-soft-primary btn-add-prefix" data-idx="${idx}">Adicionar</button>` +
+        `</div>`;
+      list.appendChild(card);
+    });
+    syncHiddenPrefixos();
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function escapeAttr(s) {
+    return escapeHtml(s).replace(/'/g, "&#39;");
+  }
+
+  function setRegioesFromApi(cob) {
+    cob = cob || {};
+    if (Array.isArray(cob.regioes) && cob.regioes.length) {
+      regioesState = cob.regioes.map((r) => ({
+        nome: String(r.nome || "").trim() || "Sem região",
+        prefixos: (r.prefixos || []).map(normalizePrefixo).filter((p) => p.length >= 2),
+      }));
+      if (Array.isArray(cob.prefixos_sem_regiao) && cob.prefixos_sem_regiao.length) {
+        regioesState.push({
+          nome: "Sem região",
+          prefixos: cob.prefixos_sem_regiao.map(normalizePrefixo).filter((p) => p.length >= 2),
+        });
+      }
+    } else if (Array.isArray(cob.prefixos) && cob.prefixos.length) {
+      regioesState = [
+        {
+          nome: "Sem região",
+          prefixos: cob.prefixos.map(normalizePrefixo).filter((p) => p.length >= 2),
+        },
+      ];
+    } else if (Array.isArray(cob.prefixos_sem_regiao) && cob.prefixos_sem_regiao.length) {
+      regioesState = [
+        {
+          nome: "Sem região",
+          prefixos: cob.prefixos_sem_regiao.map(normalizePrefixo).filter((p) => p.length >= 2),
+        },
+      ];
+    } else {
+      regioesState = [];
+    }
+    renderRegioes();
+  }
+
+  function matchCepLocal(cep) {
+    const digits = digitsOnly(cep);
+    if (!digits) return { ok: false, reason: "empty" };
+    const regs = getRegioesFromUi();
+    const allPrefs = [];
+    regs.forEach((r) => (r.prefixos || []).forEach((p) => allPrefs.push({ p, nome: r.nome })));
+    if (!allPrefs.length) return { ok: true, ilimitado: true };
+    for (let i = 0; i < allPrefs.length; i++) {
+      if (digits.startsWith(allPrefs[i].p)) {
+        return { ok: true, regiao: allPrefs[i].nome, prefixo: allPrefs[i].p };
+      }
+    }
+    return { ok: false };
+  }
 
   function snapshotPoliticas() {
     return JSON.stringify({
@@ -49,7 +176,7 @@
       avulso: !!qs("#defLancarAvulso")?.checked,
       foto: !!qs("#defAvulsoFoto")?.checked,
       aplicar: !!qs("#aplicarAosMotoboys")?.checked,
-      prefixos: (qs("#coberturaPrefixos")?.value || "").trim(),
+      regioes: getRegioesFromUi(),
       limite: qs("#limiteDiarioDefault")?.value || "",
       expiracao: qs("#expiracaoDias")?.value || "",
     });
@@ -239,7 +366,7 @@
     qs("#defAvulsoFoto").checked = !!pad.avulso_exige_foto;
     qs("#aplicarAosMotoboys").checked = false;
     const cob = data?.cobertura || {};
-    if (qs("#coberturaPrefixos")) qs("#coberturaPrefixos").value = (cob.prefixos || []).join(", ");
+    setRegioesFromApi(cob);
     if (qs("#limiteDiarioDefault")) qs("#limiteDiarioDefault").value = cob.limite_diario_default || 50;
     if (qs("#expiracaoDias")) qs("#expiracaoDias").value = cob.expiracao_dias || 30;
     syncUiDeps();
@@ -359,10 +486,12 @@
       },
       aplicar_padroes_aos_motoboys: aplicar,
       cobertura: {
-        prefixos: String(qs("#coberturaPrefixos")?.value || "")
-          .split(/[\s,;]+/)
-          .map((s) => s.trim())
-          .filter(Boolean),
+        regioes: getRegioesFromUi()
+          .map((r) => ({
+            nome: r.nome || (r.prefixos.length ? "Sem região" : ""),
+            prefixos: r.prefixos,
+          }))
+          .filter((r) => !!r.nome),
         limite_diario_default: Number(qs("#limiteDiarioDefault")?.value || 50),
         expiracao_dias: Number(qs("#expiracaoDias")?.value || 30),
       },
@@ -555,6 +684,105 @@
       ev.target.value = "";
     });
     qs("#btnRemoverLogo")?.addEventListener("click", () => removeLogo());
+
+    qs("#btnAddRegiao")?.addEventListener("click", () => {
+      regioesState.push({ nome: "", prefixos: [] });
+      renderRegioes();
+      onFormChanged();
+    });
+
+    qs("#regioesList")?.addEventListener("click", (ev) => {
+      const rmReg = ev.target.closest(".btn-rm-regiao");
+      const addPref = ev.target.closest(".btn-add-prefix");
+      const rmPref = ev.target.closest(".btn-rm-prefix");
+      if (rmReg) {
+        const idx = Number(rmReg.getAttribute("data-idx"));
+        regioesState.splice(idx, 1);
+        renderRegioes();
+        onFormChanged();
+        return;
+      }
+      if (addPref) {
+        const idx = Number(addPref.getAttribute("data-idx"));
+        const input = qs(`.regiao-prefix-input[data-idx="${idx}"]`);
+        const raw = normalizePrefixo(input?.value);
+        if (raw.length < 2) {
+          toast("Prefixo deve ter ao menos 2 dígitos.", false);
+          return;
+        }
+        if (!regioesState[idx]) return;
+        if (!regioesState[idx].prefixos.includes(raw)) {
+          regioesState[idx].prefixos.push(raw);
+        }
+        if (input) input.value = "";
+        renderRegioes();
+        onFormChanged();
+        return;
+      }
+      if (rmPref) {
+        const idx = Number(rmPref.getAttribute("data-idx"));
+        const pref = rmPref.getAttribute("data-prefix") || "";
+        if (regioesState[idx]) {
+          regioesState[idx].prefixos = regioesState[idx].prefixos.filter((p) => p !== pref);
+          renderRegioes();
+          onFormChanged();
+        }
+      }
+    });
+
+    qs("#regioesList")?.addEventListener("input", (ev) => {
+      const nomeEl = ev.target.closest(".regiao-nome");
+      if (!nomeEl) return;
+      const idx = Number(nomeEl.getAttribute("data-idx"));
+      if (regioesState[idx]) {
+        regioesState[idx].nome = nomeEl.value;
+        syncHiddenPrefixos();
+        onFormChanged();
+      }
+    });
+
+    qs("#regioesList")?.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter") return;
+      const input = ev.target.closest(".regiao-prefix-input");
+      if (!input) return;
+      ev.preventDefault();
+      const idx = input.getAttribute("data-idx");
+      qs(`.btn-add-prefix[data-idx="${idx}"]`)?.click();
+    });
+
+    qs("#cepTesteCobertura")?.addEventListener("input", (ev) => {
+      const d = digitsOnly(ev.target.value).slice(0, 8);
+      ev.target.value = d.length > 5 ? d.slice(0, 5) + "-" + d.slice(5) : d;
+    });
+
+    qs("#btnTestarCep")?.addEventListener("click", () => {
+      const el = qs("#cepTesteResultado");
+      const cep = qs("#cepTesteCobertura")?.value || "";
+      const r = matchCepLocal(cep);
+      if (!el) return;
+      if (r.reason === "empty") {
+        el.textContent = "Informe um CEP para ver se está coberto.";
+        el.className = "small mb-0 mt-2 text-muted";
+        return;
+      }
+      if (r.ilimitado) {
+        el.textContent = "Coberto — sem regiões definidas (atende qualquer CEP).";
+        el.className = "small mb-0 mt-2 text-success";
+        return;
+      }
+      if (r.ok) {
+        el.textContent =
+          "Coberto" +
+          (r.regiao ? ` na região “${r.regiao}”` : "") +
+          (r.prefixo ? ` (prefixo ${r.prefixo})` : "") +
+          ".";
+        el.className = "small mb-0 mt-2 text-success";
+      } else {
+        el.textContent = "Fora da área de atendimento com as regiões atuais.";
+        el.className = "small mb-0 mt-2 text-danger";
+      }
+    });
+
     window.addEventListener("beforeunload", (e) => {
       if (!isDirty()) return;
       e.preventDefault();
