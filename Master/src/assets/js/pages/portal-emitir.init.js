@@ -315,7 +315,7 @@
     if (remMsg) remMsg.textContent = "Salvando…";
     try {
       var res = await PS.req("/remetente", {
-        method: "PATCH",
+        method: "POST",
         body: JSON.stringify(body),
       });
       var data = await res.json().catch(function () {

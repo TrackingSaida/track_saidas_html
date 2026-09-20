@@ -3,7 +3,7 @@
 <head>
   @@include("partials/title-meta.html", {"title": "Emitir etiqueta"})
   @@include("partials/head-css.html")
-  <link href="assets/css/portal-shell.css?v=1" rel="stylesheet">
+  <link href="assets/css/portal-shell.css?v=2" rel="stylesheet">
 </head>
 <body>
   @@include("partials/portal-shell.html")
@@ -48,10 +48,10 @@
         <div class="ps-remetente-body">
           <p class="ps-remetente-label">Remetente</p>
           <p id="remetenteResumo">Carregando…</p>
-          <button type="button" class="btn btn-link btn-sm px-0 mt-1" id="btnEditarRemetente" data-bs-toggle="modal" data-bs-target="#modalRemetente">
-            Editar cadastro
-          </button>
         </div>
+        <button type="button" class="btn btn-soft-primary btn-sm ps-remetente-edit" id="btnEditarRemetente" data-bs-toggle="modal" data-bs-target="#modalRemetente">
+          <i class="ri-pencil-line me-1" aria-hidden="true"></i> Editar cadastro
+        </button>
       </div>
 
       <div class="row g-3">
