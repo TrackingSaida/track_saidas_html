@@ -496,7 +496,7 @@
 
     hydrating = true;
     try {
-      const data = await http(API, { method: "PATCH", body: JSON.stringify(payload) });
+      const data = await http(API, { method: "POST", body: JSON.stringify(payload) });
       fillForm(data);
     } finally {
       hydrating = false;
@@ -516,7 +516,7 @@
     hydrating = true;
     try {
       const data = await http(API_IDENT, {
-        method: "PATCH",
+        method: "POST",
         body: JSON.stringify({
           nome_fantasia: (qs("#nomeExibicao")?.value || "").trim() || null,
           slogan: (qs("#sloganEtiqueta")?.value || "").trim() || null,

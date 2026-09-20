@@ -473,15 +473,88 @@ async function apiDelete(id) {
 
   let PORTAL_ACCESS = null;
 
+  function portalSellerUrl() {
+    try {
+      return new URL("portal-login.html", window.location.href).href;
+    } catch (_) {
+      const base = String(window.location.href || "").split("?")[0].replace(/[^/]*$/, "");
+      return base + "portal-login.html";
+    }
+  }
+
+  function escapeHtmlPortal(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function textoAcessoPortal(login, senha) {
+    const linhas = [
+      "Portal do Seller — Rotevo",
+      "",
+      "Link: " + portalSellerUrl(),
+      "Login: " + (login || ""),
+    ];
+    if (senha) linhas.push("Senha temporária: " + senha);
+    linhas.push("", "Entre no link, faça login e troque a senha no primeiro acesso.");
+    return linhas.join("\n");
+  }
+
+  function copiarTextoPortal(texto, okMsg) {
+    const done = () => toast(okMsg || "Dados copiados.");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(texto).then(done).catch(() => {
+        toast("Não foi possível copiar. Selecione o texto manualmente.", false);
+      });
+    }
+    const ta = document.createElement("textarea");
+    ta.value = texto;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      done();
+    } catch (_) {
+      toast("Não foi possível copiar. Selecione o texto manualmente.", false);
+    }
+    ta.remove();
+    return Promise.resolve();
+  }
+
+  function preencherLinkPortal() {
+    const url = portalSellerUrl();
+    const a = qs("#portal-seller-url");
+    if (!a) return;
+    a.href = url;
+    a.textContent = url;
+  }
+
   function showPortalSenha(login, senha) {
-    const texto = `Login: ${login}\nSenha temporária: ${senha}\n\nCopie e envie ao seller. A senha não será exibida de novo.`;
+    const url = portalSellerUrl();
+    const texto = textoAcessoPortal(login, senha);
     if (window.Swal) {
       Swal.fire({
         icon: "success",
         title: "Acesso ao portal",
-        html: `<p class="text-start mb-2"><strong>Login:</strong> ${login}</p>
-               <p class="text-start mb-0"><strong>Senha temporária:</strong> ${senha}</p>
-               <p class="text-muted small text-start mt-3 mb-0">Copie e envie ao seller. Ele deve trocar a senha no primeiro acesso.</p>`,
+        html:
+          `<div class="text-start">` +
+          `<p class="mb-2"><strong>Link:</strong> <a href="${escapeHtmlPortal(url)}" target="_blank" rel="noopener">${escapeHtmlPortal(url)}</a></p>` +
+          `<p class="mb-2"><strong>Login:</strong> ${escapeHtmlPortal(login || "")}</p>` +
+          `<p class="mb-3"><strong>Senha temporária:</strong> ${escapeHtmlPortal(senha || "")}</p>` +
+          `<button type="button" class="btn btn-primary w-100" id="btnCopiarAcessoPortal">Copiar link e dados de acesso</button>` +
+          `<p class="text-muted small mt-3 mb-0">Cole no WhatsApp ou e-mail do seller. A senha temporária não será exibida de novo.</p>` +
+          `</div>`,
+        confirmButtonText: "Fechar",
+        didOpen: () => {
+          document.getElementById("btnCopiarAcessoPortal")?.addEventListener("click", () => {
+            copiarTextoPortal(texto, "Link e dados copiados. Cole e envie ao seller.");
+          });
+        },
       });
       return;
     }
@@ -529,6 +602,7 @@ async function apiDelete(id) {
   // Eventos
   // =======================================================
   document.addEventListener("DOMContentLoaded", async () => {
+    preencherLinkPortal();
     await carregarOwnerInfo();
     atualizarAjudaCamposSeller();
 
@@ -694,7 +768,7 @@ async function apiDelete(id) {
       if (!id) return;
       try {
         await http(`${API_URL}/portal/acessos/${id}`, {
-          method: "PATCH",
+          method: "POST",
           body: JSON.stringify({ ativo: false }),
         });
         toast("Acesso ao portal desativado.");
@@ -702,6 +776,10 @@ async function apiDelete(id) {
       } catch (err) {
         toast(err.message || "Não foi possível desativar o acesso.", false);
       }
+    });
+
+    qs("#btnCopiarLinkPortal")?.addEventListener("click", () => {
+      copiarTextoPortal(portalSellerUrl(), "Link do portal copiado.");
     });
 
     qs("#btnHeaderEdit")?.addEventListener("click", async () => {
