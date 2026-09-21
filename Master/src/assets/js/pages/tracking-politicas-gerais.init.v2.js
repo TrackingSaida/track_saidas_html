@@ -368,11 +368,12 @@
     if (bloquearWrap) bloquearWrap.classList.toggle("d-none", !coletaOn);
     const hint = qs("#hintColetaEntrada");
     if (hint) hint.classList.toggle("d-none", !(coletaOn && entradaOn));
-    const avulsoOn = !!qs("#defCriarAvulsoColeta")?.checked || !!qs("#defCriarAvulsoSaida")?.checked;
+    const avulsoOn =
+      !!qs("#defCriarAvulsoColeta")?.checked || !!qs("#defCriarAvulsoSaida")?.checked;
     const foto = qs("#defAvulsoFoto");
     if (foto) {
       foto.disabled = !avulsoOn;
-      // Em load/save, fillForm aplica a foto da API; não zerar aqui.
+      // Só zera foto em interação do usuário (não durante hydrate/save).
       if (!avulsoOn && !hydrating) foto.checked = false;
     }
   }
@@ -390,13 +391,19 @@
     qs("#defPodeSaida").checked = pad.pode_ler_saida !== false;
     qs("#defDigitarManual").checked = !!pad.pode_digitar_codigo_manual;
     fillAvulsoFlags(pad);
+    const fotoEl = qs("#defAvulsoFoto");
+    if (fotoEl) fotoEl.checked = !!pad.avulso_exige_foto;
     qs("#aplicarAosMotoboys").checked = false;
     const cob = data?.cobertura || {};
     setRegioesFromApi(cob);
     if (qs("#expiracaoDias")) qs("#expiracaoDias").value = cob.expiracao_dias || 30;
+    // Caller deve manter hydrating=true aqui para syncUiDeps não zerar a foto.
     syncUiDeps();
-    // Foto depois do sync: evita syncUiDeps apagar o valor da API no hydrate.
-    qs("#defAvulsoFoto").checked = !!pad.avulso_exige_foto;
+    if (fotoEl) {
+      const avulsoOn =
+        !!qs("#defCriarAvulsoColeta")?.checked || !!qs("#defCriarAvulsoSaida")?.checked;
+      fotoEl.checked = avulsoOn ? !!pad.avulso_exige_foto : false;
+    }
   }
 
   function showFallbackPreview() {
@@ -551,10 +558,14 @@
     const nOk = Number.isFinite(n) ? n : 0;
     const semOk = Number.isFinite(sem) ? sem : 0;
     if (nOk === 0) {
-      toast("Políticas salvas. Nenhum motoboy desta base foi atualizado.", true, "warning");
+      toast(
+        "Políticas salvas. Nenhum motoboy desta base foi atualizado (sem perfil vinculado).",
+        true,
+        "warning"
+      );
       return;
     }
-    let msg = "Políticas salvas. " + nOk + " motoboy(s) atualizado(s).";
+    let msg = "Políticas salvas. " + nOk + " motoboy(s) atualizado(s) com o padrão.";
     if (semOk > 0) {
       msg += " " + semOk + " sem perfil de motoboy.";
     }

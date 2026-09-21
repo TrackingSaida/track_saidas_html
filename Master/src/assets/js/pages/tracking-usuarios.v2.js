@@ -634,7 +634,7 @@ async function applyPadroesMotoboyDefaults() {
         pode_ler_saida: true,
         pode_digitar_codigo_manual: false,
         pode_criar_avulso_coleta: true,
-        pode_criar_avulso_saida: true,
+        pode_criar_avulso_saida: false,
         avulso_exige_foto: true,
     };
     let pad = fallback;
