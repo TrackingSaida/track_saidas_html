@@ -162,6 +162,31 @@
     return { ok: false };
   }
 
+  function asBoolFlag(value, fallback) {
+    if (value === true) return true;
+    if (value === 1) return true;
+    if (value === "true") return true;
+    if (value === "1") return true;
+    if (value === false) return false;
+    if (value === 0) return false;
+    if (value === "false") return false;
+    if (value === "0") return false;
+    return fallback;
+  }
+
+  function fillAvulsoFlags(pad) {
+    const src = pad || {};
+    const hasColeta = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_coleta");
+    const hasSaida = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_saida");
+    if (hasColeta || hasSaida) {
+      qs("#defCriarAvulsoColeta").checked = asBoolFlag(src.pode_criar_avulso_coleta, false);
+      qs("#defCriarAvulsoSaida").checked = asBoolFlag(src.pode_criar_avulso_saida, false);
+      return;
+    }
+    qs("#defCriarAvulsoColeta").checked = false;
+    qs("#defCriarAvulsoSaida").checked = false;
+  }
+
   function snapshotPoliticas() {
     return JSON.stringify({
       coleta: !!qs("#coletaHabilitada")?.checked,
@@ -173,7 +198,8 @@
       podeColeta: !!qs("#defPodeColeta")?.checked,
       podeSaida: !!qs("#defPodeSaida")?.checked,
       digitar: !!qs("#defDigitarManual")?.checked,
-      avulso: !!qs("#defLancarAvulso")?.checked,
+      avulsoColeta: !!qs("#defCriarAvulsoColeta")?.checked,
+      avulsoSaida: !!qs("#defCriarAvulsoSaida")?.checked,
       foto: !!qs("#defAvulsoFoto")?.checked,
       aplicar: !!qs("#aplicarAosMotoboys")?.checked,
       regioes: getRegioesFromUi(),
@@ -243,15 +269,16 @@
     renderDirty();
   }
 
-  function toast(msg, ok = true) {
+  function toast(msg, ok = true, icon) {
     const text = ok ? msg : mensagemUsuario(msg, MSG_FALHA);
+    const kind = icon || (ok ? "success" : "error");
     if (window.Swal) {
       Swal.fire({
-        icon: ok ? "success" : "error",
-        title: ok ? "Salvo" : "Erro",
+        icon: kind,
+        title: kind === "warning" ? "Atenção" : ok ? "Salvo" : "Erro",
         text,
-        timer: ok ? 1600 : undefined,
-        showConfirmButton: !ok,
+        timer: ok && kind !== "warning" ? 1600 : undefined,
+        showConfirmButton: !ok || kind === "warning",
       });
       return;
     }
@@ -341,7 +368,7 @@
     if (bloquearWrap) bloquearWrap.classList.toggle("d-none", !coletaOn);
     const hint = qs("#hintColetaEntrada");
     if (hint) hint.classList.toggle("d-none", !(coletaOn && entradaOn));
-    const avulsoOn = !!qs("#defLancarAvulso")?.checked;
+    const avulsoOn = !!qs("#defCriarAvulsoColeta")?.checked || !!qs("#defCriarAvulsoSaida")?.checked;
     const foto = qs("#defAvulsoFoto");
     if (foto) {
       foto.disabled = !avulsoOn;
@@ -361,7 +388,7 @@
     qs("#defPodeColeta").checked = !!pad.pode_realizar_coleta;
     qs("#defPodeSaida").checked = pad.pode_ler_saida !== false;
     qs("#defDigitarManual").checked = !!pad.pode_digitar_codigo_manual;
-    qs("#defLancarAvulso").checked = pad.pode_lancar_avulso !== false;
+    fillAvulsoFlags(pad);
     qs("#defAvulsoFoto").checked = !!pad.avulso_exige_foto;
     qs("#aplicarAosMotoboys").checked = false;
     const cob = data?.cobertura || {};
@@ -479,7 +506,11 @@
         pode_realizar_coleta: !!qs("#defPodeColeta").checked,
         pode_ler_saida: !!qs("#defPodeSaida").checked,
         pode_digitar_codigo_manual: !!qs("#defDigitarManual").checked,
-        pode_lancar_avulso: !!qs("#defLancarAvulso").checked,
+        pode_criar_avulso_coleta: !!qs("#defCriarAvulsoColeta").checked,
+        pode_criar_avulso_saida: !!qs("#defCriarAvulsoSaida").checked,
+        pode_lancar_avulso: !!(
+          qs("#defCriarAvulsoColeta").checked || qs("#defCriarAvulsoSaida").checked
+        ),
         avulso_exige_foto: !!qs("#defAvulsoFoto").checked,
       },
       aplicar_padroes_aos_motoboys: aplicar,
@@ -497,13 +528,35 @@
     hydrating = true;
     try {
       const data = await http(API, { method: "POST", body: JSON.stringify(payload) });
-      fillForm(data);
+      fillForm(data || {});
+      baselinePoliticas = snapshotPoliticas();
+      renderDirty();
+      return { data: data || {}, aplicar };
     } finally {
       hydrating = false;
     }
-    baselinePoliticas = snapshotPoliticas();
-    renderDirty();
-    return true;
+  }
+
+  function toastPoliticasResult(result) {
+    const data = result && result.data ? result.data : {};
+    const aplicar = !!(result && result.aplicar);
+    if (!aplicar) {
+      toast("Políticas salvas.");
+      return;
+    }
+    const n = Number(data.motoboys_atualizados);
+    const sem = Number(data.motoboys_sem_perfil);
+    const nOk = Number.isFinite(n) ? n : 0;
+    const semOk = Number.isFinite(sem) ? sem : 0;
+    if (nOk === 0) {
+      toast("Políticas salvas. Nenhum motoboy desta base foi atualizado.", true, "warning");
+      return;
+    }
+    let msg = "Políticas salvas. " + nOk + " motoboy(s) atualizado(s).";
+    if (semOk > 0) {
+      msg += " " + semOk + " sem perfil de motoboy.";
+    }
+    toast(msg);
   }
 
   async function saveIdentidade() {
@@ -538,16 +591,17 @@
     const identDirty = isIdentidadeDirty();
     if (!polDirty && !identDirty) return true;
     try {
+      let politicasResult = null;
       if (polDirty) {
         const ok = await savePoliticas();
         if (!ok) return false;
+        politicasResult = ok;
       }
       if (identDirty) {
         const okIdent = await saveIdentidade();
         if (!okIdent) return false;
       }
-      if (polDirty && identDirty) toast("Alterações salvas.");
-      else if (polDirty) toast("Políticas salvas.");
+      if (polDirty) toastPoliticasResult(politicasResult);
       else toast("Identidade salva.");
       return true;
     } catch (e) {
@@ -662,7 +716,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    ["#coletaHabilitada", "#entradaHabilitada", "#defLancarAvulso"].forEach((sel) => {
+    ["#coletaHabilitada", "#entradaHabilitada", "#defCriarAvulsoColeta", "#defCriarAvulsoSaida"].forEach((sel) => {
       qs(sel)?.addEventListener("change", syncUiDeps);
     });
     qs("#formPoliticas")?.addEventListener("input", onFormChanged);

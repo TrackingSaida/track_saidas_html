@@ -236,10 +236,10 @@ function initUsers() {
 
     document.getElementById("formUser").addEventListener("submit", saveUser);
     document.getElementById("role").addEventListener("change", toggleMotoboySection);
-    const podeAvulsoToggle = document.getElementById("podeLancarAvulso");
-    if (podeAvulsoToggle) {
-        podeAvulsoToggle.addEventListener("change", toggleAvulsoExigeFotoVisibility);
-    }
+    const podeAvulsoColeta = document.getElementById("podeCriarAvulsoColeta");
+    const podeAvulsoSaida = document.getElementById("podeCriarAvulsoSaida");
+    if (podeAvulsoColeta) podeAvulsoColeta.addEventListener("change", toggleAvulsoExigeFotoVisibility);
+    if (podeAvulsoSaida) podeAvulsoSaida.addEventListener("change", toggleAvulsoExigeFotoVisibility);
 
     document.getElementById("contato").addEventListener("input", (ev) => {
         ev.target.value = maskCellphone(ev.target.value);
@@ -333,12 +333,44 @@ function toggleMotoboySection() {
     if (modalBody) modalBody.scrollTop = 0;
 }
 
+function asBoolFlag(value, fallback) {
+    if (value === true) return true;
+    if (value === 1) return true;
+    if (value === "true") return true;
+    if (value === "1") return true;
+    if (value === false) return false;
+    if (value === 0) return false;
+    if (value === "false") return false;
+    if (value === "0") return false;
+    return fallback;
+}
+
+function fillAvulsoCheckboxes(obj, coletaEl, saidaEl) {
+    const src = obj || {};
+    const hasColeta = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_coleta");
+    const hasSaida = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_saida");
+    if (hasColeta || hasSaida) {
+        if (coletaEl) coletaEl.checked = asBoolFlag(src.pode_criar_avulso_coleta, false);
+        if (saidaEl) saidaEl.checked = asBoolFlag(src.pode_criar_avulso_saida, false);
+        return;
+    }
+    if (coletaEl) coletaEl.checked = false;
+    if (saidaEl) saidaEl.checked = false;
+}
+
+function flagAvulsoNovo(obj, key) {
+    const src = obj || {};
+    if (Object.prototype.hasOwnProperty.call(src, key)) return asBoolFlag(src[key], false);
+    return false;
+}
+
 function toggleAvulsoExigeFotoVisibility() {
-    const podeAvulsoEl = document.getElementById("podeLancarAvulso");
+    const coletaEl = document.getElementById("podeCriarAvulsoColeta");
+    const saidaEl = document.getElementById("podeCriarAvulsoSaida");
     const wrap = document.getElementById("avulsoExigeFotoWrap");
     const exigeEl = document.getElementById("avulsoExigeFoto");
-    if (!wrap || !podeAvulsoEl) return;
-    const show = !!podeAvulsoEl.checked;
+    if (!wrap) return;
+    const show = !!(coletaEl?.checked || saidaEl?.checked);
     wrap.classList.toggle("d-none", !show);
     if (!show && exigeEl) exigeEl.checked = false;
 }
@@ -601,7 +633,8 @@ async function applyPadroesMotoboyDefaults() {
         pode_realizar_coleta: false,
         pode_ler_saida: true,
         pode_digitar_codigo_manual: false,
-        pode_lancar_avulso: true,
+        pode_criar_avulso_coleta: true,
+        pode_criar_avulso_saida: true,
         avulso_exige_foto: true,
     };
     let pad = fallback;
@@ -615,11 +648,13 @@ async function applyPadroesMotoboyDefaults() {
     document.getElementById("podeLerColeta").checked = !!pad.pode_realizar_coleta;
     document.getElementById("podeLerSaida").checked = pad.pode_ler_saida !== false;
     document.getElementById("podeDigitarCodigoManual").checked = !!pad.pode_digitar_codigo_manual;
-    const podeAvulsoCreate = document.getElementById("podeLancarAvulso");
-    if (podeAvulsoCreate) podeAvulsoCreate.checked = pad.pode_lancar_avulso !== false;
+    const podeAvulsoColetaCreate = document.getElementById("podeCriarAvulsoColeta");
+    const podeAvulsoSaidaCreate = document.getElementById("podeCriarAvulsoSaida");
+    fillAvulsoCheckboxes(pad, podeAvulsoColetaCreate, podeAvulsoSaidaCreate);
     const avulsoExigeCreate = document.getElementById("avulsoExigeFoto");
     if (avulsoExigeCreate) {
-        avulsoExigeCreate.checked = !!(pad.pode_lancar_avulso !== false && pad.avulso_exige_foto);
+        const anyCreate = (podeAvulsoColetaCreate?.checked || podeAvulsoSaidaCreate?.checked);
+        avulsoExigeCreate.checked = !!(anyCreate && pad.avulso_exige_foto);
     }
 }
 
@@ -714,11 +749,14 @@ async function openEdit(id) {
     document.getElementById("podeLerColeta").checked = !!(m.pode_realizar_coleta ?? m.pode_ler_coleta);
     document.getElementById("podeLerSaida").checked = m.pode_ler_saida !== false;
     document.getElementById("podeDigitarCodigoManual").checked = !!m.pode_digitar_codigo_manual;
-    const podeAvulsoEdit = document.getElementById("podeLancarAvulso");
-    if (podeAvulsoEdit) podeAvulsoEdit.checked = m.pode_lancar_avulso !== false;
+    const podeAvulsoColetaEdit = document.getElementById("podeCriarAvulsoColeta");
+    const podeAvulsoSaidaEdit = document.getElementById("podeCriarAvulsoSaida");
+    fillAvulsoCheckboxes(m, podeAvulsoColetaEdit, podeAvulsoSaidaEdit);
     const avulsoExigeEdit = document.getElementById("avulsoExigeFoto");
     if (avulsoExigeEdit) {
-        avulsoExigeEdit.checked = !!(m.pode_lancar_avulso !== false && m.avulso_exige_foto);
+        avulsoExigeEdit.checked = !!(
+            (podeAvulsoColetaEdit?.checked || podeAvulsoSaidaEdit?.checked) && m.avulso_exige_foto
+        );
     }
 
     document.getElementById("groupPassword").classList.add("d-none");
@@ -767,7 +805,8 @@ function renderMotoboyDetail(data) {
     assign("d-pode-coleta", (m.pode_realizar_coleta ?? m.pode_ler_coleta) ? "Sim" : "Não");
     assign("d-pode-saida", m.pode_ler_saida !== false ? "Sim" : "Não");
     assign("d-pode-codigo-manual", m.pode_digitar_codigo_manual ? "Sim" : "Não");
-    assign("d-pode-lancar-avulso", m.pode_lancar_avulso !== false ? "Sim" : "Não");
+    assign("d-pode-criar-avulso-coleta", flagAvulsoNovo(m, "pode_criar_avulso_coleta") ? "Sim" : "Não");
+    assign("d-pode-criar-avulso-saida", flagAvulsoNovo(m, "pode_criar_avulso_saida") ? "Sim" : "Não");
     assign("d-avulso-exige-foto", m.avulso_exige_foto ? "Sim" : "Não");
 
     wrap.classList.remove("d-none");
@@ -901,11 +940,14 @@ async function saveUser(ev) {
         payload.pode_ler_coleta = payload.pode_realizar_coleta;
         payload.pode_ler_saida = document.getElementById("podeLerSaida").checked;
         payload.pode_digitar_codigo_manual = document.getElementById("podeDigitarCodigoManual").checked;
-        const podeAvulsoEl = document.getElementById("podeLancarAvulso");
+        const podeAvulsoColetaEl = document.getElementById("podeCriarAvulsoColeta");
+        const podeAvulsoSaidaEl = document.getElementById("podeCriarAvulsoSaida");
         const avulsoExigeEl = document.getElementById("avulsoExigeFoto");
-        const podeLancarAvulso = podeAvulsoEl ? podeAvulsoEl.checked : true;
-        if (podeAvulsoEl) payload.pode_lancar_avulso = podeLancarAvulso;
-        payload.avulso_exige_foto = podeLancarAvulso && avulsoExigeEl ? !!avulsoExigeEl.checked : false;
+        const podeColeta = podeAvulsoColetaEl ? podeAvulsoColetaEl.checked : true;
+        const podeSaida = podeAvulsoSaidaEl ? podeAvulsoSaidaEl.checked : true;
+        payload.pode_criar_avulso_coleta = podeColeta;
+        payload.pode_criar_avulso_saida = podeSaida;
+        payload.avulso_exige_foto = (podeColeta || podeSaida) && avulsoExigeEl ? !!avulsoExigeEl.checked : false;
     }
 
     try {

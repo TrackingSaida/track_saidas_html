@@ -28,7 +28,11 @@
     const u = window.__USER__ || {};
     const role = Number(u.role);
     if ([0, 1, 2, 3].includes(role)) return true;
-    if (role === 4) return u.pode_lancar_avulso !== false;
+    if (role === 4) {
+      return u.pode_criar_avulso_saida !== undefined
+        ? u.pode_criar_avulso_saida !== false
+        : u.pode_lancar_avulso !== false;
+    }
     return false;
   }
 
