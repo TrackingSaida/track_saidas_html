@@ -2874,12 +2874,15 @@ function setupPagerEvents() {
     var statusRaw = (params.get("status") || "").trim().toLowerCase().replace(/\s+/g, "_");
     if (statusRaw) {
       var wanted = statusRaw.replace(/-/g, "_");
+      // Card "Ainda na base": estoque unificado (entrada NA_BASE + coletado)
+      var wantedAindaNaBase = wanted === "ainda_na_base" || wanted === "ainda na base";
       (f.statusToggles || []).forEach(function (el) {
         var val = String(el.value || "").toLowerCase().replace(/\s+/g, "_");
         var match =
           val === wanted ||
           (wanted === "na_base" && (val === "na_base" || val === "na base")) ||
-          (wanted === "na base" && val === "na_base");
+          (wanted === "na base" && val === "na_base") ||
+          (wantedAindaNaBase && (val === "na_base" || val === "na base" || val === "coletado"));
         if (match) {
           el.checked = true;
           applied = true;
