@@ -59,8 +59,23 @@
 
   function formatarDataHora(value) {
     if (!value) return "—";
-    const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    // API devolve datetime naive do processo (UTC no servidor). Sem sufixo de fuso,
+    // o browser interpreta como horário local e atrasa/adianta a coluna Atualização.
+    const raw = String(value).trim();
+    const hasTz = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+    const iso = hasTz
+      ? raw
+      : raw.includes("T")
+        ? `${raw}Z`
+        : `${raw.replace(" ", "T")}Z`;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    // Hora do dia (HH:mm) no fuso de operação Brasil / São Paulo — não é duração em minutos.
+    return d.toLocaleString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   function itensFiltrados() {
