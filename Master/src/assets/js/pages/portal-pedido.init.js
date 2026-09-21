@@ -76,6 +76,7 @@
       if (data.id_envio) {
         acoes.classList.remove("d-none");
         btnPdf.setAttribute("data-id", String(data.id_envio));
+        btnPdf.setAttribute("data-codigo", data.codigo || "");
         if (data.pode_cancelar) {
           btnCancel.classList.remove("d-none");
           btnCancel.setAttribute("data-id", String(data.id_envio));
@@ -97,11 +98,7 @@
     var res = await PS.req("/envios/" + envioId + "/pdf");
     if (!res.ok) return;
     var blob = await res.blob();
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = "etiqueta.pdf";
-    a.click();
+    PS.downloadBlob(blob, PS.filenameFromResponse(res, this.getAttribute("data-codigo")));
   });
 
   document.getElementById("btnCancelar")?.addEventListener("click", async function () {
