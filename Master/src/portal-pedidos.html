@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  @@include("partials/title-meta.html", {"title": "Pedidos"})
+  @@include("partials/head-css.html")
+  <link href="assets/css/portal-shell.css?v=3" rel="stylesheet">
+</head>
+<body>
+  @@include("partials/portal-shell.html")
+  <div class="portal-body">
+    <h1 class="portal-page-title">Pedidos</h1>
+    <p class="portal-page-sub">Acompanhe status e detalhes das suas entregas.</p>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <form id="formFiltros" class="row g-2 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label" for="filtroQ">Código ou destinatário</label>
+            <input class="form-control" id="filtroQ" placeholder="Buscar">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label" for="filtroCanal">Canal</label>
+            <select class="form-select" id="filtroCanal">
+              <option value="">Todos</option>
+              <option value="site">Site</option>
+              <option value="mercado_livre">Mercado Livre</option>
+              <option value="shopee">Shopee</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label" for="filtroStatus">Status</label>
+            <select class="form-select" id="filtroStatus">
+              <option value="">Todos</option>
+              <option value="aguardando_coleta">Aguardando coleta</option>
+              <option value="coletado">Coletado</option>
+              <option value="em_entrega">Saiu para entrega</option>
+              <option value="ausente">Destinatário ausente</option>
+              <option value="entregue">Entregue</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label" for="filtroDe">De</label>
+            <input type="date" class="form-control" id="filtroDe">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label" for="filtroAte">Até</label>
+            <input type="date" class="form-control" id="filtroAte">
+          </div>
+          <div class="col-md-1">
+            <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div id="listaLoading" class="text-muted">
+          <div class="ps-skeleton ps-skeleton-line" style="width:40%"></div>
+          <div class="ps-skeleton ps-skeleton-line" style="width:70%"></div>
+          <div class="ps-skeleton ps-skeleton-line" style="width:55%"></div>
+        </div>
+        <div id="listaErro" class="alert alert-danger d-none" role="alert"></div>
+        <div id="listaVazia" class="ps-empty d-none">
+          <i class="ri-inbox-line" aria-hidden="true"></i>
+          Nenhum pedido encontrado com esses filtros.
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0" id="tabelaPedidos">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Canal</th>
+                <th>Destinatário</th>
+                <th>Cidade/UF</th>
+                <th>Status</th>
+                <th>Atualização</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbodyPedidos"></tbody>
+          </table>
+        </div>
+        <p id="listaTotal" class="small text-muted mt-3 mb-0 d-none"></p>
+      </div>
+    </div>
+  </div>
+  </div><!-- /.portal-main -->
+</div><!-- /.portal-app -->
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="pedidoDrawer" aria-labelledby="pedidoDrawerLabel" style="width: min(420px, 100%);">
+  <div class="offcanvas-header border-bottom">
+    <div>
+      <p class="small text-uppercase text-muted mb-1 fw-semibold">Detalhes do pedido</p>
+      <h2 class="offcanvas-title h5 mb-0" id="pedidoDrawerLabel">Pedido</h2>
+      <p class="small text-muted mb-0" id="drawerCanal"></p>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
+  </div>
+  <div class="offcanvas-body">
+    <div id="drawerLoading" class="text-muted">Carregando…</div>
+    <div id="drawerErro" class="alert alert-danger d-none"></div>
+    <div id="drawerContent" class="d-none">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <span id="drawerStatus"></span>
+        <span class="small text-muted" id="drawerAtualizado"></span>
+      </div>
+      <h3 class="h6">Destinatário</h3>
+      <p class="mb-1 fw-semibold" id="drawerDestNome"></p>
+      <p class="text-muted small mb-1" id="drawerDestEndereco"></p>
+      <p class="small mb-3" id="drawerDestTelefone"></p>
+      <div id="drawerRecebimento" class="alert alert-success py-2 small d-none">
+        Recebido por: <strong id="drawerRecebimentoTxt"></strong>
+      </div>
+      <h3 class="h6">Acompanhamento</h3>
+      <div id="drawerTimelineVazia" class="text-muted small d-none">Ainda não há eventos neste pedido.</div>
+      <ol id="drawerTimeline" class="list-group list-group-flush portal-detail-timeline mb-3"></ol>
+      <a class="btn btn-soft-secondary btn-sm" id="drawerLinkCompleto" href="#">Abrir em página</a>
+    </div>
+  </div>
+</div>
+
+<script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/plugins.js"></script>
+<script src="assets/js/pages/portal-common.js"></script>
+<script src="assets/js/pages/portal-pedidos.init.js"></script>
+</body>
+</html>

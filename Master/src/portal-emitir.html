@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  @@include("partials/title-meta.html", {"title": "Emitir etiqueta"})
+  @@include("partials/head-css.html")
+  <link href="assets/css/portal-shell.css?v=4" rel="stylesheet">
+</head>
+<body>
+  @@include("partials/portal-shell.html")
+  <div class="portal-body">
+    <div class="portal-emitir-header">
+      <span class="portal-eyebrow">Envio próprio</span>
+      <h1 class="portal-page-title">Emitir etiqueta</h1>
+      <p class="portal-page-sub">Crie um pedido e deixe o pacote pronto para coleta.</p>
+      <a href="portal-etiquetas.html" class="small fw-semibold">Ver etiquetas emitidas</a>
+    </div>
+
+    <div id="boxTrocaSenha" class="card mb-3 d-none">
+      <div class="card-body">
+        <p class="mb-2">Troque a senha temporária para continuar.</p>
+        <div class="mb-2">
+          <label class="form-label" for="novaSenha">Nova senha</label>
+          <input type="password" class="form-control" id="novaSenha" minlength="8" autocomplete="new-password">
+        </div>
+        <button type="button" class="btn btn-primary" id="btnTrocarSenha">Salvar senha</button>
+        <p id="trocaSenhaMsg" class="small mt-2 mb-0"></p>
+      </div>
+    </div>
+
+    <div id="boxEmitir" class="d-none">
+      <div class="ps-steps" id="wizardSteps" aria-label="Etapas">
+        <div class="ps-step is-active" data-step="1">
+          <span class="ps-step-num">1</span>
+          <span>Destinatário</span>
+        </div>
+        <div class="ps-step" data-step="2">
+          <span class="ps-step-num">2</span>
+          <span>Pacote</span>
+        </div>
+        <div class="ps-step" data-step="3">
+          <span class="ps-step-num">3</span>
+          <span>Revisão</span>
+        </div>
+      </div>
+
+      <div class="ps-remetente-box">
+        <div class="ps-remetente-icon" aria-hidden="true"><i class="ri-store-2-line"></i></div>
+        <div class="ps-remetente-body">
+          <p class="ps-remetente-label">Remetente</p>
+          <p id="remetenteResumo">Carregando…</p>
+        </div>
+        <button type="button" class="btn btn-soft-primary btn-sm ps-remetente-edit" id="btnEditarRemetente" data-bs-toggle="modal" data-bs-target="#modalRemetente">
+          <i class="ri-pencil-line me-1" aria-hidden="true"></i> Editar cadastro
+        </button>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-lg-8">
+          <p class="ps-req-note">Os campos com * são obrigatórios.</p>
+
+          <div class="card" id="stepDestinatario">
+            <div class="card-body">
+              <h2 class="h6 mb-1">Destinatário</h2>
+              <p class="ps-section-sub">Informe quem receberá o pedido</p>
+              <div class="row g-2">
+                <div class="col-12">
+                  <label class="form-label" for="destNome">Nome completo *</label>
+                  <input class="form-control" id="destNome" required autocomplete="name">
+                </div>
+                <div class="col-md-5">
+                  <label class="form-label" for="destTelefone">Telefone *</label>
+                  <input class="form-control" id="destTelefone" inputmode="tel" autocomplete="tel" placeholder="(11) 99999-9999" required>
+                </div>
+                <div class="col-md-7">
+                  <label class="form-label" for="destCep">CEP *</label>
+                  <div class="ps-cep-row">
+                    <input class="form-control" id="destCep" inputmode="numeric" maxlength="9" autocomplete="postal-code" required>
+                    <button type="button" class="btn btn-soft-secondary" id="btnBuscarCepDest">Buscar</button>
+                  </div>
+                  <small id="hintCep" class="d-none"></small>
+                  <div id="areasAtendidas" class="ps-areas-box mt-2 d-none"></div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="destRua">Rua *</label>
+                  <input class="form-control" id="destRua" autocomplete="address-line1" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="destNumero">Número *</label>
+                  <input class="form-control" id="destNumero" autocomplete="address-line2" required>
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label" for="destComplemento">Complemento</label>
+                  <input class="form-control" id="destComplemento" placeholder="Apto, sala, bloco…">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="destBairro">Bairro *</label>
+                  <input class="form-control" id="destBairro" required>
+                </div>
+                <div class="col-md-5">
+                  <label class="form-label" for="destCidade">Cidade *</label>
+                  <input class="form-control" id="destCidade" autocomplete="address-level2" required>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" for="destUf">UF *</label>
+                  <select class="form-select" id="destUf" required>
+                    <option value="">—</option>
+                    <option value="AC">AC</option>
+                    <option value="AL">AL</option>
+                    <option value="AP">AP</option>
+                    <option value="AM">AM</option>
+                    <option value="BA">BA</option>
+                    <option value="CE">CE</option>
+                    <option value="DF">DF</option>
+                    <option value="ES">ES</option>
+                    <option value="GO">GO</option>
+                    <option value="MA">MA</option>
+                    <option value="MT">MT</option>
+                    <option value="MS">MS</option>
+                    <option value="MG">MG</option>
+                    <option value="PA">PA</option>
+                    <option value="PB">PB</option>
+                    <option value="PR">PR</option>
+                    <option value="PE">PE</option>
+                    <option value="PI">PI</option>
+                    <option value="RJ">RJ</option>
+                    <option value="RN">RN</option>
+                    <option value="RS">RS</option>
+                    <option value="RO">RO</option>
+                    <option value="RR">RR</option>
+                    <option value="SC">SC</option>
+                    <option value="SP">SP</option>
+                    <option value="SE">SE</option>
+                    <option value="TO">TO</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="destReferencia">Referência</label>
+                  <input class="form-control" id="destReferencia" placeholder="Ponto de referência (opcional)">
+                </div>
+              </div>
+              <div class="d-flex justify-content-between mt-3">
+                <button type="button" class="btn btn-soft-secondary btn-limpar-emitir">Limpar</button>
+                <button type="button" class="btn btn-primary" id="btnStep1Next">Continuar</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card d-none" id="stepPacote">
+            <div class="card-body">
+              <h2 class="h6 mb-3">Pacote</h2>
+              <div class="row g-2">
+                <div class="col-md-4">
+                  <label class="form-label" for="pacotePeso">Peso (kg)</label>
+                  <input class="form-control" id="pacotePeso" type="number" min="0" step="0.01" placeholder="Ex.: 1,5">
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label" for="pacoteDimensoes">Dimensões</label>
+                  <input class="form-control" id="pacoteDimensoes" placeholder="Ex.: 20x15x10 cm">
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="pacoteObs">Observação</label>
+                  <textarea class="form-control" id="pacoteObs" rows="2" maxlength="500"></textarea>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="pacotePedidoLoja">Número do pedido do site</label>
+                  <input class="form-control" id="pacotePedidoLoja" placeholder="Ex.: #12345">
+                </div>
+              </div>
+              <div class="d-flex justify-content-between mt-3">
+                <button type="button" class="btn btn-soft-secondary" id="btnStep2Back">Voltar</button>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-soft-secondary btn-limpar-emitir">Limpar</button>
+                  <button type="button" class="btn btn-primary" id="btnStep2Next">Continuar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card d-none" id="stepRevisao">
+            <div class="card-body">
+              <h2 class="h6 mb-1">Revisão</h2>
+              <p class="ps-section-sub">Confira os dados antes de gerar a etiqueta</p>
+              <div id="revisaoResumo" class="ps-revisao"></div>
+              <div class="d-flex justify-content-between mt-3">
+                <button type="button" class="btn btn-soft-secondary" id="btnStep3Back">Voltar</button>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-soft-secondary btn-limpar-emitir">Limpar</button>
+                  <button type="button" class="btn btn-success" id="btnEmitir">
+                    <span class="btn-label">Gerar etiqueta</span>
+                  </button>
+                </div>
+              </div>
+              <p id="emitirMsg" class="small mt-2 mb-0" aria-live="polite"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-4">
+          <aside class="ps-tip-card" id="emitirTipCard">
+            <h3>Preenchimento mais rápido</h3>
+            <p>Use o CEP com Buscar para preencher rua, bairro, cidade e UF automaticamente.</p>
+            <h3>O que acontece depois?</h3>
+            <ul>
+              <li>A etiqueta é gerada e o PDF fica disponível para impressão.</li>
+              <li>O pacote fica aguardando coleta pela operação.</li>
+              <li>Você acompanha o status em Pedidos e Etiquetas.</li>
+            </ul>
+          </aside>
+        </div>
+      </div>
+    </div>
+
+    <div id="boxSucesso" class="card d-none">
+      <div class="card-body text-center py-4">
+        <i class="ri-checkbox-circle-line text-success" style="font-size:2.5rem" aria-hidden="true"></i>
+        <h2 class="h4 mt-2">Etiqueta gerada</h2>
+        <p class="mb-1">Código: <strong id="sucessoCodigo">—</strong></p>
+        <div class="d-flex flex-wrap justify-content-center gap-2 mt-3">
+          <a class="btn btn-soft-primary d-none" id="sucessoPdf" href="#" download>Baixar PDF</a>
+          <a class="btn btn-primary" id="sucessoAcompanhar" href="portal-pedidos.html">Acompanhar pedido</a>
+          <button type="button" class="btn btn-soft-secondary" id="btnNovaEtiqueta">Emitir outra</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div><!-- /.portal-main -->
+</div><!-- /.portal-app -->
+
+<!-- Modal remetente -->
+<div class="modal fade" id="modalRemetente" tabindex="-1" aria-labelledby="modalRemetenteTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title h5" id="modalRemetenteTitle">Editar cadastro do remetente</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label" for="remNome">Nome</label>
+          <input class="form-control" id="remNome" readonly>
+        </div>
+        <div class="mb-2">
+          <label class="form-label" for="remCep">CEP</label>
+          <div class="ps-cep-row">
+            <input class="form-control" id="remCep" inputmode="numeric" maxlength="9" autocomplete="postal-code">
+            <button type="button" class="btn btn-soft-secondary" id="btnBuscarCepRem">Buscar</button>
+          </div>
+          <small id="hintCepRem" class="d-none"></small>
+        </div>
+        <div class="mb-2">
+          <label class="form-label" for="remRua">Rua</label>
+          <input class="form-control" id="remRua">
+        </div>
+        <div class="row g-2">
+          <div class="col-4">
+            <label class="form-label" for="remNumero">Número</label>
+            <input class="form-control" id="remNumero">
+          </div>
+          <div class="col-8">
+            <label class="form-label" for="remComplemento">Complemento</label>
+            <input class="form-control" id="remComplemento">
+          </div>
+          <div class="col-5">
+            <label class="form-label" for="remBairro">Bairro</label>
+            <input class="form-control" id="remBairro">
+          </div>
+          <div class="col-5">
+            <label class="form-label" for="remCidade">Cidade</label>
+            <input class="form-control" id="remCidade">
+          </div>
+          <div class="col-2">
+            <label class="form-label" for="remUf">UF</label>
+            <select class="form-select" id="remUf">
+              <option value="">—</option>
+              <option value="AC">AC</option>
+              <option value="AL">AL</option>
+              <option value="AP">AP</option>
+              <option value="AM">AM</option>
+              <option value="BA">BA</option>
+              <option value="CE">CE</option>
+              <option value="DF">DF</option>
+              <option value="ES">ES</option>
+              <option value="GO">GO</option>
+              <option value="MA">MA</option>
+              <option value="MT">MT</option>
+              <option value="MS">MS</option>
+              <option value="MG">MG</option>
+              <option value="PA">PA</option>
+              <option value="PB">PB</option>
+              <option value="PR">PR</option>
+              <option value="PE">PE</option>
+              <option value="PI">PI</option>
+              <option value="RJ">RJ</option>
+              <option value="RN">RN</option>
+              <option value="RS">RS</option>
+              <option value="RO">RO</option>
+              <option value="RR">RR</option>
+              <option value="SC">SC</option>
+              <option value="SP">SP</option>
+              <option value="SE">SE</option>
+              <option value="TO">TO</option>
+            </select>
+          </div>
+        </div>
+        <p id="remMsg" class="small mt-2 mb-0"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnSalvarRemetente">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/plugins.js"></script>
+<script src="assets/js/pages/portal-common.js"></script>
+<script src="assets/js/pages/portal-emitir.init.js"></script>
+</body>
+</html>

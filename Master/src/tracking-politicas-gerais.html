@@ -3,6 +3,7 @@
   <head>
     @@include("partials/title-meta.html", {"title": "Políticas gerais"})
     @@include("partials/head-css.html")
+    <link href="assets/css/portal-shell.css?v=1" rel="stylesheet">
     <style>
       .politicas-save-dock {
         position: fixed;
@@ -27,6 +28,37 @@
       }
       .politicas-page {
         padding-bottom: 96px;
+      }
+      .ps-regiao-card {
+        border: 1px solid var(--vz-border-color, #e9ebec);
+        border-radius: 0.5rem;
+        padding: 0.85rem 1rem;
+        margin-bottom: 0.75rem;
+        background: #fff;
+      }
+      .ps-regiao-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+      .ps-prefix-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        background: #eef4ff;
+        color: #1a4f8c;
+        font-size: 0.82rem;
+        font-weight: 600;
+      }
+      .ps-prefix-chip .btn-rm-prefix {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        line-height: 1;
+        padding: 0 0 0 0.15rem;
+        cursor: pointer;
       }
     </style>
   </head>
@@ -152,6 +184,42 @@
               </div>
 
               <div class="card mb-3">
+                <div class="card-header fw-semibold">Área de Cobertura</div>
+                <div class="card-body">
+                  <p class="text-muted small">Organize a cobertura em regiões com prefixos de CEP (ex.: 064, 066). Sem regiões = atende qualquer CEP. O seller do portal é bloqueado fora da lista; a operação só recebe aviso.</p>
+
+                  <div id="regioesEmpty" class="alert alert-info py-2 mb-3">
+                    Sem regiões = atende qualquer CEP.
+                  </div>
+
+                  <div id="regioesList" class="mb-3"></div>
+
+                  <button type="button" class="btn btn-soft-primary btn-sm mb-3" id="btnAddRegiao">
+                    <i class="ri-add-line" aria-hidden="true"></i> Adicionar região
+                  </button>
+
+                  <div class="border rounded p-3 mb-3 bg-light" style="max-width: 520px;">
+                    <label class="form-label fw-medium" for="cepTesteCobertura">Testar CEP</label>
+                    <div class="input-group" style="max-width: 280px;">
+                      <input type="text" class="form-control" id="cepTesteCobertura" inputmode="numeric" maxlength="9" placeholder="00000-000">
+                      <button type="button" class="btn btn-soft-secondary" id="btnTestarCep">Verificar</button>
+                    </div>
+                    <p id="cepTesteResultado" class="small mb-0 mt-2 text-muted">Informe um CEP para ver se está coberto.</p>
+                  </div>
+
+                  <!-- legado oculto para compatibilidade de dirty/snapshot se necessário -->
+                  <textarea class="d-none" id="coberturaPrefixos" aria-hidden="true"></textarea>
+
+                  <div class="row g-3" style="max-width: 220px;">
+                    <div class="col-12">
+                      <label class="form-label" for="expiracaoDias">Expirar etiqueta (dias)</label>
+                      <input type="number" class="form-control" id="expiracaoDias" min="1" max="365" value="30">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card mb-3">
                 <div class="card-header fw-semibold">Identidade visual</div>
                 <div class="card-body">
                   <p class="text-muted small mb-3">
@@ -212,6 +280,6 @@
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
     <script src="assets/js/pages/logo-crop-modal.js?v=1.0"></script>
-    <script src="assets/js/pages/tracking-politicas-gerais.init.v2.js?v=2.0"></script>
+    <script src="assets/js/pages/tracking-politicas-gerais.init.v2.js?v=2.1"></script>
   </body>
 </html>

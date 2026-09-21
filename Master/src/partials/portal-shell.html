@@ -1,0 +1,90 @@
+<div class="portal-app" id="portalApp">
+  <aside class="portal-sidebar d-none d-lg-flex" aria-label="Menu do portal">
+    <a class="portal-sidebar-brand" href="portal-visao-geral.html">
+      <img src="assets/images/logo_rotevo.png" alt="ROTEVO">
+      <span class="ps-wordmark">ROT<span class="ps-e">E</span>VO</span>
+    </a>
+    <div class="portal-identity">
+      <p id="portalTransportadora">—</p>
+      <p id="portalSellerNome">Carregando…</p>
+      <p id="portalSlogan" class="d-none"></p>
+    </div>
+    <nav class="portal-nav" id="portalNavDesktop">
+      <a href="portal-visao-geral.html" data-nav="visao">
+        <i class="ri-dashboard-line" aria-hidden="true"></i> Visão geral
+      </a>
+      <a href="portal-pedidos.html" data-nav="pedidos">
+        <i class="ri-truck-line" aria-hidden="true"></i> Pedidos
+      </a>
+      <a href="portal-emitir.html" data-nav="emitir">
+        <i class="ri-qr-code-line" aria-hidden="true"></i> Emitir etiqueta
+      </a>
+      <a href="portal-etiquetas.html" data-nav="etiquetas">
+        <i class="ri-price-tag-3-line" aria-hidden="true"></i> Etiquetas
+      </a>
+    </nav>
+  </aside>
+
+  <div class="offcanvas offcanvas-start text-bg-dark" tabindex="-1" id="portalOffcanvas" aria-labelledby="portalOffcanvasLabel">
+    <div class="offcanvas-header border-bottom border-secondary">
+      <h2 class="offcanvas-title h6 mb-0" id="portalOffcanvasLabel">
+        <img src="assets/images/logo_rotevo.png" alt="" height="24" class="me-2">
+        Portal do Seller
+      </h2>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div class="portal-identity mb-3">
+        <p class="portal-transportadora-mirror small text-uppercase text-secondary mb-1" data-mirror="portalTransportadora">—</p>
+        <p class="portal-seller-mirror fw-bold text-white mb-0" data-mirror="portalSellerNome">Carregando…</p>
+        <p class="portal-slogan-mirror small text-secondary mt-1 mb-0 d-none" data-mirror="portalSlogan"></p>
+      </div>
+      <nav class="portal-nav" id="portalNavMobile">
+        <a href="portal-visao-geral.html" data-nav="visao" data-bs-dismiss="offcanvas">
+          <i class="ri-dashboard-line" aria-hidden="true"></i> Visão geral
+        </a>
+        <a href="portal-pedidos.html" data-nav="pedidos" data-bs-dismiss="offcanvas">
+          <i class="ri-truck-line" aria-hidden="true"></i> Pedidos
+        </a>
+        <a href="portal-emitir.html" data-nav="emitir" data-bs-dismiss="offcanvas">
+          <i class="ri-qr-code-line" aria-hidden="true"></i> Emitir etiqueta
+        </a>
+        <a href="portal-etiquetas.html" data-nav="etiquetas" data-bs-dismiss="offcanvas">
+          <i class="ri-price-tag-3-line" aria-hidden="true"></i> Etiquetas
+        </a>
+      </nav>
+    </div>
+  </div>
+
+  <div class="portal-main">
+    <header class="portal-header">
+      <button
+        type="button"
+        class="btn btn-soft-secondary d-lg-none"
+        data-bs-toggle="offcanvas"
+        data-bs-target="#portalOffcanvas"
+        aria-controls="portalOffcanvas"
+        aria-label="Abrir menu"
+      >
+        <i class="ri-menu-line" aria-hidden="true"></i>
+      </button>
+      <form class="portal-header-search" id="portalBuscaForm" action="portal-pedidos.html" method="get" role="search">
+        <div class="input-group">
+          <span class="input-group-text bg-light border-end-0"><i class="ri-search-line" aria-hidden="true"></i></span>
+          <input
+            type="search"
+            class="form-control border-start-0"
+            id="portalBusca"
+            name="q"
+            placeholder="Buscar pedido ou destinatário"
+            autocomplete="off"
+          >
+        </div>
+      </form>
+      <div class="portal-header-actions">
+        <a class="btn btn-success" href="portal-emitir.html">
+          <i class="ri-add-line me-1" aria-hidden="true"></i> Nova etiqueta
+        </a>
+        <button type="button" class="btn btn-outline-danger" id="btnSair">Sair</button>
+      </div>
+    </header>

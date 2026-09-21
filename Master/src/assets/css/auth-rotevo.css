@@ -166,12 +166,34 @@
   font-size: 1.75rem;
   font-weight: 800;
   margin: 0 0 8px;
-  color: var(--rv-text);
+  color: var(--rv-deep);
 }
 
 .rv-auth .rv-sub {
-  color: var(--rv-muted);
+  color: #475569;
   margin-bottom: 28px;
+}
+
+.rotevo-login .rv-field label {
+  color: var(--rv-deep);
+}
+
+.rotevo-login .rv-input-wrap input {
+  border-color: #cbd5e1;
+  background: #fff;
+  color: var(--rv-deep);
+}
+
+.rotevo-login .rv-input-wrap input::placeholder {
+  color: #94a3b8;
+}
+
+.rotevo-login .rv-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #b91c1c;
 }
 
 .rv-field {

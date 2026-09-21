@@ -88,17 +88,20 @@ async function http(url, options = {}) {
 
   const r = await fetch(url, opts);
 
-  if (!r.ok) {
-    // Tenta pegar o texto do erro
-    let errText = "";
-    try {
-      errText = await r.text();
-    } catch (e) {}
-
-    const err = new Error(errText || r.statusText);
-    err.status = r.status;
-    throw err;
-  }
+    if (!r.ok) {
+      let errText = "";
+      try {
+        errText = await r.text();
+      } catch (e) {}
+      try {
+        const j = JSON.parse(errText);
+        if (typeof j.detail === "string") errText = j.detail;
+        else if (j.detail && typeof j.detail.message === "string") errText = j.detail.message;
+      } catch (e) {}
+      const err = new Error(errText || r.statusText);
+      err.status = r.status;
+      throw err;
+    }
 
   // Se houver JSON, retorna JSON
   try {
@@ -309,6 +312,7 @@ async function apiDelete(id) {
     wrap.classList.remove("d-none");
     if (empty) empty.classList.add("d-none");
     if (content) content.classList.remove("d-none");
+    loadPortalAcesso();
   }
 
   async function loadSellerDetail() {
@@ -467,10 +471,138 @@ async function apiDelete(id) {
     };
   }
 
+  let PORTAL_ACCESS = null;
+
+  function portalSellerUrl() {
+    try {
+      return new URL("portal-login.html", window.location.href).href;
+    } catch (_) {
+      const base = String(window.location.href || "").split("?")[0].replace(/[^/]*$/, "");
+      return base + "portal-login.html";
+    }
+  }
+
+  function escapeHtmlPortal(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function textoAcessoPortal(login, senha) {
+    const linhas = [
+      "Portal do Seller — Rotevo",
+      "",
+      "Link: " + portalSellerUrl(),
+      "Login: " + (login || ""),
+    ];
+    if (senha) linhas.push("Senha temporária: " + senha);
+    linhas.push("", "Entre no link, faça login e troque a senha no primeiro acesso.");
+    return linhas.join("\n");
+  }
+
+  function copiarTextoPortal(texto, okMsg) {
+    const done = () => toast(okMsg || "Dados copiados.");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(texto).then(done).catch(() => {
+        toast("Não foi possível copiar. Selecione o texto manualmente.", false);
+      });
+    }
+    const ta = document.createElement("textarea");
+    ta.value = texto;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      done();
+    } catch (_) {
+      toast("Não foi possível copiar. Selecione o texto manualmente.", false);
+    }
+    ta.remove();
+    return Promise.resolve();
+  }
+
+  function preencherLinkPortal() {
+    const url = portalSellerUrl();
+    const a = qs("#portal-seller-url");
+    if (!a) return;
+    a.href = url;
+    a.textContent = url;
+  }
+
+  function showPortalSenha(login, senha) {
+    const url = portalSellerUrl();
+    const texto = textoAcessoPortal(login, senha);
+    if (window.Swal) {
+      Swal.fire({
+        icon: "success",
+        title: "Acesso ao portal",
+        html:
+          `<div class="text-start">` +
+          `<p class="mb-2"><strong>Link:</strong> <a href="${escapeHtmlPortal(url)}" target="_blank" rel="noopener">${escapeHtmlPortal(url)}</a></p>` +
+          `<p class="mb-2"><strong>Login:</strong> ${escapeHtmlPortal(login || "")}</p>` +
+          `<p class="mb-3"><strong>Senha temporária:</strong> ${escapeHtmlPortal(senha || "")}</p>` +
+          `<button type="button" class="btn btn-primary w-100" id="btnCopiarAcessoPortal">Copiar link e dados de acesso</button>` +
+          `<p class="text-muted small mt-3 mb-0">Cole no WhatsApp ou e-mail do seller. A senha temporária não será exibida de novo.</p>` +
+          `</div>`,
+        confirmButtonText: "Fechar",
+        didOpen: () => {
+          document.getElementById("btnCopiarAcessoPortal")?.addEventListener("click", () => {
+            copiarTextoPortal(texto, "Link e dados copiados. Cole e envie ao seller.");
+          });
+        },
+      });
+      return;
+    }
+    alert(texto);
+  }
+
+  async function loadPortalAcesso() {
+    const statusEl = qs("#portal-seller-status");
+    const btnLib = qs("#btnPortalLiberar");
+    const btnReset = qs("#btnPortalReset");
+    const btnOff = qs("#btnPortalDesativar");
+    PORTAL_ACCESS = null;
+    if (!SELECTED_ID || !statusEl) return;
+    try {
+      const data = await http(`${API_URL}/portal/acessos?id_base=${encodeURIComponent(SELECTED_ID)}`);
+      PORTAL_ACCESS = data;
+      const st = data?.status || "sem_acesso";
+      if (st === "ativo") {
+        statusEl.textContent = `Acesso ativo. Login: ${data.acesso?.login || "—"}.`;
+        btnLib?.classList.add("d-none");
+        btnReset?.classList.remove("d-none");
+        btnOff?.classList.remove("d-none");
+      } else if (st === "desativado") {
+        statusEl.textContent = "Acesso desativado.";
+        btnLib?.classList.add("d-none");
+        btnReset?.classList.remove("d-none");
+        btnOff?.classList.add("d-none");
+      } else {
+        statusEl.textContent = data?.endereco_completo
+          ? "Sem acesso ao portal."
+          : "Complete o endereço do seller para liberar o portal.";
+        btnLib?.classList.remove("d-none");
+        btnReset?.classList.add("d-none");
+        btnOff?.classList.add("d-none");
+      }
+    } catch (_) {
+      statusEl.textContent = "Portal indisponível para esta operação.";
+      btnLib?.classList.add("d-none");
+      btnReset?.classList.add("d-none");
+      btnOff?.classList.add("d-none");
+    }
+  }
+
   // =======================================================
   // Eventos
   // =======================================================
   document.addEventListener("DOMContentLoaded", async () => {
+    preencherLinkPortal();
     await carregarOwnerInfo();
     atualizarAjudaCamposSeller();
 
@@ -603,6 +735,64 @@ async function apiDelete(id) {
       openForm("create");
       qs("#btnHeaderEdit").disabled = true;
       qs("#btnHeaderDel").disabled = true;
+    });
+
+    qs("#btnPortalLiberar")?.addEventListener("click", async () => {
+      if (!SELECTED_ID) return;
+      try {
+        const data = await http(`${API_URL}/portal/acessos`, {
+          method: "POST",
+          body: JSON.stringify({ id_base: Number(SELECTED_ID) }),
+        });
+        showPortalSenha(data.login, data.senha_temporaria);
+        await loadPortalAcesso();
+      } catch (err) {
+        toast(err.message || "Não foi possível liberar o portal.", false);
+      }
+    });
+
+    qs("#btnPortalReset")?.addEventListener("click", async () => {
+      const id = PORTAL_ACCESS?.acesso?.id;
+      if (!id) return;
+      try {
+        const data = await http(`${API_URL}/portal/acessos/${id}/reset-senha`, { method: "POST", body: "{}" });
+        showPortalSenha(data.login, data.senha_temporaria);
+        await loadPortalAcesso();
+      } catch (err) {
+        toast(err.message || "Não foi possível resetar a senha.", false);
+      }
+    });
+
+    qs("#btnPortalDesativar")?.addEventListener("click", async () => {
+      const id = PORTAL_ACCESS?.acesso?.id;
+      if (!id) return;
+      try {
+        await http(`${API_URL}/portal/acessos/${id}`, {
+          method: "POST",
+          body: JSON.stringify({ ativo: false }),
+        });
+        toast("Acesso ao portal desativado.");
+        await loadPortalAcesso();
+      } catch (err) {
+        toast(err.message || "Não foi possível desativar o acesso.", false);
+      }
+    });
+
+    qs("#btnCopiarLinkPortal")?.addEventListener("click", () => {
+      const login = PORTAL_ACCESS?.acesso?.login || "";
+      if (!login) {
+        copiarTextoPortal(
+          "Portal do Seller — Rotevo\n\nLink: " + portalSellerUrl() + "\n\nAinda sem login liberado para este seller.",
+          "Link copiado. Liberar acesso para gerar o login."
+        );
+        return;
+      }
+      const texto =
+        "Portal do Seller — Rotevo\n\n" +
+        "Link: " + portalSellerUrl() + "\n" +
+        "Login: " + login + "\n\n" +
+        "Se o seller ainda não tiver senha, use Resetar senha e copie os dados do aviso.";
+      copiarTextoPortal(texto, "Link e login copiados. Cole e envie ao seller.");
     });
 
     qs("#btnHeaderEdit")?.addEventListener("click", async () => {

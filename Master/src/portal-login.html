@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  @@include("partials/title-meta.html", {"title": "Portal do Seller"})
+  @@include("partials/head-css.html")
+  <link href="assets/css/auth-rotevo.css?v=rotevo9" rel="stylesheet">
+</head>
+<body class="rotevo-login">
+  <div class="rv-shell">
+    <aside class="rv-brand">
+      <div class="rv-brand-inner">
+        <a href="portal-login.html" class="rv-logo-row">
+          <img src="assets/images/logo_rotevo.png" alt="ROTEVO">
+          <span class="rv-wordmark">ROT<span class="rv-e">E</span>VO</span>
+        </a>
+        <p class="rv-tagline">Portal do Seller</p>
+        <h2 class="rv-headline">Emita a etiqueta e acompanhe a entrega.</h2>
+        <p class="rv-lead">Gere o código ROTEVO, deixe o pacote pronto para a coleta e veja o status de cada pedido.</p>
+      </div>
+    </aside>
+    <main class="rv-auth">
+      <div class="rv-auth-inner">
+        <div class="rv-mobile-brand">
+          <img src="assets/images/logo_rotevo.png" alt="ROTEVO">
+          <span class="rv-wordmark">ROT<span class="rv-e">E</span>VO</span>
+          <p class="rv-tagline">Portal do Seller</p>
+        </div>
+        <h1>Acesso do seller</h1>
+        <p class="rv-sub">Use o login e a senha fornecidos pela operação.</p>
+        <form id="portalLoginForm" novalidate>
+          <div class="rv-field">
+            <label for="login">Login</label>
+            <div class="rv-input-wrap">
+              <i class="ri-user-line" aria-hidden="true"></i>
+              <input type="text" id="login" name="login" autocomplete="username" required placeholder="Seu login">
+            </div>
+          </div>
+          <div class="rv-field mt-3">
+            <div class="rv-field-head">
+              <label for="password">Senha</label>
+            </div>
+            <div class="rv-input-wrap">
+              <i class="ri-lock-2-line" aria-hidden="true"></i>
+              <input type="password" id="password" name="password" autocomplete="current-password" required placeholder="Sua senha">
+              <button type="button" class="rv-toggle-pass" id="btnTogglePass" aria-label="Mostrar senha" title="Mostrar senha">
+                <i class="ri-eye-line" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          <p id="loginError" class="rv-error text-danger small mt-2 d-none" role="alert"></p>
+          <button class="rv-btn-enter mt-3" type="submit" id="btnLogin">
+            <span class="btn-label">Entrar</span>
+          </button>
+        </form>
+        <p class="rv-secure"><i class="ri-shield-check-line" aria-hidden="true"></i> Acesso seguro ao portal</p>
+      </div>
+    </main>
+  </div>
+  <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/plugins.js"></script>
+  <script src="assets/js/pages/portal-common.js"></script>
+  <script src="assets/js/pages/portal-login.init.js"></script>
+</body>
+</html>
