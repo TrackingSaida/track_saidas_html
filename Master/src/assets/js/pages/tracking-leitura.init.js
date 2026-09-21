@@ -1820,10 +1820,10 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
   const motoboyId = parseInt(motoboyIdRaw, 10);
   const entregador = selEnt?.options[selEnt.selectedIndex]?.text?.trim() || entregadoresMap.get(motoboyIdRaw) || "";
   const roleUser = Number(window.__USER__?.role);
-  const isRootAdmin = roleUser === 0 || roleUser === 1;
   const isStaff = [0, 1, 2, 3].includes(roleUser);
+  const exigeFotoGlobal = !!(window.__USER__?.avulso_exige_foto);
   const exigeFotoMotoboy = !!(motoboysMetaMap.get(motoboyIdRaw)?.avulso_exige_foto);
-  const exigeFoto = exigeFotoMotoboy && !isRootAdmin;
+  const exigeFoto = !!(exigeFotoGlobal || exigeFotoMotoboy);
   const mostrarFoto = exigeFoto || isStaff;
   const excepcional = ownerExigeSelecaoAvulso();
   const camposCfg = await loadSchemaCamposAvulso("SAIDA_AVULSO");
@@ -1847,7 +1847,7 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     ? `
         <label class="form-label mb-1" for="avulso-foto">Imagem ${exigeFoto ? '<span class="text-danger">*</span>' : '<span class="text-muted">(opcional)</span>'}</label>
         <input id="avulso-foto" type="file" accept="image/*" capture="environment" class="form-control mb-1" />
-        ${exigeFoto ? '<div class="form-text mb-3">Este entregador exige foto ao lançar avulso.</div>' : '<div class="mb-3"></div>'}
+        ${exigeFoto ? '<div class="form-text mb-3">Foto obrigatória ao lançar avulso.</div>' : '<div class="mb-3"></div>'}
       `
     : "";
   const motivoHtml = excepcional

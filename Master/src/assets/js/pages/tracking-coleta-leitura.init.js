@@ -1206,16 +1206,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const roleUser = Number(window.__USER__?.role);
-    const isRootAdmin = roleUser === 0 || roleUser === 1;
     const isStaff = [0, 1, 2, 3].includes(roleUser);
-    const exigeFotoUser = !!(window.__USER__?.avulso_exige_foto) && roleUser === 4;
-    const exigeFoto = exigeFotoUser && !isRootAdmin;
+    const exigeFoto = !!(window.__USER__?.avulso_exige_foto);
     const mostrarFoto = exigeFoto || isStaff;
     const fotoFieldHtml = mostrarFoto
       ? `
           <label class="form-label mb-1" for="avulso-foto">Imagem ${exigeFoto ? '<span class="text-danger">*</span>' : '<span class="text-muted">(opcional)</span>'}</label>
           <input id="avulso-foto" type="file" accept="image/*" capture="environment" class="form-control mb-1" />
-          ${exigeFoto ? '<div class="form-text">Este usuário exige foto ao lançar avulso.</div>' : ""}
+          ${exigeFoto ? '<div class="form-text">Foto obrigatória ao lançar avulso.</div>' : ""}
         `
       : "";
 
