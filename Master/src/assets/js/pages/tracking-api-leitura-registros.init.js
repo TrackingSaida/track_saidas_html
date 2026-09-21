@@ -427,6 +427,28 @@
   };
 
   // ============================================================
+  // TRANSFERIR BASE DA COLETA (ledger + Saida.base)
+  // ============================================================
+  window.TrackAPI.transferirBaseColeta = async function (idsSaida, baseDestino) {
+    const res = await req("/coletas/operacionais/transferir-base", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ids_saida: (idsSaida || []).map(Number).filter(Boolean),
+        base_destino: String(baseDestino || "").trim(),
+        origem_cliente: "web"
+      })
+    });
+    let data = null; try { data = await res.json(); } catch {}
+    var detail = data?.detail;
+    var errorMsg = null;
+    if (typeof detail === "string") errorMsg = detail;
+    else if (detail && typeof detail === "object" && detail.message) errorMsg = detail.message;
+    else if (data?.error) errorMsg = data.error;
+    return { ok: res.ok, status: res.status, data, error: errorMsg };
+  };
+
+  // ============================================================
   // EXCLUIR SAÍDA
   // ============================================================
   window.TrackAPI.deleteSaida = async function (id) {

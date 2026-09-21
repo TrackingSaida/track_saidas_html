@@ -593,7 +593,8 @@ function augmentEntregadoresFromRows(rows){
     rota_cancelada: "Rota cancelada",
     entrada_base: "Entrada na base",
     saida_conferida: "Saída conferida",
-    saida_reconferida: "Saída reconferida"
+    saida_reconferida: "Saída reconferida",
+    base_transferida: "Transferiu base da coleta"
   };
 
   function normalizeEventoKey(evento) {
@@ -614,6 +615,7 @@ function augmentEntregadoresFromRows(rows){
     if (raw.indexOf("coleta") !== -1) return "coleta";
     if (raw.indexOf("reatrib") !== -1) return "reatribuido";
     if (raw.indexOf("entrada") !== -1) return "entrada_base";
+    if (raw.indexOf("transfer") !== -1 || raw.indexOf("base_transferida") !== -1) return "base_transferida";
     if (raw.indexOf("reconferid") !== -1) return "saida_reconferida";
     if (raw.indexOf("conferid") !== -1) return "saida_conferida";
     return "unknown";
@@ -663,6 +665,7 @@ function augmentEntregadoresFromRows(rows){
     "Nova saída confirmada com mesmo motoboy": { category: "confirmation", className: "action-confirmation" },
     "Entrada na base": { category: "neutral", className: "action-neutral" },
     "Pacote coletado": { category: "neutral", className: "action-neutral" },
+    "Transferiu base da coleta": { category: "neutral", className: "action-neutral" },
     "Saída conferida": { category: "confirmation", className: "action-confirmation" },
     "Saída reconferida": { category: "confirmation", className: "action-confirmation" },
     "Sem ação": { category: "neutral", className: "action-neutral" }
@@ -2153,6 +2156,28 @@ function setupPagerEvents() {
     btnSave.disabled = !isEditChanged();
   }
 
+  function rowOperacaoDia(row){
+    var raw = row?.data || row?.data_operacao || row?.timestamp || row?.criado_em || "";
+    var s = String(raw || "").trim();
+    if (!s) return "";
+    // Aceita YYYY-MM-DD, ISO ou DD/MM/YYYY
+    var mIso = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (mIso) return mIso[1];
+    var mBr = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (mBr) return mBr[3] + "-" + mBr[2] + "-" + mBr[1];
+    try {
+      var d = new Date(s);
+      if (!isNaN(d.getTime())) {
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      }
+    } catch (_) {}
+    return s.slice(0, 10);
+  }
+
+  function rowBaseKey(row){
+    return String(row?.base || row?.seller || "").trim().toUpperCase();
+  }
+
   function validateBulkHomogeneity(ids){
     var registros = ids.map(function(id){
       return state.rows.find(function(r){ return String(getRowId(r)) === String(id); });
@@ -2160,11 +2185,74 @@ function setupPagerEvents() {
     if (!registros.length) return false;
     var statuses = Array.from(new Set(registros.map(function(r){ return normalizeStatusForBulk(r.status); })));
     var executors = Array.from(new Set(registros.map(function(r){ return getExecutorKeyForBulk(r); })));
-    if (statuses.length > 1 || executors.length > 1){
-      notify("Para edição em lote, selecione pedidos com o mesmo status e o mesmo motoboy.", "warning");
+    if (statuses.length === 1 && executors.length === 1) return true;
+
+    // Transferência de coleta: mesma base + mesmo dia (status/motoboy podem variar)
+    var bases = Array.from(new Set(registros.map(rowBaseKey).filter(Boolean)));
+    var dias = Array.from(new Set(registros.map(rowOperacaoDia).filter(Boolean)));
+    if (supportsColetaStatus() && bases.length === 1 && dias.length === 1) return true;
+
+    notify(
+      "Para edição em lote, selecione pedidos com o mesmo status e o mesmo motoboy — ou, para transferir coleta, a mesma base e o mesmo dia.",
+      "warning"
+    );
+    return false;
+  }
+
+  function summarizeServicoCounts(registros){
+    var counts = { shopee: 0, mercado_livre: 0, avulso: 0 };
+    (registros || []).forEach(function(r){
+      var s = String(r?.servico || "").toLowerCase();
+      if (s.indexOf("shopee") !== -1) counts.shopee += 1;
+      else if (s.indexOf("mercado") !== -1 || s.indexOf("flex") !== -1) counts.mercado_livre += 1;
+      else counts.avulso += 1;
+    });
+    var parts = [];
+    if (counts.mercado_livre) parts.push("Flex " + counts.mercado_livre);
+    if (counts.shopee) parts.push("Shopee " + counts.shopee);
+    if (counts.avulso) parts.push("Avulso " + counts.avulso);
+    return parts.join(" · ") || String((registros || []).length);
+  }
+
+  function buildTransferConfirmMsg(registros, baseOrigem, baseDestino){
+    var n = (registros || []).length;
+    var resumo = summarizeServicoCounts(registros);
+    return (
+      "Transferir " + n + " pacote(s) de coleta?\n\n" +
+      "De: " + (baseOrigem || "—") + "\n" +
+      "Para: " + (baseDestino || "—") + "\n" +
+      "Volumes: " + resumo + "\n\n" +
+      "As quantidades e o status da coleta acompanham a nova base."
+    );
+  }
+
+  async function applyTransferenciaBase(ids, baseDestino, registros){
+    if (!TrackAPI?.transferirBaseColeta) {
+      notify("API de transferência não disponível.", "error");
       return false;
     }
-    return true;
+    var baseOrigem = uniqueValueOrDifferent(
+      (registros || []).map(function(r){ return r?.base || r?.seller; }),
+      "—",
+      true
+    );
+    var conf = await confirmDlg(
+      buildTransferConfirmMsg(registros, baseOrigem, baseDestino),
+      "Transferir coleta de base"
+    );
+    if (!conf?.isConfirmed) return false;
+    var r = await TrackAPI.transferirBaseColeta(ids, baseDestino);
+    if (r.ok || r.status === 200) {
+      notify(
+        "Transferência concluída: " + (r.data?.transferidos || ids.length) + " pacote(s).",
+        "success"
+      );
+      return true;
+    }
+    var msg = r.error || "Falha ao transferir base da coleta.";
+    if (typeof r.data?.detail === "string") msg = r.data.detail;
+    notify(msg, r.status === 409 ? "warning" : "error");
+    return false;
   }
 
   if (btnEdit){
@@ -2225,12 +2313,17 @@ function setupPagerEvents() {
         }
       }
 
-      if (eBase?.value && (
+      // Troca de base com coleta ativa → transferência explícita (ledger + status).
+      var transferBaseOnly = supportsColetaStatus() && baseChanged && eBase?.value;
+      if (transferBaseOnly) {
+        // Base sai do PATCH; vai pelo endpoint de transferência.
+      } else if (eBase?.value && (
         eSta.value === "Não Coletado" ||
         eSta.value === "Coletado" ||
         baseChanged
-      ))
+      )) {
         payload.base = eBase.value;
+      }
 
       if (!TrackAPI?.updateSaida)
         return notify("API de atualização não disponível.", "error");
@@ -2242,7 +2335,11 @@ function setupPagerEvents() {
 
       var confirmMsg = "Campos alterados: " + (camposAlterados.length ? camposAlterados.join(", ") : "nenhum");
       var confirmTitle = "Confirmar alterações";
-      if (cohortCancelado && eSta?.value !== "Cancelado" && statusChanged) {
+      if (transferBaseOnly && !motoboyChanged && !statusChanged && (eSrv?.value || "") === editInitialState.servico) {
+        // Confirmação específica fica em applyTransferenciaBase
+        confirmTitle = null;
+        confirmMsg = null;
+      } else if (cohortCancelado && eSta?.value !== "Cancelado" && statusChanged) {
         confirmTitle = "Reverter cancelamento";
         confirmMsg = "Este pedido está cancelado. Deseja reverter o cancelamento e alterar o status?\n\n" + confirmMsg;
       } else if (cohortEntregue && eSta?.value === "Cancelado" && statusChanged) {
@@ -2251,22 +2348,41 @@ function setupPagerEvents() {
       } else if (cohortEntregue && motoboyChanged && !statusChanged) {
         confirmTitle = "Reatribuir pedido entregue";
         confirmMsg = "O pedido será reatribuído e colocado Em rota no novo motoboy.\n\n" + confirmMsg;
+      } else if (transferBaseOnly) {
+        confirmTitle = "Transferir coleta e alterar campos";
+        confirmMsg = "A base será transferida (quantidades/status da coleta acompanham) e os demais campos serão atualizados.\n\n" + confirmMsg;
       }
-      confirmDlg(confirmMsg, confirmTitle)
-        .then(function(conf){
-          if (!conf?.isConfirmed) return;
+
+      var runSave = function(){
           if (btnSave) {
             btnSave.disabled = true;
             btnSave.dataset.originalText = btnSave.textContent;
             btnSave.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Salvando...';
           }
-          return TrackAPI.updateSaida(id, payload)
+          var chain = Promise.resolve(true);
+          if (transferBaseOnly) {
+            var rowAtual = state.rows.find(function(r){ return String(getRowId(r)) === String(id); });
+            chain = applyTransferenciaBase([id], eBase.value, rowAtual ? [rowAtual] : []);
+          }
+          return chain.then(function(transferOk){
+            if (transferBaseOnly && !transferOk) return { skipped: true };
+            var onlyTransfer = transferBaseOnly && !motoboyChanged && !statusChanged
+              && (eSrv?.value || "") === (editInitialState?.servico || "")
+              && (eCod?.value || "") === (editInitialState?.codigo || "");
+            if (onlyTransfer) return { ok: true, status: 200 };
+            return TrackAPI.updateSaida(id, payload);
+          })
         .then(r => {
+          if (r?.skipped) return;
           if (r.status === 200){
             bustListCache();
             refresh(true);
             modal?.hide();
-            notify("Atualizado com sucesso.", "success");
+            if (!(transferBaseOnly && !motoboyChanged && !statusChanged
+              && (eSrv?.value || "") === (editInitialState?.servico || "")
+              && (eCod?.value || "") === (editInitialState?.codigo || ""))) {
+              notify(transferBaseOnly ? "Transferência/atualização concluída." : "Atualizado com sucesso.", "success");
+            }
             updateEditButtonState();
             return;
           }
@@ -2297,7 +2413,16 @@ function setupPagerEvents() {
           }
           updateEditSaveState();
         });
+      };
+
+      if (!confirmTitle) {
+        runSave();
+      } else {
+        confirmDlg(confirmMsg, confirmTitle).then(function(conf){
+          if (!conf?.isConfirmed) return;
+          runSave();
         });
+      }
     });
   }
 
@@ -2347,7 +2472,7 @@ function setupPagerEvents() {
     if (!show && bulkBase) bulkBase.value = "";
     if (bulkBaseHint) {
       bulkBaseHint.textContent = show
-        ? ("Vale para todos os pedidos selecionados, com ou sem " + labelBase("base_lower") + " informado.")
+        ? ("Ao trocar a " + labelBase("base_lower") + ", a coleta é transferida: quantidades e status (Coletada/Pendente) acompanham a nova base.")
         : "";
     }
   }
@@ -2461,6 +2586,10 @@ function setupPagerEvents() {
         return notify("Pedido cancelado. Apenas root ou admin podem reverter o cancelamento.", "warning");
       }
 
+      var registros = ids.map(function(id){
+        return state.rows.find(function(r){ return String(getRowId(r)) === String(id); });
+      }).filter(Boolean);
+
       function mapStatusToApi(v){
         return (
           v === "Saiu para entrega" ? "saiu" :
@@ -2483,7 +2612,23 @@ function setupPagerEvents() {
         delete body.status;
       }
       if (bulkServico?.value) body.servico = normalizeServicoForEdit(bulkServico.value, "");
-      if (bulkBase?.value) body.base = bulkBase.value;
+
+      var willTransferBase = supportsColetaStatus() && !!bulkBase?.value;
+      if (willTransferBase) {
+        var basesSel = Array.from(new Set(registros.map(rowBaseKey).filter(Boolean)));
+        var diasSel = Array.from(new Set(registros.map(rowOperacaoDia).filter(Boolean)));
+        if (basesSel.length !== 1) {
+          return notify("Para transferir coleta, selecione apenas pacotes da mesma base.", "warning");
+        }
+        if (diasSel.length !== 1) {
+          return notify("Para transferir coleta, selecione apenas pacotes do mesmo dia.", "warning");
+        }
+        if (basesSel[0] === String(bulkBase.value || "").trim().toUpperCase()) {
+          return notify("A base de destino deve ser diferente da origem.", "warning");
+        }
+      } else if (bulkBase?.value) {
+        body.base = bulkBase.value;
+      }
 
       if (
         body.base &&
@@ -2494,15 +2639,37 @@ function setupPagerEvents() {
         return notify("Pedidos finalizados não permitem alterar apenas o " + labelBase("base_lower") + ".", "warning");
       }
 
+      var otherFields = !!(body.status || body.motoboy_id || body.servico);
+      if (otherFields) {
+        var statuses = Array.from(new Set(registros.map(function(r){ return normalizeStatusForBulk(r.status); })));
+        var executors = Array.from(new Set(registros.map(function(r){ return getExecutorKeyForBulk(r); })));
+        if (statuses.length > 1 || executors.length > 1) {
+          return notify(
+            "Para alterar status/motoboy/serviço em lote, selecione pedidos com o mesmo status e o mesmo motoboy.",
+            "warning"
+          );
+        }
+      }
+
       var campos = [];
       if (bulkMotoboy?.value) campos.push("Motoboy");
       if (bulkStatus?.value) campos.push("Status");
       if (bulkServico?.value) campos.push("Serviço");
-      if (body.base) campos.push(labelBase("base"));
+      if (willTransferBase || body.base) campos.push(labelBase("base"));
 
-      var bulkConfirmTitle = "Confirmar alterações em lote";
-      var bulkConfirmMsg = "Aplicar alterações em " + ids.length + " registros?\nCampos: " + campos.join(", ");
-      if (bulkCurrentCohortStatus === "cancelado" && bulkStatus?.value && bulkStatus.value !== "Cancelado") {
+      var onlyTransfer = willTransferBase && !otherFields;
+      var bulkConfirmTitle = onlyTransfer ? "Transferir coleta de base" : "Confirmar alterações em lote";
+      var bulkConfirmMsg = onlyTransfer
+        ? null
+        : ("Aplicar alterações em " + ids.length + " registros?\nCampos: " + campos.join(", "));
+      if (onlyTransfer) {
+        // confirmação dedicada em applyTransferenciaBase
+      } else if (willTransferBase) {
+        bulkConfirmTitle = "Transferir coleta e alterar campos";
+        bulkConfirmMsg =
+          "A base será transferida (quantidades/status da coleta acompanham) e os demais campos serão atualizados.\n\n" +
+          bulkConfirmMsg;
+      } else if (bulkCurrentCohortStatus === "cancelado" && bulkStatus?.value && bulkStatus.value !== "Cancelado") {
         bulkConfirmTitle = "Reverter cancelamento em lote";
         bulkConfirmMsg = "Reverter o cancelamento de " + ids.length + " pedidos?\n\n" + bulkConfirmMsg;
       } else if (bulkCurrentCohortStatus === "entregue" && bulkStatus?.value === "Cancelado") {
@@ -2514,36 +2681,60 @@ function setupPagerEvents() {
         bulkConfirmMsg = "Reatribuir " + ids.length + " pedidos entregues a " + motoboyLabel + " (Em rota)?\n\n" + bulkConfirmMsg;
       }
 
-      confirmDlg(bulkConfirmMsg, bulkConfirmTitle)
-        .then(function(conf){
-          if (!conf?.isConfirmed) return;
+      function runBulkApply(){
           if (bulkApplyBtn) {
             bulkApplyBtn.disabled = true;
             bulkApplyBtn.dataset.originalText = bulkApplyBtn.textContent;
             bulkApplyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Aplicando...';
           }
-          return Promise.allSettled(
-        ids.map((id,i) =>
-          new Promise(res => setTimeout(res, 50*i))
-          .then(() => TrackAPI.updateSaida(id, body))
-        )
-      ).then(results => {
-        var ok = results.filter(r => r.status==="fulfilled" && (r.value.ok || r.value.status===200)).length;
-        var fail = results.length - ok;
+          var chain = Promise.resolve(true);
+          if (willTransferBase) {
+            chain = applyTransferenciaBase(ids, bulkBase.value, registros);
+          }
+          return chain.then(function(transferOk){
+            if (willTransferBase && !transferOk) return { skipped: true };
+            if (onlyTransfer) return { skipped: false, transferOnly: true };
+            return Promise.allSettled(
+              ids.map(function(id, i){
+                return new Promise(function(res){ setTimeout(res, 50 * i); })
+                  .then(function(){ return TrackAPI.updateSaida(id, body); });
+              })
+            ).then(function(results){
+              var ok = results.filter(function(r){
+                return r.status === "fulfilled" && (r.value.ok || r.value.status === 200);
+              }).length;
+              return { ok: ok, fail: results.length - ok };
+            });
+          }).then(function(summary){
+            if (summary?.skipped) return;
+            bulkModal?.hide();
+            if (summary?.transferOnly) {
+              bustListCache();
+              refresh(false);
+              updateEditButtonState();
+              return;
+            }
+            notify("Lote concluído: " + summary.ok + " ok, " + summary.fail + " falha(s).", summary.fail ? "warning" : "success");
+            bustListCache();
+            refresh(false);
+            updateEditButtonState();
+          }).finally(function(){
+            if (bulkApplyBtn) {
+              bulkApplyBtn.innerHTML = bulkApplyBtn.dataset.originalText || "Aplicar alterações";
+              delete bulkApplyBtn.dataset.originalText;
+            }
+            updateBulkApplyState();
+          });
+      }
 
-        bulkModal?.hide();
-        notify(`Lote concluído: ${ok} ok, ${fail} falha(s).`, fail ? "warning" : "success");
-        bustListCache();
-        refresh(false);
-        updateEditButtonState();
-      }).finally(function(){
-        if (bulkApplyBtn) {
-          bulkApplyBtn.innerHTML = bulkApplyBtn.dataset.originalText || "Aplicar alterações";
-          delete bulkApplyBtn.dataset.originalText;
-        }
-        updateBulkApplyState();
-      });
+      if (onlyTransfer) {
+        runBulkApply();
+      } else {
+        confirmDlg(bulkConfirmMsg, bulkConfirmTitle).then(function(conf){
+          if (!conf?.isConfirmed) return;
+          runBulkApply();
         });
+      }
     });
   }
 
