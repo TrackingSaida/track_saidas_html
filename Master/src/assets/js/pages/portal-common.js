@@ -318,7 +318,7 @@
 
   function etiquetaFilename(codigo) {
     var safe = String(codigo || "etiqueta").replace(/[^\w.\-]+/g, "") || "etiqueta";
-    return "etq-" + safe + "_rotevo.pdf";
+    return "etq-" + safe + ".pdf";
   }
 
   function filenameFromResponse(res, fallbackCodigo) {
