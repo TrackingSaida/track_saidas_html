@@ -148,7 +148,7 @@
       const detalhe = e.ainda_na_base_detalhe || [];
       if (!detalhe.length) {
         detalheEl.textContent = "Nenhum pacote aguardando saída";
-        if (linkEl) linkEl.href = "tracking-registros.html?status=na_base&periodo=ultimos45";
+        if (linkEl) linkEl.href = "tracking-registros.html?status=ainda_na_base&periodo=ultimos45";
       } else {
         const top = detalhe.slice(0, 4);
         detalheEl.innerHTML = top.map(function (d) {
@@ -161,9 +161,9 @@
           const de = dates[0];
           const ate = dates[dates.length - 1];
           if (de && ate) {
-            linkEl.href = "tracking-registros.html?status=na_base&de=" + encodeURIComponent(de) + "&ate=" + encodeURIComponent(ate);
+            linkEl.href = "tracking-registros.html?status=ainda_na_base&de=" + encodeURIComponent(de) + "&ate=" + encodeURIComponent(ate);
           } else {
-            linkEl.href = "tracking-registros.html?status=na_base&periodo=ultimos45";
+            linkEl.href = "tracking-registros.html?status=ainda_na_base&periodo=ultimos45";
           }
         }
       }
