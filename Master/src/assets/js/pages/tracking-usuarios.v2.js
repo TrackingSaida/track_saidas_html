@@ -240,6 +240,12 @@ function initUsers() {
     const podeAvulsoSaida = document.getElementById("podeCriarAvulsoSaida");
     if (podeAvulsoColeta) podeAvulsoColeta.addEventListener("change", toggleAvulsoExigeFotoVisibility);
     if (podeAvulsoSaida) podeAvulsoSaida.addEventListener("change", toggleAvulsoExigeFotoVisibility);
+    const podeLerColetaEl = document.getElementById("podeLerColeta");
+    if (podeLerColetaEl) {
+        podeLerColetaEl.addEventListener("change", () => {
+            if (podeLerColetaEl.checked) applyAvulsoFromPoliticaOnColetaEnable();
+        });
+    }
 
     document.getElementById("contato").addEventListener("input", (ev) => {
         ev.target.value = maskCellphone(ev.target.value);
@@ -350,11 +356,11 @@ function fillAvulsoCheckboxes(obj, coletaEl, saidaEl) {
     const hasColeta = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_coleta");
     const hasSaida = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_saida");
     if (hasColeta || hasSaida) {
-        if (coletaEl) coletaEl.checked = asBoolFlag(src.pode_criar_avulso_coleta, false);
+        if (coletaEl) coletaEl.checked = asBoolFlag(src.pode_criar_avulso_coleta, true);
         if (saidaEl) saidaEl.checked = asBoolFlag(src.pode_criar_avulso_saida, false);
         return;
     }
-    if (coletaEl) coletaEl.checked = false;
+    if (coletaEl) coletaEl.checked = true;
     if (saidaEl) saidaEl.checked = false;
 }
 
@@ -373,6 +379,48 @@ function toggleAvulsoExigeFotoVisibility() {
     const show = !!(coletaEl?.checked || saidaEl?.checked);
     wrap.classList.toggle("d-none", !show);
     if (!show && exigeEl) exigeEl.checked = false;
+}
+
+/** Cache dos padrões do Owner (GET /politicas) para herança no formulário. */
+let cachedPadroesMotoboy = null;
+
+const PRESET_PADROES_MOTOBOY = {
+    pode_realizar_coleta: false,
+    pode_ler_saida: true,
+    pode_digitar_codigo_manual: false,
+    pode_criar_avulso_coleta: true,
+    pode_criar_avulso_saida: false,
+    avulso_exige_foto: true,
+};
+
+async function ensurePadroesMotoboyCached() {
+    let pad = { ...PRESET_PADROES_MOTOBOY };
+    try {
+        const r = await fetch(`${API_BASE}/politicas`, {
+            credentials: "include",
+            headers: { Accept: "application/json" },
+        });
+        if (r.ok) {
+            const data = await r.json();
+            if (data?.padroes_motoboy) pad = { ...PRESET_PADROES_MOTOBOY, ...data.padroes_motoboy };
+        }
+    } catch (_) {}
+    cachedPadroesMotoboy = pad;
+    return pad;
+}
+
+/** Ao habilitar "Pode realizar coleta", herda avulso coleta + foto da política. */
+async function applyAvulsoFromPoliticaOnColetaEnable() {
+    const pad = await ensurePadroesMotoboyCached();
+    const coletaEl = document.getElementById("podeCriarAvulsoColeta");
+    const fotoEl = document.getElementById("avulsoExigeFoto");
+    if (coletaEl && asBoolFlag(pad.pode_criar_avulso_coleta, true)) {
+        coletaEl.checked = true;
+    }
+    toggleAvulsoExigeFotoVisibility();
+    if (fotoEl && (coletaEl?.checked || document.getElementById("podeCriarAvulsoSaida")?.checked)) {
+        if (asBoolFlag(pad.avulso_exige_foto, true)) fotoEl.checked = true;
+    }
 }
 
 
@@ -629,22 +677,7 @@ function goToPage(n) {
 // =====================================================================
 
 async function applyPadroesMotoboyDefaults() {
-    const fallback = {
-        pode_realizar_coleta: false,
-        pode_ler_saida: true,
-        pode_digitar_codigo_manual: false,
-        pode_criar_avulso_coleta: true,
-        pode_criar_avulso_saida: false,
-        avulso_exige_foto: true,
-    };
-    let pad = fallback;
-    try {
-        const r = await fetch(`${API_BASE}/politicas`, { credentials: "include", headers: { Accept: "application/json" } });
-        if (r.ok) {
-            const data = await r.json();
-            if (data?.padroes_motoboy) pad = { ...fallback, ...data.padroes_motoboy };
-        }
-    } catch (_) {}
+    const pad = await ensurePadroesMotoboyCached();
     document.getElementById("podeLerColeta").checked = !!pad.pode_realizar_coleta;
     document.getElementById("podeLerSaida").checked = pad.pode_ler_saida !== false;
     document.getElementById("podeDigitarCodigoManual").checked = !!pad.pode_digitar_codigo_manual;
@@ -652,8 +685,9 @@ async function applyPadroesMotoboyDefaults() {
     const podeAvulsoSaidaCreate = document.getElementById("podeCriarAvulsoSaida");
     fillAvulsoCheckboxes(pad, podeAvulsoColetaCreate, podeAvulsoSaidaCreate);
     const avulsoExigeCreate = document.getElementById("avulsoExigeFoto");
+    const anyCreate = !!(podeAvulsoColetaCreate?.checked || podeAvulsoSaidaCreate?.checked);
+    toggleAvulsoExigeFotoVisibility();
     if (avulsoExigeCreate) {
-        const anyCreate = (podeAvulsoColetaCreate?.checked || podeAvulsoSaidaCreate?.checked);
         avulsoExigeCreate.checked = !!(anyCreate && pad.avulso_exige_foto);
     }
 }
@@ -753,10 +787,10 @@ async function openEdit(id) {
     const podeAvulsoSaidaEdit = document.getElementById("podeCriarAvulsoSaida");
     fillAvulsoCheckboxes(m, podeAvulsoColetaEdit, podeAvulsoSaidaEdit);
     const avulsoExigeEdit = document.getElementById("avulsoExigeFoto");
+    const anyAvulsoEdit = !!(podeAvulsoColetaEdit?.checked || podeAvulsoSaidaEdit?.checked);
+    toggleAvulsoExigeFotoVisibility();
     if (avulsoExigeEdit) {
-        avulsoExigeEdit.checked = !!(
-            (podeAvulsoColetaEdit?.checked || podeAvulsoSaidaEdit?.checked) && m.avulso_exige_foto
-        );
+        avulsoExigeEdit.checked = !!(anyAvulsoEdit && m.avulso_exige_foto);
     }
 
     document.getElementById("groupPassword").classList.add("d-none");

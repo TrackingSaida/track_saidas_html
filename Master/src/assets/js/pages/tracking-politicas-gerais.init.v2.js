@@ -179,11 +179,12 @@
     const hasColeta = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_coleta");
     const hasSaida = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_saida");
     if (hasColeta || hasSaida) {
-      qs("#defCriarAvulsoColeta").checked = asBoolFlag(src.pode_criar_avulso_coleta, false);
+      // Preset: coleta on / saída off quando a chave vier ausente (false explícito da API permanece).
+      qs("#defCriarAvulsoColeta").checked = asBoolFlag(src.pode_criar_avulso_coleta, true);
       qs("#defCriarAvulsoSaida").checked = asBoolFlag(src.pode_criar_avulso_saida, false);
       return;
     }
-    qs("#defCriarAvulsoColeta").checked = false;
+    qs("#defCriarAvulsoColeta").checked = true;
     qs("#defCriarAvulsoSaida").checked = false;
   }
 
@@ -392,7 +393,8 @@
     qs("#defDigitarManual").checked = !!pad.pode_digitar_codigo_manual;
     fillAvulsoFlags(pad);
     const fotoEl = qs("#defAvulsoFoto");
-    if (fotoEl) fotoEl.checked = !!pad.avulso_exige_foto;
+    const fotoFromApi = asBoolFlag(pad.avulso_exige_foto, true);
+    if (fotoEl) fotoEl.checked = fotoFromApi;
     qs("#aplicarAosMotoboys").checked = false;
     const cob = data?.cobertura || {};
     setRegioesFromApi(cob);
@@ -402,7 +404,7 @@
     if (fotoEl) {
       const avulsoOn =
         !!qs("#defCriarAvulsoColeta")?.checked || !!qs("#defCriarAvulsoSaida")?.checked;
-      fotoEl.checked = avulsoOn ? !!pad.avulso_exige_foto : false;
+      fotoEl.checked = avulsoOn ? fotoFromApi : false;
     }
   }
 
