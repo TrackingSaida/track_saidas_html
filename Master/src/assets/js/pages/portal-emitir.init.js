@@ -577,18 +577,17 @@
       var blob = await res.blob();
       var codigo = res.headers.get("X-Codigo") || "etiqueta";
       var idSaida = res.headers.get("X-Id-Saida");
+      var filename = PS.filenameFromResponse(res, codigo);
       if (lastPdfUrl) URL.revokeObjectURL(lastPdfUrl);
       lastPdfUrl = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href = lastPdfUrl;
-      a.download = "etq-" + codigo + ".pdf";
-      a.click();
+      PS.downloadBlob(blob, filename);
 
       boxEmitir.classList.add("d-none");
       boxSucesso.classList.remove("d-none");
       document.getElementById("sucessoCodigo").textContent = codigo;
       var pdfLink = document.getElementById("sucessoPdf");
       pdfLink.href = lastPdfUrl;
+      pdfLink.setAttribute("download", filename);
       pdfLink.classList.remove("d-none");
       var acomp = document.getElementById("sucessoAcompanhar");
       if (idSaida) {

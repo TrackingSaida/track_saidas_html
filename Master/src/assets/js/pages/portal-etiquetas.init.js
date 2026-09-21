@@ -77,6 +77,8 @@
         acoes +=
           '<button type="button" class="btn btn-sm btn-soft-primary btn-pdf" data-id="' +
           it.id_envio +
+          '" data-codigo="' +
+          PS.escapeHtml(it.codigo || "") +
           '">Reimprimir</button>';
         if (it.pode_cancelar) {
           acoes +=
@@ -119,11 +121,7 @@
       var res = await PS.req("/envios/" + pdfBtn.getAttribute("data-id") + "/pdf");
       if (!res.ok) return;
       var blob = await res.blob();
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href = url;
-      a.download = "etiqueta.pdf";
-      a.click();
+      PS.downloadBlob(blob, PS.filenameFromResponse(res, pdfBtn.getAttribute("data-codigo")));
     }
     if (cancelBtn) {
       pendingCancelId = cancelBtn.getAttribute("data-id");
