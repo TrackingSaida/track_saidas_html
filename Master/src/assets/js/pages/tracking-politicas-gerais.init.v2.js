@@ -372,7 +372,8 @@
     const foto = qs("#defAvulsoFoto");
     if (foto) {
       foto.disabled = !avulsoOn;
-      if (!avulsoOn) foto.checked = false;
+      // Em load/save, fillForm aplica a foto da API; não zerar aqui.
+      if (!avulsoOn && !hydrating) foto.checked = false;
     }
   }
 
@@ -389,12 +390,13 @@
     qs("#defPodeSaida").checked = pad.pode_ler_saida !== false;
     qs("#defDigitarManual").checked = !!pad.pode_digitar_codigo_manual;
     fillAvulsoFlags(pad);
-    qs("#defAvulsoFoto").checked = !!pad.avulso_exige_foto;
     qs("#aplicarAosMotoboys").checked = false;
     const cob = data?.cobertura || {};
     setRegioesFromApi(cob);
     if (qs("#expiracaoDias")) qs("#expiracaoDias").value = cob.expiracao_dias || 30;
     syncUiDeps();
+    // Foto depois do sync: evita syncUiDeps apagar o valor da API no hydrate.
+    qs("#defAvulsoFoto").checked = !!pad.avulso_exige_foto;
   }
 
   function showFallbackPreview() {
