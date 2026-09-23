@@ -54,44 +54,55 @@
   }
 
 // ======================================================
-// Normalização de código PARA FILTRO (sem classificar)
+// Normalização de código PARA FILTRO / leitor / câmera
+// JSON da etiqueta ML deve ser parseado no texto ORIGINAL
+// (nunca depois de toUpperCase — quebra chaves id/sender_id).
 // ======================================================
 function normalizeCodigoForFilter(rawInput){
-  let raw = toAsciiDigits(String(rawInput || "")).toUpperCase().trim();
-  const allDigits = raw.replace(/\D+/g, "");
+  var raw = String(rawInput || "").trim();
+  if (!raw) return "";
 
-  // QRCode JSON → external_order_id
-  try {
-    if (raw.startsWith("{") && raw.endsWith("}")) {
-      const obj = JSON.parse(raw);
-      if (obj?.external_order_id) {
-        return String(obj.external_order_id).toUpperCase().trim();
+  var cls = classifyCodigo(raw);
+  if (cls && cls.ok && cls.codigo) {
+    var code = String(cls.codigo).trim();
+    if (code && code.charAt(0) !== "{") {
+      if (cls.servico === "Shopee" || cls.servico === "Mercado Livre") {
+        return code;
+      }
+      if (/^AVULSO-/i.test(raw) || /^RTE[0-9]{11,}$/i.test(raw) || /^LM[\w\d-]+$/i.test(raw.trim())) {
+        return code;
+      }
+      if (raw.charAt(0) === "{" && raw.charAt(raw.length - 1) === "}") {
+        return code;
       }
     }
-  } catch (_) {}
-
-  // external_order_id fora de JSON
-  const extMatch = raw.match(/external_order_id["']?\s*[:=]\s*["']?([\w-]+)/i);
-  if (extMatch) return extMatch[1].toUpperCase();
-
-  // Shopee → mantém BR
-  if (/^BR(\d{13}|\d{12}[A-Z])$/i.test(raw)) {
-    return raw;
   }
 
-  // Mercado Livre → normaliza para 11 dígitos
-  const mlMatch = allDigits.match(/4[5-9]\d{9,}/);
-  if (mlMatch) {
-    return mlMatch[0].slice(0, 11);
-  }
-
-  // LMxxxx → mantém inteiro
-  if (/^LM[\w\d-]+$/i.test(raw)) {
-    return raw;
-  }
-
-  // fallback
+  // Texto livre (nome, CEP): preserva capitalização para ILIKE em identificação
   return raw;
+}
+
+function isBuscaCodigoEstruturado(rawInput){
+  var raw = String(rawInput || "").trim();
+  if (!raw) return false;
+  var cls = classifyCodigo(raw);
+  if (!cls || !cls.ok || !cls.codigo || String(cls.codigo).charAt(0) === "{") return false;
+  if (cls.servico === "Shopee" || cls.servico === "Mercado Livre") return true;
+  if (raw.charAt(0) === "{" && raw.charAt(raw.length - 1) === "}") return true;
+  if (/^AVULSO-/i.test(raw) || /^RTE[0-9]{11,}$/i.test(raw) || /^LM[\w\d-]+$/i.test(raw.trim())) return true;
+  return false;
+}
+
+function applyLocalizarInput(rawInput){
+  var raw = String(rawInput || "").trim();
+  var display = normalizeCodigoForFilter(raw);
+  if (f.localizar) f.localizar.value = display;
+  if (display && isBuscaCodigoEstruturado(raw)) {
+    state.forceCodigoExato = String(display).toUpperCase().trim();
+  } else {
+    state.forceCodigoExato = null;
+  }
+  return display;
 }
 
 function normalizeNomeKey(nome){
@@ -1117,6 +1128,23 @@ function setupPagerEvents() {
     } catch (_) { return "—"; }
   }
 
+  function formatRelativoAtualizado(iso) {
+    if (!iso) return "";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    var diffMs = Date.now() - d.getTime();
+    if (diffMs < 0) diffMs = 0;
+    var min = Math.floor(diffMs / 60000);
+    if (min < 1) return "Atualizado agora";
+    if (min < 60) return "Atualizado há " + min + " min";
+    var h = Math.floor(min / 60);
+    if (h < 24) return "Atualizado há " + h + " h";
+    var days = Math.floor(h / 24);
+    if (days === 1) return "Atualizado ontem";
+    if (days < 7) return "Atualizado há " + days + " dias";
+    return "Atualizado em " + fmtDt(iso);
+  }
+
   /** Tentativa vigente no momento do evento (1 + liberações anteriores). */
   function tentativaNoMomento(historico, eventIndex) {
     var n = 1;
@@ -1366,13 +1394,14 @@ function setupPagerEvents() {
           "</div>";
       }
 
-      return "<div class=\"timeline-item\"><div class=\"timeline-dot\"></div><div class=\"timeline-content\">" +
+      var isLatest = index === historico.length - 1;
+      return "<div class=\"timeline-item" + (isLatest ? " is-current" : "") + "\"><div class=\"timeline-dot\"></div><div class=\"timeline-content\">" +
         "<div class=\"timeline-title\">" + escapeHtml(title) + "</div>" +
         "<div class=\"timeline-date\">" + dateLine + "</div>" +
         extrasHtml +
         thumbHtml +
         "</div></div>";
-    }).join("");
+    }).reverse().join("");
   }
 
   async function baixarOuCompartilharComprovante(idSaida, index) {
@@ -1565,17 +1594,25 @@ function setupPagerEvents() {
           var avulsoRes = await fetch(base + "/avulsos/" + encodeURIComponent(String(idSaida)), { credentials: "include" });
           if (avulsoRes.ok) {
             var avulso = await avulsoRes.json();
-            var camposObj = avulso.campos || {};
-            var campoLinhas = Object.keys(camposObj).map(function(k) {
-              return "<p><strong>" + escapeHtml(k) + ":</strong> " + escapeHtml(String(camposObj[k])) + "</p>";
-            }).join("");
+            var campoLinhas = "";
+            var camposExib = Array.isArray(avulso.campos_exibicao) ? avulso.campos_exibicao : [];
+            if (camposExib.length) {
+              campoLinhas = camposExib.map(function(c) {
+                var lab = (c && c.label) ? c.label : (c && c.chave) ? c.chave : "";
+                var val = (c && c.valor != null) ? String(c.valor) : "";
+                return "<p class=\"mb-1\"><strong>" + escapeHtml(lab) + ":</strong> " + escapeHtml(val) + "</p>";
+              }).join("");
+            } else if (avulso.label) {
+              campoLinhas = "<p class=\"mb-1 fw-semibold\">" + escapeHtml(avulso.label) + "</p>";
+            } else if (avulso.base) {
+              campoLinhas = "<p class=\"mb-1\"><strong>Referência:</strong> " + escapeHtml(avulso.base) + "</p>";
+            }
             avulsoHtml =
-              '<div class="pedido-card mt-3">' +
-                "<h5>Identificação do avulso</h5>" +
-                (avulso.label ? "<p><strong>Resumo:</strong> " + escapeHtml(avulso.label) + "</p>" : "") +
-                (avulso.origem_label ? "<p><strong>Origem:</strong> " + escapeHtml(avulso.origem_label) + "</p>" : "") +
-                (avulso.avulso_criado_excepcional ? '<p class="text-warning mb-1">Cadastrado fora do fluxo normal na saída.</p>' : "") +
-                (campoLinhas || (avulso.base ? "<p><strong>Referência:</strong> " + escapeHtml(avulso.base) + "</p>" : "<p class=\"text-muted mb-0\">Sem campos extras.</p>")) +
+              '<div class="pedido-section mt-3">' +
+                "<h6 class=\"text-uppercase text-muted small fw-semibold\">Identificação do avulso</h6>" +
+                (avulso.origem_label ? "<p class=\"mb-1 small\"><strong>Origem:</strong> " + escapeHtml(avulso.origem_label) + "</p>" : "") +
+                (avulso.avulso_criado_excepcional ? '<p class="text-warning mb-1 small">Cadastrado fora do fluxo normal na saída.</p>' : "") +
+                (campoLinhas || "<p class=\"text-muted mb-0 small\">Sem campos extras.</p>") +
               "</div>";
           }
         } catch (_) {}
@@ -1619,7 +1656,7 @@ function setupPagerEvents() {
         : "";
       var acoesHtml = "";
       if (podeLiberar || podeCancelar || podeReverterCancelado || hasPhotos) {
-        acoesHtml = '<div class="pedido-actions d-flex flex-wrap gap-2 mt-3 mb-2">';
+        acoesHtml = '<div class="pedido-actions d-flex flex-wrap gap-2 mt-2 mb-3">';
         if (podeLiberar) {
           acoesHtml += '<button type="button" class="btn btn-sm btn-warning" id="btn-liberar-nova-tentativa">Liberar nova tentativa</button>';
         }
@@ -1635,39 +1672,61 @@ function setupPagerEvents() {
         acoesHtml += "</div>";
       }
 
+      var ultimoTs = null;
+      if (historico.length) {
+        ultimoTs = historico[historico.length - 1].timestamp || null;
+      }
+      if (!ultimoTs) ultimoTs = saida.data_hora_acao || saida.timestamp || saida.data_hora_entrega || null;
+      var relativoTxt = formatRelativoAtualizado(ultimoTs);
+
+      var destNome = (d.dest_nome && String(d.dest_nome).trim())
+        ? d.dest_nome.trim()
+        : (recebedor !== "—" ? recebedor : "");
+      var temEndereco = endParts.length > 0 || (d.endereco_formatado && String(d.endereco_formatado).trim());
+      var destinoBlock = "";
+      if (destNome || temEndereco || destContato) {
+        destinoBlock =
+          '<div class="pedido-section mt-3">' +
+            '<h6 class="text-uppercase text-muted small fw-semibold">Destinatário</h6>' +
+            (destNome ? '<p class="mb-1 fw-semibold">' + escapeHtml(destNome) + "</p>" : "") +
+            (temEndereco ? '<p class="text-muted small mb-1">' + escapeHtml(enderecoCompleto) + "</p>" : "") +
+            (destContato ? '<p class="small mb-0">Telefone: ' + escapeHtml(destContato) + "</p>" : "") +
+          "</div>";
+      }
+
+      var entregaBlock =
+        '<div class="pedido-section mt-3">' +
+          '<h6 class="text-uppercase text-muted small fw-semibold">Entrega</h6>' +
+          '<p class="mb-1"><strong>Entregador:</strong> ' + escapeHtml(entregador) + "</p>" +
+          '<p class="mb-1"><strong>' + escapeHtml(dataLabel) + ':</strong> ' + escapeHtml(dataEntrega) + "</p>" +
+          (tipoRecebedor !== "—" ? '<p class="mb-1"><strong>Tipo do recebedor:</strong> ' + escapeHtml(tipoRecebedor) + "</p>" : "") +
+          (recebedor !== "—" ? '<p class="mb-1"><strong>Recebedor:</strong> ' + escapeHtml(recebedor) + "</p>" : "") +
+          ocorrenciaHtml +
+        "</div>";
+
       var pedidoHtml =
-        '<div class="pedido-detail-container">' +
-          '<div class="pedido-header">' +
-            '<div class="pedido-codigo">' + escapeHtml(saida.codigo || idSaida) + bloqueioBadgeHtml + '</div>' +
-            '<div class="pedido-status status-badge ' + statusClass + '">' + escapeHtml(statusText) + '</div>' +
-          '</div>' +
+        '<div class="pedido-detail-container pedido-detail-portal">' +
+          '<div class="d-flex flex-wrap align-items-center gap-2 mb-2">' +
+            '<span class="status-badge ' + statusClass + '">' + escapeHtml(statusText) + "</span>" +
+            bloqueioBadgeHtml +
+            (relativoTxt ? '<span class="small text-muted">' + escapeHtml(relativoTxt) + "</span>" : "") +
+          "</div>" +
           acoesHtml +
-          '<div class="pedido-grid pedido-grid-2">' +
-            '<div class="pedido-card">' +
-              '<h5>Informações da Entrega</h5>' +
-              '<p><strong>Entregador:</strong> ' + escapeHtml(entregador) + '</p>' +
-              '<p><strong>' + escapeHtml(dataLabel) + ':</strong> ' + escapeHtml(dataEntrega) + '</p>' +
-              '<p><strong>Tipo do recebedor:</strong> ' + escapeHtml(tipoRecebedor) + '</p>' +
-              '<p><strong>Recebedor:</strong> ' + escapeHtml(recebedor) + '</p>' +
-              '<p><strong>Destino:</strong> ' + escapeHtml(enderecoCompleto) + '</p>' +
-              (destContato ? '<p><strong>Contato destino:</strong> ' + escapeHtml(destContato) + '</p>' : '') +
-              ocorrenciaHtml +
-              avulsoHtml +
-            '</div>' +
-            '<div class="pedido-card historico-card">' +
-              '<h5>Histórico</h5>' +
-              '<p class="text-muted small mb-2">Miniaturas por evento. Clique para ampliar.</p>' +
-              '<div class="timeline">' + timelineHtml + '</div>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
+          destinoBlock +
+          entregaBlock +
+          avulsoHtml +
+          '<div class="pedido-section mt-3">' +
+            '<h6 class="text-uppercase text-muted small fw-semibold">Acompanhamento</h6>' +
+            '<div class="timeline timeline-portal">' + timelineHtml + "</div>" +
+          "</div>" +
+        "</div>" +
         '<div id="reg-photo-lightbox" class="reg-photo-lightbox d-none" role="dialog" aria-modal="true">' +
           '<button type="button" class="reg-photo-lightbox-close" aria-label="Fechar">&times;</button>' +
           '<button type="button" class="reg-photo-lightbox-nav reg-photo-lightbox-prev" aria-label="Anterior">&lsaquo;</button>' +
           '<button type="button" class="reg-photo-lightbox-nav reg-photo-lightbox-next" aria-label="Próxima">&rsaquo;</button>' +
           '<span class="reg-photo-lightbox-counter" aria-live="polite"></span>' +
           '<img id="reg-photo-lightbox-img" alt="Comprovante ampliado" />' +
-        '</div>';
+        "</div>";
 
       if (detailContent) detailContent.innerHTML = pedidoHtml;
 
@@ -1832,11 +1891,12 @@ function setupPagerEvents() {
     });
   }
 
-  // Localizar: busca ao pressionar Enter
+  // Localizar: Enter normaliza etiqueta ML / código estruturado antes de buscar
   if (f.localizar) {
     f.localizar.addEventListener("keydown", function (e) {
       if (e.key === "Enter") {
         e.preventDefault();
+        applyLocalizarInput(f.localizar.value);
         state.page = 1;
         refresh(true);
       }
@@ -1912,12 +1972,8 @@ function setupPagerEvents() {
             const raw = result.getText();
             if (!raw) return;
 
-            if (f.localizar) {
-              f.localizar.value = normalizeCodigoForFilter(raw);
-            }
-
+            applyLocalizarInput(raw);
             state.page = 1;
-            state.forceCodigoExato = normalizeCodigoForFilter(raw) || String(raw || "").trim();
             stopScanner();
             setTimeout(() => refresh(true), 150);
           });
@@ -1945,12 +2001,8 @@ function setupPagerEvents() {
         const raw = codes[0].rawValue || '';
         if (!raw) return;
 
-        if (f.localizar) {
-          f.localizar.value = normalizeCodigoForFilter(raw);
-        }
-
+        applyLocalizarInput(raw);
         state.page = 1;
-        state.forceCodigoExato = normalizeCodigoForFilter(raw) || String(raw || "").trim();
         stopScanner();
         setTimeout(() => refresh(true), 150);
 
