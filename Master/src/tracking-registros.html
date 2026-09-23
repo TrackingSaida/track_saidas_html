@@ -525,9 +525,14 @@
 <div id="reg-detail-panel" class="reg-detail-panel" aria-hidden="true">
   <div class="reg-detail-panel-inner">
     <header class="reg-detail-header d-flex justify-content-between align-items-start px-3 py-3 border-bottom">
-      <div>
+      <div class="reg-detail-header-main min-w-0 flex-grow-1 pe-2">
         <p class="small text-uppercase text-muted mb-1 fw-semibold">Detalhes do pedido</p>
-        <h5 class="reg-detail-title mb-0 fw-semibold" id="reg-detail-codigo">—</h5>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <h5 class="reg-detail-title mb-0 fw-semibold text-break" id="reg-detail-codigo">—</h5>
+          <button type="button" class="btn btn-ghost-secondary btn-sm px-1 py-0" id="reg-detail-copy" title="Copiar código" aria-label="Copiar código">
+            <i class="ri-file-copy-line"></i>
+          </button>
+        </div>
       </div>
       <button type="button" class="btn btn-ghost-secondary btn-sm" id="reg-detail-close" title="Fechar">
         <i class="ri-close-line"></i>
@@ -567,7 +572,7 @@
     right: 0;
     top: 0;
     bottom: 0;
-    width: min(420px, 100%);
+    width: min(640px, 100%);
     max-height: 100vh;
     height: 100vh;
     z-index: 1050;
@@ -611,15 +616,72 @@
   }
   .pedido-detail-container { padding: 16px 20px 24px; background: #fff; }
   .pedido-detail-portal .pedido-section {
-    border-top: 1px solid #e2e8f0;
-    padding-top: 0.85rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    margin-top: 0.85rem;
+    background: #fff;
   }
-  .pedido-detail-portal .pedido-section:first-of-type {
-    border-top: 0;
-    padding-top: 0;
+  .pedido-detail-portal .pedido-section > .section-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin: 0 0 0.65rem;
   }
-  .timeline-thumb-img { width: 80px; height: 80px; object-fit: cover; cursor: pointer; }
+  .pedido-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem 1rem;
+  }
+  .pedido-meta-grid .meta-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 0.15rem;
+  }
+  .pedido-meta-grid .meta-value {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #0f172a;
+    word-break: normal;
+    overflow-wrap: anywhere;
+  }
+  .pedido-ocorrencia-box {
+    margin-top: 0.85rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+    font-size: 0.875rem;
+  }
+  .pedido-actions .btn-cancel-ghost {
+    border-color: transparent;
+    color: #94a3b8;
+    background: transparent;
+  }
+  .pedido-actions .btn-cancel-ghost:hover {
+    color: #dc3545;
+    background: #fef2f2;
+  }
+  .timeline-thumb-img { width: 72px; height: 72px; object-fit: cover; cursor: pointer; }
   .timeline-thumb-btn:focus { outline: 2px solid #0d6efd; outline-offset: 2px; }
+  .timeline-photo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #0d6efd;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    margin-top: 0.35rem;
+    cursor: pointer;
+  }
   .reg-photo-lightbox {
     position: fixed; inset: 0; z-index: 2100;
     background: rgba(15, 23, 42, 0.82);
@@ -668,17 +730,58 @@
   .action-success { background: #e6f7ee; color: #28a745; }
   .action-exception { background: #fff3cd; color: #ff9800; }
   .action-confirmation { background: #ede7ff; color: #5f3dc4; }
-  .timeline { position: relative; margin-left: 0.35rem; padding-left: 0.85rem; border-left: 2px solid #cbd5e1; }
-  .timeline-item { display: flex; margin-bottom: 15px; position: relative; }
-  .timeline-dot {
-    width: 10px; height: 10px; background: #94a3b8; border-radius: 50%;
-    margin-right: 10px; margin-top: 5px; flex-shrink: 0;
-    position: absolute; left: -1.15rem;
+  .timeline {
+    position: relative;
+    margin: 0;
+    padding-left: 1.1rem;
+    border-left: 2px solid #cbd5e1;
+    width: 100%;
   }
-  .timeline-item.is-current .timeline-dot { background: #0d9488; }
-  .timeline-content { min-width: 0; padding-left: 0.15rem; }
-  .timeline-title { font-weight: 600; }
-  .timeline-date { color: #6c757d; font-size: 12px; }
+  .timeline-item {
+    display: block;
+    position: relative;
+    margin-bottom: 1rem;
+    width: 100%;
+  }
+  .timeline-dot {
+    width: 10px;
+    height: 10px;
+    background: #94a3b8;
+    border-radius: 50%;
+    position: absolute;
+    left: -1.35rem;
+    top: 0.35rem;
+  }
+  .timeline-item.is-current .timeline-dot { background: #16a34a; }
+  .timeline-content {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .timeline-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #0f172a;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: anywhere;
+  }
+  .timeline-date {
+    color: #64748b;
+    font-size: 0.8rem;
+    margin-top: 0.15rem;
+    white-space: normal;
+  }
+  .timeline-who {
+    color: #64748b;
+    font-size: 0.8rem;
+    margin-top: 0.1rem;
+  }
+  .timeline-extras {
+    margin-top: 0.35rem;
+    font-size: 0.8rem;
+    color: #64748b;
+  }
   .servico-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
   .servico-shopee { background: rgba(255, 180, 130, 0.25); color: #d46a2e; }
   .servico-ml { background: rgba(255, 230, 170, 0.5); color: #b8922e; }
