@@ -539,7 +539,10 @@ function augmentEntregadoresFromRows(rows){
       executado_por: executadoPor,
       seller,
       acao,
-      status: statusUI
+      status: statusUI,
+      // UI: identificadores do avulso; codigo interno (AVULSO-*) fica em r.codigo p/ etiqueta/API
+      codigo_exibicao: r.codigo_exibicao || r.label || r.codigo || "",
+      codigo_interno: r.codigo || ""
     };
   }
 
@@ -776,7 +779,7 @@ function augmentEntregadoresFromRows(rows){
           <tr data-id="${rid}" class="${rowClass}">
             <td class="expand-icon"><i class="ri-arrow-right-s-line"></i></td>
             <td><input type="checkbox" class="rowchk form-check-input" /></td>
-            <td><span class="d-inline-flex align-items-center gap-1">${r.codigo || "-"} <button type="button" class="btn btn-link btn-sm p-0 text-primary" title="Gerar etiqueta" data-etiqueta="${(r.codigo || "").replace(/"/g, "&quot;")}" data-id-saida="${rid || ""}" data-servico="${(r.servico || "").replace(/"/g, "&quot;")}"><i class="ri-printer-line"></i></button></span></td>
+            <td><span class="d-inline-flex align-items-center gap-1">${r.codigo_exibicao || r.codigo || "-"} <button type="button" class="btn btn-link btn-sm p-0 text-primary" title="Gerar etiqueta" data-etiqueta="${(r.codigo_interno || r.codigo || "").replace(/"/g, "&quot;")}" data-id-saida="${rid || ""}" data-servico="${(r.servico || "").replace(/"/g, "&quot;")}"><i class="ri-printer-line"></i></button></span></td>
             <td><span class="${servicoBadgeClass}">${r.servico || "-"}</span></td>
             <td><span class="${statusBadgeClass}">${r.status || "-"}</span></td>
             <td>${renderActionBadge(r.acao)}</td>
@@ -1586,7 +1589,7 @@ function setupPagerEvents() {
       var saida = results[0];
       var historico = Array.isArray(results[1]) ? results[1] : [];
 
-      if (detailTitleCodigo) detailTitleCodigo.textContent = saida.codigo || idSaida;
+      if (detailTitleCodigo) detailTitleCodigo.textContent = saida.codigo_exibicao || saida.codigo || idSaida;
 
       var d = saida.detail || {};
       var statusClass = getStatusClass(saida.status);
