@@ -528,7 +528,7 @@ function augmentEntregadoresFromRows(rows){
     var acao = String(acaoRaw || "").trim();
     if (!acao || acao === "Sem ação" || acao === "—") {
       var stRaw = String(r.status || "").toLowerCase();
-      if (stRaw === "etiquetado") acao = "Etiqueta gerada";
+      if (stRaw === "etiquetado") acao = "Emitiu etiqueta";
       else acao = acao || "Sem ação";
     }
 
@@ -637,8 +637,8 @@ function augmentEntregadoresFromRows(rows){
     saida_conferida: "Saída conferida",
     saida_reconferida: "Saída reconferida",
     base_transferida: "Transferiu base da coleta",
-    etiqueta_gerada: "Etiqueta gerada",
-    etiqueta_cancelada: "Etiqueta cancelada",
+    etiqueta_gerada: "Emitiu etiqueta",
+    etiqueta_cancelada: "Cancelou etiqueta",
     etiqueta_expirada: "Etiqueta expirada"
   };
 
@@ -719,6 +719,8 @@ function augmentEntregadoresFromRows(rows){
     "Saída conferida": { category: "confirmation", className: "action-confirmation" },
     "Saída reconferida": { category: "confirmation", className: "action-confirmation" },
     "Etiqueta gerada": { category: "neutral", className: "action-neutral" },
+    "Emitiu etiqueta": { category: "neutral", className: "action-neutral" },
+    "Cancelou etiqueta": { category: "exception", className: "action-exception" },
     "Etiqueta cancelada": { category: "exception", className: "action-exception" },
     "Etiqueta expirada": { category: "exception", className: "action-exception" },
     "Sem ação": { category: "neutral", className: "action-neutral" }
