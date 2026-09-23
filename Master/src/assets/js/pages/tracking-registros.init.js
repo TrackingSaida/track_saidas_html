@@ -58,9 +58,30 @@
 // JSON da etiqueta ML deve ser parseado no texto ORIGINAL
 // (nunca depois de toUpperCase — quebra chaves id/sender_id).
 // ======================================================
+function isCepBusca(rawInput){
+  var raw = String(rawInput || "").trim();
+  if (!raw) return false;
+  if (/^\d{5}-\d{3}$/.test(raw)) return true;
+  var digits = raw.replace(/\D+/g, "");
+  // CEP parcial (7–8) ou completo sem máscara — sempre contém, nunca código exato
+  return /^\d{7,8}$/.test(digits) && !/^4[5-9]\d{9,}$/.test(digits);
+}
+
+function isNomeOuTextoLivre(rawInput){
+  var raw = String(rawInput || "").trim();
+  if (!raw) return false;
+  // Qualquer letra → busca contém (nome/identificação)
+  return /[A-Za-zÀ-ÿ]/.test(raw) && !/^AVULSO-/i.test(raw) && !/^RTE[0-9]/i.test(raw) && !/^BR\d/i.test(raw) && !/^LM[\w\d-]+$/i.test(raw);
+}
+
 function normalizeCodigoForFilter(rawInput){
   var raw = String(rawInput || "").trim();
   if (!raw) return "";
+
+  // Nome / CEP: nunca normalizar como código de etiqueta
+  if (isCepBusca(raw) || isNomeOuTextoLivre(raw)) {
+    return raw;
+  }
 
   var cls = classifyCodigo(raw);
   if (cls && cls.ok && cls.codigo) {
@@ -78,13 +99,15 @@ function normalizeCodigoForFilter(rawInput){
     }
   }
 
-  // Texto livre (nome, CEP): preserva capitalização para ILIKE em identificação
   return raw;
 }
 
 function isBuscaCodigoEstruturado(rawInput){
   var raw = String(rawInput || "").trim();
   if (!raw) return false;
+  // CEP e nome/identificação → sempre contém
+  if (isCepBusca(raw) || isNomeOuTextoLivre(raw)) return false;
+
   var cls = classifyCodigo(raw);
   if (!cls || !cls.ok || !cls.codigo || String(cls.codigo).charAt(0) === "{") return false;
   if (cls.servico === "Shopee" || cls.servico === "Mercado Livre") return true;
@@ -1121,6 +1144,7 @@ function setupPagerEvents() {
   var detailHistorical = document.getElementById("reg-detail-historical");
   var detailError = document.getElementById("reg-detail-error");
   var detailCloseBtn = document.getElementById("reg-detail-close");
+  var detailCopyBtn = document.getElementById("reg-detail-copy");
   var detailFetchSeq = 0;
 
   function fmtDt(d) {
@@ -1360,7 +1384,9 @@ function setupPagerEvents() {
     return historico.map(function(item, index) {
       var title = labelEventoHistorico(item.evento, item.acao_label);
       var dateLine = fmtDt(item.timestamp);
-      if (item.usuario_nome) dateLine += " — por " + escapeHtml(item.usuario_nome);
+      var whoLine = item.usuario_nome
+        ? ("Registrado por " + escapeHtml(item.usuario_nome))
+        : "";
 
       var eventPhotos = [];
       if (isEventoAusencia(item.evento)) eventPhotos = maps.ausenciaMap[index] || [];
@@ -1369,22 +1395,21 @@ function setupPagerEvents() {
 
       var extrasHtml = "";
       if (isEventoAusencia(item.evento)) {
-        // Ordem da ausência no histórico (1ª, 2ª…), não o contador interno atual do pedido.
         var tentEvento = ausenciaOrdinal[index] || Number(item.tentativa) || tentativaNoMomento(historico, index);
         var motivoEvento = String(item.motivo_ocorrencia || "").trim();
         var obsEvento = String(item.observacao_ocorrencia || "").trim();
-        // Retrocompat: eventos antigos sem payload só têm motivo no detalhe atual.
         if (!motivoEvento && index === lastAusenciaIndex) motivoEvento = motivoDetail;
         if (!obsEvento && index === lastAusenciaIndex) obsEvento = obsDetail;
-        extrasHtml += "<div class=\"timeline-extras small text-muted mt-1\">";
-        extrasHtml += "<div><strong>Nª tentativa:</strong> " + escapeHtml(String(tentEvento)) + "</div>";
-        if (motivoEvento) extrasHtml += "<div><strong>Motivo:</strong> " + escapeHtml(motivoEvento) + "</div>";
-        if (obsEvento) extrasHtml += "<div><strong>Observação:</strong> " + escapeHtml(obsEvento) + "</div>";
+        extrasHtml += "<div class=\"timeline-extras\">";
+        extrasHtml += "<div>Nª tentativa: " + escapeHtml(String(tentEvento)) + "</div>";
+        if (motivoEvento) extrasHtml += "<div>Motivo: " + escapeHtml(motivoEvento) + "</div>";
+        if (obsEvento) extrasHtml += "<div>Observação: " + escapeHtml(obsEvento) + "</div>";
         extrasHtml += "</div>";
       }
 
       var thumbHtml = "";
       if (eventPhotos.length) {
+        var fotoLabel = isEventoAusencia(item.evento) ? "Foto da ocorrência" : "Foto da entrega";
         thumbHtml = "<div class=\"timeline-thumbs d-flex flex-wrap gap-2 mt-2\">" +
           eventPhotos.map(function(photo, photoIndex) {
             return "<button type=\"button\" class=\"timeline-thumb-btn border-0 p-0 bg-transparent\" data-photo-index=\"" +
@@ -1394,13 +1419,19 @@ function setupPagerEvents() {
               "\" class=\"rounded border timeline-thumb-img\" />" +
               "</button>";
           }).join("") +
-          "</div>";
+          "</div>" +
+          "<button type=\"button\" class=\"timeline-photo-link timeline-thumb-btn\" data-photo-index=\"" +
+            String(eventPhotos[0].globalIndex != null ? eventPhotos[0].globalIndex : 0) +
+            "\">" + escapeHtml(fotoLabel) + " <i class=\"ri-external-link-line\"></i></button>";
       }
 
       var isLatest = index === historico.length - 1;
-      return "<div class=\"timeline-item" + (isLatest ? " is-current" : "") + "\"><div class=\"timeline-dot\"></div><div class=\"timeline-content\">" +
+      return "<div class=\"timeline-item" + (isLatest ? " is-current" : "") + "\">" +
+        "<div class=\"timeline-dot\"></div>" +
+        "<div class=\"timeline-content\">" +
         "<div class=\"timeline-title\">" + escapeHtml(title) + "</div>" +
-        "<div class=\"timeline-date\">" + dateLine + "</div>" +
+        "<div class=\"timeline-date\">" + escapeHtml(dateLine) + "</div>" +
+        (whoLine ? "<div class=\"timeline-who\">" + whoLine + "</div>" : "") +
         extrasHtml +
         thumbHtml +
         "</div></div>";
@@ -1565,7 +1596,8 @@ function setupPagerEvents() {
       var bloqueadoAusencias = !!saida.bloqueado_ausencias;
       var podeLiberar = canEditG() && bloqueadoAusencias;
       var statusJaCancelado = statusLower === "cancelado";
-      var podeCancelar = canEditG() && !statusJaCancelado;
+      var statusJaEntregue = statusLower === "entregue";
+      var podeCancelar = canEditG() && !statusJaCancelado && !statusJaEntregue;
       var podeReverterCancelado = canReverterCancelado() && statusJaCancelado;
       var entregador = formatPersonName(saida.entregador);
       var entregueEv = historico.filter(function(h) { return (h.evento || "").toLowerCase() === "entregue" || (h.status_novo || "").toLowerCase() === "entregue"; }).pop();
@@ -1573,19 +1605,19 @@ function setupPagerEvents() {
         var ev = (h.evento || "").toLowerCase();
         return ev === "ausente" || ev === "ausente_lote";
       }).pop();
-      var dataLabel = isAusente ? "Data da ocorrência" : "Data Entrega";
+      var dataLabel = isAusente ? "Data da ocorrência" : "Data da entrega";
       var dataEntrega = isAusente
         ? (ausenteEv && ausenteEv.timestamp ? fmtDt(ausenteEv.timestamp) : (saida.data_hora_entrega ? fmtDt(saida.data_hora_entrega) : "—"))
         : (entregueEv && entregueEv.timestamp ? fmtDt(entregueEv.timestamp) : (saida.data_hora_entrega ? fmtDt(saida.data_hora_entrega) : "—"));
       var motivoAusencia = (d.motivo_ocorrencia && d.motivo_ocorrencia.trim()) ? d.motivo_ocorrencia.trim() : "";
       var obsAusencia = (d.observacao_ocorrencia && d.observacao_ocorrencia.trim()) ? d.observacao_ocorrencia.trim() : "";
-      var ocorrenciaHtml = isAusente
-        ? '<h6 class="mt-3 mb-2">Ocorrência</h6>' +
-          '<p><strong>Motivo:</strong> ' + escapeHtml(motivoAusencia || "—") + '</p>' +
-          (obsAusencia ? '<p><strong>Observação:</strong> ' + escapeHtml(obsAusencia) + '</p>' : '')
+      var ocorrenciaHtml = isAusente && motivoAusencia
+        ? '<div class="pedido-ocorrencia-box"><strong>Ocorrência:</strong> ' + escapeHtml(motivoAusencia) +
+          (obsAusencia ? '<div class="mt-1 small">' + escapeHtml(obsAusencia) + "</div>" : "") +
+          "</div>"
         : "";
-      var tipoRecebedor = (d.tipo_recebedor && d.tipo_recebedor.trim()) ? d.tipo_recebedor : "—";
-      var recebedor = (d.nome_recebedor && d.nome_recebedor.trim()) ? d.nome_recebedor : "—";
+      var tipoRecebedor = (d.tipo_recebedor && d.tipo_recebedor.trim()) ? d.tipo_recebedor : "";
+      var recebedorNome = (d.nome_recebedor && d.nome_recebedor.trim()) ? d.nome_recebedor : "";
       var endParts = [d.dest_rua, d.dest_numero, d.dest_complemento, d.dest_bairro, d.dest_cidade, d.dest_estado, d.dest_cep].filter(Boolean);
       var enderecoCompleto = endParts.length ? endParts.join(", ") : (d.endereco_formatado || "—");
       var destContato = (d.dest_contato && d.dest_contato.trim()) ? d.dest_contato : "";
@@ -1597,25 +1629,34 @@ function setupPagerEvents() {
           var avulsoRes = await fetch(base + "/avulsos/" + encodeURIComponent(String(idSaida)), { credentials: "include" });
           if (avulsoRes.ok) {
             var avulso = await avulsoRes.json();
-            var campoLinhas = "";
+            var metaItems = [];
+            if (avulso.origem_label) {
+              metaItems.push({ label: "Origem", value: avulso.origem_label });
+            }
             var camposExib = Array.isArray(avulso.campos_exibicao) ? avulso.campos_exibicao : [];
             if (camposExib.length) {
-              campoLinhas = camposExib.map(function(c) {
-                var lab = (c && c.label) ? c.label : (c && c.chave) ? c.chave : "";
-                var val = (c && c.valor != null) ? String(c.valor) : "";
-                return "<p class=\"mb-1\"><strong>" + escapeHtml(lab) + ":</strong> " + escapeHtml(val) + "</p>";
-              }).join("");
+              camposExib.forEach(function(c) {
+                metaItems.push({
+                  label: (c && c.label) ? c.label : (c && c.chave) ? c.chave : "Campo",
+                  value: (c && c.valor != null) ? String(c.valor) : ""
+                });
+              });
             } else if (avulso.label) {
-              campoLinhas = "<p class=\"mb-1 fw-semibold\">" + escapeHtml(avulso.label) + "</p>";
+              metaItems.push({ label: "Identificação", value: avulso.label });
             } else if (avulso.base) {
-              campoLinhas = "<p class=\"mb-1\"><strong>Referência:</strong> " + escapeHtml(avulso.base) + "</p>";
+              metaItems.push({ label: "Referência", value: avulso.base });
             }
+            var metaGrid = metaItems.length
+              ? '<div class="pedido-meta-grid">' + metaItems.map(function(m) {
+                  return '<div><span class="meta-label">' + escapeHtml(m.label) + '</span>' +
+                    '<span class="meta-value">' + escapeHtml(m.value) + "</span></div>";
+                }).join("") + "</div>"
+              : "<p class=\"text-muted mb-0 small\">Sem campos extras.</p>";
             avulsoHtml =
-              '<div class="pedido-section mt-3">' +
-                "<h6 class=\"text-uppercase text-muted small fw-semibold\">Identificação do avulso</h6>" +
-                (avulso.origem_label ? "<p class=\"mb-1 small\"><strong>Origem:</strong> " + escapeHtml(avulso.origem_label) + "</p>" : "") +
-                (avulso.avulso_criado_excepcional ? '<p class="text-warning mb-1 small">Cadastrado fora do fluxo normal na saída.</p>' : "") +
-                (campoLinhas || "<p class=\"text-muted mb-0 small\">Sem campos extras.</p>") +
+              '<div class="pedido-section">' +
+                '<p class="section-title">Identificação do avulso</p>' +
+                (avulso.avulso_criado_excepcional ? '<p class="text-warning mb-2 small">Cadastrado fora do fluxo normal na saída.</p>' : "") +
+                metaGrid +
               "</div>";
           }
         } catch (_) {}
@@ -1655,22 +1696,22 @@ function setupPagerEvents() {
       });
 
       var bloqueioBadgeHtml = bloqueadoAusencias
-        ? '<span class="badge bg-danger ms-2 align-middle">Bloqueado por ausências</span>'
+        ? '<span class="badge bg-danger ms-1 align-middle">Bloqueado por ausências</span>'
         : "";
       var acoesHtml = "";
       if (podeLiberar || podeCancelar || podeReverterCancelado || hasPhotos) {
-        acoesHtml = '<div class="pedido-actions d-flex flex-wrap gap-2 mt-2 mb-3">';
+        acoesHtml = '<div class="pedido-actions d-flex flex-wrap align-items-center gap-2 mt-2 mb-1">';
         if (podeLiberar) {
           acoesHtml += '<button type="button" class="btn btn-sm btn-warning" id="btn-liberar-nova-tentativa">Liberar nova tentativa</button>';
         }
-        if (podeCancelar) {
-          acoesHtml += '<button type="button" class="btn btn-sm btn-outline-danger" id="btn-cancelar-pedido">Cancelar pedido</button>';
+        if (hasPhotos) {
+          acoesHtml += '<button type="button" class="btn btn-sm btn-outline-primary" id="btn-export-comprovante">Baixar / compartilhar comprovante</button>';
         }
         if (podeReverterCancelado) {
           acoesHtml += '<button type="button" class="btn btn-sm btn-outline-warning" id="btn-reverter-cancelamento">Reverter cancelamento</button>';
         }
-        if (hasPhotos) {
-          acoesHtml += '<button type="button" class="btn btn-sm btn-outline-primary" id="btn-export-comprovante">Baixar / compartilhar comprovante</button>';
+        if (podeCancelar) {
+          acoesHtml += '<button type="button" class="btn btn-sm btn-cancel-ghost" id="btn-cancelar-pedido">Cancelar pedido</button>';
         }
         acoesHtml += "</div>";
       }
@@ -1682,28 +1723,38 @@ function setupPagerEvents() {
       if (!ultimoTs) ultimoTs = saida.data_hora_acao || saida.timestamp || saida.data_hora_entrega || null;
       var relativoTxt = formatRelativoAtualizado(ultimoTs);
 
-      var destNome = (d.dest_nome && String(d.dest_nome).trim())
-        ? d.dest_nome.trim()
-        : (recebedor !== "—" ? recebedor : "");
+      var destNome = (d.dest_nome && String(d.dest_nome).trim()) ? d.dest_nome.trim() : "";
       var temEndereco = endParts.length > 0 || (d.endereco_formatado && String(d.endereco_formatado).trim());
       var destinoBlock = "";
       if (destNome || temEndereco || destContato) {
         destinoBlock =
-          '<div class="pedido-section mt-3">' +
-            '<h6 class="text-uppercase text-muted small fw-semibold">Destinatário</h6>' +
+          '<div class="pedido-section">' +
+            '<p class="section-title">Destinatário</p>' +
             (destNome ? '<p class="mb-1 fw-semibold">' + escapeHtml(destNome) + "</p>" : "") +
             (temEndereco ? '<p class="text-muted small mb-1">' + escapeHtml(enderecoCompleto) + "</p>" : "") +
             (destContato ? '<p class="small mb-0">Telefone: ' + escapeHtml(destContato) + "</p>" : "") +
           "</div>";
       }
 
+      var entregaMeta = [
+        { label: "Entregador", value: entregador || "—" },
+        { label: dataLabel, value: dataEntrega || "—" }
+      ];
+      if (tipoRecebedor) {
+        entregaMeta.push({ label: "Tipo do recebedor", value: tipoRecebedor });
+      }
+      if (recebedorNome) {
+        entregaMeta.push({ label: "Nome do recebedor", value: recebedorNome });
+      }
       var entregaBlock =
-        '<div class="pedido-section mt-3">' +
-          '<h6 class="text-uppercase text-muted small fw-semibold">Entrega</h6>' +
-          '<p class="mb-1"><strong>Entregador:</strong> ' + escapeHtml(entregador) + "</p>" +
-          '<p class="mb-1"><strong>' + escapeHtml(dataLabel) + ':</strong> ' + escapeHtml(dataEntrega) + "</p>" +
-          (tipoRecebedor !== "—" ? '<p class="mb-1"><strong>Tipo do recebedor:</strong> ' + escapeHtml(tipoRecebedor) + "</p>" : "") +
-          (recebedor !== "—" ? '<p class="mb-1"><strong>Recebedor:</strong> ' + escapeHtml(recebedor) + "</p>" : "") +
+        '<div class="pedido-section">' +
+          '<p class="section-title">Entrega</p>' +
+          '<div class="pedido-meta-grid">' +
+            entregaMeta.map(function(m) {
+              return '<div><span class="meta-label">' + escapeHtml(m.label) + '</span>' +
+                '<span class="meta-value">' + escapeHtml(m.value) + "</span></div>";
+            }).join("") +
+          "</div>" +
           ocorrenciaHtml +
         "</div>";
 
@@ -1718,8 +1769,8 @@ function setupPagerEvents() {
           destinoBlock +
           entregaBlock +
           avulsoHtml +
-          '<div class="pedido-section mt-3">' +
-            '<h6 class="text-uppercase text-muted small fw-semibold">Acompanhamento</h6>' +
+          '<div class="pedido-section">' +
+            '<p class="section-title">Histórico do pedido</p>' +
             '<div class="timeline timeline-portal">' + timelineHtml + "</div>" +
           "</div>" +
         "</div>" +
@@ -1885,6 +1936,27 @@ function setupPagerEvents() {
   }
 
   if (detailCloseBtn) detailCloseBtn.addEventListener("click", closeDetailPanel);
+  if (detailCopyBtn) {
+    detailCopyBtn.addEventListener("click", async function() {
+      var codigo = (detailTitleCodigo && detailTitleCodigo.textContent || "").trim();
+      if (!codigo || codigo === "…" || codigo === "—") return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(codigo);
+        } else {
+          var ta = document.createElement("textarea");
+          ta.value = codigo;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          ta.remove();
+        }
+        notify("Código copiado.", "success");
+      } catch (_) {
+        notify("Não foi possível copiar o código.", "error");
+      }
+    });
+  }
   if (detailOverlay) detailOverlay.addEventListener("click", closeDetailPanel);
 
   if (chkAll){
@@ -2894,6 +2966,7 @@ function setupPagerEvents() {
   if (btnFiltroAplicar) {
     btnFiltroAplicar.onclick = () => {
       if (loadingState.active) return;
+      if (f.localizar) applyLocalizarInput(f.localizar.value);
       state.page = 1;
       refresh();
       atualizarContadorFiltros();
