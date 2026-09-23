@@ -133,6 +133,9 @@
                 <div class="page-title-box d-sm-flex align-items-center justify-content-between bg-galaxy-transparent">
                   <h4 class="mb-sm-0">Leitura de Coletas</h4>
                   <div class="d-flex align-items-center gap-2">
+                    <button type="button" id="btnLancamentoRetroativo" class="btn btn-outline-secondary btn-sm d-none" title="Lançar coleta em data anterior (admin/operador)">
+                      <i class="ri-calendar-event-line me-1"></i><span>Lançar em outra data</span>
+                    </button>
                     <button type="button" id="btnModoMonitor" class="btn btn-outline-primary btn-sm" title="Alternar para tela com contadores em destaque (ideal para scanner no PC)">
                       <i class="ri-tv-line me-1"></i><span id="btnModoMonitorText">Modo Monitor</span>
                     </button>
@@ -148,6 +151,16 @@
             <!-- Formulário (visível em ambos os modos) -->
             <div class="card">
               <div class="card-body">
+                <div id="bannerRetroativo" class="alert alert-warning d-none py-2 mb-3" role="status">
+                  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div>
+                      <strong>Lançamento em outra data</strong>
+                      <span class="ms-1">— <span id="bannerRetroativoData">—</span></span>
+                      <span class="text-muted ms-2" id="bannerRetroativoBase"></span>
+                    </div>
+                    <button type="button" id="btnSairRetroativo" class="btn btn-sm btn-outline-dark">Voltar ao dia de hoje</button>
+                  </div>
+                </div>
                 <div class="row g-3 align-items-end">
                   <div class="col-md-3">
                     <label class="form-label" data-owner-term="selecione_a_base">Selecione a Base</label>

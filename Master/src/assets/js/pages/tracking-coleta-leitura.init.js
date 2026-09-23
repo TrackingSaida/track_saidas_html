@@ -151,12 +151,56 @@ function markRespostaMetric(m, ok, tipo) {
 /* =============== Estado ============= */
 let COLETAS = [];
 let BASE_ATUAL = null;
+/** Dia operacional do lançamento retroativo (YYYY-MM-DD). null = fluxo normal (hoje). */
+let DATA_OPERACAO = null;
 /** Totais do dia vindos do servidor (ex.: base já coletada). */
 let TOTAIS_BASE_DIA = null;
 let modoMonitor = false;
 try {
   if (localStorage.getItem("coletasModoMonitor") === "1") modoMonitor = true;
 } catch (_) {}
+
+function dataOperacaoAtual() {
+  return DATA_OPERACAO || hojeBR();
+}
+
+function isModoRetroativo() {
+  const hoje = hojeBR();
+  return !!(DATA_OPERACAO && DATA_OPERACAO < hoje);
+}
+
+function podeLancamentoRetroativo() {
+  const role = Number(window.__USER__?.role);
+  return role === 0 || role === 1 || role === 2;
+}
+
+function ontemOperacaoLocal() {
+  const s = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const [dd, mm, yyyy] = s.split("/");
+  const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+  d.setDate(d.getDate() - 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function atualizarBannerRetroativo() {
+  const banner = qs("#bannerRetroativo");
+  if (!banner) return;
+  if (!isModoRetroativo()) {
+    banner.classList.add("d-none");
+    return;
+  }
+  banner.classList.remove("d-none");
+  const elData = qs("#bannerRetroativoData");
+  const elBase = qs("#bannerRetroativoBase");
+  if (elData) {
+    const [y, m, d] = String(DATA_OPERACAO).split("-");
+    elData.textContent = (d && m && y) ? `${d}/${m}/${y}` : DATA_OPERACAO;
+  }
+  if (elBase) elBase.textContent = BASE_ATUAL ? `Base: ${BASE_ATUAL}` : "";
+}
 
 /* =============== API ================= */
 async function carregarBases() {
@@ -488,6 +532,9 @@ async function enviarColetasLote(base, itens, entregadorId = null) {
   if (entregadorId != null && entregadorId !== "") {
     body.entregador_id = parseInt(entregadorId, 10);
   }
+  if (isModoRetroativo()) {
+    body.data_operacao = dataOperacaoAtual();
+  }
   const r = await fetch(API_URL(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -509,6 +556,9 @@ async function enviarColetaUnica(item, entregadorId = null) {
     const body = { base: item.base, itens: [it] };
     if (entregadorId != null && entregadorId !== "") {
       body.entregador_id = parseInt(entregadorId, 10);
+    }
+    if (isModoRetroativo()) {
+      body.data_operacao = dataOperacaoAtual();
     }
 
     const r = await fetch(API_URL(), {
@@ -715,7 +765,7 @@ async function carregarResumoBaseDia(baseId) {
   if (!url || url.includes("undefined")) {
     throw new Error("URL da API não configurada. Verifique TRACK_API_URL.");
   }
-  const r = await fetch(`${url}?data_operacao=${encodeURIComponent(hojeOperacaoLocal())}`, {
+  const r = await fetch(`${url}?data_operacao=${encodeURIComponent(dataOperacaoAtual())}`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -936,7 +986,6 @@ function registrarCodigo() {
 
   const codigo = parsed.codigo;
   const servico = parsed.servico;
-  const hojeStr = new Date().toISOString().slice(0, 10);
 
   
 // 🔎 Verifica duplicado — NÃO registra linha duplicada (não polui a tela)
@@ -955,7 +1004,7 @@ COLETAS.push({
   servico,
   status: "pendente",
   tentativas: 0,
-  data: hojeStr,
+  data: dataOperacaoAtual(),
   qr_payload_raw: parsed.qr_payload_raw || undefined,
   is_grande: false
 });
@@ -1121,12 +1170,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       TOTAIS_BASE_DIA = null;
 
       // Lê do localStorage
-      const hoje = hojeBR();
+      const diaFiltro = dataOperacaoAtual();
       const armazenadas = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
 
-      // 🔸 Mantém apenas coletas do dia atual
+      // 🔸 Mantém apenas coletas do dia operacional (hoje ou retroativo)
       COLETAS = Array.isArray(armazenadas)
-        ? armazenadas.filter(c => String(c.data || "").startsWith(hoje))
+        ? armazenadas.filter(c => String(c.data || "").startsWith(diaFiltro))
         : [];
 
       // 🔸 Regrava para eliminar registros antigos dessa base
@@ -1134,6 +1183,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       renderTabela();
       await atualizarResumoBaseSelecionada(BASE_ATUAL);
+      atualizarBannerRetroativo();
       toast(`Base alterada para ${BASE_ATUAL}.`, true);
     });
 
@@ -1193,6 +1243,272 @@ document.addEventListener("DOMContentLoaded", async () => {
     const btn = qs("#btnLancarAvulso");
     if (btn && !pode) btn.classList.add("d-none");
   })();
+
+  (function syncBtnLancamentoRetroativo() {
+    const btn = qs("#btnLancamentoRetroativo");
+    if (!btn) return;
+    if (podeLancamentoRetroativo()) btn.classList.remove("d-none");
+    else btn.classList.add("d-none");
+  })();
+
+  async function ativarModoRetroativoLeitura(dataOp, baseNome, baseId) {
+    DATA_OPERACAO = dataOp;
+    BASE_ATUAL = baseNome;
+    STORAGE_KEY = `coletasPendentes_${BASE_ATUAL}`;
+    TOTAIS_BASE_DIA = null;
+    const selBase = qs("#selBase");
+    if (selBase) {
+      selBase.value = baseNome;
+      selBase.dispatchEvent(new Event("change"));
+    }
+    try {
+      if (baseId) {
+        await fetch(`${getBaseUrl()}/coletas/operacionais/bases/${encodeURIComponent(baseId)}/iniciar`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ metodo: "codigo", ajudar: true, data_operacao: dataOp }),
+        });
+      }
+    } catch (_) {}
+    atualizarBannerRetroativo();
+    toast(`Modo outra data ativo: ${dataOp}. Escaneie ou digite os códigos.`, true);
+  }
+
+  async function abrirModalManualRetroativo({ dataOp, baseId, baseNome, acrescentar }) {
+    if (typeof Swal === "undefined") {
+      toast("Não foi possível abrir o formulário manual.", false);
+      return;
+    }
+    const titulo = acrescentar
+      ? `Acrescentar quantidades — ${baseNome}`
+      : `Informar quantidades — ${baseNome}`;
+    const hint = acrescentar
+      ? "<p class=\"text-muted small mb-2\">Informe apenas a quantidade a <strong>somar</strong> ao que já está lançado nesta data.</p>"
+      : "<p class=\"text-muted small mb-2\">Informe as quantidades desta coleta na data selecionada.</p>";
+    const modal = await Swal.fire({
+      title: titulo,
+      html: `
+        <div class="text-start">
+          ${hint}
+          <label class="form-label mb-1">Shopee</label>
+          <input id="ret-shopee" type="number" min="0" class="form-control mb-2" value="0" />
+          <label class="form-label mb-1">Mercado Livre / Flex</label>
+          <input id="ret-ml" type="number" min="0" class="form-control mb-2" value="0" />
+          <label class="form-label mb-1">Avulso</label>
+          <input id="ret-avulso" type="number" min="0" class="form-control mb-2" value="0" />
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: acrescentar ? "Acrescentar" : "Registrar",
+      cancelButtonText: "Cancelar",
+      focusConfirm: false,
+      preConfirm: () => {
+        const shopee = parseInt(String(document.getElementById("ret-shopee")?.value || "0"), 10) || 0;
+        const mercado_livre = parseInt(String(document.getElementById("ret-ml")?.value || "0"), 10) || 0;
+        const avulso = parseInt(String(document.getElementById("ret-avulso")?.value || "0"), 10) || 0;
+        if (shopee < 0 || mercado_livre < 0 || avulso < 0) {
+          Swal.showValidationMessage("Quantidades não podem ser negativas.");
+          return null;
+        }
+        if (shopee + mercado_livre + avulso <= 0) {
+          Swal.showValidationMessage("Informe ao menos uma quantidade.");
+          return null;
+        }
+        return { shopee, mercado_livre, avulso };
+      },
+    });
+    if (!modal.isConfirmed || !modal.value) return;
+
+    const body = {
+      base_id: Number(baseId),
+      data_operacao: dataOp,
+      shopee: modal.value.shopee,
+      mercado_livre: modal.value.mercado_livre,
+      avulso: modal.value.avulso,
+      acrescentar: !!acrescentar,
+      origem_cliente: "web",
+    };
+    try {
+      const r = await fetch(`${getBaseUrl()}/coletas/operacionais/manual`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(body),
+      });
+      let data = null;
+      try { data = await r.json(); } catch (_) {}
+      if (!r.ok) {
+        const detail = data?.detail;
+        const msg = (typeof detail === "string")
+          ? detail
+          : (detail?.mensagem || detail?.message || data?.mensagem || `Falha ao lançar (${r.status}).`);
+        toast(msg, false);
+        return;
+      }
+      toast(acrescentar ? "Quantidades acrescentadas." : "Coleta manual registrada.", true);
+      DATA_OPERACAO = dataOp;
+      BASE_ATUAL = baseNome;
+      atualizarBannerRetroativo();
+      await atualizarResumoBaseSelecionada(baseNome);
+    } catch (err) {
+      toast(err?.message || "Erro ao lançar coleta manual.", false);
+    }
+  }
+
+  async function escolherModoRetroativo({ dataOp, baseId, baseNome, totalExistente }) {
+    const modo = window.__USER__?.modo_operacao || window.MODO_OPERACAO || "codigo";
+    const permiteLeitura = ["codigo", "ambos"].includes(modo);
+    const permiteManual = ["coleta_manual", "ambos"].includes(modo);
+    const acrescentar = totalExistente > 0;
+
+    if (permiteLeitura && !permiteManual) {
+      await ativarModoRetroativoLeitura(dataOp, baseNome, baseId);
+      return;
+    }
+    if (!permiteLeitura && permiteManual) {
+      await abrirModalManualRetroativo({ dataOp, baseId, baseNome, acrescentar });
+      return;
+    }
+
+    const escolha = await Swal.fire({
+      title: acrescentar ? "Como deseja acrescentar?" : "Como deseja registrar?",
+      text: acrescentar
+        ? `Já há ${totalExistente} pacote(s) em ${baseNome} nesta data.`
+        : `Nenhum lançamento em ${baseNome} nesta data.`,
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: "Leitura / câmera",
+      denyButtonText: "Manual (quantidades)",
+      cancelButtonText: "Cancelar",
+    });
+    if (escolha.isConfirmed) {
+      await ativarModoRetroativoLeitura(dataOp, baseNome, baseId);
+    } else if (escolha.isDenied) {
+      await abrirModalManualRetroativo({ dataOp, baseId, baseNome, acrescentar });
+    }
+  }
+
+  async function abrirFluxoLancamentoRetroativo() {
+    if (!podeLancamentoRetroativo()) {
+      toast("Somente admin ou operador pode lançar em outra data.", false);
+      return;
+    }
+    if (typeof Swal === "undefined") {
+      toast("Não foi possível abrir o formulário.", false);
+      return;
+    }
+
+    const basesOpts = (BASE_PICKER_STATE.list || [])
+      .map((item) => `<option value="${escAttr(item.nome)}" data-id="${item.id_base != null ? item.id_base : ""}">${escAttr(item.nome)}</option>`)
+      .join("");
+    if (!basesOpts) {
+      toast(typeof window.ownerTerm === "function" ? window.ownerTerm("nenhuma_base_ativa") : "Nenhuma base disponível.", false);
+      return;
+    }
+
+    const maxData = ontemOperacaoLocal();
+    const modal = await Swal.fire({
+      title: "Lançar em outra data",
+      html: `
+        <div class="text-start">
+          <label class="form-label mb-1" for="ret-data">Data</label>
+          <input id="ret-data" type="date" class="form-control mb-3" max="${maxData}" value="${maxData}" />
+          <label class="form-label mb-1" for="ret-base">Base</label>
+          <select id="ret-base" class="form-select">
+            <option value="">Selecione...</option>
+            ${basesOpts}
+          </select>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "Continuar",
+      cancelButtonText: "Cancelar",
+      focusConfirm: false,
+      preConfirm: () => {
+        const data = String(document.getElementById("ret-data")?.value || "").trim();
+        const baseSel = document.getElementById("ret-base");
+        const baseNome = String(baseSel?.value || "").trim();
+        const baseId = baseSel?.selectedOptions?.[0]?.getAttribute("data-id") || "";
+        if (!data) {
+          Swal.showValidationMessage("Informe a data.");
+          return null;
+        }
+        if (data >= hojeBR()) {
+          Swal.showValidationMessage("Use uma data anterior a hoje. O dia atual já está na leitura normal.");
+          return null;
+        }
+        if (!baseNome) {
+          Swal.showValidationMessage("Selecione a base.");
+          return null;
+        }
+        if (!baseId) {
+          Swal.showValidationMessage("Base sem identificador. Atualize a página e tente novamente.");
+          return null;
+        }
+        return { data, baseNome, baseId: Number(baseId) };
+      },
+    });
+    if (!modal.isConfirmed || !modal.value) return;
+
+    const { data: dataOp, baseNome, baseId } = modal.value;
+    let resumo;
+    try {
+      const r = await fetch(
+        `${getBaseUrl()}/coletas/operacionais/bases/${encodeURIComponent(baseId)}/resumo?data_operacao=${encodeURIComponent(dataOp)}`,
+        { credentials: "include", headers: { Accept: "application/json" } }
+      );
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const detail = data?.detail;
+        toast(typeof detail === "string" ? detail : `Falha ao consultar a data (${r.status}).`, false);
+        return;
+      }
+      resumo = data;
+    } catch (err) {
+      toast(err?.message || "Falha ao consultar quantidades da data.", false);
+      return;
+    }
+
+    const total = Number(resumo?.total) || 0;
+    if (total > 0) {
+      const confirma = await Swal.fire({
+        title: "Já existe quantidade lançada",
+        html: `<p>Em <strong>${baseNome}</strong> na data selecionada já há <strong>${total}</strong> pacote(s).</p>
+               <p class="mb-0">Deseja acrescentar mais?</p>`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Sim, acrescentar",
+        cancelButtonText: "Não",
+      });
+      if (!confirma.isConfirmed) return;
+    }
+
+    await escolherModoRetroativo({ dataOp, baseId, baseNome, totalExistente: total });
+  }
+
+  qs("#btnLancamentoRetroativo")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    abrirFluxoLancamentoRetroativo();
+  });
+
+  qs("#btnSairRetroativo")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    DATA_OPERACAO = null;
+    atualizarBannerRetroativo();
+    try {
+      const situacao = await carregarSituacaoColetas(hojeOperacaoLocal());
+      if (situacao && Array.isArray(situacao.itens)) {
+        const list = basesParaSeletorColeta(
+          (BASE_PICKER_STATE.list || []).map((i) => i.raw).filter(Boolean),
+          situacao.itens
+        );
+        if (list.length) montarSeletorBases(qs("#selBase"), list, { comGrupos: true, placeholder: "Selecione..." });
+      }
+    } catch (_) {}
+    if (BASE_ATUAL) await atualizarResumoBaseSelecionada(BASE_ATUAL);
+    toast("Voltou ao dia de hoje.", true);
+  });
 
   qs("#btnLancarAvulso")?.addEventListener("click", async (e) => {
     e.preventDefault();
@@ -1328,6 +1644,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (modal.value.campos && Object.keys(modal.value.campos).length) body.campos = modal.value.campos;
     if (fotoPayload.foto_object_key) body.foto_object_key = fotoPayload.foto_object_key;
     if (fotoPayload.photo_id) body.photo_id = fotoPayload.photo_id;
+    if (isModoRetroativo()) body.data_operacao = dataOperacaoAtual();
 
     try {
       const r = await fetch(`${getBaseUrl()}/coletas/lancar-avulso`, {
@@ -1623,7 +1940,7 @@ if (duplicado) {
         servico: parsed.servico,
         status: "pendente",
         tentativas: 0,
-        data: hojeBR(),
+        data: dataOperacaoAtual(),
         qr_payload_raw: parsed.qr_payload_raw || undefined
       };
 
