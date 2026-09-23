@@ -990,9 +990,10 @@
     max-width: 100%;
   }
 
-  /* Painel detalhe de registros: mais altura em viewport estreita */
+  /* Painel detalhe de registros: drawer lateral full height */
   .reg-detail-panel {
-    max-height: 85vh;
+    max-height: 100vh;
+    height: 100vh;
   }
 }
 

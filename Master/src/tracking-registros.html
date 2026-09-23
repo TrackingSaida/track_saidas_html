@@ -520,12 +520,15 @@
   </div></div>
 </div>
 
-<!-- Painel Detalhe + Histórico (drawer, divisão vertical) -->
+<!-- Painel Detalhe + Histórico (drawer lateral, padrão portal) -->
 <div id="reg-detail-panel-overlay" class="reg-detail-overlay" aria-hidden="true"></div>
 <div id="reg-detail-panel" class="reg-detail-panel" aria-hidden="true">
   <div class="reg-detail-panel-inner">
-    <header class="reg-detail-header d-flex justify-content-between align-items-center px-3 py-2 border-bottom bg-light">
-      <h5 class="reg-detail-title mb-0 fw-semibold">Pedido <span id="reg-detail-codigo">—</span></h5>
+    <header class="reg-detail-header d-flex justify-content-between align-items-start px-3 py-3 border-bottom">
+      <div>
+        <p class="small text-uppercase text-muted mb-1 fw-semibold">Detalhes do pedido</p>
+        <h5 class="reg-detail-title mb-0 fw-semibold" id="reg-detail-codigo">—</h5>
+      </div>
       <button type="button" class="btn btn-ghost-secondary btn-sm" id="reg-detail-close" title="Fechar">
         <i class="ri-close-line"></i>
       </button>
@@ -560,20 +563,23 @@
   .reg-detail-overlay.show { touch-action: none; }
   .reg-detail-panel {
     position: fixed;
-    left: 0;
+    left: auto;
     right: 0;
+    top: 0;
     bottom: 0;
-    max-height: 55vh;
+    width: min(420px, 100%);
+    max-height: 100vh;
+    height: 100vh;
     z-index: 1050;
     background: var(--bs-body-bg, #fff);
-    box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
-    transform: translateY(100%);
+    box-shadow: -4px 0 24px rgba(15, 23, 42, 0.18);
+    transform: translateX(100%);
     transition: transform 0.25s ease-out;
     display: flex;
     flex-direction: column;
   }
   .reg-detail-panel.open {
-    transform: translateY(0);
+    transform: translateX(0);
   }
   .reg-detail-panel-inner {
     display: flex;
@@ -591,7 +597,7 @@
     gap: 1rem;
     flex: 1;
     min-height: 0;
-    padding: 1rem;
+    padding: 0;
     overflow: hidden;
   }
   .reg-detail-col-full {
@@ -603,16 +609,15 @@
   .reg-detail-content {
     font-size: 0.875rem;
   }
-  .pedido-detail-container { padding: 20px; background: #f8fafc; }
-  .pedido-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-  .pedido-codigo { font-size: 20px; font-weight: 600; }
-  .pedido-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 15px; }
-  .pedido-grid-2 { grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.1fr); }
-  @media (max-width: 1199.98px) {
-    .pedido-grid-2 { grid-template-columns: 1fr; }
+  .pedido-detail-container { padding: 16px 20px 24px; background: #fff; }
+  .pedido-detail-portal .pedido-section {
+    border-top: 1px solid #e2e8f0;
+    padding-top: 0.85rem;
   }
-  .pedido-card { background: #ffffff; border-radius: 8px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-  .pedido-card h5 { font-weight: 600; margin-bottom: 10px; }
+  .pedido-detail-portal .pedido-section:first-of-type {
+    border-top: 0;
+    padding-top: 0;
+  }
   .timeline-thumb-img { width: 80px; height: 80px; object-fit: cover; cursor: pointer; }
   .timeline-thumb-btn:focus { outline: 2px solid #0d6efd; outline-offset: 2px; }
   .reg-photo-lightbox {
@@ -645,20 +650,35 @@
     z-index: 2;
   }
   .reg-photo-lightbox-nav:hover { background: rgba(255, 255, 255, 0.28); }
-  .reg-photo-lightbox-prev { left: 16px; }
-  .reg-photo-lightbox-next { right: 16px; }
+  .reg-photo-lightbox-prev { left: 12px; }
+  .reg-photo-lightbox-next { right: 12px; }
   .reg-photo-lightbox-counter {
-    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-    color: #fff; font-size: 14px; font-weight: 600;
-    background: rgba(0, 0, 0, 0.45); padding: 6px 14px; border-radius: 20px;
-    z-index: 2;
+    position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+    color: #fff; font-size: 13px; background: rgba(0,0,0,0.45);
+    padding: 4px 10px; border-radius: 999px;
   }
-  .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-  .status-success { background: #e6f7ee; color: #28a745; }
-  .status-info { background: #e6f0ff; color: #007bff; }
-  .status-warning { background: #fff3cd; color: #ff9800; }
-  .status-danger { background: #fdecea; color: #dc3545; }
-  .status-default { background: #e9ecef; color: #6c757d; }
+  .status-badge { display: inline-block; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+  .status-success { background: #dcfce7; color: #166534; }
+  .status-warning { background: #ffedd5; color: #9a3412; }
+  .status-danger { background: #fee2e2; color: #991b1b; }
+  .status-info { background: #e0f2fe; color: #075985; }
+  .status-default { background: #f1f5f9; color: #475569; }
+  .action-neutral { background: #e9ecef; color: #6c757d; }
+  .action-movement { background: #e6f0ff; color: #007bff; }
+  .action-success { background: #e6f7ee; color: #28a745; }
+  .action-exception { background: #fff3cd; color: #ff9800; }
+  .action-confirmation { background: #ede7ff; color: #5f3dc4; }
+  .timeline { position: relative; margin-left: 0.35rem; padding-left: 0.85rem; border-left: 2px solid #cbd5e1; }
+  .timeline-item { display: flex; margin-bottom: 15px; position: relative; }
+  .timeline-dot {
+    width: 10px; height: 10px; background: #94a3b8; border-radius: 50%;
+    margin-right: 10px; margin-top: 5px; flex-shrink: 0;
+    position: absolute; left: -1.15rem;
+  }
+  .timeline-item.is-current .timeline-dot { background: #0d9488; }
+  .timeline-content { min-width: 0; padding-left: 0.15rem; }
+  .timeline-title { font-weight: 600; }
+  .timeline-date { color: #6c757d; font-size: 12px; }
   .servico-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
   .servico-shopee { background: rgba(255, 180, 130, 0.25); color: #d46a2e; }
   .servico-ml { background: rgba(255, 230, 170, 0.5); color: #b8922e; }
@@ -677,18 +697,8 @@
     text-overflow: ellipsis;
     vertical-align: middle;
   }
-  .action-neutral { background: #e9ecef; color: #6c757d; }
-  .action-movement { background: #e6f0ff; color: #007bff; }
-  .action-success { background: #e6f7ee; color: #28a745; }
-  .action-exception { background: #fff3cd; color: #ff9800; }
-  .action-confirmation { background: #ede7ff; color: #5f3dc4; }
-  .timeline { position: relative; margin-left: 10px; }
-  .timeline-item { display: flex; margin-bottom: 15px; }
-  .timeline-dot { width: 10px; height: 10px; background: #007bff; border-radius: 50%; margin-right: 10px; margin-top: 5px; flex-shrink: 0; }
-  .timeline-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .timeline-date { color: #6c757d; font-size: 12px; }
-  @media (max-width: 768px) {
-    .reg-detail-panel { max-height: 90vh; height: 90vh; }
+  @media (max-width: 575.98px) {
+    .reg-detail-panel { width: 100%; }
   }
 </style>
 
