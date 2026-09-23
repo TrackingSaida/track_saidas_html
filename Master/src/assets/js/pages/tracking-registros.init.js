@@ -524,8 +524,13 @@ function augmentEntregadoresFromRows(rows){
       r.executadoPor ||
       "—";
     var seller = r.base || r.seller || "-";
-    var acaoRaw = r.acao || r.action || "Sem ação";
-    var acao = String(acaoRaw || "").trim() || "Sem ação";
+    var acaoRaw = r.acao || r.action || "";
+    var acao = String(acaoRaw || "").trim();
+    if (!acao || acao === "Sem ação" || acao === "—") {
+      var stRaw = String(r.status || "").toLowerCase();
+      if (stRaw === "etiquetado") acao = "Etiqueta gerada";
+      else acao = acao || "Sem ação";
+    }
 
     var rawSt = String(r.status || "").toLowerCase();
     var statusUI = formatStatusForDisplay(r.status);
@@ -631,7 +636,10 @@ function augmentEntregadoresFromRows(rows){
     entrada_base: "Entrada na base",
     saida_conferida: "Saída conferida",
     saida_reconferida: "Saída reconferida",
-    base_transferida: "Transferiu base da coleta"
+    base_transferida: "Transferiu base da coleta",
+    etiqueta_gerada: "Etiqueta gerada",
+    etiqueta_cancelada: "Etiqueta cancelada",
+    etiqueta_expirada: "Etiqueta expirada"
   };
 
   function normalizeEventoKey(evento) {
@@ -655,6 +663,11 @@ function augmentEntregadoresFromRows(rows){
     if (raw.indexOf("transfer") !== -1 || raw.indexOf("base_transferida") !== -1) return "base_transferida";
     if (raw.indexOf("reconferid") !== -1) return "saida_reconferida";
     if (raw.indexOf("conferid") !== -1) return "saida_conferida";
+    if (raw.indexOf("etiqueta") !== -1) {
+      if (raw.indexOf("cancel") !== -1) return "etiqueta_cancelada";
+      if (raw.indexOf("expir") !== -1) return "etiqueta_expirada";
+      return "etiqueta_gerada";
+    }
     return "unknown";
   }
 
@@ -705,6 +718,9 @@ function augmentEntregadoresFromRows(rows){
     "Transferiu base da coleta": { category: "neutral", className: "action-neutral" },
     "Saída conferida": { category: "confirmation", className: "action-confirmation" },
     "Saída reconferida": { category: "confirmation", className: "action-confirmation" },
+    "Etiqueta gerada": { category: "neutral", className: "action-neutral" },
+    "Etiqueta cancelada": { category: "exception", className: "action-exception" },
+    "Etiqueta expirada": { category: "exception", className: "action-exception" },
     "Sem ação": { category: "neutral", className: "action-neutral" }
   };
 
@@ -1413,7 +1429,7 @@ function setupPagerEvents() {
       var thumbHtml = "";
       if (eventPhotos.length) {
         var fotoLabel = isEventoAusencia(item.evento) ? "Foto da ocorrência" : "Foto da entrega";
-        thumbHtml = "<div class=\"timeline-thumbs d-flex flex-wrap gap-2 mt-2\">" +
+        thumbHtml = "<div class=\"timeline-thumbs d-flex flex-wrap gap-2 mt-1\">" +
           eventPhotos.map(function(photo, photoIndex) {
             return "<button type=\"button\" class=\"timeline-thumb-btn border-0 p-0 bg-transparent\" data-photo-index=\"" +
               String(photo.globalIndex != null ? photo.globalIndex : photoIndex) +

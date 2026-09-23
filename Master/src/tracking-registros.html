@@ -141,6 +141,10 @@
                                   <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-status-encerrado" value="encerrado_sistema">
                                   <label class="form-check-label small" for="flt-status-encerrado">Encerrado</label>
                                 </div>
+                                <div class="form-check form-switch m-0">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-status-etiquetado" value="etiquetado">
+                                  <label class="form-check-label small" for="flt-status-etiquetado">Etiqueta gerada</label>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -209,6 +213,10 @@
                                 <div class="form-check form-switch">
                                   <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-saida-reconferida" value="saida_reconferida">
                                   <label class="form-check-label small" for="flt-acao-saida-reconferida">Saída reconferida</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-etiqueta-gerada" value="etiqueta_gerada">
+                                  <label class="form-check-label small" for="flt-acao-etiqueta-gerada">Etiqueta gerada</label>
                                 </div>
                               </div>
                             </div>
@@ -740,29 +748,29 @@
   .timeline-item {
     display: block;
     position: relative;
-    margin-bottom: 0.45rem;
+    margin-bottom: 0.28rem;
     width: 100%;
   }
   .timeline-item:last-child {
     margin-bottom: 0;
   }
   .timeline-dot {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     background: #94a3b8;
     border-radius: 50%;
     position: absolute;
-    left: -1.35rem;
-    top: 0.35rem;
+    left: -1.3rem;
+    top: 0.4rem;
   }
   .timeline-item.is-current .timeline-dot { background: #16a34a; }
   .timeline-content {
     width: 100%;
     min-width: 0;
     max-width: 100%;
-    padding: 0.5rem 0.75rem;
+    padding: 0.4rem 0.65rem;
     border: 1px solid rgba(148, 163, 184, 0.45);
-    border-radius: 0.55rem;
+    border-radius: 0.45rem;
     background: rgba(241, 245, 249, 0.72);
     box-sizing: border-box;
   }
@@ -780,18 +788,18 @@
   }
   .timeline-date {
     color: #64748b;
-    font-size: 0.8rem;
-    margin-top: 0.15rem;
+    font-size: 0.78rem;
+    margin-top: 0.05rem;
     white-space: normal;
   }
   .timeline-who {
     color: #64748b;
-    font-size: 0.8rem;
-    margin-top: 0.1rem;
+    font-size: 0.78rem;
+    margin-top: 0.05rem;
   }
   .timeline-extras {
-    margin-top: 0.35rem;
-    font-size: 0.8rem;
+    margin-top: 0.2rem;
+    font-size: 0.78rem;
     color: #64748b;
   }
   .servico-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
