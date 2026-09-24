@@ -312,7 +312,8 @@ async function apiDelete(id) {
     wrap.classList.remove("d-none");
     if (empty) empty.classList.add("d-none");
     if (content) content.classList.remove("d-none");
-    loadPortalAcesso();
+    atualizarVisibilidadePortalSeller();
+    if (isOwnerTipoBase()) loadPortalAcesso();
   }
 
   async function loadSellerDetail() {
@@ -440,11 +441,27 @@ async function apiDelete(id) {
   }
 
   function ownerTipoAtual() {
-    return (OWNER_INFO?.tipo_owner || "subbase").toLowerCase();
+    return (
+      OWNER_INFO?.tipo_owner ||
+      window.TIPO_OWNER ||
+      "subbase"
+    ).toLowerCase();
+  }
+
+  function isOwnerTipoBase() {
+    return ownerTipoAtual() === "base";
+  }
+
+  function atualizarVisibilidadePortalSeller() {
+    const block = qs("#portal-seller-block");
+    if (!block) return;
+    // Portal de etiquetas só para Owner tipo Base (Seller).
+    // Sub_base cadastra Bases normalmente, sem este bloco no detail.
+    block.classList.toggle("d-none", !isOwnerTipoBase());
   }
 
   function atualizarAjudaCamposSeller() {
-    const isSeller = ownerTipoAtual() === "base";
+    const isSeller = isOwnerTipoBase();
     const cnpjHelp = qs("#sellerCnpjHelp");
     const cepHelp = qs("#sellerCepHelp");
     if (cnpjHelp) {
@@ -567,6 +584,10 @@ async function apiDelete(id) {
     const btnReset = qs("#btnPortalReset");
     const btnOff = qs("#btnPortalDesativar");
     PORTAL_ACCESS = null;
+    if (!isOwnerTipoBase()) {
+      atualizarVisibilidadePortalSeller();
+      return;
+    }
     if (!SELECTED_ID || !statusEl) return;
     try {
       const data = await http(`${API_URL}/portal/acessos?id_base=${encodeURIComponent(SELECTED_ID)}`);
@@ -604,6 +625,7 @@ async function apiDelete(id) {
   document.addEventListener("DOMContentLoaded", async () => {
     preencherLinkPortal();
     await carregarOwnerInfo();
+    atualizarVisibilidadePortalSeller();
     atualizarAjudaCamposSeller();
 
     const perPageSelect = qs("#perPage");
@@ -738,7 +760,7 @@ async function apiDelete(id) {
     });
 
     qs("#btnPortalLiberar")?.addEventListener("click", async () => {
-      if (!SELECTED_ID) return;
+      if (!SELECTED_ID || !isOwnerTipoBase()) return;
       try {
         const data = await http(`${API_URL}/portal/acessos`, {
           method: "POST",
@@ -753,7 +775,7 @@ async function apiDelete(id) {
 
     qs("#btnPortalReset")?.addEventListener("click", async () => {
       const id = PORTAL_ACCESS?.acesso?.id;
-      if (!id) return;
+      if (!id || !isOwnerTipoBase()) return;
       try {
         const data = await http(`${API_URL}/portal/acessos/${id}/reset-senha`, { method: "POST", body: "{}" });
         showPortalSenha(data.login, data.senha_temporaria);
@@ -765,7 +787,7 @@ async function apiDelete(id) {
 
     qs("#btnPortalDesativar")?.addEventListener("click", async () => {
       const id = PORTAL_ACCESS?.acesso?.id;
-      if (!id) return;
+      if (!id || !isOwnerTipoBase()) return;
       try {
         await http(`${API_URL}/portal/acessos/${id}`, {
           method: "POST",
@@ -779,6 +801,7 @@ async function apiDelete(id) {
     });
 
     qs("#btnCopiarLinkPortal")?.addEventListener("click", () => {
+      if (!isOwnerTipoBase()) return;
       const login = PORTAL_ACCESS?.acesso?.login || "";
       if (!login) {
         copiarTextoPortal(
