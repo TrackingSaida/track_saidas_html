@@ -599,6 +599,295 @@ async function apiDelete(id) {
   }
 
   // =======================================================
+  // Importação via planilha (PRD-002)
+  // =======================================================
+  let IMPORT_PREVIEW = null;
+  let importModal = null;
+
+  function formatMoedaImport(valor) {
+    if (valor == null || Number.isNaN(Number(valor))) return "—";
+    return "R$ " + Number(valor).toFixed(2).replace(".", ",");
+  }
+
+  function escapeHtmlImport(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function setImportStep(step) {
+    const file = qs("#import-step-file");
+    const preview = qs("#import-step-preview");
+    const result = qs("#import-step-result");
+    const btnAnalisar = qs("#btnImportAnalisar");
+    const btnConfirmar = qs("#btnImportConfirmar");
+    const btnVoltar = qs("#btnImportVoltar");
+
+    file?.classList.toggle("d-none", step !== "file");
+    preview?.classList.toggle("d-none", step !== "preview");
+    result?.classList.toggle("d-none", step !== "result");
+
+    btnAnalisar?.classList.toggle("d-none", step !== "file");
+    btnConfirmar?.classList.toggle("d-none", step !== "preview");
+    btnVoltar?.classList.toggle("d-none", step !== "preview");
+
+    if (step === "preview") {
+      const validas = (IMPORT_PREVIEW?.linhas || []).filter(
+        (l) => l.acao === "criar" || l.acao === "atualizar"
+      ).length;
+      if (btnConfirmar) btnConfirmar.disabled = validas === 0;
+    }
+  }
+
+  function resetImportModal() {
+    IMPORT_PREVIEW = null;
+    const input = qs("#importFile");
+    if (input) input.value = "";
+    const tbody = qs("#import-preview-tbody");
+    if (tbody) tbody.innerHTML = "";
+    const rtbody = qs("#import-result-tbody");
+    if (rtbody) rtbody.innerHTML = "";
+    ["imp-criar", "imp-atualizar", "imp-erro", "imp-res-criadas", "imp-res-atualizadas", "imp-res-erros"].forEach((id) => {
+      const el = qs("#" + id);
+      if (el) el.textContent = "0";
+    });
+    const btnAnalisar = qs("#btnImportAnalisar");
+    const btnConfirmar = qs("#btnImportConfirmar");
+    if (btnAnalisar) {
+      btnAnalisar.disabled = false;
+      btnAnalisar.textContent = "Analisar arquivo";
+    }
+    if (btnConfirmar) {
+      btnConfirmar.disabled = false;
+      btnConfirmar.textContent = "Confirmar importação";
+    }
+    setImportStep("file");
+  }
+
+  function openImportModal() {
+    if (!importModal) {
+      const el = qs("#modalImportBases");
+      if (!el) return;
+      importModal = new bootstrap.Modal(el);
+      el.addEventListener("hidden.bs.modal", () => resetImportModal());
+    }
+    resetImportModal();
+    importModal.show();
+  }
+
+  function renderImportPreview(data) {
+    IMPORT_PREVIEW = data;
+    const resumo = data?.resumo || {};
+    const setN = (id, v) => {
+      const el = qs("#" + id);
+      if (el) el.textContent = String(v ?? 0);
+    };
+    setN("imp-criar", resumo.criar);
+    setN("imp-atualizar", resumo.atualizar);
+    setN("imp-erro", resumo.erro);
+
+    const tbody = qs("#import-preview-tbody");
+    if (!tbody) return;
+    const linhas = data?.linhas || [];
+    if (!linhas.length) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-muted text-center py-3">Nenhuma linha encontrada na planilha.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = linhas
+      .map((l) => {
+        const acao = l.acao || "erro";
+        let acaoLabel = "Erro";
+        let badge = "bg-danger-subtle text-danger";
+        if (acao === "criar") {
+          acaoLabel = "Criar";
+          badge = "bg-success-subtle text-success";
+        } else if (acao === "atualizar") {
+          acaoLabel = "Atualizar";
+          badge = "bg-primary-subtle text-primary";
+        }
+
+        let detalhe = l.motivo || "—";
+        if (acao === "atualizar" && l.atual) {
+          detalhe =
+            `Flex ${formatMoedaImport(l.atual.flex)} → ${formatMoedaImport(l.flex)}; ` +
+            `Shopee ${formatMoedaImport(l.atual.shopee)} → ${formatMoedaImport(l.shopee)}; ` +
+            `Avulso ${formatMoedaImport(l.atual.avulso)} → ${formatMoedaImport(l.avulso)}`;
+        } else if (acao === "criar") {
+          detalhe = "Nova";
+        }
+
+        return (
+          `<tr>` +
+          `<td>${escapeHtmlImport(l.linha)}</td>` +
+          `<td>${escapeHtmlImport(l.base || "—")}</td>` +
+          `<td class="text-end">${acao === "erro" ? "—" : formatMoedaImport(l.flex)}</td>` +
+          `<td class="text-end">${acao === "erro" ? "—" : formatMoedaImport(l.shopee)}</td>` +
+          `<td class="text-end">${acao === "erro" ? "—" : formatMoedaImport(l.avulso)}</td>` +
+          `<td><span class="badge ${badge}">${acaoLabel}</span></td>` +
+          `<td class="small">${escapeHtmlImport(detalhe)}</td>` +
+          `</tr>`
+        );
+      })
+      .join("");
+  }
+
+  function renderImportResult(data) {
+    const setN = (id, v) => {
+      const el = qs("#" + id);
+      if (el) el.textContent = String(v ?? 0);
+    };
+    setN("imp-res-criadas", data?.criadas);
+    setN("imp-res-atualizadas", data?.atualizadas);
+    setN("imp-res-erros", data?.erros);
+
+    const tbody = qs("#import-result-tbody");
+    if (!tbody) return;
+    const detalhes = data?.detalhes || [];
+    if (!detalhes.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="text-muted text-center py-3">Sem detalhes.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = detalhes
+      .map((d) => {
+        const st = d.status || "erro";
+        let label = st;
+        let badge = "bg-secondary-subtle text-secondary";
+        if (st === "criada") {
+          label = "Criada";
+          badge = "bg-success-subtle text-success";
+        } else if (st === "atualizada") {
+          label = "Atualizada";
+          badge = "bg-primary-subtle text-primary";
+        } else if (st === "erro") {
+          label = "Erro";
+          badge = "bg-danger-subtle text-danger";
+        }
+        return (
+          `<tr>` +
+          `<td>${escapeHtmlImport(d.linha)}</td>` +
+          `<td>${escapeHtmlImport(d.base || "—")}</td>` +
+          `<td><span class="badge ${badge}">${label}</span></td>` +
+          `<td class="small">${escapeHtmlImport(d.motivo || "—")}</td>` +
+          `</tr>`
+        );
+      })
+      .join("");
+  }
+
+  async function baixarModeloImport() {
+    try {
+      const r = await fetch(`${API_URL}/base/import/modelo`, { credentials: "include" });
+      if (!r.ok) {
+        let msg = "Não foi possível baixar o modelo.";
+        try {
+          const j = await r.json();
+          if (typeof j.detail === "string") msg = j.detail;
+        } catch (_) {}
+        throw new Error(msg);
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "modelo-importacao-bases.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast(err.message || "Falha ao baixar o modelo.", false);
+    }
+  }
+
+  async function analisarArquivoImport() {
+    const input = qs("#importFile");
+    const file = input?.files?.[0];
+    if (!file) {
+      toast("Selecione um arquivo .xlsx.", false);
+      return;
+    }
+    const btn = qs("#btnImportAnalisar");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Analisando…";
+    }
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await fetch(`${API_URL}/base/import/preview`, {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+      if (!r.ok) {
+        let msg = "Não foi possível analisar a planilha.";
+        try {
+          const j = await r.json();
+          if (typeof j.detail === "string") msg = j.detail;
+        } catch (_) {}
+        throw new Error(msg);
+      }
+      const data = await r.json();
+      renderImportPreview(data);
+      setImportStep("preview");
+    } catch (err) {
+      toast(err.message || "Falha ao analisar a planilha.", false);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Analisar arquivo";
+      }
+    }
+  }
+
+  async function confirmarArquivoImport() {
+    const validas = (IMPORT_PREVIEW?.linhas || []).filter(
+      (l) => l.acao === "criar" || l.acao === "atualizar"
+    );
+    if (!validas.length) {
+      toast("Nenhuma linha válida para importar.", false);
+      return;
+    }
+    const btn = qs("#btnImportConfirmar");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Importando…";
+    }
+    try {
+      const payload = {
+        linhas: validas.map((l) => ({
+          linha: l.linha,
+          base: l.base,
+          flex: l.flex,
+          shopee: l.shopee,
+          avulso: l.avulso,
+        })),
+      };
+      const data = await http(`${API_URL}/base/import/confirmar`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      renderImportResult(data);
+      setImportStep("result");
+      qs("#btnImportVoltar")?.classList.add("d-none");
+      qs("#btnImportConfirmar")?.classList.add("d-none");
+      await listarBases();
+      const criadas = data?.criadas || 0;
+      const atualizadas = data?.atualizadas || 0;
+      toast(`Importação concluída: ${criadas} criada(s), ${atualizadas} atualizada(s).`);
+    } catch (err) {
+      toast(err.message || "Falha ao confirmar a importação.", false);
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Confirmar importação";
+      }
+    }
+  }
+
+  // =======================================================
   // Eventos
   // =======================================================
   document.addEventListener("DOMContentLoaded", async () => {
@@ -731,10 +1020,21 @@ async function apiDelete(id) {
     });
 
 
-    qs("#btnAdd")?.addEventListener("click", () => {
+    const openNovaBase = () => {
       openForm("create");
       qs("#btnHeaderEdit").disabled = true;
       qs("#btnHeaderDel").disabled = true;
+    };
+
+    qs("#btnAdd")?.addEventListener("click", openNovaBase);
+    qs("#btnAddManual")?.addEventListener("click", openNovaBase);
+    qs("#btnImportPlanilha")?.addEventListener("click", () => openImportModal());
+    qs("#btnBaixarModeloImport")?.addEventListener("click", () => baixarModeloImport());
+    qs("#btnImportAnalisar")?.addEventListener("click", () => analisarArquivoImport());
+    qs("#btnImportConfirmar")?.addEventListener("click", () => confirmarArquivoImport());
+    qs("#btnImportVoltar")?.addEventListener("click", () => {
+      IMPORT_PREVIEW = null;
+      setImportStep("file");
     });
 
     qs("#btnPortalLiberar")?.addEventListener("click", async () => {
