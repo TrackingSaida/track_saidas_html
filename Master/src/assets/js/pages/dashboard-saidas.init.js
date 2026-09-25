@@ -137,7 +137,19 @@
     if (!enabled) return;
 
     const e = data.entrada;
-    setText("card-total-entradas", e.total_entradas ?? 0);
+    const volume =
+      e.volume_que_entrou != null ? e.volume_que_entrou : (e.total_entradas ?? 0);
+    setText("card-total-entradas", volume);
+    const hint = document.getElementById("card-total-entradas-hint");
+    if (hint) {
+      const coletas = e.total_coletas != null ? Number(e.total_coletas) : null;
+      const entradas = Number(e.total_entradas || 0);
+      if (coletas != null) {
+        hint.textContent = "Coletas " + coletas + " · Entradas " + entradas;
+      } else {
+        hint.textContent = "Coletas e entradas";
+      }
+    }
     setText("card-ainda-na-base", e.ainda_na_base ?? 0);
     setText("card-taxa-saida", (e.taxa_saida_pct ?? 0) + "%");
     setText("card-gap-entrada-saida", formatGap(e.gap_entrada_saida));
