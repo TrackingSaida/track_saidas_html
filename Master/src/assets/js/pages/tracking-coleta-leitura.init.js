@@ -228,7 +228,10 @@ function hojeOperacaoLocal() {
 }
 
 function statusColetaNormalizado(status) {
-  return status === "sem_volume" ? "coletado" : (status || "pendente");
+  if (status === "em_coleta") return "em_coleta";
+  if (status === "sem_volume") return "sem_volume";
+  if (status === "coletado") return "coletado";
+  return status || "pendente";
 }
 
 async function carregarSituacaoColetas(dataOperacao) {
@@ -258,7 +261,7 @@ function escAttr(value) {
     .replace(/>/g, "&gt;");
 }
 
-/** Agrupa por status: pendentes → em coleta → coletadas; A–Z em cada grupo. */
+/** Agrupa por status: pendentes → em coleta → sem volume → coletadas; A–Z em cada grupo. */
 function basesParaSeletorColeta(bases, situacaoItens) {
   const porId = {};
   const porNome = {};
@@ -266,7 +269,12 @@ function basesParaSeletorColeta(bases, situacaoItens) {
     if (item && item.base_id != null) porId[item.base_id] = item;
     if (item && item.base) porNome[String(item.base)] = item;
   });
-  const rank = (status) => (status === "pendente" ? 0 : status === "em_coleta" ? 1 : 2);
+  const rank = (status) => {
+    if (status === "pendente") return 0;
+    if (status === "em_coleta") return 1;
+    if (status === "sem_volume") return 2;
+    return 3;
+  };
 
   return (Array.isArray(bases) ? bases : [])
     .map((b) => {
@@ -305,18 +313,21 @@ const BASE_PICKER_STATE = {
   expanded: {
     pendente: true,
     em_coleta: true,
+    sem_volume: false,
     coletado: false,
   },
 };
 
 function labelGrupoSeletor(status) {
   if (status === "em_coleta") return "Em coleta";
+  if (status === "sem_volume") return "Sem volume";
   if (status === "coletado") return "Coletadas";
   return "Pendentes";
 }
 
 function classeBadgeGrupoSeletor(status) {
   if (status === "em_coleta") return "badge-coleta-em-coleta";
+  if (status === "sem_volume") return "badge-coleta-sem-volume";
   if (status === "coletado") return "badge-coleta-coletada";
   return "badge-coleta-pendente";
 }
@@ -375,6 +386,7 @@ function renderBasePickerPanel(sel) {
   const groups = [
     { status: "pendente", items: list.filter((i) => i.statusSeletor === "pendente") },
     { status: "em_coleta", items: list.filter((i) => i.statusSeletor === "em_coleta") },
+    { status: "sem_volume", items: list.filter((i) => i.statusSeletor === "sem_volume") },
     { status: "coletado", items: list.filter((i) => i.statusSeletor === "coletado") },
   ].filter((g) => g.items.length > 0);
 
@@ -391,9 +403,11 @@ function renderBasePickerPanel(sel) {
               const meta =
                 item.statusSeletor === "em_coleta"
                   ? '<span class="base-picker-item-meta">Em coleta</span>'
-                  : item.statusSeletor === "coletado"
-                    ? '<span class="base-picker-item-meta">Coletada</span>'
-                    : "";
+                  : item.statusSeletor === "sem_volume"
+                    ? '<span class="base-picker-item-meta">Sem volume</span>'
+                    : item.statusSeletor === "coletado"
+                      ? '<span class="base-picker-item-meta">Coletada</span>'
+                      : "";
               return `<button type="button" class="base-picker-item${active}" data-base-nome="${escAttr(item.nome)}" role="option" aria-selected="${item.nome === selected ? "true" : "false"}"><span>${escAttr(item.nome)}</span>${meta}</button>`;
             })
             .join("")}</div>`
@@ -431,6 +445,7 @@ function montarSeletorBases(sel, list, { comGrupos, placeholder }) {
   BASE_PICKER_STATE.expanded = {
     pendente: true,
     em_coleta: true,
+    sem_volume: false,
     coletado: false,
   };
   syncSelectOptionsFromList(sel, BASE_PICKER_STATE.list, placeholder);
@@ -786,8 +801,13 @@ async function atualizarResumoBaseSelecionada(nomeBase) {
   const item = itemSeletorPorNome(nomeBase);
   const status = item ? item.statusSeletor : "pendente";
 
-  if (status === "coletado") {
-    setResumoTitulo("Resumo do dia", "Quantidades já registradas nesta coleta");
+  if (status === "coletado" || status === "sem_volume") {
+    const titulo = status === "sem_volume" ? "Resumo do dia · Sem volume" : "Resumo do dia";
+    const subtitulo =
+      status === "sem_volume"
+        ? "Base marcada sem coleta neste dia"
+        : "Quantidades já registradas nesta coleta";
+    setResumoTitulo(titulo, subtitulo);
     if (item && item.totais) {
       TOTAIS_BASE_DIA = item.totais;
       aplicarTotaisNaTela(TOTAIS_BASE_DIA);
@@ -1244,6 +1264,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (btn && !pode) btn.classList.add("d-none");
   })();
 
+  (function syncPermissaoSemVolume() {
+    const role = Number(window.__USER__?.role);
+    const btn = qs("#btnMarcarSemVolume");
+    if (!btn) return;
+    if ([0, 1, 2].includes(role)) btn.classList.remove("d-none");
+    else btn.classList.add("d-none");
+  })();
+
   (function syncBtnLancamentoRetroativo() {
     const btn = qs("#btnLancamentoRetroativo");
     if (!btn) return;
@@ -1497,17 +1525,104 @@ document.addEventListener("DOMContentLoaded", async () => {
     DATA_OPERACAO = null;
     atualizarBannerRetroativo();
     try {
-      const situacao = await carregarSituacaoColetas(hojeOperacaoLocal());
-      if (situacao && Array.isArray(situacao.itens)) {
-        const list = basesParaSeletorColeta(
-          (BASE_PICKER_STATE.list || []).map((i) => i.raw).filter(Boolean),
-          situacao.itens
-        );
-        if (list.length) montarSeletorBases(qs("#selBase"), list, { comGrupos: true, placeholder: "Selecione..." });
-      }
+      await recarregarSeletorBasesHoje();
     } catch (_) {}
     if (BASE_ATUAL) await atualizarResumoBaseSelecionada(BASE_ATUAL);
     toast("Voltou ao dia de hoje.", true);
+  });
+
+  async function recarregarSeletorBasesHoje() {
+    try {
+      const situacao = await carregarSituacaoColetas(hojeOperacaoLocal());
+      if (situacao && Array.isArray(situacao.itens)) {
+        const basesRaw = (BASE_PICKER_STATE.list || []).map((i) => i.raw).filter(Boolean);
+        const list = basesParaSeletorColeta(basesRaw, situacao.itens);
+        if (list.length) montarSeletorBases(qs("#selBase"), list, { comGrupos: true, placeholder: "Selecione..." });
+      }
+    } catch (_) {}
+  }
+
+  qs("#btnMarcarSemVolume")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const role = Number(window.__USER__?.role);
+    if (![0, 1, 2].includes(role)) {
+      toast("Somente root, admin ou operador pode marcar sem volume.", false);
+      return;
+    }
+    if (!BASE_ATUAL) {
+      toast(
+        typeof window.ownerTerm === "function"
+          ? window.ownerTerm("selecione_base_antes_registrar")
+          : "Selecione a base antes de marcar sem volume.",
+        false
+      );
+      return;
+    }
+    const item = itemSeletorPorNome(BASE_ATUAL);
+    const baseId = item && item.id_base != null ? Number(item.id_base) : null;
+    if (!baseId) {
+      toast("Não foi possível identificar a base selecionada.", false);
+      return;
+    }
+    if (item && item.statusSeletor === "sem_volume") {
+      toast("Esta base já está marcada como sem volume.", true);
+      return;
+    }
+    if (typeof Swal === "undefined") {
+      toast("Não foi possível abrir a confirmação.", false);
+      return;
+    }
+    const entidade =
+      typeof window.ownerTerm === "function" ? window.ownerTerm("base_lower") : "base";
+    const confirmacao = await Swal.fire({
+      title: "Marcar sem volume",
+      text: `Confirma que não houve coleta nesta ${entidade} hoje?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Confirmar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#6c757d",
+    });
+    if (!confirmacao.isConfirmed) return;
+
+    const btn = qs("#btnMarcarSemVolume");
+    if (btn) btn.disabled = true;
+    try {
+      const r = await fetch(`${getBaseUrl()}/coletas/operacionais/manual`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          base_id: baseId,
+          data_operacao: dataOperacaoAtual(),
+          shopee: 0,
+          mercado_livre: 0,
+          avulso: 0,
+          sem_volume: true,
+          origem_cliente: "web",
+        }),
+      });
+      let data = null;
+      try {
+        data = await r.json();
+      } catch (_) {}
+      if (!r.ok) {
+        const detail = data?.detail;
+        const msg =
+          typeof detail === "string"
+            ? detail
+            : detail?.mensagem || detail?.message || data?.mensagem || `Falha ao marcar (${r.status}).`;
+        toast(msg, false);
+        return;
+      }
+      toast("Base marcada como sem volume.", true);
+      await recarregarSeletorBasesHoje();
+      await atualizarResumoBaseSelecionada(BASE_ATUAL);
+    } catch (err) {
+      toast(err?.message || "Erro ao marcar sem volume.", false);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   });
 
   qs("#btnLancarAvulso")?.addEventListener("click", async (e) => {

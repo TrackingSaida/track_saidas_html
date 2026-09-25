@@ -34,6 +34,11 @@
         color: #0f5132;
         border-color: #198754;
       }
+      .badge-coleta-sem-volume {
+        background: rgba(108, 117, 125, 0.18);
+        color: #495057;
+        border-color: #6c757d;
+      }
     </style>
   </head>
   <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
@@ -59,6 +64,7 @@
                       <option value="">Todos</option>
                       <option value="pendente">Pendente</option>
                       <option value="em_coleta">Em coleta</option>
+                      <option value="sem_volume">Sem volume</option>
                       <option value="coletado">Coletada</option>
                     </select>
                   </div>
@@ -74,9 +80,10 @@
                 </div>
 
                 <div class="row g-3 mb-4">
-                  <div class="col-4"><div class="coleta-kpi"><span class="text-muted">Pendentes</span><strong id="coletas-kpi-pendentes" class="text-warning">0</strong></div></div>
-                  <div class="col-4"><div class="coleta-kpi"><span class="text-muted">Em coleta</span><strong id="coletas-kpi-em-coleta" class="text-info">0</strong></div></div>
-                  <div class="col-4"><div class="coleta-kpi"><span class="text-muted">Coletadas</span><strong id="coletas-kpi-coletadas" class="text-success">0</strong></div></div>
+                  <div class="col-6 col-md-3"><div class="coleta-kpi"><span class="text-muted">Pendentes</span><strong id="coletas-kpi-pendentes" class="text-warning">0</strong></div></div>
+                  <div class="col-6 col-md-3"><div class="coleta-kpi"><span class="text-muted">Em coleta</span><strong id="coletas-kpi-em-coleta" class="text-info">0</strong></div></div>
+                  <div class="col-6 col-md-3"><div class="coleta-kpi"><span class="text-muted">Sem volume</span><strong id="coletas-kpi-sem-volume" class="text-secondary">0</strong></div></div>
+                  <div class="col-6 col-md-3"><div class="coleta-kpi"><span class="text-muted">Coletadas</span><strong id="coletas-kpi-coletadas" class="text-success">0</strong></div></div>
                 </div>
 
                 <div id="coletas-operacao-loading" class="text-center py-5 d-none">
