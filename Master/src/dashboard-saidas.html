@@ -114,12 +114,12 @@
               </div>
             </section>
 
-            <!-- Entrada na base × saídas (somente se owner registra entrada) -->
+            <!-- Volume que entrou × saídas (somente se owner registra entrada) -->
             <section id="saidas-entrada-section" class="mb-4 d-none">
               <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
                 <div>
-                  <h5 class="mb-0 fs-16">Entrada na base × saídas</h5>
-                  <small class="text-muted">Estoque atual na base e movimento do período filtrado</small>
+                  <h5 class="mb-0 fs-16">Volume do dia × saídas</h5>
+                  <small class="text-muted">Coletas e entradas unificadas · estoque e movimento do período</small>
                 </div>
               </div>
               <div class="row g-3">
@@ -127,9 +127,9 @@
                   <div class="card card-height-100 border border-secondary">
                     <div class="card-body d-flex align-items-center">
                       <div class="flex-grow-1">
-                        <p class="text-muted mb-1">Total de Entradas</p>
+                        <p class="text-muted mb-1">Total que entrou</p>
                         <h4 class="mb-0"><span id="card-total-entradas">0</span></h4>
-                        <small class="text-muted">Entraram no período</small>
+                        <small class="text-muted" id="card-total-entradas-hint">Coletas e entradas</small>
                       </div>
                       <i class="bx bx-log-in-circle fs-2 text-secondary"></i>
                     </div>
@@ -161,7 +161,7 @@
                       <div class="flex-grow-1">
                         <p class="text-muted mb-1">Taxa de saída</p>
                         <h4 class="mb-0"><span id="card-taxa-saida">0%</span></h4>
-                        <small class="text-muted">Saídas ÷ entradas no período</small>
+                        <small class="text-muted">Saídas ÷ total que entrou</small>
                       </div>
                       <i class="bx bx-pie-chart-alt-2 fs-2 text-primary"></i>
                     </div>
