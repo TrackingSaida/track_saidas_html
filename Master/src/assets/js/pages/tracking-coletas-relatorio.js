@@ -405,8 +405,16 @@ async function gerarPdfFechamentoBases(idFechamento) {
   }
 
   let ajusteGTotal = Number(fech.ajuste_g_valor ?? 0);
-  if (ajusteGTotal === 0 && fech.motivo_adicao && String(fech.motivo_adicao).toLowerCase().includes("pacotes g")) {
-    ajusteGTotal = Number(fech.valor_adicao ?? 0);
+  if (ajusteGTotal === 0 && fech.motivo_adicao) {
+    const rotulosG = String(fech.motivo_adicao)
+      .split(" | ")
+      .map((p) => p.trim().match(/^\[Pacotes G\].*;\s*Valor:\s*R\$\s*([\d.,]+)\s*$/))
+      .filter(Boolean);
+    if (rotulosG.length) {
+      ajusteGTotal = rotulosG.reduce((acc, m) => acc + (parseFloat(m[1].replace(",", ".")) || 0), 0);
+    } else if (String(fech.motivo_adicao).toLowerCase().includes("pacotes g")) {
+      ajusteGTotal = Number(fech.valor_adicao ?? 0);
+    }
   }
   const valorUnitarioG = totalG > 0 && ajusteGTotal !== 0 ? ajusteGTotal / totalG : 0;
 
