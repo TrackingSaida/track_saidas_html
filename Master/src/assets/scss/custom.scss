@@ -624,6 +624,17 @@
   .fech-metric-total strong {
     font-size: 1.2rem;
   }
+  .fech-g-origem {
+    border-top: 1px dashed var(--bs-border-color, #dee2e6);
+    padding-top: 0.75rem;
+  }
+  .fech-g-origem-lista {
+    max-height: 12rem;
+    overflow-y: auto;
+  }
+  .fech-g-coleta-input {
+    width: 4.5rem;
+  }
 }
 
 /* ===================================================

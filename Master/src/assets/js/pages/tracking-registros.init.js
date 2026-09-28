@@ -337,6 +337,19 @@ function augmentEntregadoresFromRows(rows){
   // =====================================================================
   var basesCache = [];
 
+  function selecionarBaseFiltro(sel, base) {
+    var alvo = String(base || "").trim().toUpperCase();
+    if (!sel || !alvo) return;
+    var opt = Array.prototype.find.call(sel.options, function (o) { return String(o.value).trim().toUpperCase() === alvo; });
+    if (!opt) {
+      opt = document.createElement("option");
+      opt.value = String(base).trim();
+      opt.textContent = String(base).trim();
+      sel.appendChild(opt);
+    }
+    sel.value = opt.value;
+  }
+
   async function carregarBases() {
     try {
       const res = await fetch(`${window.TRACK_API_URL}/base/`, {
@@ -357,7 +370,10 @@ function augmentEntregadoresFromRows(rows){
       }).join("");
 
       var selFlt = document.getElementById("flt-base");
-      if (selFlt) selFlt.innerHTML = '<option value="">(Todas)</option>' + opts;
+      if (selFlt) {
+        selFlt.innerHTML = '<option value="">(Todas)</option>' + opts;
+        if (window.__registrosBaseDaUrl) selecionarBaseFiltro(selFlt, window.__registrosBaseDaUrl);
+      }
 
       var selEdit = document.getElementById("edit-base");
       if (selEdit) selEdit.innerHTML = '<option value="">— selecione —</option>' + opts;
@@ -2885,6 +2901,19 @@ function setupPagerEvents() {
           applied = true;
         }
       });
+    }
+
+    var baseUrl = (params.get("base") || "").trim();
+    if (baseUrl) {
+      window.__registrosBaseDaUrl = baseUrl;
+      selecionarBaseFiltro(document.getElementById("flt-base"), baseUrl);
+      applied = true;
+    }
+
+    var somenteGUrl = params.get("somente_g");
+    if ((somenteGUrl === "1" || somenteGUrl === "true") && f.somenteG) {
+      f.somenteG.checked = true;
+      applied = true;
     }
 
     var de = (params.get("de") || params.get("data_inicio") || "").trim();
