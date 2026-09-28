@@ -292,43 +292,42 @@
     <div class="modal fade" id="modalFechamentoBases" tabindex="-1" aria-labelledby="modalFechamentoBasesLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-xl">
         <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="modalFechamentoBasesLabel">
-              <i class="ri-building-line me-2"></i><span data-owner-term="gerar_fechamento_base">Gerar Fechamento</span>
-            </h5>
+          <div class="modal-header align-items-start">
+            <div>
+              <h5 class="modal-title" id="modalFechamentoBasesLabel">
+                <i class="ri-building-line me-2"></i><span data-owner-term="gerar_fechamento_base">Gerar Fechamento</span>
+              </h5>
+              <div class="fech-contexto small text-muted mt-1">
+                <span id="fech-base-display" class="fw-semibold text-body">—</span>
+                <span aria-hidden="true">·</span>
+                <span id="fech-periodo-display">—</span>
+              </div>
+            </div>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
           </div>
           <div class="modal-body">
-            <p class="text-muted small mb-3">Ajuste as quantidades por dia e serviço. As quantidades canceladas serão subtraídas do valor final.</p>
+            <p class="text-muted small mb-3">Ajuste as quantidades por dia e serviço. As quantidades canceladas serão subtraídas do valor final.<span id="fech-legenda-alterado" class="d-none"> Células em destaque foram alteradas.</span></p>
             <input type="hidden" id="fech-id" name="id_fechamento">
             <input type="hidden" id="fech-base" name="base">
             <input type="hidden" id="fech-periodo-inicio">
             <input type="hidden" id="fech-periodo-fim">
 
-            <div class="mb-3">
-              <label class="form-label form-label-modal" data-owner-term="base">Base</label>
-              <div class="form-control form-control-readonly fech-campo-inalterado" id="fech-base-display">—</div>
-            </div>
-            <div class="mb-3">
-              <label class="form-label form-label-modal">Período</label>
-              <div class="form-control form-control-readonly fech-campo-inalterado" id="fech-periodo-display">—</div>
-            </div>
-
             <div class="table-responsive mb-3">
-              <table class="table table-sm table-bordered" id="tbl-fechamento-itens">
+              <table class="table table-sm table-bordered align-middle mb-0" id="tbl-fechamento-itens">
                 <thead class="table-light">
                   <tr>
                     <th>Data</th>
                     <th class="text-center">Shopee</th>
                     <th class="text-center">Mercado Livre</th>
                     <th class="text-center">Avulso</th>
-                    <th class="text-center">G</th>
-                    <th class="text-center text-danger">Cancel. Shopee</th>
-                    <th class="text-center text-danger">Cancel. ML</th>
-                    <th class="text-center text-danger">Cancel. Avulso</th>
+                    <th class="text-center fech-col-g" title="Pacotes Grandes">G</th>
+                    <th class="text-center">Cancel. Shopee</th>
+                    <th class="text-center">Cancel. ML</th>
+                    <th class="text-center">Cancel. Avulso</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-fechamento-itens"></tbody>
+                <tfoot class="table-light fw-semibold" id="tfoot-fechamento-itens"></tfoot>
               </table>
             </div>
 
@@ -348,8 +347,8 @@
                   <input type="number" id="fech-ajuste-valor-base" class="form-control form-control-sm" step="0.01" min="0" value="0" placeholder="0,00">
                 </div>
                 <div class="col-md-5">
-                  <label class="form-label form-label-modal small">Justificativa</label>
-                  <input type="text" id="fech-ajuste-motivo-base" class="form-control form-control-sm" placeholder="Ex: Ajuste para pacotes G">
+                  <label class="form-label form-label-modal small" for="fech-ajuste-motivo-base">Justificativa <span class="text-danger" aria-hidden="true">*</span></label>
+                  <input type="text" id="fech-ajuste-motivo-base" class="form-control form-control-sm" placeholder="Ex: Diferença de frete combinada" required aria-required="true">
                 </div>
                 <div class="col-md-2 d-flex flex-column">
                   <label class="form-label form-label-modal small invisible" aria-hidden="true">Ação</label>
@@ -370,6 +369,7 @@
                     <span class="form-label-modal small fw-semibold">Quantidade total de Pacotes G:</span>
                     <span id="fech-ajuste-g-total-num" class="ms-1">0</span>
                   </div>
+                  <div id="fech-g-origem" class="fech-g-origem mb-3" aria-live="polite"></div>
                   <div class="row g-2 mb-2">
                     <div class="col-md-3">
                       <label class="form-label form-label-modal small">Valor por pacote (R$)</label>
@@ -381,32 +381,45 @@
                     </div>
                   </div>
                   <div id="fech-ajuste-g-preview" class="small mb-2 text-secondary"></div>
+                  <div id="fech-ajuste-g-aplicado" class="small mb-2 text-success d-none"></div>
                   <button type="button" id="btnAplicarAjusteG" class="btn btn-outline-primary btn-sm">
                     <i class="ri-add-circle-line me-1"></i> Aplicar Ajuste de Pacotes G
                   </button>
                 </div>
-              </div>
-            </div>
-
-            <hr class="fechamento-resumo-separator">
-            <div class="fechamento-resumo-compacto mb-2 card bg-light border-0 shadow-sm">
-              <div class="card-body py-2 d-flex flex-wrap align-items-center gap-3 gap-md-4 small text-muted">
-                <span id="fech-g-resumo-base">G Shopee: 0 · G ML: 0 · G Avulso: 0 · Total G: 0</span>
-              </div>
-            </div>
-            <div class="fechamento-resumo-compacto card border-0 shadow-sm bg-light fechamento-resumo-final" id="fech-resumo-financeiro-card">
-              <div class="card-body py-3 d-flex flex-wrap align-items-center gap-3 gap-md-4">
-                <span class="form-label-modal"><span class="text-nowrap">Valor Bruto:</span> <strong id="fech-valor-bruto" class="text-end d-inline-block" style="min-width:5rem">R$ 0,00</strong></span>
-                <span class="form-label-modal"><span class="text-nowrap">Valor Cancelados:</span> <strong id="fech-valor-cancelados" class="text-danger text-end d-inline-block" style="min-width:5rem">R$ 0,00</strong></span>
-                <span class="form-label-modal"><span class="text-nowrap">Total ajustes:</span> <strong id="fech-total-ajustes-base" class="text-end d-inline-block" style="min-width:5rem">R$ 0,00</strong></span>
-                <span class="form-label-modal fw-bold ms-auto fechamento-total-label"><span class="text-nowrap">TOTAL A RECEBER:</span> <span id="fech-total-receber" class="fechamento-total-valor text-end d-inline-block" style="min-width:5rem">R$ 0,00</span></span>
+                <div id="fech-g-resumo-base" class="small text-muted mt-2">G Shopee: 0 · G ML: 0 · G Avulso: 0 · Total G: 0</div>
               </div>
             </div>
           </div>
-          <div class="modal-footer d-flex flex-wrap">
-            <p class="fechamento-microtexto w-100 small text-muted mb-2">Após gerar o fechamento, os valores ficam registrados e podem ser reajustados editando as quantidades.</p>
-            <div class="d-flex gap-2 ms-auto">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <div class="modal-footer fech-footer d-block">
+            <div class="fech-resumo-footer d-flex flex-wrap align-items-end gap-3 gap-md-4 mb-2" id="fech-resumo-financeiro-card" aria-live="polite">
+              <div class="fech-metric">
+                <span class="fech-metric-label">Valor bruto</span>
+                <strong id="fech-valor-bruto">R$ 0,00</strong>
+              </div>
+              <div class="fech-metric">
+                <span class="fech-metric-label">Cancelados</span>
+                <strong id="fech-valor-cancelados">R$ 0,00</strong>
+              </div>
+              <div class="fech-metric">
+                <span class="fech-metric-label">Ajustes</span>
+                <strong id="fech-total-ajustes-base">R$ 0,00</strong>
+              </div>
+              <div class="fech-metric ms-md-auto d-none" id="fech-metric-anterior">
+                <span class="fech-metric-label">Valor anterior</span>
+                <strong id="fech-valor-anterior">R$ 0,00</strong>
+              </div>
+              <div class="fech-metric fech-metric-total" id="fech-metric-total">
+                <span class="fech-metric-label" id="fech-total-label-text">Total a receber</span>
+                <strong id="fech-total-receber" class="fechamento-total-valor">R$ 0,00</strong>
+              </div>
+              <div class="fech-metric d-none" id="fech-metric-diferenca">
+                <span class="fech-metric-label">Diferença</span>
+                <strong id="fech-valor-diferenca">R$ 0,00</strong>
+              </div>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <p id="fech-microtexto" class="fechamento-microtexto small text-muted mb-0 me-auto">Após gerar o fechamento, os valores ficam registrados e podem ser reajustados editando as quantidades.</p>
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
               <button type="button" id="btnGerarFechamentoModal" class="btn btn-primary">
                 <i class="ri-file-add-line me-1"></i> Gerar Fechamento
               </button>

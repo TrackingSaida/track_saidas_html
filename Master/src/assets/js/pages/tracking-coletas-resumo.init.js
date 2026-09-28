@@ -49,6 +49,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const API_MANUAL      = `${window.TRACK_API_URL}/coletas/manual`;
   const API_AUTH_ME     = `${window.TRACK_API_URL}/auth/me`;
   const API_FECHAMENTOS = `${window.TRACK_API_URL}/coletas/fechamentos`;
+  const API_COLETAS     = `${window.TRACK_API_URL}/coletas/`;
 
   // ====== Helpers ======
   const qs  = (s) => document.querySelector(s);
@@ -99,7 +100,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     total: 0,
     items: [],
     contextoFechamento: null,
-    basesParaReajuste: [],  // quando status GERADO sem base: [{ base, id_fechamento }]
+    basesParaReajuste: [],  // quando status GERADO/REAJUSTADO sem base: [{ base, id_fechamento, status }]
     fechamentoItens: [],
     fechamentoPrecos: {},
     ajustesFechamento: [],   // { tipo: 'ADIÇÃO' | 'SUBTRAÇÃO', valor: number, motivo: string }
@@ -108,8 +109,135 @@ document.addEventListener("DOMContentLoaded", async () => {
     total_g_avulso: 0,
     total_pacotes_g: 0,
     ajusteGValor: 0,
-    ajusteGMotivo: ""
+    ajusteGMotivo: "",
+    fechamentoOriginal: null, // reajuste: { valorFinal, itensPorData, ajustes, ajustesAssinatura }
+    origemG: { status: "vazio", leituras: [], coletas: [] } // status: vazio | carregando | ok | erro
   };
+
+  const CAMPOS_G_FECHAMENTO = ["pacotes_g", "g_shopee", "g_ml", "g_avulso"];
+
+  function podeEditarColetaManual() {
+    const role = window.__USER__?.role;
+    return role !== null && role !== undefined && [0, 1, 2].includes(Number(role));
+  }
+
+  function rotuloServico(servico) {
+    const s = String(servico || "").toLowerCase();
+    if (s.includes("shopee")) return "Shopee";
+    if (s.includes("mercado") || s === "ml" || s.includes("meli")) return "Mercado Livre";
+    return "Avulso";
+  }
+
+  // Mesma regra do backend: sem G por serviço, pacotes_g conta como avulso.
+  function gDaColeta(c) {
+    let gS = Number(c.g_shopee) || 0;
+    let gM = Number(c.g_ml) || 0;
+    let gA = Number(c.g_avulso) || 0;
+    if (gS === 0 && gM === 0 && gA === 0) gA = Number(c.pacotes_g) || 0;
+    return { gS, gM, gA, total: gS + gM + gA };
+  }
+
+  const CAMPOS_QTDE_FECHAMENTO = ["shopee", "mercado_livre", "avulso", "cancelados_shopee", "cancelados_ml", "cancelados_avulso"];
+  const ROTULOS_CAMPOS_FECHAMENTO = {
+    shopee: "Shopee",
+    mercado_livre: "Mercado Livre",
+    avulso: "Avulso",
+    cancelados_shopee: "Cancelados Shopee",
+    cancelados_ml: "Cancelados ML",
+    cancelados_avulso: "Cancelados Avulso",
+    pacotes_g: "Pacotes G"
+  };
+  const COLETADO_POR_CANCELADO = {
+    cancelados_shopee: "shopee",
+    cancelados_ml: "mercado_livre",
+    cancelados_avulso: "avulso"
+  };
+  const RE_ROTULO_AJUSTE_G = /^\[Pacotes G\]\s*Motivo:\s*(.*?);\s*Valor:\s*R\$\s*([\d.,]+)\s*$/;
+  const PREFIXO_ECO_AJUSTE_G = "Ajuste Pacotes G - ";
+
+  function escaparHtml(v) {
+    return String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  // O backend grava ajustes agregados por tipo (valor + motivos unidos por " | ").
+  // O trecho "[Pacotes G] Motivo: X; Valor: R$ Y" identifica a parte de Pacotes G.
+  function decomporAjustesGravados(tipo, valorTotal, motivoTotal) {
+    const valor = Math.round((Number(valorTotal) || 0) * 100) / 100;
+    if (valor <= 0) return [];
+    const partes = String(motivoTotal || "").split(" | ").map((p) => p.trim()).filter(Boolean);
+    let valorG = null;
+    let motivoRotuloG = "";
+    let motivoEcoG = "";
+    const manuais = [];
+    partes.forEach((p) => {
+      const m = p.match(RE_ROTULO_AJUSTE_G);
+      if (m) {
+        valorG = (valorG || 0) + (parseFloat(m[2].replace(",", ".")) || 0);
+        motivoRotuloG = m[1].trim();
+      } else if (p.startsWith(PREFIXO_ECO_AJUSTE_G)) {
+        motivoEcoG = p.slice(PREFIXO_ECO_AJUSTE_G.length).trim();
+      } else {
+        manuais.push(p);
+      }
+    });
+
+    const temEcoG = !!motivoEcoG || partes.some((p) => p.startsWith(PREFIXO_ECO_AJUSTE_G));
+    const motivoG = motivoEcoG || (motivoRotuloG && motivoRotuloG !== "Ajuste Pacotes G" ? motivoRotuloG : "") || "Pacotes G";
+
+    if (valorG !== null && valorG > 0 && valorG <= valor + 0.005) {
+      const saida = [{ tipo, valor: Math.round(valorG * 100) / 100, motivo: motivoG, _origemG: true }];
+      const resto = Math.round((valor - valorG) * 100) / 100;
+      if (resto > 0) {
+        saida.push({ tipo, valor: resto, motivo: manuais.join(" | ") || "Ajuste anterior sem justificativa" });
+      }
+      return saida;
+    }
+    if (temEcoG && manuais.length === 0) {
+      return [{ tipo, valor, motivo: motivoG, _origemG: true }];
+    }
+    if (temEcoG) {
+      return [{ tipo, valor, motivo: String(motivoTotal || "").trim(), _origemG: true, _misto: true }];
+    }
+    return [{ tipo, valor, motivo: String(motivoTotal || "").trim() || "Ajuste anterior sem justificativa" }];
+  }
+
+  function montarMotivoAjustes(ajustes) {
+    return ajustes
+      .map((a) => {
+        if (a._origemG && !a._misto) {
+          return `[Pacotes G] Motivo: ${a.motivo || "Pacotes G"}; Valor: R$ ${(Number(a.valor) || 0).toFixed(2)}`;
+        }
+        return (a.motivo || "").trim();
+      })
+      .filter(Boolean)
+      .join(" | ");
+  }
+
+  function assinaturaAjustes(ajustes) {
+    return JSON.stringify(
+      ajustes
+        .map((a) => [a.tipo, Math.round((Number(a.valor) || 0) * 100), (a.motivo || "").trim(), !!a._origemG])
+        .sort((x, y) => JSON.stringify(x).localeCompare(JSON.stringify(y)))
+    );
+  }
+
+  function valorOriginalItem(item, campo) {
+    const orig = state.fechamentoOriginal?.itensPorData?.[item?.data];
+    return orig ? (orig[campo] ?? 0) : null;
+  }
+
+  function fechamentoFoiAlterado() {
+    const orig = state.fechamentoOriginal;
+    if (!orig) return true;
+    if (Object.keys(orig.itensPorData).length !== state.fechamentoItens.length) return true;
+    const itensMudaram = state.fechamentoItens.some((it) => {
+      const o = orig.itensPorData[it.data];
+      return !o || [...CAMPOS_QTDE_FECHAMENTO, ...CAMPOS_G_FECHAMENTO].some((c) => (it[c] ?? 0) !== (o[c] ?? 0));
+    });
+    return itensMudaram || assinaturaAjustes(state.ajustesFechamento) !== orig.ajustesAssinatura;
+  }
+
+  const STATUS_REAJUSTAVEIS = ["GERADO", "REAJUSTADO"];
 
   const STATUS_TOOLTIPS = {
     PENDENTE: "Sem fechamento para o período",
@@ -158,18 +286,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusFiltro = (fltStatus?.value || "").trim().toUpperCase();
     const basesReajuste = state.basesParaReajuste || [];
     const statusContexto = String(state.contextoFechamento?.status || "").toUpperCase();
-    const fechamentoImutavel = ["GERADO", "REAJUSTADO", "RECEBIDO", "PAGO"].includes(statusContexto)
-      || (["GERADO", "REAJUSTADO", "RECEBIDO"].includes(statusFiltro) && (basesReajuste.length > 0 || statusFiltro === "RECEBIDO"));
-    const habilitado = !!(dataInicio && dataFim && temDados && !fechamentoImutavel);
+    const fechamentoRecebido = ["RECEBIDO", "PAGO"].includes(statusContexto) || statusFiltro === "RECEBIDO";
+    const fechamentoReajustavel = !fechamentoRecebido && (
+      (STATUS_REAJUSTAVEIS.includes(statusContexto) && !!state.contextoFechamento?.id_fechamento)
+      || (STATUS_REAJUSTAVEIS.includes(statusFiltro) && basesReajuste.length > 0)
+    );
+    const habilitado = !!(dataInicio && dataFim && temDados && !fechamentoRecebido);
     btnGerarFechamento.disabled = !habilitado;
     if (wrapBtnGerarFechamento) {
-      wrapBtnGerarFechamento.title = fechamentoImutavel
-        ? "Fechamentos gerados são imutáveis"
-        : (!habilitado ? (!temDados ? "Não há dados para gerar fechamento" : "Preencha o período") : "Gerar fechamento");
+      wrapBtnGerarFechamento.title = fechamentoRecebido
+        ? "Fechamentos já recebidos não podem ser reajustados"
+        : fechamentoReajustavel
+          ? "Reajustar fechamento já gerado"
+          : (!habilitado ? (!temDados ? "Não há dados para gerar fechamento" : "Preencha o período") : "Gerar fechamento");
     }
-    btnGerarFechamento.innerHTML = fechamentoImutavel
-      ? '<i class="ri-lock-line me-1"></i> Fechamento gerado'
-      : '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
+    btnGerarFechamento.innerHTML = fechamentoRecebido
+      ? '<i class="ri-lock-line me-1"></i> Fechamento recebido'
+      : fechamentoReajustavel
+        ? '<i class="ri-refresh-line me-1"></i> Reajustar Fechamento'
+        : '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
   }
 
   const pagerFirst   = qs("#pager-first");
@@ -429,13 +564,13 @@ async function carregarResumo() {
     });
 
     state.contextoFechamento = data.contextoFechamento || null;
-    // basesParaReajuste: quando status GERADO e base não filtrada (Todas)
+    // basesParaReajuste: quando status GERADO/REAJUSTADO e base não filtrada (Todas)
     const statusFiltro = (fltStatus?.value || "").trim().toUpperCase();
     const baseFiltrada = (fltBase?.value || "").trim();
-    if (statusFiltro === "GERADO" && !baseFiltrada) {
+    if (STATUS_REAJUSTAVEIS.includes(statusFiltro) && !baseFiltrada) {
       const mapa = {};
       linhas.forEach((r) => {
-        if (r.id_fechamento && r.base) mapa[r.base] = { base: r.base, id_fechamento: r.id_fechamento };
+        if (r.id_fechamento && r.base) mapa[r.base] = { base: r.base, id_fechamento: r.id_fechamento, status: r.fechamento_status || statusFiltro };
       });
       state.basesParaReajuste = Object.values(mapa);
     } else {
@@ -541,7 +676,7 @@ async function carregarResumoCompleto() {
     const base = (fltBase?.value || "").trim();
     const basesReajuste = state.basesParaReajuste || [];
     if (basesReajuste.length === 1) {
-      state.contextoFechamento = { id_fechamento: basesReajuste[0].id_fechamento, status: "GERADO", base: basesReajuste[0].base };
+      state.contextoFechamento = { id_fechamento: basesReajuste[0].id_fechamento, status: basesReajuste[0].status, base: basesReajuste[0].base };
       abrirModalFechamento(true);
       return;
     }
@@ -562,7 +697,7 @@ async function carregarResumoCompleto() {
       if (selecionado) {
         const u = basesReajuste.find((b) => b.base === selecionado);
         if (u) {
-          state.contextoFechamento = { id_fechamento: u.id_fechamento, status: "GERADO", base: u.base };
+          state.contextoFechamento = { id_fechamento: u.id_fechamento, status: u.status, base: u.base };
           abrirModalFechamento(true);
         }
       }
@@ -617,14 +752,18 @@ async function carregarResumoCompleto() {
 
   async function iniciarGerarOuReajustar(base) {
     const statusAtual = String(state.contextoFechamento?.status || "").toUpperCase();
-    if (["GERADO", "REAJUSTADO", "RECEBIDO", "PAGO"].includes(statusAtual)) {
+    if (["RECEBIDO", "PAGO"].includes(statusAtual)) {
       if (window.Swal) {
         await Swal.fire({
           icon: "info",
-          title: "Fechamento imutável",
-          text: "Ajuste os lançamentos antes de gerar. Um fechamento já gerado não pode ser recalculado.",
+          title: "Fechamento recebido",
+          text: "Este fechamento já foi recebido e não pode mais ser reajustado.",
         });
       }
+      return;
+    }
+    if (STATUS_REAJUSTAVEIS.includes(statusAtual) && state.contextoFechamento?.id_fechamento) {
+      abrirModalFechamento(true, base);
       return;
     }
     const periodoInicio = fltFrom?.value || "";
@@ -636,18 +775,39 @@ async function carregarResumoCompleto() {
       const res = await fetch(`${API_FECHAMENTOS}/verificar?${params}`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
-        if (data.existe && ["GERADO", "REAJUSTADO", "RECEBIDO"].includes(data.status)) {
+        const statusExistente = String(data.status || "").toUpperCase();
+        if (data.existe && statusExistente === "RECEBIDO") {
           if (window.Swal) {
             await Swal.fire({
               icon: "info",
-              title: "Fechamento já existente",
-              text: "Fechamentos gerados são imutáveis. Consulte o fechamento já emitido para este período.",
+              title: "Fechamento recebido",
+              text: "Já existe um fechamento recebido para este período e ele não pode mais ser reajustado.",
               confirmButtonText: "Entendi"
             });
           } else {
-            alert("Já existe um fechamento imutável para esta base e período.");
+            alert("Já existe um fechamento recebido para esta base e período.");
           }
           acao = "cancelar";
+        } else if (data.existe && data.id_fechamento && STATUS_REAJUSTAVEIS.includes(statusExistente)) {
+          const texto = typeof window.ownerTerm === "function"
+            ? window.ownerTerm("ja_existe_fechamento")
+            : "Já existe um fechamento gerado para esta base e período. Deseja reajustar?";
+          const confirmar = window.Swal
+            ? (await Swal.fire({
+                icon: "question",
+                title: "Fechamento já existente",
+                text: texto,
+                showCancelButton: true,
+                confirmButtonText: "Reajustar",
+                cancelButtonText: "Cancelar"
+              })).isConfirmed
+            : confirm(texto);
+          if (confirmar) {
+            state.contextoFechamento = { id_fechamento: data.id_fechamento, status: statusExistente, base };
+            acao = "reajustar";
+          } else {
+            acao = "cancelar";
+          }
         }
       }
     } catch (err) {
@@ -655,6 +815,8 @@ async function carregarResumoCompleto() {
     }
     if (acao === "gerar") {
       abrirModalFechamento(false, base);
+    } else if (acao === "reajustar") {
+      abrirModalFechamento(true, base);
     }
   }
 
@@ -671,12 +833,19 @@ async function carregarResumoCompleto() {
 
     const titleEl = document.getElementById("modalFechamentoBasesLabel");
     const btnModal = document.getElementById("btnGerarFechamentoModal");
+    const microtexto = qs("#fech-microtexto");
+    const totalLabel = qs("#fech-total-label-text");
+    state.fechamentoOriginal = null;
     if (modoEdicao && idFech) {
       if (titleEl) titleEl.innerHTML = '<i class="ri-building-line me-2"></i>' + (typeof window.ownerTerm === "function" ? window.ownerTerm("reajustar_fechamento_base") : "Reajustar Fechamento de Base");
       if (btnModal) btnModal.innerHTML = '<i class="ri-save-line me-1"></i> Salvar Reajuste';
+      if (microtexto) microtexto.textContent = "Ao salvar, o fechamento passa a Reajustado e o PDF é emitido novamente.";
+      if (totalLabel) totalLabel.textContent = "Novo valor";
     } else {
       if (titleEl) titleEl.innerHTML = '<i class="ri-building-line me-2"></i>' + (typeof window.ownerTerm === "function" ? window.ownerTerm("gerar_fechamento_base") : "Gerar Fechamento de Base");
       if (btnModal) btnModal.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
+      if (microtexto) microtexto.textContent = "Após gerar o fechamento, os valores ficam registrados e podem ser reajustados editando as quantidades.";
+      if (totalLabel) totalLabel.textContent = "Total a receber";
     }
 
     qs("#fech-id").value = idFech || "";
@@ -696,6 +865,11 @@ async function carregarResumoCompleto() {
         const res = await fetch(`${API_FECHAMENTOS}/${idFech}`, { credentials: "include" });
         if (!res.ok) throw new Error(res.statusText);
         const data = await res.json();
+        if (data.periodo_inicio && data.periodo_fim) {
+          qs("#fech-periodo-inicio").value = data.periodo_inicio;
+          qs("#fech-periodo-fim").value = data.periodo_fim;
+          qs("#fech-periodo-display").textContent = formatarPeriodo(data.periodo_inicio, data.periodo_fim);
+        }
         state.fechamentoItens = (data.itens || []).map(i => ({
           data: i.data,
           shopee: i.shopee ?? 0,
@@ -713,25 +887,20 @@ async function carregarResumoCompleto() {
         state.total_g_ml = data.total_g_ml ?? 0;
         state.total_g_avulso = data.total_g_avulso ?? 0;
         state.total_pacotes_g = data.total_pacotes_g ?? 0;
-        // Ajustes gravados no fechamento (quando em modo edição)
-        state.ajustesFechamento = [];
-        const motivoAd = (data.motivo_adicao || "").trim();
-        const isOrigemG = (m) => (m || "").includes("Ajuste Pacotes G") || (m || "").includes("[Pacotes G]");
-        if ((data.valor_adicao || 0) > 0) {
-          state.ajustesFechamento.push({
-            tipo: "ADIÇÃO",
-            valor: Number(data.valor_adicao) || 0,
-            motivo: motivoAd,
-            _origemG: isOrigemG(motivoAd)
-          });
-        }
-        if ((data.valor_subtracao || 0) > 0) {
-          state.ajustesFechamento.push({
-            tipo: "SUBTRAÇÃO",
-            valor: Number(data.valor_subtracao) || 0,
-            motivo: (data.motivo_subtracao || "").trim(),
-            _origemG: isOrigemG(data.motivo_subtracao)
-          });
+        state.ajustesFechamento = [
+          ...decomporAjustesGravados("ADIÇÃO", data.valor_adicao, data.motivo_adicao),
+          ...decomporAjustesGravados("SUBTRAÇÃO", data.valor_subtracao, data.motivo_subtracao)
+        ];
+        state.fechamentoOriginal = {
+          valorFinal: Number(data.valor_final) || 0,
+          itensPorData: state.fechamentoItens.reduce((acc, it) => { acc[it.data] = { ...it }; return acc; }, {}),
+          ajustes: state.ajustesFechamento.map((a) => ({ ...a })),
+          ajustesAssinatura: assinaturaAjustes(state.ajustesFechamento)
+        };
+        const ajusteGGravado = state.ajustesFechamento.find((a) => a._origemG && !a._misto);
+        if (ajusteGGravado && (data.total_pacotes_g || 0) > 0) {
+          if (inpAjusteGValorUnit) inpAjusteGValorUnit.value = (Math.round((ajusteGGravado.valor / data.total_pacotes_g) * 100) / 100).toFixed(2);
+          if (inpAjusteGMotivo) inpAjusteGMotivo.value = ajusteGGravado.motivo === "Pacotes G" ? "" : ajusteGGravado.motivo;
         }
         if (!state.fechamentoPrecos || Object.keys(state.fechamentoPrecos || {}).length === 0) {
           const basesRes = await fetch(API_BASES, { credentials: "include" });
@@ -744,15 +913,20 @@ async function carregarResumoCompleto() {
           const valorNovo = Number(data.valor_final_recalculado ?? data.valor_bruto_recalculado ?? 0);
           const atualizar = window.Swal ? (await Swal.fire({
             icon: "warning",
-            title: "Valor alterado",
-            html: "O valor deste fechamento foi alterado (coletas modificadas).<br><br><strong>Valor anterior:</strong> " + formatarMoeda(valorAntigo) + "<br><strong>Novo valor calculado:</strong> " + formatarMoeda(valorNovo) + "<br><br>Deseja recarregar com os valores atuais?",
+            title: "Coletas alteradas",
+            html: "As coletas deste período foram alteradas depois do fechamento.<br><br><strong>Valor anterior:</strong> " + formatarMoeda(valorAntigo) + "<br><strong>Novo valor calculado:</strong> " + formatarMoeda(valorNovo) + "<br><br>Deseja recarregar com os valores atuais?",
             showCancelButton: true,
             confirmButtonText: "Sim, recarregar",
             cancelButtonText: "Manter valores atuais",
             confirmButtonColor: "#0d6efd",
           })).isConfirmed : confirm("Deseja recarregar com os valores atuais?");
           if (atualizar) {
-            const calcRes = await fetch(`${API_FECHAMENTOS}/calcular?${new URLSearchParams({ base, periodo_inicio: periodoInicio, periodo_fim: periodoFim })}`, { credentials: "include" });
+            const periodoCalc = {
+              base: data.base || base,
+              periodo_inicio: data.periodo_inicio || periodoInicio,
+              periodo_fim: data.periodo_fim || periodoFim,
+            };
+            const calcRes = await fetch(`${API_FECHAMENTOS}/calcular?${new URLSearchParams(periodoCalc)}`, { credentials: "include" });
             if (calcRes.ok) {
               const calcData = await calcRes.json();
               state.fechamentoItens = (calcData.itens || []).map(i => ({
@@ -822,10 +996,229 @@ async function carregarResumoCompleto() {
     }
 
     renderTabelaFechamentoItens();
+    renderListaAjustesBase();
     atualizarResumoModal();
     atualizarBlocoAjusteG();
     const modal = new bootstrap.Modal(qs("#modalFechamentoBases"));
     modal.show();
+    carregarOrigemPacotesG();
+  }
+
+  // ====== Origem dos Pacotes G (leituras marcadas em Registros x coletas) ======
+  async function carregarOrigemPacotesG() {
+    const base = (qs("#fech-base")?.value || "").trim();
+    const de = qs("#fech-periodo-inicio")?.value || "";
+    const ate = qs("#fech-periodo-fim")?.value || "";
+    if (!(state.total_pacotes_g > 0) || !base || !de || !ate) {
+      state.origemG = { status: "vazio", leituras: [], coletas: [] };
+      renderOrigemPacotesG();
+      return;
+    }
+    state.origemG = { status: "carregando", leituras: [], coletas: [] };
+    renderOrigemPacotesG();
+    try {
+      const pSaidas = new URLSearchParams({ base, de, ate, somente_g: "true", limit: "5000" });
+      const pColetas = new URLSearchParams({ data_inicio: de, data_fim: ate });
+      const [resS, resC] = await Promise.all([
+        fetch(`${API_SAIDAS}?${pSaidas}`, { credentials: "include" }),
+        fetch(`${API_COLETAS}?${pColetas}`, { credentials: "include" })
+      ]);
+      if (!resS.ok || !resC.ok) throw new Error("Falha ao consultar a origem dos Pacotes G");
+      const jsonS = await resS.json();
+      const jsonC = await resC.json();
+      const saidas = Array.isArray(jsonS?.items) ? jsonS.items : (Array.isArray(jsonS) ? jsonS : []);
+      const coletas = Array.isArray(jsonC) ? jsonC : [];
+      const baseKey = base.toUpperCase();
+      state.origemG = {
+        status: "ok",
+        leituras: saidas
+          .filter((s) => s.is_grande !== false && String(s.base || "").trim().toUpperCase() === baseKey)
+          .map((s) => ({
+            id_saida: s.id_saida,
+            codigo: s.codigo || "—",
+            servico: rotuloServico(s.servico),
+            data: s.data || String(s.timestamp || "").slice(0, 10)
+          }))
+          .sort((a, b) => a.data.localeCompare(b.data)),
+        coletas: coletas
+          .filter((c) => String(c.base || "").trim().toUpperCase() === baseKey)
+          .map((c) => ({ id_coleta: c.id_coleta, origem: c.origem || "codigo", data: String(c.timestamp || "").slice(0, 10), ...gDaColeta(c) }))
+          .filter((c) => c.total > 0)
+          .sort((a, b) => a.data.localeCompare(b.data))
+      };
+    } catch (err) {
+      console.error(err);
+      state.origemG = { status: "erro", leituras: [], coletas: [] };
+    }
+    renderOrigemPacotesG();
+    renderTabelaFechamentoItens();
+  }
+
+  function renderOrigemPacotesG() {
+    const el = qs("#fech-g-origem");
+    if (!el) return;
+    const o = state.origemG;
+    if (o.status === "vazio") { el.innerHTML = ""; el.classList.add("d-none"); return; }
+    el.classList.remove("d-none");
+    const btnAtualizar = '<button type="button" class="btn btn-link btn-sm p-0 fech-g-atualizar"><i class="ri-refresh-line me-1"></i>Atualizar Pacotes G</button>';
+    if (o.status === "carregando") {
+      el.innerHTML = '<div class="small text-muted"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Identificando a origem dos Pacotes G…</div>';
+      return;
+    }
+    if (o.status === "erro") {
+      el.innerHTML = `<div class="small text-warning mb-1">Não foi possível identificar a origem dos Pacotes G.</div>${btnAtualizar}`;
+      el.querySelector(".fech-g-atualizar")?.addEventListener("click", carregarOrigemPacotesG);
+      return;
+    }
+
+    const fmt = (d) => String(d || "").split("-").reverse().join("/");
+    const totalLeituras = o.leituras.length;
+    const totalColetas = o.coletas.reduce((acc, c) => acc + c.total, 0);
+    const totalFechamento = state.total_pacotes_g ?? 0;
+    const editavel = podeEditarColetaManual();
+    const base = qs("#fech-base")?.value || "";
+    const linkRegistros = "tracking-registros.html?" + new URLSearchParams({
+      de: qs("#fech-periodo-inicio")?.value || "",
+      ate: qs("#fech-periodo-fim")?.value || "",
+      base,
+      somente_g: "1"
+    }).toString();
+
+    let html = '<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">' +
+      '<span class="form-label-modal small fw-semibold mb-0">Origem dos Pacotes G</span>' + btnAtualizar + "</div>";
+
+    if (totalLeituras + totalColetas !== totalFechamento) {
+      html += `<div class="alert alert-warning py-1 px-2 small mb-2">O fechamento tem ${totalFechamento} Pacote(s) G, mas hoje existem ${totalLeituras + totalColetas}. Clique em <strong>Atualizar Pacotes G</strong> para trazer os valores atuais.</div>`;
+    }
+
+    html += `<div class="small fw-semibold mt-1">Leituras marcadas como G (${totalLeituras})</div>`;
+    if (totalLeituras) {
+      html += '<ul class="list-unstyled small mb-1 fech-g-origem-lista">' +
+        o.leituras.map((l) => `<li>${fmt(l.data)} · ${escaparHtml(l.servico)} · <span class="font-monospace">${escaparHtml(l.codigo)}</span></li>`).join("") +
+        "</ul>" +
+        `<a class="btn btn-outline-secondary btn-sm mb-2" href="${linkRegistros}" target="_blank" rel="noopener"><i class="ri-external-link-line me-1"></i>Ver pedidos G em Registros</a>` +
+        '<div class="small text-muted mb-2">Para remover, desmarque o G do pedido em Registros e depois clique em Atualizar Pacotes G.</div>';
+    } else {
+      html += '<div class="small text-muted mb-2">Nenhuma leitura marcada como G.</div>';
+    }
+
+    html += `<div class="small fw-semibold">Coletas com G (${totalColetas})</div>`;
+    if (o.coletas.length) {
+      html += '<div class="fech-g-origem-lista">' + o.coletas.map((c) => {
+        const cabecalho = `<span class="text-nowrap me-2">${fmt(c.data)}</span>`;
+        if (c.origem !== "manual" || !editavel) {
+          const motivo = c.origem !== "manual" ? " (coleta por leitura)" : "";
+          return `<div class="small py-1">${cabecalho}G Shopee: ${c.gS} · G ML: ${c.gM} · G Avulso: ${c.gA}${motivo}</div>`;
+        }
+        const campo = (servico, valor) =>
+          `<label class="d-inline-flex align-items-center gap-1 me-2 mb-0">${servico}` +
+          `<input type="number" min="0" step="1" inputmode="numeric" class="form-control form-control-sm text-end fech-g-coleta-input" data-servico="${servico}" value="${valor}" aria-label="Pacotes G ${servico} da coleta de ${fmt(c.data)}"></label>`;
+        return `<div class="d-flex flex-wrap align-items-center small py-1" data-id-coleta="${c.id_coleta}">${cabecalho}` +
+          campo("Shopee", c.gS) + campo("ML", c.gM) + campo("Avulso", c.gA) +
+          '<button type="button" class="btn btn-outline-primary btn-sm fech-g-salvar-coleta">Salvar</button></div>';
+      }).join("") + "</div>";
+      if (editavel && o.coletas.some((c) => c.origem === "manual")) {
+        html += '<div class="small text-muted mt-1">Salvar altera a coleta manual na hora; o fechamento só muda ao salvar o reajuste.</div>';
+      }
+    } else {
+      html += '<div class="small text-muted">Nenhuma coleta com G.</div>';
+    }
+
+    el.innerHTML = html;
+    el.querySelector(".fech-g-atualizar")?.addEventListener("click", atualizarPacotesGDoPeriodo);
+    el.querySelectorAll(".fech-g-salvar-coleta").forEach((btn) => {
+      btn.addEventListener("click", () => salvarGColetaManual(btn.closest("[data-id-coleta]"), btn));
+    });
+  }
+
+  async function salvarGColetaManual(linha, btn) {
+    if (!linha) return;
+    const idColeta = linha.dataset.idColeta;
+    const valor = (servico) => Math.max(0, parseInt(linha.querySelector(`input[data-servico="${servico}"]`)?.value, 10) || 0);
+    const g_shopee = valor("Shopee");
+    const g_ml = valor("ML");
+    const g_avulso = valor("Avulso");
+    const htmlOriginal = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    try {
+      const res = await fetch(`${API_MANUAL}/${idColeta}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pacotes_g: g_shopee + g_ml + g_avulso, g_shopee, g_ml, g_avulso })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(typeof err?.detail === "string" ? err.detail : "Não foi possível salvar a coleta.");
+      }
+      await atualizarPacotesGDoPeriodo();
+    } catch (e) {
+      if (window.Swal) Swal.fire({ icon: "error", title: "Erro ao salvar coleta", text: e?.message || "Falha ao salvar." });
+      btn.disabled = false;
+      btn.innerHTML = htmlOriginal;
+    }
+  }
+
+  // Recalcula só os Pacotes G do período, preservando as quantidades editadas no modal.
+  async function atualizarPacotesGDoPeriodo() {
+    const base = (qs("#fech-base")?.value || "").trim();
+    const periodo_inicio = qs("#fech-periodo-inicio")?.value || "";
+    const periodo_fim = qs("#fech-periodo-fim")?.value || "";
+    if (!base || !periodo_inicio || !periodo_fim) return;
+    try {
+      const res = await fetch(`${API_FECHAMENTOS}/calcular?${new URLSearchParams({ base, periodo_inicio, periodo_fim })}`, { credentials: "include" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(typeof err?.detail === "string" ? err.detail : "Não foi possível recalcular os Pacotes G.");
+      }
+      const calc = await res.json();
+      const gPorData = {};
+      (calc.itens || []).forEach((i) => { gPorData[i.data] = i; });
+      state.fechamentoItens.forEach((it) => {
+        const novo = gPorData[it.data];
+        CAMPOS_G_FECHAMENTO.forEach((c) => { it[c] = novo ? (novo[c] ?? 0) : 0; });
+      });
+      const datasAtuais = new Set(state.fechamentoItens.map((it) => it.data));
+      (calc.itens || []).forEach((i) => {
+        if (!datasAtuais.has(i.data) && (i.pacotes_g ?? 0) > 0) {
+          state.fechamentoItens.push({
+            data: i.data, shopee: 0, mercado_livre: 0, avulso: 0,
+            cancelados_shopee: 0, cancelados_ml: 0, cancelados_avulso: 0,
+            pacotes_g: i.pacotes_g ?? 0, g_shopee: i.g_shopee ?? 0, g_ml: i.g_ml ?? 0, g_avulso: i.g_avulso ?? 0
+          });
+        }
+      });
+      state.fechamentoItens.sort((a, b) => String(a.data).localeCompare(String(b.data)));
+      state.total_g_shopee = calc.total_g_shopee ?? 0;
+      state.total_g_ml = calc.total_g_ml ?? 0;
+      state.total_g_avulso = calc.total_g_avulso ?? 0;
+      state.total_pacotes_g = calc.total_pacotes_g ?? 0;
+
+      const ajusteG = state.ajustesFechamento.find((a) => isAjusteG(a));
+      if (state.total_pacotes_g === 0 && ajusteG && window.Swal) {
+        const r = await Swal.fire({
+          icon: "question",
+          title: "Remover ajuste de Pacotes G?",
+          html: `Não há mais Pacotes G no período. Deseja remover o ajuste de Pacotes G de <strong>${formatarMoeda(ajusteG.valor)}</strong>?`,
+          showCancelButton: true,
+          confirmButtonText: "Remover ajuste",
+          cancelButtonText: "Manter",
+          reverseButtons: true
+        });
+        if (r.isConfirmed) {
+          state.ajustesFechamento = state.ajustesFechamento.filter((a) => !isAjusteG(a));
+          renderListaAjustesBase();
+        }
+      }
+
+      renderTabelaFechamentoItens();
+      atualizarBlocoAjusteG();
+      atualizarResumoModal();
+      await carregarOrigemPacotesG();
+    } catch (e) {
+      if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: e?.message || "Falha ao atualizar Pacotes G." });
+    }
   }
 
   function atualizarBlocoAjusteG() {
@@ -853,14 +1246,30 @@ async function carregarResumoCompleto() {
     if (motivo) motivo.disabled = false;
     if (btnAplicar) btnAplicar.disabled = false;
     const vUnit = parseFloat(valorUnit?.value || "0") || 0;
-    const totalCalc = totalG * vUnit;
+    const totalCalc = Math.round(totalG * vUnit * 100) / 100;
+    const ajusteAtual = state.ajustesFechamento.find((a) => isAjusteG(a));
+    const aplicado = qs("#fech-ajuste-g-aplicado");
+    if (aplicado) {
+      if (ajusteAtual) {
+        aplicado.innerHTML = '<i class="ri-checkbox-circle-line me-1"></i>Ajuste de Pacotes G aplicado: ' + formatarMoeda(ajusteAtual.valor);
+        aplicado.classList.remove("d-none");
+      } else {
+        aplicado.classList.add("d-none");
+      }
+    }
+    if (btnAplicar) {
+      btnAplicar.innerHTML = ajusteAtual
+        ? '<i class="ri-refresh-line me-1"></i> Atualizar Ajuste de Pacotes G'
+        : '<i class="ri-add-circle-line me-1"></i> Aplicar Ajuste de Pacotes G';
+    }
     if (preview) {
       if (vUnit <= 0) {
-        preview.textContent = "Informe o valor por pacote para ver o preview.";
-        preview.classList.add("text-warning");
+        preview.textContent = ajusteAtual ? "" : "Informe o valor por pacote para calcular o ajuste.";
+        preview.classList.toggle("text-warning", !ajusteAtual);
       } else {
-        preview.textContent = `${totalG} × ${vUnit.toFixed(2).replace(".", ",")} = R$ ${formatarMoeda(totalCalc)}`;
-        preview.classList.remove("text-warning");
+        const pendente = !ajusteAtual || Math.abs((Number(ajusteAtual.valor) || 0) - totalCalc) > 0.004;
+        preview.textContent = `${totalG} × ${formatarMoeda(vUnit)} = ${formatarMoeda(totalCalc)}` + (ajusteAtual && pendente ? " (clique em Atualizar para aplicar)" : "");
+        preview.classList.toggle("text-warning", ajusteAtual ? pendente : false);
       }
     }
   }
@@ -869,18 +1278,23 @@ async function carregarResumoCompleto() {
     const tbody = qs("#tbody-fechamento-itens");
     if (!tbody) return;
 
+    const inputCelula = (it, idx, field, dataBr) => {
+      const classe = field.startsWith("cancelados_") ? "fech-input-canc" : "fech-input-qtde";
+      return `<td><input type="number" inputmode="numeric" class="form-control form-control-sm text-end ${classe}" data-idx="${idx}" data-field="${field}" min="0" step="1" value="${it[field] ?? 0}" aria-label="${ROTULOS_CAMPOS_FECHAMENTO[field]} em ${dataBr}" /></td>`;
+    };
+
     tbody.innerHTML = state.fechamentoItens.map((it, idx) => {
       const dataBr = it.data ? it.data.split("-").reverse().join("/") : "";
       return `
         <tr data-idx="${idx}">
-          <td>${dataBr}</td>
-          <td><input type="number" class="form-control form-control-sm fech-input-qtde" data-idx="${idx}" data-field="shopee" min="0" value="${it.shopee ?? 0}" /></td>
-          <td><input type="number" class="form-control form-control-sm fech-input-qtde" data-idx="${idx}" data-field="mercado_livre" min="0" value="${it.mercado_livre ?? 0}" /></td>
-          <td><input type="number" class="form-control form-control-sm fech-input-qtde" data-idx="${idx}" data-field="avulso" min="0" value="${it.avulso ?? 0}" /></td>
-          <td class="text-center">${it.pacotes_g ?? 0}</td>
-          <td><input type="number" class="form-control form-control-sm fech-input-canc" data-idx="${idx}" data-field="cancelados_shopee" min="0" value="${it.cancelados_shopee ?? 0}" /></td>
-          <td><input type="number" class="form-control form-control-sm fech-input-canc" data-idx="${idx}" data-field="cancelados_ml" min="0" value="${it.cancelados_ml ?? 0}" /></td>
-          <td><input type="number" class="form-control form-control-sm fech-input-canc" data-idx="${idx}" data-field="cancelados_avulso" min="0" value="${it.cancelados_avulso ?? 0}" /></td>
+          <td class="text-nowrap">${dataBr}</td>
+          ${inputCelula(it, idx, "shopee", dataBr)}
+          ${inputCelula(it, idx, "mercado_livre", dataBr)}
+          ${inputCelula(it, idx, "avulso", dataBr)}
+          ${celulaG(it)}
+          ${inputCelula(it, idx, "cancelados_shopee", dataBr)}
+          ${inputCelula(it, idx, "cancelados_ml", dataBr)}
+          ${inputCelula(it, idx, "cancelados_avulso", dataBr)}
         </tr>`;
     }).join("");
 
@@ -888,11 +1302,79 @@ async function carregarResumoCompleto() {
       inp.addEventListener("input", () => {
         const idx = parseInt(inp.dataset.idx, 10);
         const field = inp.dataset.field;
-        const val = parseInt(inp.value, 10) || 0;
+        const val = Math.max(0, parseInt(inp.value, 10) || 0);
         if (state.fechamentoItens[idx]) state.fechamentoItens[idx][field] = val;
+        atualizarDestaquesLinha(idx);
+        atualizarTotaisTabela();
         atualizarResumoModal();
       });
     });
+    state.fechamentoItens.forEach((_, idx) => atualizarDestaquesLinha(idx));
+    atualizarTotaisTabela();
+  }
+
+  function celulaG(it) {
+    const total = it.pacotes_g ?? 0;
+    const original = valorOriginalItem(it, "pacotes_g");
+    const alterado = original !== null && total !== original;
+    const dicas = [];
+    if (state.origemG.status === "ok" && total > 0) {
+      const leit = state.origemG.leituras.filter((l) => l.data === it.data).length;
+      const colet = state.origemG.coletas.filter((c) => c.data === it.data).reduce((acc, c) => acc + c.total, 0);
+      dicas.push(`${leit} de leitura · ${colet} de coleta`);
+    }
+    if (alterado) dicas.push(`Valor original: ${original}`);
+    return `<td class="text-center fech-col-g${alterado ? " fech-cell-alterada" : ""}"${dicas.length ? ` title="${escaparHtml(dicas.join(" — "))}"` : ""}>${total}</td>`;
+  }
+
+  function canceladosAcimaDoColetado(it) {
+    return Object.keys(COLETADO_POR_CANCELADO).filter(
+      (c) => (it[c] ?? 0) > (it[COLETADO_POR_CANCELADO[c]] ?? 0)
+    );
+  }
+
+  function atualizarDestaquesLinha(idx) {
+    const it = state.fechamentoItens[idx];
+    const row = qs(`#tbody-fechamento-itens tr[data-idx="${idx}"]`);
+    if (!it || !row) return;
+    const excedidos = canceladosAcimaDoColetado(it);
+    row.querySelectorAll("input[data-field]").forEach((inp) => {
+      const field = inp.dataset.field;
+      const original = valorOriginalItem(it, field);
+      const alterado = original !== null && (it[field] ?? 0) !== original;
+      inp.classList.toggle("fech-cell-alterada", alterado);
+      if (field.startsWith("cancelados_")) {
+        inp.classList.toggle("fech-canc-ativo", (it[field] ?? 0) > 0);
+        const excedido = excedidos.includes(field);
+        inp.classList.toggle("is-invalid", excedido);
+        inp.setAttribute("aria-invalid", excedido ? "true" : "false");
+        inp.title = excedido
+          ? `Cancelados acima do coletado em ${ROTULOS_CAMPOS_FECHAMENTO[COLETADO_POR_CANCELADO[field]]}`
+          : (alterado ? `Valor original: ${original}` : "");
+      } else {
+        inp.title = alterado ? `Valor original: ${original}` : "";
+      }
+    });
+    const legenda = qs("#fech-legenda-alterado");
+    if (legenda) legenda.classList.toggle("d-none", !qs("#tbody-fechamento-itens .fech-cell-alterada"));
+  }
+
+  function atualizarTotaisTabela() {
+    const tfoot = qs("#tfoot-fechamento-itens");
+    if (!tfoot) return;
+    if (!state.fechamentoItens.length) { tfoot.innerHTML = ""; return; }
+    const soma = (campo) => state.fechamentoItens.reduce((acc, it) => acc + (it[campo] ?? 0), 0);
+    tfoot.innerHTML = `
+      <tr>
+        <td>Total</td>
+        <td class="text-end">${soma("shopee")}</td>
+        <td class="text-end">${soma("mercado_livre")}</td>
+        <td class="text-end">${soma("avulso")}</td>
+        <td class="text-center">${soma("pacotes_g")}</td>
+        <td class="text-end">${soma("cancelados_shopee")}</td>
+        <td class="text-end">${soma("cancelados_ml")}</td>
+        <td class="text-end">${soma("cancelados_avulso")}</td>
+      </tr>`;
   }
 
   function renderListaAjustesBase() {
@@ -904,22 +1386,30 @@ async function carregarResumoCompleto() {
       return a._idx - b._idx;
     });
     list.innerHTML = ordenado
-      .map(
-        (a) =>
+      .map((a) => {
+        const descricao = a._origemG && !a._misto
+          ? "Pacotes G — " + escaparHtml(a.motivo || "Pacotes G")
+          : escaparHtml(a.motivo || "—");
+        const aviso = a._misto
+          ? ' <span class="badge bg-warning-subtle text-warning ms-1" title="Este ajuste antigo junta Pacotes G e outros ajustes">G + manual</span>'
+          : "";
+        return (
           '<div class="d-flex align-items-center justify-content-between py-1 px-2 mb-1 rounded ' +
           (a.tipo === "ADIÇÃO" ? "bg-success bg-opacity-10" : "bg-danger bg-opacity-10") +
           '">' +
-          '<span class="small">' +
-          (a.tipo === "ADIÇÃO" ? "+" : "-") +
+          '<span class="small"><strong>' +
+          (a.tipo === "ADIÇÃO" ? "+" : "−") +
           formatarMoeda(a.valor) +
-          " — " +
-          (a.motivo || "—") +
+          "</strong> — " +
+          descricao +
+          aviso +
           "</span>" +
-          '<button type="button" class="btn btn-link btn-sm text-danger p-0 btn-remover-ajuste-base" data-idx="' +
+          '<button type="button" class="btn btn-link btn-sm text-danger p-0 btn-remover-ajuste-base" aria-label="Remover ajuste" title="Remover ajuste" data-idx="' +
           a._idx +
           '"><i class="ri-delete-bin-line"></i></button>' +
           "</div>"
-      )
+        );
+      })
       .join("");
     list.querySelectorAll(".btn-remover-ajuste-base").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -928,6 +1418,7 @@ async function carregarResumoCompleto() {
           state.ajustesFechamento.splice(idx, 1);
           renderListaAjustesBase();
           atualizarResumoModal();
+          atualizarBlocoAjusteG();
         }
       });
     });
@@ -955,13 +1446,42 @@ async function carregarResumoCompleto() {
     });
     const totalReceber = totalReceberBase + totalAjustes;
     qs("#fech-valor-bruto").textContent = formatarMoeda(valorBruto);
-    qs("#fech-valor-cancelados").textContent = formatarMoeda(valorCancelados);
+    const elCanc = qs("#fech-valor-cancelados");
+    elCanc.textContent = formatarMoeda(valorCancelados);
+    elCanc.classList.toggle("text-danger", valorCancelados > 0);
     const elTotalAj = qs("#fech-total-ajustes-base");
     if (elTotalAj) {
       elTotalAj.textContent = formatarMoeda(totalAjustes);
       elTotalAj.className = totalAjustes < 0 ? "text-danger" : "";
     }
     qs("#fech-total-receber").textContent = formatarMoeda(totalReceber);
+
+    const orig = state.fechamentoOriginal;
+    const elAnterior = qs("#fech-metric-anterior");
+    const elDiferenca = qs("#fech-metric-diferenca");
+    if (orig) {
+      const diferenca = Math.round((totalReceber - orig.valorFinal) * 100) / 100;
+      qs("#fech-valor-anterior").textContent = formatarMoeda(orig.valorFinal);
+      const elDif = qs("#fech-valor-diferenca");
+      elDif.textContent = (diferenca > 0 ? "+" : diferenca < 0 ? "−" : "") + formatarMoeda(Math.abs(diferenca));
+      elDif.className = diferenca > 0 ? "text-success" : diferenca < 0 ? "text-danger" : "text-muted";
+      elAnterior?.classList.remove("d-none");
+      elDiferenca?.classList.remove("d-none");
+      qs("#fech-metric-total")?.classList.remove("ms-md-auto");
+    } else {
+      elAnterior?.classList.add("d-none");
+      elDiferenca?.classList.add("d-none");
+      qs("#fech-metric-total")?.classList.add("ms-md-auto");
+    }
+    state.fechamentoTotalCalculado = totalReceber;
+
+    const btnSalvar = qs("#btnGerarFechamentoModal");
+    if (btnSalvar && !btnSalvar.dataset.salvando) {
+      const semMudanca = !!orig && !fechamentoFoiAlterado();
+      btnSalvar.disabled = semMudanca;
+      btnSalvar.title = semMudanca ? "Altere alguma quantidade ou ajuste para salvar o reajuste" : "";
+    }
+
     const elG = qs("#fech-g-resumo-base");
     if (elG) {
       const tgS = state.total_g_shopee ?? 0;
@@ -1047,31 +1567,54 @@ async function carregarResumoCompleto() {
       g_avulso: it.g_avulso ?? 0
     }));
 
-    // Agregar ajustes manuais em valor_adicao / valor_subtracao
-    let valorAdicao = 0;
-    let motivoAdicao = "";
-    let valorSubtracao = 0;
-    let motivoSubtracao = "";
-    state.ajustesFechamento.forEach((a) => {
-      const v = Number(a.valor) || 0;
-      if (a.tipo === "ADIÇÃO") {
-        valorAdicao += v;
-        if (a.motivo) motivoAdicao += (motivoAdicao ? " | " : "") + a.motivo;
-      } else {
-        valorSubtracao += v;
-        if (a.motivo) motivoSubtracao += (motivoSubtracao ? " | " : "") + a.motivo;
-      }
-    });
+    const somaAjustes = (lista) => Math.round(lista.reduce((acc, a) => acc + (Number(a.valor) || 0), 0) * 100) / 100;
+    const adicoes = state.ajustesFechamento.filter((a) => a.tipo === "ADIÇÃO");
+    const subtracoes = state.ajustesFechamento.filter((a) => a.tipo !== "ADIÇÃO");
+    const valorAdicao = somaAjustes(adicoes);
+    const valorSubtracao = somaAjustes(subtracoes);
 
     const totalG = state.total_pacotes_g ?? 0;
     const temAjusteG = state.ajustesFechamento.some((a) => isAjusteG(a));
     if (totalG > 0 && !temAjusteG) {
-      if (window.Swal) Swal.fire({ icon: "warning", title: "Ajuste de Pacotes G", text: "Existem Pacotes G neste período. Aplique o ajuste de Pacotes G antes de salvar ou remova os pacotes G do período." });
+      if (window.Swal) {
+        const o = state.origemG;
+        const itensAcao = [];
+        const valorUnitG = parseFloat(qs("#fech-ajuste-g-valor-unit")?.value || "0") || 0;
+        if (valorUnitG > 0) {
+          itensAcao.push("<li>O valor por pacote foi preenchido, mas o ajuste ainda não foi aplicado: informe o motivo e clique em <strong>Aplicar Ajuste de Pacotes G</strong>.</li>");
+        } else {
+          itensAcao.push("<li>Se os Pacotes G estão corretos: informe valor e motivo e clique em <strong>Aplicar Ajuste de Pacotes G</strong>.</li>");
+        }
+        if (o.status === "ok") {
+          if (o.leituras.length) itensAcao.push(`<li>${o.leituras.length} leitura(s) marcada(s) como G: para remover, desmarque o G do pedido em <strong>Registros</strong>.</li>`);
+          const manuais = o.coletas.filter((c) => c.origem === "manual");
+          if (manuais.length) itensAcao.push(`<li>${manuais.reduce((acc, c) => acc + c.total, 0)} Pacote(s) G de coleta manual: corrija direto no bloco <strong>Origem dos Pacotes G</strong>.</li>`);
+        } else {
+          itensAcao.push("<li>Para remover: desmarque o G do pedido em <strong>Registros</strong> ou edite a coleta manual.</li>");
+        }
+        await Swal.fire({
+          icon: "warning",
+          title: "Pacotes G sem ajuste",
+          html: `<div class="text-start small"><p class="mb-2">Existem ${totalG} Pacote(s) G neste período e nenhum ajuste foi aplicado.</p><ul class="ps-3 mb-0">${itensAcao.join("")}</ul></div>`,
+          confirmButtonText: "Entendi"
+        });
+        qs("#fech-ajuste-g-container")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
       return;
     }
 
+    if (modoEdicao) {
+      if (!fechamentoFoiAlterado()) return;
+      if (!(await confirmarResumoReajuste())) return;
+    }
+
     const btn = document.getElementById("btnGerarFechamentoModal");
-    if (btn) btn.disabled = true;
+    const btnHtmlOriginal = btn ? btn.innerHTML : "";
+    if (btn) {
+      btn.disabled = true;
+      btn.dataset.salvando = "1";
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Salvando...';
+    }
     try {
       if (modoEdicao) {
         const res = await fetch(`${API_FECHAMENTOS}/${idFech}`, {
@@ -1081,16 +1624,23 @@ async function carregarResumoCompleto() {
           body: JSON.stringify({
             itens,
             valor_adicao: valorAdicao,
-            motivo_adicao: motivoAdicao || null,
+            motivo_adicao: montarMotivoAjustes(adicoes),
             valor_subtracao: valorSubtracao,
-            motivo_subtracao: motivoSubtracao || null
+            motivo_subtracao: montarMotivoAjustes(subtracoes)
           })
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           throw new Error(err?.detail || res.statusText || "Erro ao reajustar");
         }
-        if (window.Swal) Swal.fire({ icon: "success", title: "Reajuste salvo" });
+        if (window.Swal) Swal.fire({ icon: "success", title: "Fechamento reajustado" });
+        try {
+          if (typeof window.gerarPdfFechamentoBases === "function") {
+            window.gerarPdfFechamentoBases(idFech);
+          }
+        } catch (e) {
+          console.error("Erro ao gerar PDF de fechamento reajustado:", e);
+        }
       } else {
         // Quando houver pacotes G e nenhum ajuste aplicado, listar G em SweetAlert antes de gerar
         if (window.Swal && (state.total_pacotes_g || 0) > 0 && !state.ajustesFechamento.some((a) => isAjusteG(a))) {
@@ -1146,14 +1696,10 @@ async function carregarResumoCompleto() {
           }
         }
 
-        // calcula quanto do ajuste total é específico de G (somando itens marcados como origem G)
-        const totalG = state.total_pacotes_g ?? 0;
-        let ajusteGTotal = 0;
-        state.ajustesFechamento.forEach((a) => {
-          if (isAjusteG(a)) {
-            ajusteGTotal += Number(a.valor || 0);
-          }
-        });
+        // O backend soma só valor_adicao/valor_subtracao; ajuste_g_* apenas gera o rótulo "[Pacotes G]" no motivo.
+        const ajustesG = adicoes.filter((a) => isAjusteG(a));
+        const ajusteGTotal = somaAjustes(ajustesG);
+        const temRotuloG = totalG > 0 && ajusteGTotal !== 0;
 
         const res = await fetch(API_FECHAMENTOS, {
           method: "POST",
@@ -1165,11 +1711,11 @@ async function carregarResumoCompleto() {
             periodo_fim: periodoFim,
             itens,
             valor_adicao: valorAdicao,
-            motivo_adicao: motivoAdicao || null,
+            motivo_adicao: montarMotivoAjustes(temRotuloG ? adicoes.filter((a) => !isAjusteG(a)) : adicoes) || null,
             valor_subtracao: valorSubtracao,
-            motivo_subtracao: motivoSubtracao || null,
-            ajuste_g_valor: totalG > 0 && ajusteGTotal !== 0 ? ajusteGTotal : 0,
-            ajuste_g_motivo: totalG > 0 && ajusteGTotal !== 0 ? "Ajuste Pacotes G" : null
+            motivo_subtracao: montarMotivoAjustes(subtracoes) || null,
+            ajuste_g_valor: temRotuloG ? ajusteGTotal : 0,
+            ajuste_g_motivo: temRotuloG ? (ajustesG.map((a) => a.motivo).filter(Boolean).join(" / ") || "Pacotes G") : null
           })
         });
         if (!res.ok) {
@@ -1198,8 +1744,69 @@ async function carregarResumoCompleto() {
     } catch (e) {
       if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: e?.message || "Falha ao salvar." });
     } finally {
-      if (btn) btn.disabled = false;
+      if (btn) {
+        delete btn.dataset.salvando;
+        btn.innerHTML = btnHtmlOriginal;
+        btn.disabled = false;
+      }
+      atualizarResumoModal();
     }
+  }
+
+  async function confirmarResumoReajuste() {
+    const orig = state.fechamentoOriginal;
+    if (!orig || !window.Swal) return true;
+    const fmtData = (d) => String(d || "").split("-").reverse().join("/");
+
+    const linhasDias = [];
+    state.fechamentoItens.forEach((it) => {
+      const o = orig.itensPorData[it.data];
+      const mudancas = [...CAMPOS_QTDE_FECHAMENTO, "pacotes_g"]
+        .filter((c) => (it[c] ?? 0) !== (o ? (o[c] ?? 0) : 0))
+        .map((c) => `${ROTULOS_CAMPOS_FECHAMENTO[c]}: ${o ? (o[c] ?? 0) : 0} → <strong>${it[c] ?? 0}</strong>`);
+      if (mudancas.length) linhasDias.push(`<li><strong>${fmtData(it.data)}</strong> — ${mudancas.join(", ")}</li>`);
+    });
+
+    const chave = (a) => JSON.stringify([a.tipo, Math.round((Number(a.valor) || 0) * 100), (a.motivo || "").trim(), !!a._origemG]);
+    const descreverAjuste = (a) =>
+      `${a.tipo === "ADIÇÃO" ? "+" : "−"}${formatarMoeda(a.valor)} — ${escaparHtml(a._origemG && !a._misto ? "Pacotes G: " + (a.motivo || "") : (a.motivo || "—"))}`;
+    const chavesOrig = orig.ajustes.map(chave);
+    const chavesAtuais = state.ajustesFechamento.map(chave);
+    const removidos = orig.ajustes.filter((a) => !chavesAtuais.includes(chave(a)));
+    const incluidos = state.ajustesFechamento.filter((a) => !chavesOrig.includes(chave(a)));
+    const linhasAjustes = [
+      ...removidos.map((a) => `<li class="text-danger">Removido: ${descreverAjuste(a)}</li>`),
+      ...incluidos.map((a) => `<li class="text-success">Incluído: ${descreverAjuste(a)}</li>`)
+    ];
+
+    const excedidos = state.fechamentoItens.filter((it) => canceladosAcimaDoColetado(it).length > 0).map((it) => fmtData(it.data));
+    const novoValor = Number(state.fechamentoTotalCalculado) || 0;
+    const diferenca = Math.round((novoValor - orig.valorFinal) * 100) / 100;
+    const corDif = diferenca > 0 ? "text-success" : diferenca < 0 ? "text-danger" : "text-muted";
+    const sinalDif = diferenca > 0 ? "+" : diferenca < 0 ? "−" : "";
+
+    const html = `
+      <div class="text-start small">
+        ${linhasDias.length ? `<p class="fw-semibold mb-1">Quantidades alteradas</p><ul class="mb-3 ps-3">${linhasDias.join("")}</ul>` : ""}
+        ${linhasAjustes.length ? `<p class="fw-semibold mb-1">Ajustes</p><ul class="mb-3 ps-3">${linhasAjustes.join("")}</ul>` : ""}
+        ${excedidos.length ? `<div class="alert alert-warning py-2 mb-3">Cancelados acima do coletado em: ${excedidos.join(", ")}. Confira antes de confirmar.</div>` : ""}
+        <div class="d-flex justify-content-between border-top pt-2"><span>Valor anterior</span><span>${formatarMoeda(orig.valorFinal)}</span></div>
+        <div class="d-flex justify-content-between"><span>Novo valor</span><strong>${formatarMoeda(novoValor)}</strong></div>
+        <div class="d-flex justify-content-between"><span>Diferença</span><strong class="${corDif}">${sinalDif}${formatarMoeda(Math.abs(diferenca))}</strong></div>
+      </div>`;
+
+    const r = await Swal.fire({
+      icon: excedidos.length ? "warning" : "question",
+      title: "Confirmar reajuste",
+      html,
+      width: 640,
+      showCancelButton: true,
+      confirmButtonText: "Confirmar reajuste",
+      cancelButtonText: "Voltar",
+      reverseButtons: true,
+      focusCancel: true
+    });
+    return r.isConfirmed;
   }
 
   document.getElementById("btnGerarFechamentoModal")?.addEventListener("click", salvarFechamento);
@@ -1219,7 +1826,14 @@ async function carregarResumoCompleto() {
         else alert("Informe um valor de ajuste maior que zero.");
         return;
       }
-      state.ajustesFechamento.push({ tipo, valor, motivo });
+      if (!motivo) {
+        inpMotivo?.classList.add("is-invalid");
+        inpMotivo?.focus();
+        if (window.Swal) Swal.fire({ icon: "warning", title: "Justificativa obrigatória", text: "Informe o motivo do ajuste para manter o histórico do fechamento." });
+        return;
+      }
+      inpMotivo?.classList.remove("is-invalid");
+      state.ajustesFechamento.push({ tipo, valor: Math.round(valor * 100) / 100, motivo });
       if (inpValor) inpValor.value = "0";
       if (inpMotivo) inpMotivo.value = "";
       renderListaAjustesBase();
@@ -1228,12 +1842,12 @@ async function carregarResumoCompleto() {
   }
 
   function isAjusteG(a) {
-    return a._origemG === true || ((a.motivo || "").includes("Ajuste Pacotes G") || (a.motivo || "").includes("[Pacotes G]"));
+    return a._origemG === true;
   }
 
   const btnAplicarAjusteG = document.getElementById("btnAplicarAjusteG");
   if (btnAplicarAjusteG) {
-    btnAplicarAjusteG.addEventListener("click", () => {
+    btnAplicarAjusteG.addEventListener("click", async () => {
       const totalG = state.total_pacotes_g ?? 0;
       if (totalG <= 0) {
         if (window.Swal) Swal.fire({ icon: "warning", title: "Sem pacotes G", text: "Não existem Pacotes G neste período." });
@@ -1249,12 +1863,26 @@ async function carregarResumoCompleto() {
         if (window.Swal) Swal.fire({ icon: "warning", title: "Justificativa obrigatória", text: "Informe o motivo do ajuste de Pacotes G." });
         return;
       }
+      const misto = state.ajustesFechamento.find((a) => a._misto);
+      if (misto && window.Swal) {
+        const r = await Swal.fire({
+          icon: "warning",
+          title: "Substituir ajuste anterior?",
+          html: `O ajuste anterior de <strong>${formatarMoeda(misto.valor)}</strong> junta Pacotes G e outros ajustes e não pode ser separado automaticamente.<br><br>Se continuar, ele será substituído pelo novo ajuste de Pacotes G. Lance novamente os ajustes manuais que devem permanecer.`,
+          showCancelButton: true,
+          confirmButtonText: "Substituir",
+          cancelButtonText: "Voltar",
+          reverseButtons: true,
+          focusCancel: true
+        });
+        if (!r.isConfirmed) return;
+      }
       const valorTotal = totalG * valorUnit;
       state.ajustesFechamento = state.ajustesFechamento.filter((a) => !isAjusteG(a));
       state.ajustesFechamento.push({
         tipo: "ADIÇÃO",
         valor: Math.round(valorTotal * 100) / 100,
-        motivo: "Ajuste Pacotes G - " + motivo,
+        motivo,
         _origemG: true
       });
       renderListaAjustesBase();
@@ -1262,6 +1890,10 @@ async function carregarResumoCompleto() {
       atualizarBlocoAjusteG();
     });
   }
+
+  qs("#fech-ajuste-motivo-base")?.addEventListener("input", (e) => {
+    if (e.target.value.trim()) e.target.classList.remove("is-invalid");
+  });
 
   const fechAjusteGValorUnit = qs("#fech-ajuste-g-valor-unit");
   const fechAjusteGMotivo = qs("#fech-ajuste-g-motivo");
@@ -1457,24 +2089,33 @@ async function carregarResumoCompleto() {
     modalShopee.value = shopee;
     modalMl.value = ml;
     modalAvulso.value = avulso;
-    const totalG = parseInt(pacotesG, 10) || 0;
-    // Distribui G somente em Shopee por padrão ao editar (user pode ajustar)
-    if (chkGshopee && inputGshopee && chkGml && inputGml && chkGavulso && inputGavulso) {
-      chkGml.checked = false;
-      chkGavulso.checked = false;
-      inputGml.disabled = true;
-      inputGavulso.disabled = true;
-      if (totalG > 0) {
-        chkGshopee.checked = true;
-        inputGshopee.disabled = false;
-        inputGshopee.value = String(totalG);
-      } else {
-        chkGshopee.checked = false;
-        inputGshopee.disabled = true;
-        inputGshopee.value = "1";
+    // O pacotes_g do resumo inclui leituras marcadas como G; o G da coleta vem de /coletas/.
+    let gColeta = null;
+    try {
+      const params = new URLSearchParams({ data_inicio: dataVal, data_fim: dataVal });
+      const res = await fetch(`${API_COLETAS}?${params}`, { credentials: "include" });
+      if (res.ok) {
+        const lista = await res.json();
+        const coleta = (Array.isArray(lista) ? lista : []).find((c) => String(c.id_coleta) === String(id));
+        if (coleta) gColeta = gDaColeta(coleta);
       }
+    } catch (err) {
+      console.error("Erro ao carregar Pacotes G da coleta:", err);
     }
-    if (modalPacotesG) modalPacotesG.value = String(Math.max(0, totalG));
+    if (!gColeta) {
+      const totalResumo = parseInt(pacotesG, 10) || 0;
+      gColeta = { gS: totalResumo, gM: 0, gA: 0, total: totalResumo };
+    }
+    const preencherG = (chk, input, valor) => {
+      if (!chk || !input) return;
+      chk.checked = valor > 0;
+      input.disabled = valor <= 0;
+      input.value = String(valor > 0 ? valor : 1);
+    };
+    preencherG(chkGshopee, inputGshopee, gColeta.gS);
+    preencherG(chkGml, inputGml, gColeta.gM);
+    preencherG(chkGavulso, inputGavulso, gColeta.gA);
+    if (modalPacotesG) modalPacotesG.value = String(Math.max(0, gColeta.total));
     modalData.disabled = true;
     modalBase.disabled = true;
     document.getElementById("modalColetaManualLabel").textContent = "Editar Coleta Manual";
