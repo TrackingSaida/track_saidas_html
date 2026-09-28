@@ -99,7 +99,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     total: 0,
     items: [],
     contextoFechamento: null,
-    basesParaReajuste: [],  // quando status GERADO sem base: [{ base, id_fechamento }]
+    basesParaReajuste: [],  // quando status GERADO/REAJUSTADO sem base: [{ base, id_fechamento, status }]
     fechamentoItens: [],
     fechamentoPrecos: {},
     ajustesFechamento: [],   // { tipo: 'ADIÇÃO' | 'SUBTRAÇÃO', valor: number, motivo: string }
@@ -110,6 +110,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     ajusteGValor: 0,
     ajusteGMotivo: ""
   };
+
+  const STATUS_REAJUSTAVEIS = ["GERADO", "REAJUSTADO"];
 
   const STATUS_TOOLTIPS = {
     PENDENTE: "Sem fechamento para o período",
@@ -158,18 +160,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusFiltro = (fltStatus?.value || "").trim().toUpperCase();
     const basesReajuste = state.basesParaReajuste || [];
     const statusContexto = String(state.contextoFechamento?.status || "").toUpperCase();
-    const fechamentoImutavel = ["GERADO", "REAJUSTADO", "RECEBIDO", "PAGO"].includes(statusContexto)
-      || (["GERADO", "REAJUSTADO", "RECEBIDO"].includes(statusFiltro) && (basesReajuste.length > 0 || statusFiltro === "RECEBIDO"));
-    const habilitado = !!(dataInicio && dataFim && temDados && !fechamentoImutavel);
+    const fechamentoRecebido = ["RECEBIDO", "PAGO"].includes(statusContexto) || statusFiltro === "RECEBIDO";
+    const fechamentoReajustavel = !fechamentoRecebido && (
+      (STATUS_REAJUSTAVEIS.includes(statusContexto) && !!state.contextoFechamento?.id_fechamento)
+      || (STATUS_REAJUSTAVEIS.includes(statusFiltro) && basesReajuste.length > 0)
+    );
+    const habilitado = !!(dataInicio && dataFim && temDados && !fechamentoRecebido);
     btnGerarFechamento.disabled = !habilitado;
     if (wrapBtnGerarFechamento) {
-      wrapBtnGerarFechamento.title = fechamentoImutavel
-        ? "Fechamentos gerados são imutáveis"
-        : (!habilitado ? (!temDados ? "Não há dados para gerar fechamento" : "Preencha o período") : "Gerar fechamento");
+      wrapBtnGerarFechamento.title = fechamentoRecebido
+        ? "Fechamentos já recebidos não podem ser reajustados"
+        : fechamentoReajustavel
+          ? "Reajustar fechamento já gerado"
+          : (!habilitado ? (!temDados ? "Não há dados para gerar fechamento" : "Preencha o período") : "Gerar fechamento");
     }
-    btnGerarFechamento.innerHTML = fechamentoImutavel
-      ? '<i class="ri-lock-line me-1"></i> Fechamento gerado'
-      : '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
+    btnGerarFechamento.innerHTML = fechamentoRecebido
+      ? '<i class="ri-lock-line me-1"></i> Fechamento recebido'
+      : fechamentoReajustavel
+        ? '<i class="ri-refresh-line me-1"></i> Reajustar Fechamento'
+        : '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
   }
 
   const pagerFirst   = qs("#pager-first");
@@ -429,13 +438,13 @@ async function carregarResumo() {
     });
 
     state.contextoFechamento = data.contextoFechamento || null;
-    // basesParaReajuste: quando status GERADO e base não filtrada (Todas)
+    // basesParaReajuste: quando status GERADO/REAJUSTADO e base não filtrada (Todas)
     const statusFiltro = (fltStatus?.value || "").trim().toUpperCase();
     const baseFiltrada = (fltBase?.value || "").trim();
-    if (statusFiltro === "GERADO" && !baseFiltrada) {
+    if (STATUS_REAJUSTAVEIS.includes(statusFiltro) && !baseFiltrada) {
       const mapa = {};
       linhas.forEach((r) => {
-        if (r.id_fechamento && r.base) mapa[r.base] = { base: r.base, id_fechamento: r.id_fechamento };
+        if (r.id_fechamento && r.base) mapa[r.base] = { base: r.base, id_fechamento: r.id_fechamento, status: r.fechamento_status || statusFiltro };
       });
       state.basesParaReajuste = Object.values(mapa);
     } else {
@@ -541,7 +550,7 @@ async function carregarResumoCompleto() {
     const base = (fltBase?.value || "").trim();
     const basesReajuste = state.basesParaReajuste || [];
     if (basesReajuste.length === 1) {
-      state.contextoFechamento = { id_fechamento: basesReajuste[0].id_fechamento, status: "GERADO", base: basesReajuste[0].base };
+      state.contextoFechamento = { id_fechamento: basesReajuste[0].id_fechamento, status: basesReajuste[0].status, base: basesReajuste[0].base };
       abrirModalFechamento(true);
       return;
     }
@@ -562,7 +571,7 @@ async function carregarResumoCompleto() {
       if (selecionado) {
         const u = basesReajuste.find((b) => b.base === selecionado);
         if (u) {
-          state.contextoFechamento = { id_fechamento: u.id_fechamento, status: "GERADO", base: u.base };
+          state.contextoFechamento = { id_fechamento: u.id_fechamento, status: u.status, base: u.base };
           abrirModalFechamento(true);
         }
       }
@@ -617,14 +626,18 @@ async function carregarResumoCompleto() {
 
   async function iniciarGerarOuReajustar(base) {
     const statusAtual = String(state.contextoFechamento?.status || "").toUpperCase();
-    if (["GERADO", "REAJUSTADO", "RECEBIDO", "PAGO"].includes(statusAtual)) {
+    if (["RECEBIDO", "PAGO"].includes(statusAtual)) {
       if (window.Swal) {
         await Swal.fire({
           icon: "info",
-          title: "Fechamento imutável",
-          text: "Ajuste os lançamentos antes de gerar. Um fechamento já gerado não pode ser recalculado.",
+          title: "Fechamento recebido",
+          text: "Este fechamento já foi recebido e não pode mais ser reajustado.",
         });
       }
+      return;
+    }
+    if (STATUS_REAJUSTAVEIS.includes(statusAtual) && state.contextoFechamento?.id_fechamento) {
+      abrirModalFechamento(true, base);
       return;
     }
     const periodoInicio = fltFrom?.value || "";
@@ -636,18 +649,39 @@ async function carregarResumoCompleto() {
       const res = await fetch(`${API_FECHAMENTOS}/verificar?${params}`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
-        if (data.existe && ["GERADO", "REAJUSTADO", "RECEBIDO"].includes(data.status)) {
+        const statusExistente = String(data.status || "").toUpperCase();
+        if (data.existe && statusExistente === "RECEBIDO") {
           if (window.Swal) {
             await Swal.fire({
               icon: "info",
-              title: "Fechamento já existente",
-              text: "Fechamentos gerados são imutáveis. Consulte o fechamento já emitido para este período.",
+              title: "Fechamento recebido",
+              text: "Já existe um fechamento recebido para este período e ele não pode mais ser reajustado.",
               confirmButtonText: "Entendi"
             });
           } else {
-            alert("Já existe um fechamento imutável para esta base e período.");
+            alert("Já existe um fechamento recebido para esta base e período.");
           }
           acao = "cancelar";
+        } else if (data.existe && data.id_fechamento && STATUS_REAJUSTAVEIS.includes(statusExistente)) {
+          const texto = typeof window.ownerTerm === "function"
+            ? window.ownerTerm("ja_existe_fechamento")
+            : "Já existe um fechamento gerado para esta base e período. Deseja reajustar?";
+          const confirmar = window.Swal
+            ? (await Swal.fire({
+                icon: "question",
+                title: "Fechamento já existente",
+                text: texto,
+                showCancelButton: true,
+                confirmButtonText: "Reajustar",
+                cancelButtonText: "Cancelar"
+              })).isConfirmed
+            : confirm(texto);
+          if (confirmar) {
+            state.contextoFechamento = { id_fechamento: data.id_fechamento, status: statusExistente, base };
+            acao = "reajustar";
+          } else {
+            acao = "cancelar";
+          }
         }
       }
     } catch (err) {
@@ -655,6 +689,8 @@ async function carregarResumoCompleto() {
     }
     if (acao === "gerar") {
       abrirModalFechamento(false, base);
+    } else if (acao === "reajustar") {
+      abrirModalFechamento(true, base);
     }
   }
 
@@ -696,6 +732,11 @@ async function carregarResumoCompleto() {
         const res = await fetch(`${API_FECHAMENTOS}/${idFech}`, { credentials: "include" });
         if (!res.ok) throw new Error(res.statusText);
         const data = await res.json();
+        if (data.periodo_inicio && data.periodo_fim) {
+          qs("#fech-periodo-inicio").value = data.periodo_inicio;
+          qs("#fech-periodo-fim").value = data.periodo_fim;
+          qs("#fech-periodo-display").textContent = formatarPeriodo(data.periodo_inicio, data.periodo_fim);
+        }
         state.fechamentoItens = (data.itens || []).map(i => ({
           data: i.data,
           shopee: i.shopee ?? 0,
@@ -744,15 +785,20 @@ async function carregarResumoCompleto() {
           const valorNovo = Number(data.valor_final_recalculado ?? data.valor_bruto_recalculado ?? 0);
           const atualizar = window.Swal ? (await Swal.fire({
             icon: "warning",
-            title: "Valor alterado",
-            html: "O valor deste fechamento foi alterado (coletas modificadas).<br><br><strong>Valor anterior:</strong> " + formatarMoeda(valorAntigo) + "<br><strong>Novo valor calculado:</strong> " + formatarMoeda(valorNovo) + "<br><br>Deseja recarregar com os valores atuais?",
+            title: "Coletas alteradas",
+            html: "As coletas deste período foram alteradas depois do fechamento.<br><br><strong>Valor anterior:</strong> " + formatarMoeda(valorAntigo) + "<br><strong>Novo valor calculado:</strong> " + formatarMoeda(valorNovo) + "<br><br>Deseja recarregar com os valores atuais?",
             showCancelButton: true,
             confirmButtonText: "Sim, recarregar",
             cancelButtonText: "Manter valores atuais",
             confirmButtonColor: "#0d6efd",
           })).isConfirmed : confirm("Deseja recarregar com os valores atuais?");
           if (atualizar) {
-            const calcRes = await fetch(`${API_FECHAMENTOS}/calcular?${new URLSearchParams({ base, periodo_inicio: periodoInicio, periodo_fim: periodoFim })}`, { credentials: "include" });
+            const periodoCalc = {
+              base: data.base || base,
+              periodo_inicio: data.periodo_inicio || periodoInicio,
+              periodo_fim: data.periodo_fim || periodoFim,
+            };
+            const calcRes = await fetch(`${API_FECHAMENTOS}/calcular?${new URLSearchParams(periodoCalc)}`, { credentials: "include" });
             if (calcRes.ok) {
               const calcData = await calcRes.json();
               state.fechamentoItens = (calcData.itens || []).map(i => ({
@@ -1090,7 +1136,14 @@ async function carregarResumoCompleto() {
           const err = await res.json().catch(() => ({}));
           throw new Error(err?.detail || res.statusText || "Erro ao reajustar");
         }
-        if (window.Swal) Swal.fire({ icon: "success", title: "Reajuste salvo" });
+        if (window.Swal) Swal.fire({ icon: "success", title: "Fechamento reajustado" });
+        try {
+          if (typeof window.gerarPdfFechamentoBases === "function") {
+            window.gerarPdfFechamentoBases(idFech);
+          }
+        } catch (e) {
+          console.error("Erro ao gerar PDF de fechamento reajustado:", e);
+        }
       } else {
         // Quando houver pacotes G e nenhum ajuste aplicado, listar G em SweetAlert antes de gerar
         if (window.Swal && (state.total_pacotes_g || 0) > 0 && !state.ajustesFechamento.some((a) => isAjusteG(a))) {
