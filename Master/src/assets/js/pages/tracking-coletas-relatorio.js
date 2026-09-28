@@ -420,7 +420,8 @@ async function gerarPdfFechamentoBases(idFechamento) {
 
   // Cabeçalho institucional
   doc.setFontSize(16);
-  doc.text("RELATÓRIO DE COLETAS", 105, 20, { align: "center" });
+  const reajustado = String(fech.status || "").toUpperCase() === "REAJUSTADO";
+  doc.text(reajustado ? "RELATÓRIO DE COLETAS (REAJUSTADO)" : "RELATÓRIO DE COLETAS", 105, 20, { align: "center" });
   doc.setFontSize(10);
   const emitidoPor = fech.emitido_por || fech.sub_base || "ROTEVO";
   doc.text(`Emitido por: ${emitidoPor}`, 105, 26, { align: "center" });
