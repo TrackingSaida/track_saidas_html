@@ -49,6 +49,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const API_MANUAL      = `${window.TRACK_API_URL}/coletas/manual`;
   const API_AUTH_ME     = `${window.TRACK_API_URL}/auth/me`;
   const API_FECHAMENTOS = `${window.TRACK_API_URL}/coletas/fechamentos`;
+  const API_COLETAS     = `${window.TRACK_API_URL}/coletas/`;
 
   // ====== Helpers ======
   const qs  = (s) => document.querySelector(s);
@@ -109,8 +110,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     total_pacotes_g: 0,
     ajusteGValor: 0,
     ajusteGMotivo: "",
-    fechamentoOriginal: null // reajuste: { valorFinal, itensPorData, ajustes, ajustesAssinatura }
+    fechamentoOriginal: null, // reajuste: { valorFinal, itensPorData, ajustes, ajustesAssinatura }
+    origemG: { status: "vazio", leituras: [], coletas: [] } // status: vazio | carregando | ok | erro
   };
+
+  const CAMPOS_G_FECHAMENTO = ["pacotes_g", "g_shopee", "g_ml", "g_avulso"];
+
+  function podeEditarColetaManual() {
+    const role = window.__USER__?.role;
+    return role !== null && role !== undefined && [0, 1, 2].includes(Number(role));
+  }
+
+  function rotuloServico(servico) {
+    const s = String(servico || "").toLowerCase();
+    if (s.includes("shopee")) return "Shopee";
+    if (s.includes("mercado") || s === "ml" || s.includes("meli")) return "Mercado Livre";
+    return "Avulso";
+  }
+
+  // Mesma regra do backend: sem G por serviço, pacotes_g conta como avulso.
+  function gDaColeta(c) {
+    let gS = Number(c.g_shopee) || 0;
+    let gM = Number(c.g_ml) || 0;
+    let gA = Number(c.g_avulso) || 0;
+    if (gS === 0 && gM === 0 && gA === 0) gA = Number(c.pacotes_g) || 0;
+    return { gS, gM, gA, total: gS + gM + gA };
+  }
 
   const CAMPOS_QTDE_FECHAMENTO = ["shopee", "mercado_livre", "avulso", "cancelados_shopee", "cancelados_ml", "cancelados_avulso"];
   const ROTULOS_CAMPOS_FECHAMENTO = {
@@ -119,7 +144,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     avulso: "Avulso",
     cancelados_shopee: "Cancelados Shopee",
     cancelados_ml: "Cancelados ML",
-    cancelados_avulso: "Cancelados Avulso"
+    cancelados_avulso: "Cancelados Avulso",
+    pacotes_g: "Pacotes G"
   };
   const COLETADO_POR_CANCELADO = {
     cancelados_shopee: "shopee",
@@ -206,7 +232,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (Object.keys(orig.itensPorData).length !== state.fechamentoItens.length) return true;
     const itensMudaram = state.fechamentoItens.some((it) => {
       const o = orig.itensPorData[it.data];
-      return !o || CAMPOS_QTDE_FECHAMENTO.some((c) => (it[c] ?? 0) !== (o[c] ?? 0));
+      return !o || [...CAMPOS_QTDE_FECHAMENTO, ...CAMPOS_G_FECHAMENTO].some((c) => (it[c] ?? 0) !== (o[c] ?? 0));
     });
     return itensMudaram || assinaturaAjustes(state.ajustesFechamento) !== orig.ajustesAssinatura;
   }
@@ -975,6 +1001,224 @@ async function carregarResumoCompleto() {
     atualizarBlocoAjusteG();
     const modal = new bootstrap.Modal(qs("#modalFechamentoBases"));
     modal.show();
+    carregarOrigemPacotesG();
+  }
+
+  // ====== Origem dos Pacotes G (leituras marcadas em Registros x coletas) ======
+  async function carregarOrigemPacotesG() {
+    const base = (qs("#fech-base")?.value || "").trim();
+    const de = qs("#fech-periodo-inicio")?.value || "";
+    const ate = qs("#fech-periodo-fim")?.value || "";
+    if (!(state.total_pacotes_g > 0) || !base || !de || !ate) {
+      state.origemG = { status: "vazio", leituras: [], coletas: [] };
+      renderOrigemPacotesG();
+      return;
+    }
+    state.origemG = { status: "carregando", leituras: [], coletas: [] };
+    renderOrigemPacotesG();
+    try {
+      const pSaidas = new URLSearchParams({ base, de, ate, somente_g: "true", limit: "5000" });
+      const pColetas = new URLSearchParams({ data_inicio: de, data_fim: ate });
+      const [resS, resC] = await Promise.all([
+        fetch(`${API_SAIDAS}?${pSaidas}`, { credentials: "include" }),
+        fetch(`${API_COLETAS}?${pColetas}`, { credentials: "include" })
+      ]);
+      if (!resS.ok || !resC.ok) throw new Error("Falha ao consultar a origem dos Pacotes G");
+      const jsonS = await resS.json();
+      const jsonC = await resC.json();
+      const saidas = Array.isArray(jsonS?.items) ? jsonS.items : (Array.isArray(jsonS) ? jsonS : []);
+      const coletas = Array.isArray(jsonC) ? jsonC : [];
+      const baseKey = base.toUpperCase();
+      state.origemG = {
+        status: "ok",
+        leituras: saidas
+          .filter((s) => s.is_grande !== false && String(s.base || "").trim().toUpperCase() === baseKey)
+          .map((s) => ({
+            id_saida: s.id_saida,
+            codigo: s.codigo || "—",
+            servico: rotuloServico(s.servico),
+            data: s.data || String(s.timestamp || "").slice(0, 10)
+          }))
+          .sort((a, b) => a.data.localeCompare(b.data)),
+        coletas: coletas
+          .filter((c) => String(c.base || "").trim().toUpperCase() === baseKey)
+          .map((c) => ({ id_coleta: c.id_coleta, origem: c.origem || "codigo", data: String(c.timestamp || "").slice(0, 10), ...gDaColeta(c) }))
+          .filter((c) => c.total > 0)
+          .sort((a, b) => a.data.localeCompare(b.data))
+      };
+    } catch (err) {
+      console.error(err);
+      state.origemG = { status: "erro", leituras: [], coletas: [] };
+    }
+    renderOrigemPacotesG();
+    renderTabelaFechamentoItens();
+  }
+
+  function renderOrigemPacotesG() {
+    const el = qs("#fech-g-origem");
+    if (!el) return;
+    const o = state.origemG;
+    if (o.status === "vazio") { el.innerHTML = ""; el.classList.add("d-none"); return; }
+    el.classList.remove("d-none");
+    const btnAtualizar = '<button type="button" class="btn btn-link btn-sm p-0 fech-g-atualizar"><i class="ri-refresh-line me-1"></i>Atualizar Pacotes G</button>';
+    if (o.status === "carregando") {
+      el.innerHTML = '<div class="small text-muted"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Identificando a origem dos Pacotes G…</div>';
+      return;
+    }
+    if (o.status === "erro") {
+      el.innerHTML = `<div class="small text-warning mb-1">Não foi possível identificar a origem dos Pacotes G.</div>${btnAtualizar}`;
+      el.querySelector(".fech-g-atualizar")?.addEventListener("click", carregarOrigemPacotesG);
+      return;
+    }
+
+    const fmt = (d) => String(d || "").split("-").reverse().join("/");
+    const totalLeituras = o.leituras.length;
+    const totalColetas = o.coletas.reduce((acc, c) => acc + c.total, 0);
+    const totalFechamento = state.total_pacotes_g ?? 0;
+    const editavel = podeEditarColetaManual();
+    const base = qs("#fech-base")?.value || "";
+    const linkRegistros = "tracking-registros.html?" + new URLSearchParams({
+      de: qs("#fech-periodo-inicio")?.value || "",
+      ate: qs("#fech-periodo-fim")?.value || "",
+      base,
+      somente_g: "1"
+    }).toString();
+
+    let html = '<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">' +
+      '<span class="form-label-modal small fw-semibold mb-0">Origem dos Pacotes G</span>' + btnAtualizar + "</div>";
+
+    if (totalLeituras + totalColetas !== totalFechamento) {
+      html += `<div class="alert alert-warning py-1 px-2 small mb-2">O fechamento tem ${totalFechamento} Pacote(s) G, mas hoje existem ${totalLeituras + totalColetas}. Clique em <strong>Atualizar Pacotes G</strong> para trazer os valores atuais.</div>`;
+    }
+
+    html += `<div class="small fw-semibold mt-1">Leituras marcadas como G (${totalLeituras})</div>`;
+    if (totalLeituras) {
+      html += '<ul class="list-unstyled small mb-1 fech-g-origem-lista">' +
+        o.leituras.map((l) => `<li>${fmt(l.data)} · ${escaparHtml(l.servico)} · <span class="font-monospace">${escaparHtml(l.codigo)}</span></li>`).join("") +
+        "</ul>" +
+        `<a class="btn btn-outline-secondary btn-sm mb-2" href="${linkRegistros}" target="_blank" rel="noopener"><i class="ri-external-link-line me-1"></i>Ver pedidos G em Registros</a>` +
+        '<div class="small text-muted mb-2">Para remover, desmarque o G do pedido em Registros e depois clique em Atualizar Pacotes G.</div>';
+    } else {
+      html += '<div class="small text-muted mb-2">Nenhuma leitura marcada como G.</div>';
+    }
+
+    html += `<div class="small fw-semibold">Coletas com G (${totalColetas})</div>`;
+    if (o.coletas.length) {
+      html += '<div class="fech-g-origem-lista">' + o.coletas.map((c) => {
+        const cabecalho = `<span class="text-nowrap me-2">${fmt(c.data)}</span>`;
+        if (c.origem !== "manual" || !editavel) {
+          const motivo = c.origem !== "manual" ? " (coleta por leitura)" : "";
+          return `<div class="small py-1">${cabecalho}G Shopee: ${c.gS} · G ML: ${c.gM} · G Avulso: ${c.gA}${motivo}</div>`;
+        }
+        const campo = (servico, valor) =>
+          `<label class="d-inline-flex align-items-center gap-1 me-2 mb-0">${servico}` +
+          `<input type="number" min="0" step="1" inputmode="numeric" class="form-control form-control-sm text-end fech-g-coleta-input" data-servico="${servico}" value="${valor}" aria-label="Pacotes G ${servico} da coleta de ${fmt(c.data)}"></label>`;
+        return `<div class="d-flex flex-wrap align-items-center small py-1" data-id-coleta="${c.id_coleta}">${cabecalho}` +
+          campo("Shopee", c.gS) + campo("ML", c.gM) + campo("Avulso", c.gA) +
+          '<button type="button" class="btn btn-outline-primary btn-sm fech-g-salvar-coleta">Salvar</button></div>';
+      }).join("") + "</div>";
+      if (editavel && o.coletas.some((c) => c.origem === "manual")) {
+        html += '<div class="small text-muted mt-1">Salvar altera a coleta manual na hora; o fechamento só muda ao salvar o reajuste.</div>';
+      }
+    } else {
+      html += '<div class="small text-muted">Nenhuma coleta com G.</div>';
+    }
+
+    el.innerHTML = html;
+    el.querySelector(".fech-g-atualizar")?.addEventListener("click", atualizarPacotesGDoPeriodo);
+    el.querySelectorAll(".fech-g-salvar-coleta").forEach((btn) => {
+      btn.addEventListener("click", () => salvarGColetaManual(btn.closest("[data-id-coleta]"), btn));
+    });
+  }
+
+  async function salvarGColetaManual(linha, btn) {
+    if (!linha) return;
+    const idColeta = linha.dataset.idColeta;
+    const valor = (servico) => Math.max(0, parseInt(linha.querySelector(`input[data-servico="${servico}"]`)?.value, 10) || 0);
+    const g_shopee = valor("Shopee");
+    const g_ml = valor("ML");
+    const g_avulso = valor("Avulso");
+    const htmlOriginal = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    try {
+      const res = await fetch(`${API_MANUAL}/${idColeta}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pacotes_g: g_shopee + g_ml + g_avulso, g_shopee, g_ml, g_avulso })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(typeof err?.detail === "string" ? err.detail : "Não foi possível salvar a coleta.");
+      }
+      await atualizarPacotesGDoPeriodo();
+    } catch (e) {
+      if (window.Swal) Swal.fire({ icon: "error", title: "Erro ao salvar coleta", text: e?.message || "Falha ao salvar." });
+      btn.disabled = false;
+      btn.innerHTML = htmlOriginal;
+    }
+  }
+
+  // Recalcula só os Pacotes G do período, preservando as quantidades editadas no modal.
+  async function atualizarPacotesGDoPeriodo() {
+    const base = (qs("#fech-base")?.value || "").trim();
+    const periodo_inicio = qs("#fech-periodo-inicio")?.value || "";
+    const periodo_fim = qs("#fech-periodo-fim")?.value || "";
+    if (!base || !periodo_inicio || !periodo_fim) return;
+    try {
+      const res = await fetch(`${API_FECHAMENTOS}/calcular?${new URLSearchParams({ base, periodo_inicio, periodo_fim })}`, { credentials: "include" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(typeof err?.detail === "string" ? err.detail : "Não foi possível recalcular os Pacotes G.");
+      }
+      const calc = await res.json();
+      const gPorData = {};
+      (calc.itens || []).forEach((i) => { gPorData[i.data] = i; });
+      state.fechamentoItens.forEach((it) => {
+        const novo = gPorData[it.data];
+        CAMPOS_G_FECHAMENTO.forEach((c) => { it[c] = novo ? (novo[c] ?? 0) : 0; });
+      });
+      const datasAtuais = new Set(state.fechamentoItens.map((it) => it.data));
+      (calc.itens || []).forEach((i) => {
+        if (!datasAtuais.has(i.data) && (i.pacotes_g ?? 0) > 0) {
+          state.fechamentoItens.push({
+            data: i.data, shopee: 0, mercado_livre: 0, avulso: 0,
+            cancelados_shopee: 0, cancelados_ml: 0, cancelados_avulso: 0,
+            pacotes_g: i.pacotes_g ?? 0, g_shopee: i.g_shopee ?? 0, g_ml: i.g_ml ?? 0, g_avulso: i.g_avulso ?? 0
+          });
+        }
+      });
+      state.fechamentoItens.sort((a, b) => String(a.data).localeCompare(String(b.data)));
+      state.total_g_shopee = calc.total_g_shopee ?? 0;
+      state.total_g_ml = calc.total_g_ml ?? 0;
+      state.total_g_avulso = calc.total_g_avulso ?? 0;
+      state.total_pacotes_g = calc.total_pacotes_g ?? 0;
+
+      const ajusteG = state.ajustesFechamento.find((a) => isAjusteG(a));
+      if (state.total_pacotes_g === 0 && ajusteG && window.Swal) {
+        const r = await Swal.fire({
+          icon: "question",
+          title: "Remover ajuste de Pacotes G?",
+          html: `Não há mais Pacotes G no período. Deseja remover o ajuste de Pacotes G de <strong>${formatarMoeda(ajusteG.valor)}</strong>?`,
+          showCancelButton: true,
+          confirmButtonText: "Remover ajuste",
+          cancelButtonText: "Manter",
+          reverseButtons: true
+        });
+        if (r.isConfirmed) {
+          state.ajustesFechamento = state.ajustesFechamento.filter((a) => !isAjusteG(a));
+          renderListaAjustesBase();
+        }
+      }
+
+      renderTabelaFechamentoItens();
+      atualizarBlocoAjusteG();
+      atualizarResumoModal();
+      await carregarOrigemPacotesG();
+    } catch (e) {
+      if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: e?.message || "Falha ao atualizar Pacotes G." });
+    }
   }
 
   function atualizarBlocoAjusteG() {
@@ -1047,7 +1291,7 @@ async function carregarResumoCompleto() {
           ${inputCelula(it, idx, "shopee", dataBr)}
           ${inputCelula(it, idx, "mercado_livre", dataBr)}
           ${inputCelula(it, idx, "avulso", dataBr)}
-          <td class="text-center fech-col-g">${it.pacotes_g ?? 0}</td>
+          ${celulaG(it)}
           ${inputCelula(it, idx, "cancelados_shopee", dataBr)}
           ${inputCelula(it, idx, "cancelados_ml", dataBr)}
           ${inputCelula(it, idx, "cancelados_avulso", dataBr)}
@@ -1067,6 +1311,20 @@ async function carregarResumoCompleto() {
     });
     state.fechamentoItens.forEach((_, idx) => atualizarDestaquesLinha(idx));
     atualizarTotaisTabela();
+  }
+
+  function celulaG(it) {
+    const total = it.pacotes_g ?? 0;
+    const original = valorOriginalItem(it, "pacotes_g");
+    const alterado = original !== null && total !== original;
+    const dicas = [];
+    if (state.origemG.status === "ok" && total > 0) {
+      const leit = state.origemG.leituras.filter((l) => l.data === it.data).length;
+      const colet = state.origemG.coletas.filter((c) => c.data === it.data).reduce((acc, c) => acc + c.total, 0);
+      dicas.push(`${leit} de leitura · ${colet} de coleta`);
+    }
+    if (alterado) dicas.push(`Valor original: ${original}`);
+    return `<td class="text-center fech-col-g${alterado ? " fech-cell-alterada" : ""}"${dicas.length ? ` title="${escaparHtml(dicas.join(" — "))}"` : ""}>${total}</td>`;
   }
 
   function canceladosAcimaDoColetado(it) {
@@ -1318,7 +1576,30 @@ async function carregarResumoCompleto() {
     const totalG = state.total_pacotes_g ?? 0;
     const temAjusteG = state.ajustesFechamento.some((a) => isAjusteG(a));
     if (totalG > 0 && !temAjusteG) {
-      if (window.Swal) Swal.fire({ icon: "warning", title: "Ajuste de Pacotes G", text: "Existem Pacotes G neste período. Aplique o ajuste de Pacotes G antes de salvar ou remova os pacotes G do período." });
+      if (window.Swal) {
+        const o = state.origemG;
+        const itensAcao = [];
+        const valorUnitG = parseFloat(qs("#fech-ajuste-g-valor-unit")?.value || "0") || 0;
+        if (valorUnitG > 0) {
+          itensAcao.push("<li>O valor por pacote foi preenchido, mas o ajuste ainda não foi aplicado: informe o motivo e clique em <strong>Aplicar Ajuste de Pacotes G</strong>.</li>");
+        } else {
+          itensAcao.push("<li>Se os Pacotes G estão corretos: informe valor e motivo e clique em <strong>Aplicar Ajuste de Pacotes G</strong>.</li>");
+        }
+        if (o.status === "ok") {
+          if (o.leituras.length) itensAcao.push(`<li>${o.leituras.length} leitura(s) marcada(s) como G: para remover, desmarque o G do pedido em <strong>Registros</strong>.</li>`);
+          const manuais = o.coletas.filter((c) => c.origem === "manual");
+          if (manuais.length) itensAcao.push(`<li>${manuais.reduce((acc, c) => acc + c.total, 0)} Pacote(s) G de coleta manual: corrija direto no bloco <strong>Origem dos Pacotes G</strong>.</li>`);
+        } else {
+          itensAcao.push("<li>Para remover: desmarque o G do pedido em <strong>Registros</strong> ou edite a coleta manual.</li>");
+        }
+        await Swal.fire({
+          icon: "warning",
+          title: "Pacotes G sem ajuste",
+          html: `<div class="text-start small"><p class="mb-2">Existem ${totalG} Pacote(s) G neste período e nenhum ajuste foi aplicado.</p><ul class="ps-3 mb-0">${itensAcao.join("")}</ul></div>`,
+          confirmButtonText: "Entendi"
+        });
+        qs("#fech-ajuste-g-container")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
       return;
     }
 
@@ -1480,7 +1761,7 @@ async function carregarResumoCompleto() {
     const linhasDias = [];
     state.fechamentoItens.forEach((it) => {
       const o = orig.itensPorData[it.data];
-      const mudancas = CAMPOS_QTDE_FECHAMENTO
+      const mudancas = [...CAMPOS_QTDE_FECHAMENTO, "pacotes_g"]
         .filter((c) => (it[c] ?? 0) !== (o ? (o[c] ?? 0) : 0))
         .map((c) => `${ROTULOS_CAMPOS_FECHAMENTO[c]}: ${o ? (o[c] ?? 0) : 0} → <strong>${it[c] ?? 0}</strong>`);
       if (mudancas.length) linhasDias.push(`<li><strong>${fmtData(it.data)}</strong> — ${mudancas.join(", ")}</li>`);
@@ -1808,24 +2089,33 @@ async function carregarResumoCompleto() {
     modalShopee.value = shopee;
     modalMl.value = ml;
     modalAvulso.value = avulso;
-    const totalG = parseInt(pacotesG, 10) || 0;
-    // Distribui G somente em Shopee por padrão ao editar (user pode ajustar)
-    if (chkGshopee && inputGshopee && chkGml && inputGml && chkGavulso && inputGavulso) {
-      chkGml.checked = false;
-      chkGavulso.checked = false;
-      inputGml.disabled = true;
-      inputGavulso.disabled = true;
-      if (totalG > 0) {
-        chkGshopee.checked = true;
-        inputGshopee.disabled = false;
-        inputGshopee.value = String(totalG);
-      } else {
-        chkGshopee.checked = false;
-        inputGshopee.disabled = true;
-        inputGshopee.value = "1";
+    // O pacotes_g do resumo inclui leituras marcadas como G; o G da coleta vem de /coletas/.
+    let gColeta = null;
+    try {
+      const params = new URLSearchParams({ data_inicio: dataVal, data_fim: dataVal });
+      const res = await fetch(`${API_COLETAS}?${params}`, { credentials: "include" });
+      if (res.ok) {
+        const lista = await res.json();
+        const coleta = (Array.isArray(lista) ? lista : []).find((c) => String(c.id_coleta) === String(id));
+        if (coleta) gColeta = gDaColeta(coleta);
       }
+    } catch (err) {
+      console.error("Erro ao carregar Pacotes G da coleta:", err);
     }
-    if (modalPacotesG) modalPacotesG.value = String(Math.max(0, totalG));
+    if (!gColeta) {
+      const totalResumo = parseInt(pacotesG, 10) || 0;
+      gColeta = { gS: totalResumo, gM: 0, gA: 0, total: totalResumo };
+    }
+    const preencherG = (chk, input, valor) => {
+      if (!chk || !input) return;
+      chk.checked = valor > 0;
+      input.disabled = valor <= 0;
+      input.value = String(valor > 0 ? valor : 1);
+    };
+    preencherG(chkGshopee, inputGshopee, gColeta.gS);
+    preencherG(chkGml, inputGml, gColeta.gM);
+    preencherG(chkGavulso, inputGavulso, gColeta.gA);
+    if (modalPacotesG) modalPacotesG.value = String(Math.max(0, gColeta.total));
     modalData.disabled = true;
     modalBase.disabled = true;
     document.getElementById("modalColetaManualLabel").textContent = "Editar Coleta Manual";
