@@ -1,0 +1,59 @@
+// Depoimentos em formato de recibo impresso.
+
+.layout-wrapper.landing.rv-landing {
+  .rv-voices {
+    background: $rv-paper-2;
+    border-top: 1px solid $rv-ink;
+    border-bottom: 1px solid $rv-ink;
+    padding: 3.5rem 0 4rem;
+  }
+
+  .rv-voices__list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+
+    @media (max-width: 991.98px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .rv-receipt {
+    position: relative;
+    margin: 0;
+    background: #fff;
+    border: 1px solid $rv-ink;
+    padding: 1.5rem 1.4rem 1.25rem;
+    font-family: $rv-font-mono;
+
+    &::after {
+      content: "";
+      position: absolute;
+      left: -1px;
+      right: -1px;
+      bottom: -9px;
+      height: 9px;
+      background:
+        linear-gradient(-45deg, transparent 6px, #fff 6px) 0 0 / 12px 9px repeat-x,
+        linear-gradient(45deg, transparent 6px, #fff 6px) 0 0 / 12px 9px repeat-x;
+      filter: drop-shadow(0 1px 0 $rv-ink);
+    }
+
+    blockquote {
+      font-size: 1rem;
+      font-weight: 500;
+      line-height: 1.5;
+      color: $rv-ink;
+      margin: 0 0 1.25rem;
+    }
+
+    figcaption {
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: $rv-ink-muted;
+      padding-top: 0.75rem;
+      border-top: 1px dashed $rv-rule;
+    }
+  }
+}

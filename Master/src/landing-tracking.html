@@ -4,740 +4,394 @@
   @@include("partials/title-meta.html", {"title": "Gestão Inteligente de Entregas"})
   <link href="assets/libs/swiper/swiper-bundle.min.css" rel="stylesheet" type="text/css" />
   @@include("partials/head-css.html")
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 
 <body data-bs-spy="scroll" data-bs-target="#navbar-example">
-  <div class="layout-wrapper landing">
-    
+  <div class="layout-wrapper landing rv-landing">
+
     <nav class="navbar navbar-expand-lg navbar-landing fixed-top" id="navbar">
       <div class="container navbar-inner">
         <a class="navbar-brand rv-landing-brand" href="index.html">
           <img src="assets/images/logo_rotevo.png" alt="">
           <span class="rv-brand-name">ROT<span class="rv-e">E</span>VO</span>
         </a>
-        <button class="navbar-toggler py-0 fs-20 text-body" type="button" data-bs-toggle="collapse"
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
           data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
-          aria-label="Toggle navigation">
+          aria-label="Abrir menu">
           <i class="mdi mdi-menu"></i>
         </button>
 
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
-          <div class="nav-center-wrap">
-            <ul class="navbar-nav" id="navbar-example">
-              <li class="nav-item">
-                <a class="nav-link active" href="#hero">Início</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="#problema">O Custo</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="#publico">Público</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="#modulos">Sistema</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="#features">Indicadores</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="#integracoes">Integrações</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="#contato">Contato</a>
-              </li>
-            </ul>
+          <ul class="navbar-nav" id="navbar-example">
+            <li class="nav-item"><a class="nav-link" href="#como-funciona">Como funciona</a></li>
+            <li class="nav-item"><a class="nav-link" href="#etiquetas">Etiquetas</a></li>
+            <li class="nav-item"><a class="nav-link" href="#fechamento">Fechamento</a></li>
+            <li class="nav-item"><a class="nav-link" href="#contato">Contato</a></li>
+          </ul>
+          <div class="rv-nav-actions">
+            <a href="auth-signin-tracking-v2.html" class="rv-nav-login">Entrar</a>
+            <a href="https://wa.me/5511970485792" class="rv-btn rv-btn--primary" target="_blank" rel="noopener">
+              <i class="ri-whatsapp-line" aria-hidden="true"></i>Falar no WhatsApp
+            </a>
           </div>
-          <div class="nav-actions-wrap d-flex d-lg-none mt-2 pt-2 border-top">
-            <a href="auth-signin-tracking-v2.html" class="btn btn-link fw-medium text-decoration-none nav-login">Entrar</a>
-            <a href="#contato" class="btn btn-primary">Fale conosco</a>
-          </div>
-        </div>
-        <div class="nav-spacer d-none d-lg-block" aria-hidden="true"></div>
-        <div class="nav-actions-wrap flex-shrink-0 d-none d-lg-flex">
-          <a href="auth-signin-tracking-v2.html" class="btn btn-link fw-medium text-decoration-none nav-login">Entrar</a>
-          <a href="#contato" class="btn btn-primary">Fale conosco</a>
         </div>
       </div>
     </nav>
 
     <div class="vertical-overlay" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent.show"></div>
 
-    <section class="section pb-0 hero-section" id="hero">
-      <div class="bg-overlay bg-overlay-pattern"></div>
-      <div class="container">
-        <div class="row justify-content-center">
-          <div class="col-lg-10 col-sm-12">
-            <div class="text-center mt-lg-5 pt-5">
-              <span class="badge bg-success-subtle text-success fs-14 mb-3">Gestão para Operações Logísticas Terceirizadas</span>
-              <h1 class="display-5 fw-bold mb-4 lh-base">
-                Você pode estar perdendo dinheiro todos os dias sem perceber.<br>
-                Gestão estruturada gera lucro.
+    <main>
+      <section class="rv-hero" id="inicio">
+        <div class="container">
+          <div class="rv-hero__grid">
+            <div class="rv-hero__copy">
+              <p class="rv-kicker">Gestão de entregas last-mile</p>
+              <h1 class="rv-hero__title">
+                <span>Bipou.</span>
+                <span>Saiu.</span>
+                <span>Entregou.</span>
+                <span>Fechou.</span>
               </h1>
-              <p class="lead text-muted lh-base mb-4 fs-18">
-                Transportadoras e empresas terceirizadas precisam de rastreabilidade, controle financeiro e indicadores confiáveis.<br>
-                O ROTEVO organiza sua operação em tempo real.
+              <p class="rv-hero__lead">
+                O sistema de entregas que qualquer pessoa opera. Da coleta ao acerto do entregador,
+                cada pacote fica bipado, rastreado e conferido.
               </p>
-
-              <div class="d-flex gap-3 justify-content-center mt-4 flex-wrap">
-                <a href="#modulos" class="btn btn-outline-primary btn-lg">
-                  <i class="ri-eye-line me-2"></i>Ver como funciona
+              <div class="rv-hero__actions" id="rv-hero-actions">
+                <a href="https://wa.me/5511970485792" class="rv-btn rv-btn--primary rv-btn--lg" target="_blank" rel="noopener">
+                  <i class="ri-whatsapp-line" aria-hidden="true"></i>Falar no WhatsApp
                 </a>
-                <a href="#contato" class="btn btn-primary btn-lg">
-                  <i class="ri-whatsapp-line me-2"></i>Solicitar acesso
-                </a>
+                <a href="#como-funciona" class="rv-link-arrow">Ver como funciona <span aria-hidden="true">↓</span></a>
               </div>
-
-              <div class="row mt-5 pt-4 justify-content-center g-3">
-                <div class="col-auto">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="ri-checkbox-circle-fill text-success fs-20"></i>
-                    <span class="fw-semibold">Condições sob consulta</span>
-                  </div>
-                </div>
-            
-                <div class="col-auto">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="ri-checkbox-circle-fill text-success fs-20"></i>
-                    <span>Implantação simples</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section landing-bg-problema" id="problema">
-      <div class="container">
-        <div class="row align-items-center g-5 py-4">
-          <div class="col-lg-6 problema-col-text">
-            <h2 class="fw-bold mb-4 text-white">Quanto a desorganização está custando à sua empresa?</h2>
-            <ul class="problema-list list-unstyled text-white-50 fs-16 mb-4">
-              <li class="mb-3"><i class="ri-check-line me-2 text-success problema-list-icon"></i>Cada divergência no fechamento</li>
-              <li class="mb-3"><i class="ri-check-line me-2 text-success problema-list-icon"></i>Cada saída sem controle</li>
-              <li class="mb-3"><i class="ri-check-line me-2 text-success problema-list-icon"></i>Cada pacote sem rastreabilidade</li>
-            </ul>
-            <p class="text-white fs-16 mb-2">Impacta diretamente sua margem.</p>
-            <p class="text-white-50 fs-16 mb-2">Decisões baseadas em suposição custam caro.</p>
-            <p class="text-white-50 fs-16 mb-0">Sem indicadores confiáveis, decisões viram apostas.</p>
-          </div>
-          <div class="col-lg-5 col-xl-4">
-            <div class="problema-visual-box">
-              <p class="problema-intermediario mb-2">O problema não é volume.</p>
-              <p class="problema-destaque mb-0">É a ausência de controle.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section prejuizos-invisiveis" id="prejuizos-invisiveis">
-      <div class="container">
-        <div class="row justify-content-center">
-          <div class="col-lg-7 text-center">
-            <h2 class="fw-bold mb-4">Prejuízos invisíveis não aparecem no relatório.</h2>
-            <p class="text-muted fs-16 mb-2">
-              Pequenos erros diários se acumulam.<br>
-              No fim do mês, viram margem perdida.<br>
-              No fim do ano, viram crescimento travado.
-            </p>
-            <p class="fw-semibold text-dark mt-4 mb-0">
-              O prejuízo não nasce no fechamento. Ele nasce na falta de controle.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section bg-light" id="publico">
-      <div class="container">
-        <div class="row justify-content-center">
-          <div class="col-lg-8 text-center mb-5">
-            <h2 class="fw-bold mb-3">Desenvolvido para operações que terceirizam entregadores.</h2>
-          </div>
-        </div>
-        <div class="row g-4">
-          <div class="col-lg-6">
-            <div class="card module-card module-coletas h-100 shadow-sm">
-              <div class="card-body p-4">
-                <div class="feature-icon mb-3">
-                  <i class="ri-truck-line"></i>
-                </div>
-                <h3 class="fw-semibold mb-3">Para transportadoras</h3>
-                <p class="text-muted mb-0">
-                  Centralize coletas, saídas e custos por cliente em uma única visão.
-                  Tenha controle operacional e financeiro em tempo real para proteger sua margem.
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-6">
-            <div class="card module-card module-saidas h-100 shadow-sm">
-              <div class="card-body p-4">
-                <div class="feature-icon mb-3">
-                  <i class="ri-team-line"></i>
-                </div>
-                <h3 class="fw-semibold mb-3">Para Sub-bases terceirizadas</h3>
-                <p class="text-muted mb-0">
-                  Saiba exatamente qual entregador saiu com cada pacote.
-                  Reduza extravios, evite descontos indevidos e proteja sua rentabilidade com controle estruturado.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="controle-financeiro">
-      <div class="container">
-        <div class="row justify-content-center">
-          <div class="col-lg-8 text-center mb-4">
-            <h2 class="fw-bold mb-3">Controle financeiro claro. Sem surpresas no fechamento.</h2>
-            <p class="text-muted fs-16 mb-4">Saiba exatamente:</p>
-          </div>
-        </div>
-        <div class="row justify-content-center">
-          <div class="col-lg-6">
-            <ul class="list-unstyled text-muted fs-16">
-              <li class="mb-2"><i class="ri-check-line me-2 text-success"></i>Quanto cada entregador precisa receber</li>
-              <li class="mb-2"><i class="ri-check-line me-2 text-success"></i>Quanto cada cliente gerou de volume</li>
-              <li class="mb-2"><i class="ri-check-line me-2 text-success"></i>Onde estão seus cancelamentos</li>
-              <li class="mb-2"><i class="ri-check-line me-2 text-success"></i>Onde sua margem está sendo impactada</li>
-            </ul>
-            <p class="text-muted fs-16 mb-0 mt-3">Gestão baseada em dados elimina prejuízos silenciosos.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="estrutura-operacional" class="section">
-      <div class="container text-center">
-        <h2 class="fw-bold mb-3">Arquitetura operacional para quem contrata e para quem executa.</h2>
-        <p class="subtitle mt-3 mb-0">
-          Controle no nível estratégico da transportadora. Gestão no nível operacional da sub-base.
-        </p>
-        <div class="profile-switch mt-5">
-          <button type="button" class="switch-btn active" data-target="transportadora">
-            Transportadora
-          </button>
-          <button type="button" class="switch-btn" data-target="subbase">
-            Sub-base
-          </button>
-        </div>
-        <div class="mockup-wrapper mt-5">
-          <div class="mockup-content active" id="transportadora">
-            <div class="estrutura-box">
-              <h4>Visão Transportadora</h4>
-              <ul>
-                <li>Gestão de sellers, bases e sub-bases</li>
-                <li>Indicadores de SLA e performance operacional</li>
-                <li>Fechamento financeiro por cliente</li>
-                <li>Visão 360 da operação em tempo real</li>
+              <ul class="rv-hero__meta">
+                <li>Sem mensalidade fixa</li>
+                <li>Implantação acompanhada</li>
+                <li>Etiqueta pronta em segundos</li>
               </ul>
-              <p class="estrutura-frase">
-                Controle estratégico com visibilidade completa da operação e da margem.
+            </div>
+
+            <div class="rv-hero__visual">
+              <div class="rv-label" id="rv-hero-label" role="img" aria-label="Etiqueta de envio do pacote BR654321789SP, bipada às 14:32">
+                <div class="rv-label__head">
+                  <span class="rv-label__brand">ROTEVO</span>
+                  <span>Envio 1/1</span>
+                </div>
+                <div class="rv-label__barcode">
+                  <span class="rv-label__beam"></span>
+                </div>
+                <p class="rv-label__code">BR654321789SP</p>
+                <dl class="rv-label__fields">
+                  <div>
+                    <dt>Destinatário</dt>
+                    <dd>Joana M. — Rua das Flores, 123 · Centro</dd>
+                  </div>
+                  <div>
+                    <dt>Remetente</dt>
+                    <dd>Loja Aurora</dd>
+                  </div>
+                  <div>
+                    <dt>Entregador</dt>
+                    <dd>Carlos S.</dd>
+                  </div>
+                  <div>
+                    <dt>Peso</dt>
+                    <dd>0,8 kg</dd>
+                  </div>
+                </dl>
+                <span class="rv-stamp rv-label__stamp">Bipado<br>14:32</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rv-voices" aria-labelledby="rv-voices-title">
+        <div class="container">
+          <h2 class="rv-mono-title" id="rv-voices-title">O que ouvimos dos clientes</h2>
+          <div class="rv-voices__list">
+            <figure class="rv-receipt">
+              <blockquote>“Qualquer pessoa consegue operar, mesmo quem não entende de computador.”</blockquote>
+              <figcaption>Operação terceirizada</figcaption>
+            </figure>
+            <figure class="rv-receipt">
+              <blockquote>“É muito mais simples que os outros sistemas que a gente já usou.”</blockquote>
+              <figcaption>Transportadora</figcaption>
+            </figure>
+            <figure class="rv-receipt">
+              <blockquote>“Precisou de etiqueta, gera na hora e já imprime.”</blockquote>
+              <figcaption>Sub-base</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="rv-section" id="como-funciona">
+        <div class="container">
+          <header class="rv-section__head">
+            <p class="rv-kicker">Como funciona</p>
+            <h2 class="rv-title">Um pacote, do bipe ao fechamento.</h2>
+            <p class="rv-lead">
+              Siga o código <code class="rv-code">BR654321789SP</code>. Cada etapa fica registrada
+              e aparece para a gestão na hora, sem planilha paralela.
+            </p>
+          </header>
+
+          <ol class="rv-journey">
+            <li class="rv-journey__step">
+              <div class="rv-journey__marker"><span class="rv-journey__dot"></span><span class="rv-journey__num">01</span></div>
+              <h3 class="rv-journey__title">Coletado</h3>
+              <p class="rv-journey__time">08:12</p>
+              <p class="rv-journey__text">Bipado na coleta do seller. O pacote entra na operação com origem registrada.</p>
+              <div class="rv-screen rv-screen--phone" aria-hidden="true">
+                <div class="rv-screen__bar">Ler pacotes</div>
+                <div class="rv-scanview"><span class="rv-scanview__frame"></span></div>
+                <div class="rv-screen__row rv-screen__row--ok">
+                  <span class="rv-code">BR654321789SP</span><span class="rv-tag rv-tag--ok">Lido</span>
+                </div>
+                <div class="rv-screen__foot">Loja Aurora · 23 pacotes</div>
+              </div>
+            </li>
+            <li class="rv-journey__step">
+              <div class="rv-journey__marker"><span class="rv-journey__dot"></span><span class="rv-journey__num">02</span></div>
+              <h3 class="rv-journey__title">Saiu com Carlos</h3>
+              <p class="rv-journey__time">09:40</p>
+              <p class="rv-journey__text">A saída registra qual entregador levou cada pacote. Sem dúvida no fim do dia.</p>
+              <div class="rv-screen" aria-hidden="true">
+                <div class="rv-screen__bar">Saídas de hoje</div>
+                <div class="rv-screen__row"><span>Carlos S.</span><strong>38</strong></div>
+                <div class="rv-screen__row"><span>Ana P.</span><strong>41</strong></div>
+                <div class="rv-screen__row"><span>Pedro L.</span><strong>29</strong></div>
+                <div class="rv-screen__foot">108 pacotes em rua</div>
+              </div>
+            </li>
+            <li class="rv-journey__step">
+              <div class="rv-journey__marker"><span class="rv-journey__dot"></span><span class="rv-journey__num">03</span></div>
+              <h3 class="rv-journey__title">Em rota</h3>
+              <p class="rv-journey__time">10:05</p>
+              <p class="rv-journey__text">O entregador monta a rota no app e segue as paradas na ordem certa.</p>
+              <div class="rv-screen rv-screen--map" aria-hidden="true">
+                <svg viewBox="0 0 160 100" class="rv-map">
+                  <path d="M0 30h160M0 70h160M40 0v100M110 0v100" class="rv-map__street" />
+                  <polyline points="18,84 40,70 40,30 78,30 110,52 142,18" class="rv-map__route" />
+                  <circle cx="18" cy="84" r="5" class="rv-map__stop" />
+                  <circle cx="40" cy="30" r="5" class="rv-map__stop" />
+                  <circle cx="110" cy="52" r="5" class="rv-map__stop" />
+                  <circle cx="142" cy="18" r="6" class="rv-map__next" />
+                </svg>
+                <div class="rv-screen__foot">Próxima parada · 7 restantes</div>
+              </div>
+            </li>
+            <li class="rv-journey__step">
+              <div class="rv-journey__marker"><span class="rv-journey__dot"></span><span class="rv-journey__num">04</span></div>
+              <h3 class="rv-journey__title">Entregue com foto</h3>
+              <p class="rv-journey__time">14:32</p>
+              <p class="rv-journey__text">Comprovante com foto e nome de quem recebeu, no histórico do pacote.</p>
+              <div class="rv-screen" aria-hidden="true">
+                <div class="rv-screen__bar">Comprovante</div>
+                <div class="rv-photo"><i class="ri-camera-line"></i><span>Foto da entrega</span></div>
+                <div class="rv-screen__row"><span>Recebido por</span><strong>João</strong></div>
+              </div>
+            </li>
+            <li class="rv-journey__step">
+              <div class="rv-journey__marker"><span class="rv-journey__dot"></span><span class="rv-journey__num">05</span></div>
+              <h3 class="rv-journey__title">Fechado</h3>
+              <p class="rv-journey__time">Fim do dia</p>
+              <p class="rv-journey__text">A entrega entra sozinha no acerto do Carlos e no fechamento do cliente.</p>
+              <div class="rv-screen" aria-hidden="true">
+                <div class="rv-screen__bar">Acerto · Carlos S.</div>
+                <div class="rv-screen__row"><span class="rv-code">…789SP</span><strong>R$ 4,50</strong></div>
+                <div class="rv-screen__row"><span class="rv-code">…123SP</span><strong>R$ 4,50</strong></div>
+                <div class="rv-screen__row rv-screen__row--ok"><span>Total conferido</span><span class="rv-tag rv-tag--ok">OK</span></div>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="rv-section rv-section--rule" id="etiquetas">
+        <div class="container">
+          <div class="rv-split">
+            <div class="rv-split__copy">
+              <p class="rv-kicker">Etiquetas</p>
+              <h2 class="rv-title">Etiqueta pronta em segundos.</h2>
+              <p class="rv-lead">
+                Digite o código e a etiqueta sai pronta para imprimir. Se o pacote não tem etiqueta,
+                crie um envio próprio com remetente e destinatário.
               </p>
+              <ol class="rv-manifest">
+                <li><span class="rv-manifest__idx">01</span>Etiqueta a partir de um código existente</li>
+                <li><span class="rv-manifest__idx">02</span>Envio próprio com remetente e destinatário</li>
+                <li><span class="rv-manifest__idx">03</span>Pré-visualização antes de imprimir</li>
+              </ol>
+            </div>
+            <div class="rv-split__visual" aria-hidden="true">
+              <div class="rv-labelgen">
+                <div class="rv-labelgen__form">
+                  <span class="rv-labelgen__label">Código de rastreio</span>
+                  <div class="rv-labelgen__input">
+                    <span class="rv-code">BR987654321SP</span>
+                    <span class="rv-labelgen__btn">Gerar etiqueta</span>
+                  </div>
+                </div>
+                <div class="rv-labelgen__stack">
+                  <div class="rv-minilabel rv-minilabel--back"></div>
+                  <div class="rv-minilabel">
+                    <div class="rv-minilabel__barcode"></div>
+                    <p class="rv-code">BR987654321SP</p>
+                    <p class="rv-minilabel__line"><b>Para</b> Marcos T. — Av. Brasil, 900</p>
+                    <p class="rv-minilabel__line"><b>De</b> Loja Aurora</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rv-section rv-section--rule" id="perfis">
+        <div class="container">
+          <header class="rv-section__head">
+            <p class="rv-kicker">Para quem é</p>
+            <h2 class="rv-title">Quem contrata e quem executa, no mesmo sistema.</h2>
+          </header>
+
+          <div class="rv-switch profile-switch" role="group" aria-label="Escolha o perfil">
+            <button type="button" class="switch-btn active" data-target="transportadora">Transportadora</button>
+            <button type="button" class="switch-btn" data-target="subbase">Sub-base</button>
+          </div>
+
+          <div class="mockup-content active" id="transportadora">
+            <div class="rv-profile">
+              <p class="rv-profile__lead">Controle da operação inteira e da margem por cliente.</p>
+              <ol class="rv-manifest">
+                <li><span class="rv-manifest__idx">01</span>Sellers, bases e sub-bases em um só lugar</li>
+                <li><span class="rv-manifest__idx">02</span>Prazo e desempenho de cada operação</li>
+                <li><span class="rv-manifest__idx">03</span>Fechamento financeiro por cliente</li>
+                <li><span class="rv-manifest__idx">04</span>Visão da operação em tempo real</li>
+              </ol>
             </div>
           </div>
           <div class="mockup-content" id="subbase">
-            <div class="estrutura-box">
-              <h4>Visão Sub-base / Terceirizada</h4>
-              <ul>
-                <li>Gestão individual de entregadores</li>
-                <li>Rastreabilidade por pacote</li>
-                <li>Cálculo automático por volume</li>
-                <li>Indicadores de desempenho e margem</li>
-              </ul>
-              <p class="estrutura-frase">
-                Execução operacional com controle financeiro e redução real de prejuízos.
+            <div class="rv-profile">
+              <p class="rv-profile__lead">Cada entregador com seus pacotes e o acerto calculado sozinho.</p>
+              <ol class="rv-manifest">
+                <li><span class="rv-manifest__idx">01</span>Gestão individual de entregadores</li>
+                <li><span class="rv-manifest__idx">02</span>Rastreio de cada pacote, da coleta à entrega</li>
+                <li><span class="rv-manifest__idx">03</span>Valor por entregador calculado automaticamente</li>
+                <li><span class="rv-manifest__idx">04</span>Desempenho e margem da sua base</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rv-section rv-section--ink" id="fechamento">
+        <div class="container">
+          <div class="rv-split">
+            <div class="rv-split__copy">
+              <p class="rv-kicker">Fechamento</p>
+              <h2 class="rv-title">Fechamento sem discussão.</h2>
+              <p class="rv-lead">
+                Todo pacote que saiu tem destino registrado. O acerto do entregador sai pronto,
+                com as divergências à vista antes de virar desconto.
               </p>
+              <ol class="rv-manifest">
+                <li><span class="rv-manifest__idx">01</span>Quanto cada entregador tem a receber</li>
+                <li><span class="rv-manifest__idx">02</span>Quanto volume cada cliente gerou</li>
+                <li><span class="rv-manifest__idx">03</span>Onde estão ausências e cancelamentos</li>
+              </ol>
+            </div>
+            <div class="rv-split__visual">
+              <div class="rv-statement" role="img" aria-label="Exemplo de acerto do entregador: 142 pacotes saíram, 136 entregues, 4 ausentes, 2 sem baixa, total a pagar 612 reais">
+                <div class="rv-statement__head">
+                  <span>Acerto do entregador</span>
+                  <span>28/09</span>
+                </div>
+                <p class="rv-statement__name">Carlos Silva</p>
+                <dl class="rv-statement__rows">
+                  <div><dt>Saíram</dt><dd>142</dd></div>
+                  <div><dt>Entregues</dt><dd>136</dd></div>
+                  <div><dt>Ausentes</dt><dd>4</dd></div>
+                  <div class="rv-statement__alert"><dt>Sem baixa <span class="rv-tag rv-tag--alert">Divergência</span></dt><dd>2</dd></div>
+                  <div><dt>Valor por entrega</dt><dd>R$ 4,50</dd></div>
+                </dl>
+                <div class="rv-statement__total">
+                  <span>A pagar</span>
+                  <strong>R$ 612,00</strong>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="section bg-light" id="modulos">
-      <div class="container">
-        <div class="row justify-content-center">
-          <div class="col-lg-8 text-center mb-5">
-            <h2 class="fw-bold mb-3">
-              Transforme volume em controle. Transforme controle em margem.
-            </h2>
-          </div>
-        </div>
-        <div class="row g-4">
-          <div class="col-lg-6 col-xl-3">
-            <div class="card module-card module-coletas h-100 shadow-sm">
-              <div class="card-body p-4">
-                <div class="feature-icon mb-4">
-                  <i class="ri-inbox-archive-line"></i>
-                </div>
-                <h3 class="fw-semibold mb-3">Coletas</h3>
-                <p class="text-muted mb-0">
-                  Registre cada pacote com rastreabilidade desde a origem.
-                  Evite perdas já na entrada da operação.
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-6 col-xl-3">
-            <div class="card module-card module-saidas h-100 shadow-sm">
-              <div class="card-body p-4">
-                <div class="feature-icon mb-4">
-                  <i class="ri-truck-line"></i>
-                </div>
-                <div class="module-badge">Ponto crítico da operação</div>
-                <h3 class="fw-semibold mb-3">Saídas</h3>
-                <p class="text-muted mb-0">
-                  Tenha registro exato de qual entregador saiu com cada volume.
-                  Reduza extravios e elimine dúvidas no fechamento.
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-6 col-xl-3">
-            <div class="card module-card module-entregas h-100 shadow-sm">
-              <div class="card-body p-4">
-                <div class="feature-icon mb-4">
-                  <i class="ri-bar-chart-box-line"></i>
-                </div>
-                <h3 class="fw-semibold mb-3">Indicadores estratégicos</h3>
-                <p class="text-muted mb-0">
-                  Acompanhe volume, desempenho e cancelamentos com dados atualizados em tempo real.
-                  Decida com segurança.
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-6 col-xl-3">
-            <div class="card module-card h-100 shadow-sm">
-              <div class="card-body p-4">
-                <div class="feature-icon mb-4">
-                  <i class="ri-calculator-line"></i>
-                </div>
-                <h3 class="fw-semibold mb-3">Cálculo estruturado</h3>
-                <p class="text-muted mb-0">
-                  Automatize valores por entregador e por cliente.
-                  Fechamentos previsíveis, sem divergências.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+      <section class="rv-section" id="integracoes">
+        <div class="container">
+          <header class="rv-section__head">
+            <p class="rv-kicker">Integrações</p>
+            <h2 class="rv-title">Pedidos entram sem digitação.</h2>
+            <p class="rv-lead">Pedidos e códigos de rastreio importados direto dos marketplaces.</p>
+          </header>
+          <ul class="rv-integrations">
+            <li>
+              <img src="assets/images/landing/integracoes/logo-shopee.png" alt="Shopee">
+              <span>Pedidos sincronizados automaticamente</span>
+            </li>
+            <li>
+              <img src="assets/images/landing/integracoes/logo-mercado-envios.png" alt="Mercado Envios" class="rv-integrations__me">
+              <span>Códigos importados do Mercado Envios</span>
+            </li>
+            <li>
+              <i class="ri-barcode-box-line rv-integrations__icon" aria-hidden="true"></i>
+              <span><b>Avulsos</b> Cadastro manual com etiqueta e rastreio</span>
+            </li>
+          </ul>
 
-    <section class="section mockup-section landing-bg-preview" id="preview">
-      <div class="container">
-        <div class="row justify-content-center">
-          <div class="col-lg-8 text-center mb-5">
-            <h2 class="fw-bold mb-3">Sem informação em tempo real, sua margem fica vulnerável.</h2>
-            <p class="text-muted fs-16 mb-2">
-              No ROTEVO, assim que o entregador registra uma coleta ou saída,
-              a gestão já visualiza imediatamente.
-            </p>
-            <p class="text-muted fs-16 mb-0">
-              Sem retrabalho.<br>
-              Sem planilhas paralelas.<br>
-              Sem divergências futuras.<br><br>
-              <strong>Porque prejuízo não nasce no fechamento.<br>
-              Ele nasce na falta de controle.</strong>
-            </p>
+          <div class="rv-pricing">
+            <div>
+              <h3 class="rv-pricing__title">Você paga pelo que movimenta.</h3>
+              <p>Sem mensalidade fixa e sem fidelidade. As condições são definidas numa conversa, com implantação acompanhada.</p>
+            </div>
+            <p class="rv-pricing__note">Se não trouxer mais controle para a sua operação, você simplesmente não continua.</p>
           </div>
         </div>
-        <div class="row g-4 align-items-center">
-          <div class="col-lg-7">
-            <div class="mockup-frame">
-              <div class="mockup-toolbar">
-                <div class="mockup-dot mockup-dot-red"></div>
-                <div class="mockup-dot mockup-dot-yellow"></div>
-                <div class="mockup-dot mockup-dot-green"></div>
-                <span class="text-white-50 small ms-3">Painel de Controle Operacional — ROTEVO</span>
-              </div>
-              <div class="mockup-screen p-3 landing__mockup-screen">
-                <div class="row g-2 mb-3">
-                  <div class="col-3">
-                    <div class="bg-success-subtle p-2 rounded text-center">
-                      <div class="fs-4 fw-bold text-success">247</div>
-                      <small class="text-muted">Entregues</small>
-                    </div>
-                  </div>
-                  <div class="col-3">
-                    <div class="bg-warning-subtle p-2 rounded text-center">
-                      <div class="fs-4 fw-bold text-warning">38</div>
-                      <small class="text-muted">Em Rota</small>
-                    </div>
-                  </div>
-                  <div class="col-3">
-                    <div class="bg-info-subtle p-2 rounded text-center">
-                      <div class="fs-4 fw-bold text-info">156</div>
-                      <small class="text-muted">Coletados</small>
-                    </div>
-                  </div>
-                  <div class="col-3">
-                    <div class="bg-danger-subtle p-2 rounded text-center">
-                      <div class="fs-4 fw-bold text-danger">5</div>
-                      <small class="text-muted">Ocorrências</small>
-                    </div>
-                  </div>
-                </div>
-                <div class="bg-light rounded p-2 mb-2">
-                  <table class="table table-sm table-borderless mb-0 landing__mockup-table">
-                    <thead>
-                      <tr class="text-muted">
-                        <th>Código</th>
-                        <th>Entregador</th>
-                        <th>Status</th>
-                        <th>Hora</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td><code>BR789456123SP</code></td>
-                        <td>Carlos Silva</td>
-                        <td><span class="badge bg-success">Entregue</span></td>
-                        <td>14:32</td>
-                      </tr>
-                      <tr>
-                        <td><code>BR654321789SP</code></td>
-                        <td>Ana Santos</td>
-                        <td><span class="badge bg-warning">Em Rota</span></td>
-                        <td>14:28</td>
-                      </tr>
-                      <tr>
-                        <td><code>BR321654987SP</code></td>
-                        <td>Pedro Lima</td>
-                        <td><span class="badge bg-success">Entregue</span></td>
-                        <td>14:15</td>
-                      </tr>
-                      <tr>
-                        <td><code>BR159753486SP</code></td>
-                        <td>Maria Costa</td>
-                        <td><span class="badge bg-info">Coletado</span></td>
-                        <td>13:58</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="row g-2">
-                  <div class="col-6">
-                    <div class="bg-light rounded p-2 text-center">
-                      <small class="text-muted d-block">Entregadores Ativos</small>
-                      <div class="d-flex justify-content-center gap-1 mt-1">
-                        <div class="rounded-circle bg-success landing__mockup-avatar--sm">CS</div>
-                        <div class="rounded-circle bg-primary landing__mockup-avatar--sm">AS</div>
-                        <div class="rounded-circle bg-warning landing__mockup-avatar--sm">PL</div>
-                        <div class="rounded-circle bg-info landing__mockup-avatar--sm">MC</div>
-                        <div class="rounded-circle bg-secondary landing__mockup-avatar--sm">+3</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="col-6">
-                    <div class="bg-light rounded p-2 text-center">
-                      <small class="text-muted d-block">Taxa de Sucesso Hoje</small>
-                      <div class="fs-5 fw-bold text-success mt-1">98.2%</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-5">
-            <div class="mockup-frame mockup-frame-mobile">
-              <div class="mockup-toolbar justify-content-center">
-                <span class="text-white-50 small">App do Entregador</span>
-              </div>
-              <div class="mockup-screen p-3 landing__mockup-screen--mobile">
-                <div class="text-center mb-3">
-                  <div class="rounded-circle bg-success mx-auto mb-2 landing__mockup-avatar">
-                    <i class="ri-user-line text-white fs-4"></i>
-                  </div>
-                  <h6 class="mb-0">Carlos Silva</h6>
-                  <small class="text-muted">7 entregas restantes</small>
-                </div>
-                <div class="bg-warning-subtle rounded p-2 mb-2">
-                  <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                      <small class="text-muted d-block">Proxima Entrega</small>
-                      <strong class="landing__mockup-code">BR654321789SP</strong>
-                    </div>
-                    <span class="badge bg-warning">Pendente</span>
-                  </div>
-                  <hr class="my-2">
-                  <small class="text-muted"><i class="ri-map-pin-line"></i> Rua das Flores, 123 - Centro</small>
-                </div>
-                <div class="bg-light rounded p-2 mb-2">
-                  <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                      <small class="text-muted d-block">Entrega Concluida</small>
-                      <strong class="landing__mockup-code">BR789456123SP</strong>
-                    </div>
-                    <span class="badge bg-success">Entregue</span>
-                  </div>
-                  <small class="text-muted"><i class="ri-time-line"></i> 14:32 - Joao recebeu</small>
-                </div>
-                <div class="bg-light rounded p-2 mb-2">
-                  <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                      <small class="text-muted d-block">Entrega Concluida</small>
-                      <strong class="landing__mockup-code">BR321654987SP</strong>
-                    </div>
-                    <span class="badge bg-success">Entregue</span>
-                  </div>
-                  <small class="text-muted"><i class="ri-time-line"></i> 14:15 - Maria recebeu</small>
-                </div>
-                <button class="btn btn-success w-100 mt-2">
-                  <i class="ri-camera-line me-1"></i> Confirmar Entrega com Registro
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="section bg-light section-divider" id="features">
-      <div class="container">
-        <div class="row justify-content-center mb-5">
-          <div class="col-lg-8 text-center">
-            <h2 class="fw-bold mb-3">Quem mede, melhora. Quem controla, lucra.</h2>
-            <p class="text-muted fs-16 mb-0">Tenha acesso a:</p>
-          </div>
-        </div>
-        <div class="row justify-content-center g-4">
-          <div class="col-lg-5 col-md-6">
-            <ul class="list-unstyled text-muted fs-16 features-list">
-              <li class="mb-3"><i class="ri-check-line me-2 text-success features-list-icon"></i>Volume por base e por cliente</li>
-              <li class="mb-3"><i class="ri-check-line me-2 text-success features-list-icon"></i>Desempenho individual por entregador</li>
-              <li class="mb-3"><i class="ri-check-line me-2 text-success features-list-icon"></i>Taxa real de cancelamento e impacto na margem</li>
-            </ul>
-          </div>
-          <div class="col-lg-5 col-md-6">
-            <ul class="list-unstyled text-muted fs-16 features-list">
-              <li class="mb-3"><i class="ri-check-line me-2 text-success features-list-icon"></i>Capacidade operacional vs demanda diária</li>
-              <li class="mb-3"><i class="ri-check-line me-2 text-success features-list-icon"></i>Indicadores financeiros e operacionais em tempo real</li>
-            </ul>
-            <p class="text-muted fs-16 mb-0 mt-4 fw-medium">
-              Decisão baseada em dados reduz risco, aumenta previsibilidade e protege sua margem.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section landing-bg-autoridade section-divider" id="autoridade">
-      <div class="container">
-        <div class="row justify-content-center mb-4">
-          <div class="col-lg-10">
-            <h2 class="fw-bold mb-4 text-center">Estrutura profissional para operações que lidam com responsabilidade.</h2>
-            <div class="row g-4">
-              <div class="col-md-6">
-                <p class="text-muted fs-16 mb-0">Transportadoras e empresas terceirizadas movimentam dinheiro, prazos e reputação.</p>
-              </div>
-              <div class="col-md-6">
-                <div class="autoridade-highlight-box">
-                  <p class="fw-semibold mb-0">
-                    Erro operacional custa dinheiro.<br>
-                    Falta de controle custa reputação.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <p class="text-muted fs-16 mb-4 mt-4 text-center">O ROTEVO foi desenvolvido para operações que não podem errar:</p>
-          </div>
-        </div>
-        <div class="row justify-content-center">
-          <div class="col-lg-10">
-            <ul class="list-unstyled text-muted fs-16 autoridade-list">
-              <li class="mb-3"><i class="ri-check-line me-2 text-success autoridade-list-icon"></i>Trabalham com múltiplos entregadores</li>
-              <li class="mb-3"><i class="ri-check-line me-2 text-success autoridade-list-icon"></i>Precisam de controle financeiro rigoroso</li>
-              <li class="mb-3"><i class="ri-check-line me-2 text-success autoridade-list-icon"></i>Movimentam volume diariamente</li>
-              <li class="mb-3"><i class="ri-check-line me-2 text-success autoridade-list-icon"></i>Não podem correr risco operacional</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="modelo">
-      <div class="container">
-        <div class="row justify-content-center">
-          <div class="col-lg-8 text-center mb-4">
-            <h2 class="fw-bold mb-3">Modelo simples e transparente.</h2>
-            <p class="text-muted fs-16 mb-4">
-              Você paga apenas pelo que movimenta.<br>
-              Sem mensalidade fixa.<br>
-              Sem contrato de fidelidade.<br>
-              Cresce conforme seu volume cresce.
-            </p>
-            <ul class="list-unstyled text-muted fs-16">
-              <li class="mb-2"><i class="ri-checkbox-circle-fill text-success me-2"></i>Condições definidas em conversa comercial</li>
-              <li class="mb-2"><i class="ri-checkbox-circle-fill text-success me-2"></i>Acesso completo</li>
-              <li class="mb-2"><i class="ri-checkbox-circle-fill text-success me-2"></i>Suporte para implantação</li>
-            </ul>
-            <p class="fw-semibold mt-4">
-              Se o sistema não gerar mais controle e previsibilidade,
-              você simplesmente não continua.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="integracoes">
-      <div class="container">
-        <div class="row justify-content-center">
-          <div class="col-lg-8 text-center mb-5">
-            <span class="badge bg-warning-subtle text-warning fs-14 mb-2">Integrações</span>
-            <h2 class="fw-bold mb-3">
-              Integração direta com os principais marketplaces
-            </h2>
-            <p class="text-muted fs-16">
-              Importação automática de pedidos e códigos de rastreio, sem intervenção manual.<br>
-              Sem digitação manual. Sem retrabalho operacional.
-            </p>
-          </div>
-        </div>
-        <div class="row justify-content-center align-items-stretch g-4">
-          <div class="col-md-4">
-            <div class="integration-card text-center h-100">
-              <img src="assets/images/landing/integracoes/logo-shopee.png" class="integration-logo mb-3" alt="Shopee">
-              <h5 class="fw-semibold mb-2">Shopee</h5>
-              <p class="text-muted fs-14 mb-0">
-                Sincronização automática de pedidos.
-              </p>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="integration-card text-center h-100">
-              <img src="assets/images/landing/integracoes/logo-mercado-envios.png" class="integration-logo integration-logo--mercado-envios mb-3" alt="Mercado Envios">
-              <h5 class="fw-semibold mb-2">Mercado Envios</h5>
-              <p class="text-muted fs-14 mb-0">
-                Integração com Mercado Envios.
-              </p>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="integration-card text-center h-100">
-              <div class="integration-logo integration-logo-placeholder mb-3 d-flex align-items-center justify-content-center mx-auto">
-                <i class="ri-barcode-box-line fs-1 text-secondary"></i>
-              </div>
-              <h5 class="fw-semibold mb-2">Avulsos</h5>
-              <p class="text-muted fs-14 mb-0">
-                Cadastro manual com rastreabilidade.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section bg-light" id="contato">
-      <div class="container">
-        <div class="row justify-content-center">
-          <div class="col-lg-8 text-center mb-5">
-            <span class="badge bg-primary-subtle text-primary fs-14 mb-2">Contato</span>
-            <h2 class="fw-bold mb-3">
-              Pronto para ter controle total da sua operação?
-            </h2>
-            <p class="text-muted fs-16">
-              Agende uma demonstração personalizada e descubra como reduzir prejuízos operacionais e aumentar sua margem.
-            </p>
-            <ul class="list-unstyled text-muted fs-15 mb-4">
-              <li class="mb-2"><i class="ri-check-line text-success me-2"></i>Demonstração ao vivo do sistema</li>
-              <li class="mb-2"><i class="ri-check-line text-success me-2"></i>Análise do seu modelo atual</li>
-              <li class="mb-2"><i class="ri-check-line text-success me-2"></i>Simulação de fechamento financeiro</li>
-            </ul>
-          </div>
-        </div>
-        <div class="row justify-content-center g-4">
-          <div class="col-lg-4 col-md-6">
-            <div class="card contact-card h-100 text-center">
-              <div class="card-body p-4">
-                <div class="avatar-md mx-auto mb-3">
-                  <div class="avatar-title bg-success-subtle text-success rounded-circle fs-24">
-                    <i class="ri-whatsapp-line"></i>
-                  </div>
-                </div>
-                <h5 class="fw-semibold">WhatsApp</h5>
-                <p class="text-muted mb-3">Atendimento comercial</p>
-                <a href="https://wa.me/5511970485792" class="btn btn-success btn-whatsapp">
-                  <i class="ri-whatsapp-line me-1"></i>Falar com especialista agora
-                </a>
-              </div>
-            </div>
-          </div>
-          <!--
-          <div class="col-lg-4 col-md-6">
-            <div class="card contact-card h-100 text-center">
-              <div class="card-body p-4">
-                <div class="avatar-md mx-auto mb-3">
-                  <div class="avatar-title bg-primary-subtle text-primary rounded-circle fs-24">
-                    <i class="ri-mail-line"></i>
-                  </div>
-                </div>
-                <h5 class="fw-semibold">E-mail</h5>
-                <p class="text-muted mb-3">Fale com a operação</p>
-                <a href="#contato" class="btn btn-primary btn-email">
-                  <i class="ri-mail-line me-1"></i>Solicitar proposta personalizada
-                </a>
-              </div>
-            </div>
-          </div>
-          -->
-        </div>
-        <div class="row justify-content-center mt-4">
-          <div class="col-lg-6 text-center">
-            <p class="text-muted small mb-0">
-              <i class="ri-time-line me-1"></i>Atendimento: Segunda a Sábado, horário comercial
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="cta-final" class="section cta-section landing-bg-cta text-white">
-      <div class="container">
-        <div class="row justify-content-center">
-          <div class="col-lg-8 text-center">
-            <h2 class="fw-bold mb-4">
-              Você controla sua operação ou está apenas reagindo a ela?
-            </h2>
-            <p class="cta-label">Implantação simples. Negociação pessoal.</p>
-            <a href="#contato" class="btn btn-light btn-lg mb-3">
-              <i class="ri-whatsapp-line me-2"></i>Fale conosco
+      <section class="rv-cta" id="contato">
+        <div class="container">
+          <h2 class="rv-cta__title">Sua operação, bipada e conferida.</h2>
+          <p class="rv-cta__lead">Mostramos o sistema com a sua realidade: seus clientes, seus entregadores e o seu fechamento.</p>
+          <div class="rv-cta__actions" id="rv-cta-actions">
+            <a href="https://wa.me/5511970485792" class="rv-btn rv-btn--primary rv-btn--lg" target="_blank" rel="noopener">
+              <i class="ri-whatsapp-line" aria-hidden="true"></i>Falar no WhatsApp
             </a>
-            <p class="cta-secondary mb-0">
-              Estruture sua operação antes que o próximo erro vire prejuízo.<br>
-              Condições sob consulta. Sem compromisso.
-            </p>
+            <a href="auth-signin-tracking-v2.html" class="rv-link-arrow">Já sou cliente · Entrar <span aria-hidden="true">→</span></a>
           </div>
+          <p class="rv-cta__hours">Atendimento de segunda a sábado, em horário comercial.</p>
         </div>
-      </div>
-    </section>
+      </section>
+    </main>
 
-    <footer class="bg-dark text-white py-4">
-      <div class="container">
-        <div class="row align-items-center">
-          <div class="col-lg-6">
-            <p class="mb-0">&copy; <span id="current-year"></span> ROTEVO. Todos os direitos reservados.</p>
-          </div>
-          <div class="col-lg-6 text-lg-end">
-            <a href="politica-de-privacidade.html" class="text-white-50 small text-decoration-none me-3">Política de Privacidade</a>
-            <span class="text-muted small">Gestão profissional para operações logísticas terceirizadas</span>
-          </div>
-        </div>
+    <footer class="rv-footer">
+      <div class="container rv-footer__inner">
+        <p>&copy; <span id="current-year"></span> ROTEVO. Gestão de entregas para operações terceirizadas.</p>
+        <a href="politica-de-privacidade.html">Política de Privacidade</a>
       </div>
     </footer>
+
+    <div class="rv-sticky-cta" id="rv-sticky-cta" aria-hidden="true">
+      <a href="https://wa.me/5511970485792" class="rv-btn rv-btn--primary rv-btn--lg" target="_blank" rel="noopener" tabindex="-1">
+        <i class="ri-whatsapp-line" aria-hidden="true"></i>Falar no WhatsApp
+      </a>
+    </div>
 
   </div>
 
   @@include("partials/vendor-scripts.html")
   <script src="assets/libs/swiper/swiper-bundle.min.js"></script>
-  <script src="assets/js/pages/landing.init.js"></script>
+  <script src="assets/js/pages/landing.init.js?v=rv-etiqueta-2"></script>
   <script>document.getElementById('current-year')&&(document.getElementById('current-year').textContent=new Date().getFullYear());</script>
 </body>
 

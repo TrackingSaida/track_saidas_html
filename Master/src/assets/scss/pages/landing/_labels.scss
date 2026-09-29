@@ -1,0 +1,93 @@
+// Etiquetas — campo de código gerando a etiqueta impressa.
+
+.layout-wrapper.landing.rv-landing {
+  .rv-labelgen {
+    max-width: 440px;
+    margin: 0 auto;
+  }
+
+  .rv-labelgen__form {
+    background: #fff;
+    border: 2px solid $rv-ink;
+    padding: 1rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .rv-labelgen__label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+  }
+
+  .rv-labelgen__input {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid $rv-ink;
+
+    .rv-code {
+      flex: 1;
+      padding: 0.6rem 0.75rem;
+    }
+  }
+
+  .rv-labelgen__btn {
+    background: $rv-ink;
+    color: $rv-paper;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.6rem 0.9rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .rv-labelgen__stack {
+    position: relative;
+    margin: -2px auto 0;
+    width: 86%;
+  }
+
+  .rv-minilabel {
+    position: relative;
+    background: #fff;
+    border: 2px solid $rv-ink;
+    border-top-style: dashed;
+    box-shadow: $rv-shadow-print;
+    padding: 1.1rem 1.1rem 1.2rem;
+    font-family: $rv-font-mono;
+
+    .rv-code {
+      display: block;
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 0.6rem 0 0.7rem;
+    }
+  }
+
+  .rv-minilabel--back {
+    position: absolute;
+    inset: 14px -14px -14px 14px;
+    box-shadow: none;
+    background: $rv-paper-2;
+  }
+
+  .rv-minilabel__barcode {
+    @include rv-barcode(56px);
+  }
+
+  .rv-minilabel__line {
+    font-size: 0.78rem;
+    margin: 0.2rem 0 0;
+
+    b {
+      display: inline-block;
+      min-width: 2.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.66rem;
+      letter-spacing: 0.1em;
+      color: $rv-ink-muted;
+    }
+  }
+}

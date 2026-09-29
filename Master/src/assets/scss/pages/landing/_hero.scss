@@ -1,104 +1,241 @@
-// Hero – fundo escuro, ondas, CTA
+// Hero — manchete em quatro verbos + etiqueta térmica que é "bipada" ao carregar.
 
-.layout-wrapper.landing .hero-section {
-  min-height: 90vh;
-  display: flex;
-  align-items: center;
-  position: relative;
-  background-color: $primary-dark;
-  background-image: linear-gradient(rgba($primary-dark, 0.88), rgba($primary-dark, 0.88)),
-    url("../images/landing/1713093285.png");
-  background-position: 0 0, bottom right;
-  background-size: 100% 100%, contain;
-  background-repeat: no-repeat, no-repeat;
-  padding-top: 5rem;
-  padding-bottom: 5rem;
+@mixin rv-barcode($height) {
+  height: $height;
+  background-color: transparent;
+  background-image:
+    repeating-linear-gradient(90deg,
+      $rv-ink 0 3px, transparent 3px 5px, $rv-ink 5px 6px, transparent 6px 9px,
+      $rv-ink 9px 13px, transparent 13px 14px, $rv-ink 14px 15px, transparent 15px 19px),
+    repeating-linear-gradient(90deg,
+      transparent 0 7px, $rv-ink 7px 8px, transparent 8px 17px, $rv-ink 17px 19px, transparent 19px 29px);
+}
 
-  .bg-overlay,
-  .bg-overlay-pattern {
-    background-image: none !important;
-    background-color: transparent !important;
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
+.layout-wrapper.landing.rv-landing {
+  .rv-hero {
+    padding: calc(#{$rv-nav-height} + 4.5rem) 0 5.5rem;
+    overflow: hidden;
+
+    @media (max-width: 767.98px) {
+      padding: calc(#{$rv-nav-height} + 2.5rem) 0 4rem;
+    }
   }
 
-  .container {
+  .rv-hero__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 3.5rem;
+    align-items: center;
+
+    @media (max-width: 991.98px) {
+      grid-template-columns: 1fr;
+      gap: 3.5rem;
+    }
+  }
+
+  .rv-hero__title {
+    font-family: $rv-font-display;
+    font-stretch: 72%;
+    font-weight: 900;
+    font-size: clamp(3.4rem, 8.2vw, 7rem);
+    line-height: 0.86;
+    letter-spacing: -0.015em;
+    text-transform: uppercase;
+    color: $rv-ink;
+    margin: 0 0 1.75rem;
+
+    span {
+      display: block;
+    }
+  }
+
+  .rv-hero__lead {
+    font-size: 1.2rem;
+    line-height: 1.5;
+    color: $rv-ink-muted;
+    max-width: 32rem;
+    text-wrap: pretty;
+    margin: 0 0 2rem;
+  }
+
+  .rv-hero__actions {
+    display: flex;
+    align-items: center;
+    gap: 1.75rem;
+    flex-wrap: wrap;
+  }
+
+  .rv-hero__meta {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    padding: 1.25rem 0 0;
+    margin: 2.25rem 0 0;
+    border-top: 1px dashed $rv-rule;
+    font-family: $rv-font-mono;
+    font-size: 0.8rem;
+    color: $rv-ink-muted;
+
+    li::before {
+      content: "▪";
+      margin-right: 0.5rem;
+      color: $rv-ink;
+    }
+  }
+
+  .rv-hero__visual {
+    display: flex;
+    justify-content: center;
+  }
+
+  // Etiqueta
+  .rv-label {
     position: relative;
-    z-index: 1;
-  }
+    width: min(100%, 460px);
+    background: #fff;
+    border: 2px solid $rv-ink;
+    box-shadow: $rv-shadow-print;
+    padding: 1.4rem 1.5rem 1.6rem;
+    transform: rotate(-2.5deg);
+    font-family: $rv-font-mono;
+    color: $rv-ink;
 
-  .badge {
-    background: rgba($accent-green, 0.15) !important;
-    color: $accent-green !important;
-    font-size: 0.8125rem;
-    padding: 0.35rem 0.75rem;
-    font-weight: 500;
-  }
-
-  h1 {
-    color: #fff !important;
-    font-weight: 800 !important;
-    letter-spacing: -0.5px;
-    line-height: 1.15 !important;
-    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  }
-
-  .lead {
-    color: rgba(255, 255, 255, 0.85) !important;
-    max-width: 720px;
-    margin-left: auto;
-    margin-right: auto;
-    font-weight: 400;
-  }
-
-  .btn-primary {
-    background: $accent-green !important;
-    border-color: $accent-green !important;
-    color: #fff !important;
-    box-shadow: 0 12px 30px rgba($accent-green, 0.35);
-    border-radius: $landing-radius;
-    transition: all $landing-transition;
-
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 18px 40px rgba($accent-green, 0.45);
-      background: $accent-green !important;
-      border-color: $accent-green !important;
-      color: #fff !important;
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border: 1px dashed rgba(11, 11, 12, 0.35);
+      pointer-events: none;
     }
   }
 
-  .btn-outline-primary {
-    border: 1px solid rgba(255, 255, 255, 0.4) !important;
-    color: #fff !important;
-    background: transparent !important;
-    border-radius: $landing-radius;
+  .rv-label__head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid $rv-ink;
+  }
 
-    &:hover {
-      background: rgba(255, 255, 255, 0.08) !important;
-      border-color: rgba(255, 255, 255, 0.4) !important;
-      color: #fff !important;
+  .rv-label__brand {
+    font-family: $rv-font-display;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+  }
+
+  .rv-label__barcode {
+    position: relative;
+    @include rv-barcode(96px);
+  }
+
+  .rv-label__beam {
+    position: absolute;
+    left: -6%;
+    right: -6%;
+    top: 50%;
+    height: 3px;
+    background: $rv-scan;
+    box-shadow: 0 0 12px 2px rgba(132, 204, 22, 0.7);
+    opacity: 0;
+  }
+
+  .rv-label__code {
+    font-size: clamp(1.4rem, 2.6vw, 1.85rem);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    margin: 0.75rem 0 1rem;
+  }
+
+  .rv-label__fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem 1rem;
+    margin: 0;
+    padding-top: 0.9rem;
+    border-top: 1px solid $rv-ink;
+
+    div:first-child {
+      grid-column: 1 / -1;
+    }
+
+    dt {
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: $rv-ink-muted;
+    }
+
+    dd {
+      font-size: 0.88rem;
+      font-weight: 500;
+      margin: 0;
     }
   }
 
-  .text-success {
-    color: $accent-green !important;
+  .rv-label__stamp {
+    position: absolute;
+    right: 1.25rem;
+    bottom: 1.5rem;
+    transform: rotate(-9deg) scale(1);
+    font-size: 1.15rem;
   }
 
-  .fw-semibold {
-    color: #fff !important;
+  .rv-label.is-armed .rv-label__stamp {
+    opacity: 0;
   }
 
-  .row.mt-5 {
-    margin-top: 3rem !important;
-    gap: 1.25rem;
+  .rv-label.is-scanning .rv-label__beam {
+    animation: rv-scan-beam 1.1s ease-in-out forwards;
+  }
 
-    .col-auto span {
-      color: rgba(255, 255, 255, 0.85) !important;
+  .rv-label.is-scanning .rv-label__stamp {
+    animation: rv-stamp-in 0.28s cubic-bezier(0.2, 1.4, 0.4, 1) 1.05s forwards;
+  }
+
+  @keyframes rv-scan-beam {
+    0% { top: 0; opacity: 0; }
+    12% { opacity: 1; }
+    50% { top: 100%; }
+    88% { opacity: 1; }
+    100% { top: 0; opacity: 0; }
+  }
+
+  @keyframes rv-stamp-in {
+    from { opacity: 0; transform: rotate(-9deg) scale(1.6); }
+    to { opacity: 1; transform: rotate(-9deg) scale(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rv-label.is-scanning .rv-label__beam {
+      animation: none;
     }
-    .col-auto .fw-semibold {
-      color: #fff !important;
+
+    .rv-label.is-armed .rv-label__stamp {
+      animation: none;
+      opacity: 1;
+    }
+  }
+
+  @media (max-width: 575.98px) {
+    .rv-label {
+      width: calc(100% - 24px);
+      padding: 1.1rem 1.1rem 1.3rem;
+    }
+
+    .rv-label__barcode {
+      height: 72px;
+    }
+
+    .rv-label__stamp {
+      font-size: 0.95rem;
+      right: 0.9rem;
+      bottom: 1.1rem;
     }
   }
 }

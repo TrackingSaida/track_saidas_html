@@ -1,0 +1,66 @@
+// Perfis — alternância Transportadora / Sub-base (classes usadas pelo landing.init.js).
+
+.layout-wrapper.landing.rv-landing {
+  .rv-switch {
+    display: inline-flex;
+    border: 2px solid $rv-ink;
+    margin-bottom: 2.5rem;
+
+    .switch-btn {
+      font-family: $rv-font-mono;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: transparent;
+      color: $rv-ink;
+      border: 0;
+      border-radius: 0;
+      padding: 0.75rem 1.4rem;
+      cursor: pointer;
+
+      & + .switch-btn {
+        border-left: 2px solid $rv-ink;
+      }
+
+      &.active {
+        background: $rv-ink;
+        color: $rv-paper;
+      }
+    }
+  }
+
+  .mockup-content {
+    display: none;
+
+    &.active {
+      display: block;
+    }
+  }
+
+  .rv-profile {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 3rem;
+    align-items: start;
+
+    .rv-manifest {
+      margin-top: 0;
+    }
+
+    @media (max-width: 991.98px) {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+  }
+
+  .rv-profile__lead {
+    font-family: $rv-font-display;
+    font-stretch: 85%;
+    font-weight: 700;
+    font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 0;
+  }
+}
