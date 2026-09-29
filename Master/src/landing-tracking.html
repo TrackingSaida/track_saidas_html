@@ -107,6 +107,71 @@
         </div>
       </section>
 
+      <section class="rv-route" id="rv-route" aria-label="Percurso de um pacote: coleta, base, saída, entrega e fechamento">
+        <div class="container">
+          <div class="rv-route__head" aria-hidden="true">
+            <span class="rv-route__code">BR654321789SP</span>
+            <span class="rv-route__status">Status: <strong id="rv-route-status">Fechado</strong></span>
+          </div>
+
+          <svg class="rv-route__svg rv-route__svg--wide" viewBox="0 0 1200 220" aria-hidden="true" focusable="false">
+            <path class="rv-route__ghost" d="M20 150 H250 Q270 150 270 130 V90 Q270 70 290 70 H510 Q530 70 530 90 V130 Q530 150 550 150 H770 Q790 150 790 130 V90 Q790 70 810 70 H1030 Q1050 70 1050 90 V130 Q1050 150 1070 150 H1180"/>
+            <path class="rv-route__line" d="M20 150 H250 Q270 150 270 130 V90 Q270 70 290 70 H510 Q530 70 530 90 V130 Q530 150 550 150 H770 Q790 150 790 130 V90 Q790 70 810 70 H1030 Q1050 70 1050 90 V130 Q1050 150 1070 150 H1180"/>
+            <g class="rv-route__pin" data-status="Coletado" transform="translate(80 150)">
+              <circle class="rv-route__ring" r="9"/><circle class="rv-route__dot" r="9"/>
+              <text class="rv-route__label" y="38" text-anchor="middle">01 Coleta</text>
+            </g>
+            <g class="rv-route__pin" data-status="Na base" transform="translate(340 70)">
+              <circle class="rv-route__ring" r="9"/><circle class="rv-route__dot" r="9"/>
+              <text class="rv-route__label" y="-24" text-anchor="middle">02 Base</text>
+            </g>
+            <g class="rv-route__pin" data-status="Saiu para entrega" transform="translate(600 150)">
+              <circle class="rv-route__ring" r="9"/><circle class="rv-route__dot" r="9"/>
+              <text class="rv-route__label" y="38" text-anchor="middle">03 Saída</text>
+            </g>
+            <g class="rv-route__pin" data-status="Entregue" transform="translate(860 70)">
+              <circle class="rv-route__ring" r="9"/><circle class="rv-route__dot" r="9"/>
+              <text class="rv-route__label" y="-24" text-anchor="middle">04 Entrega</text>
+            </g>
+            <g class="rv-route__pin" data-status="Fechado" transform="translate(1120 150)">
+              <circle class="rv-route__ring" r="9"/><circle class="rv-route__dot" r="9"/>
+              <text class="rv-route__label" y="38" text-anchor="middle">05 Fechamento</text>
+            </g>
+            <g class="rv-route__parcel" transform="translate(1180 150)">
+              <rect x="-9" y="-9" width="18" height="18"/><path d="M-9 -2 H9 M0 -9 V-2"/>
+            </g>
+          </svg>
+
+          <svg class="rv-route__svg rv-route__svg--narrow" viewBox="0 0 340 340" aria-hidden="true" focusable="false">
+            <path class="rv-route__ghost" d="M60 0 V50 Q60 65 75 65 H265 Q280 65 280 80 V120 Q280 135 265 135 H75 Q60 135 60 150 V190 Q60 205 75 205 H265 Q280 205 280 220 V260 Q280 275 265 275 H75 Q60 275 60 290 V340"/>
+            <path class="rv-route__line" d="M60 0 V50 Q60 65 75 65 H265 Q280 65 280 80 V120 Q280 135 265 135 H75 Q60 135 60 150 V190 Q60 205 75 205 H265 Q280 205 280 220 V260 Q280 275 265 275 H75 Q60 275 60 290 V340"/>
+            <g class="rv-route__pin" data-status="Coletado" transform="translate(60 30)">
+              <circle class="rv-route__ring" r="8"/><circle class="rv-route__dot" r="8"/>
+              <text class="rv-route__label" x="20" y="5">01 Coleta</text>
+            </g>
+            <g class="rv-route__pin" data-status="Na base" transform="translate(280 100)">
+              <circle class="rv-route__ring" r="8"/><circle class="rv-route__dot" r="8"/>
+              <text class="rv-route__label" x="-20" y="5" text-anchor="end">02 Base</text>
+            </g>
+            <g class="rv-route__pin" data-status="Saiu para entrega" transform="translate(60 170)">
+              <circle class="rv-route__ring" r="8"/><circle class="rv-route__dot" r="8"/>
+              <text class="rv-route__label" x="20" y="5">03 Saída</text>
+            </g>
+            <g class="rv-route__pin" data-status="Entregue" transform="translate(280 240)">
+              <circle class="rv-route__ring" r="8"/><circle class="rv-route__dot" r="8"/>
+              <text class="rv-route__label" x="-20" y="5" text-anchor="end">04 Entrega</text>
+            </g>
+            <g class="rv-route__pin" data-status="Fechado" transform="translate(60 310)">
+              <circle class="rv-route__ring" r="8"/><circle class="rv-route__dot" r="8"/>
+              <text class="rv-route__label" x="20" y="5">05 Fechamento</text>
+            </g>
+            <g class="rv-route__parcel" transform="translate(60 340)">
+              <rect x="-8" y="-8" width="16" height="16"/><path d="M-8 -2 H8 M0 -8 V-2"/>
+            </g>
+          </svg>
+        </div>
+      </section>
+
       <section class="rv-voices" aria-labelledby="rv-voices-title">
         <div class="container">
           <h2 class="rv-mono-title" id="rv-voices-title">O que ouvimos dos clientes</h2>
@@ -391,7 +456,7 @@
 
   @@include("partials/vendor-scripts.html")
   <script src="assets/libs/swiper/swiper-bundle.min.js"></script>
-  <script src="assets/js/pages/landing.init.js?v=rv-etiqueta-2"></script>
+  <script src="assets/js/pages/landing.init.js?v=rv-etiqueta-3"></script>
   <script>document.getElementById('current-year')&&(document.getElementById('current-year').textContent=new Date().getFullYear());</script>
 </body>
 
