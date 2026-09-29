@@ -88,6 +88,83 @@ document.querySelectorAll('.switch-btn').forEach(function (btn) {
     steps.forEach(function (step) { observer.observe(step); });
 })();
 
+// Percurso – a rota é desenhada conforme a rolagem e cada parada é "bipada" ao ser alcançada
+(function () {
+    var section = document.getElementById('rv-route');
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!section || reduceMotion || !('IntersectionObserver' in window)) return;
+
+    var statusEl = document.getElementById('rv-route-status');
+    var narrowQuery = window.matchMedia('(max-width: 767.98px)');
+    var wideSvg = section.querySelector('.rv-route__svg--wide');
+    var narrowSvg = section.querySelector('.rv-route__svg--narrow');
+    var cache = new Map();
+    var active = false;
+    var ticking = false;
+
+    // Só mede o SVG visível: getTotalLength falha em elementos ocultos em alguns navegadores.
+    function getRoute(svg) {
+        if (cache.has(svg)) return cache.get(svg);
+        var line = svg.querySelector('.rv-route__line');
+        var length = line.getTotalLength();
+        var steps = 400;
+        var pins = Array.prototype.map.call(svg.querySelectorAll('.rv-route__pin'), function (pin) {
+            var m = pin.transform.baseVal.consolidate().matrix;
+            var best = 0;
+            var bestDist = Infinity;
+            for (var i = 0; i <= steps; i++) {
+                var at = (length * i) / steps;
+                var pt = line.getPointAtLength(at);
+                var dist = (pt.x - m.e) * (pt.x - m.e) + (pt.y - m.f) * (pt.y - m.f);
+                if (dist < bestDist) { bestDist = dist; best = at; }
+            }
+            return { el: pin, at: best };
+        });
+        line.style.strokeDasharray = length;
+        var route = { line: line, length: length, pins: pins, parcel: svg.querySelector('.rv-route__parcel') };
+        cache.set(svg, route);
+        return route;
+    }
+
+    function render() {
+        ticking = false;
+        var route = getRoute(narrowQuery.matches ? narrowSvg : wideSvg);
+        var rect = section.getBoundingClientRect();
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        var progress = Math.min(1, Math.max(0, (vh * 0.9 - rect.top) / (vh * 0.6)));
+        var drawn = route.length * progress;
+        var status = 'Aguardando coleta';
+
+        route.line.style.strokeDashoffset = route.length - drawn;
+        var pt = route.line.getPointAtLength(drawn);
+        route.parcel.setAttribute('transform', 'translate(' + pt.x + ' ' + pt.y + ')');
+        route.pins.forEach(function (pin) {
+            var on = drawn >= pin.at;
+            pin.el.classList.toggle('is-on', on);
+            if (on) status = pin.el.getAttribute('data-status');
+        });
+        if (statusEl && statusEl.textContent !== status) statusEl.textContent = status;
+    }
+
+    function requestRender() {
+        if (active && !ticking) {
+            ticking = true;
+            window.requestAnimationFrame(render);
+        }
+    }
+
+    section.classList.add('is-armed');
+    render();
+
+    new IntersectionObserver(function (entries) {
+        active = entries[0].isIntersecting;
+        requestRender();
+    }).observe(section);
+
+    window.addEventListener('scroll', requestRender, { passive: true });
+    window.addEventListener('resize', requestRender);
+})();
+
 // Mobile – botão fixo de WhatsApp enquanto os CTAs do topo e do final estão fora da tela
 (function () {
     var sticky = document.getElementById('rv-sticky-cta');
