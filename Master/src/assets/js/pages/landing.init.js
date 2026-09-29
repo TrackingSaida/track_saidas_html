@@ -46,6 +46,71 @@ document.querySelectorAll('.switch-btn').forEach(function (btn) {
     });
 });
 
+// Hero – etiqueta "bipada" ao carregar
+(function () {
+    var heroLabel = document.getElementById('rv-hero-label');
+    if (!heroLabel) return;
+    heroLabel.classList.add('is-armed');
+    window.addEventListener('load', function () {
+        setTimeout(function () {
+            heroLabel.classList.add('is-scanning');
+        }, 350);
+    });
+})();
+
+// Jornada – cada etapa é "bipada" em sequência ao entrar na tela
+(function () {
+    var steps = document.querySelectorAll('.rv-journey__step');
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!steps.length || reduceMotion || !('IntersectionObserver' in window)) return;
+
+    var stepInterval = 320;
+    var nextAt = 0;
+    var journey = document.querySelector('.rv-journey');
+    if (journey) journey.classList.add('is-armed');
+
+    var observer = new IntersectionObserver(function (entries) {
+        entries
+            .filter(function (entry) { return entry.isIntersecting; })
+            .sort(function (a, b) {
+                return Array.prototype.indexOf.call(steps, a.target) - Array.prototype.indexOf.call(steps, b.target);
+            })
+            .forEach(function (entry) {
+                var now = Date.now();
+                nextAt = Math.max(now, nextAt) + stepInterval;
+                setTimeout(function () {
+                    entry.target.classList.add('is-on');
+                }, nextAt - now - stepInterval);
+                observer.unobserve(entry.target);
+            });
+    }, { threshold: 0.35 });
+
+    steps.forEach(function (step) { observer.observe(step); });
+})();
+
+// Mobile – botão fixo de WhatsApp enquanto os CTAs do topo e do final estão fora da tela
+(function () {
+    var sticky = document.getElementById('rv-sticky-cta');
+    var targets = [document.getElementById('rv-hero-actions'), document.getElementById('rv-cta-actions')].filter(Boolean);
+    if (!sticky || !targets.length || !('IntersectionObserver' in window)) return;
+
+    var link = sticky.querySelector('a');
+    var visibleTargets = new Set();
+
+    var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+            if (entry.isIntersecting) visibleTargets.add(entry.target);
+            else visibleTargets.delete(entry.target);
+        });
+        var show = visibleTargets.size === 0;
+        sticky.classList.toggle('is-visible', show);
+        sticky.setAttribute('aria-hidden', show ? 'false' : 'true');
+        if (link) link.setAttribute('tabindex', show ? '0' : '-1');
+    });
+
+    targets.forEach(function (target) { observer.observe(target); });
+})();
+
 // Collapse Menu + overlay (oculta conteúdo atrás do menu no mobile)
 const navLinks = document.querySelectorAll('.nav-item');
 const menuToggle = document.getElementById('navbarSupportedContent');

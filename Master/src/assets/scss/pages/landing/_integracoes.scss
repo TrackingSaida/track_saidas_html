@@ -1,48 +1,106 @@
-// Integrações – cards com logos reais, visual SaaS B2B
+// Integrações e modelo de cobrança.
 
-#integracoes {
-  padding: 100px 0;
-  background: $bg-light !important;
+.layout-wrapper.landing.rv-landing {
+  .rv-integrations {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 0;
+    margin: 0;
+    border: 2px solid $rv-ink;
 
-  .badge {
-    background: rgba($primary-blue, 0.1) !important;
-    color: $primary-blue !important;
-  }
+    @media (max-width: 767.98px) {
+      grid-template-columns: 1fr;
+    }
 
-  .integration-card {
-    background: #fff;
-    border-radius: 16px;
-    padding: 40px 30px;
-    transition: all 0.3s ease;
-    border: 1px solid #eef2f7;
+    li {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 1.5rem;
+      padding: 1.75rem 1.5rem;
+      min-height: 170px;
+      background: #fff;
 
-    &:hover {
-      transform: translateY(-6px);
-      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.06);
-      border-color: rgba($accent-green, 0.2);
+      & + li {
+        border-left: 2px solid $rv-ink;
+
+        @media (max-width: 767.98px) {
+          border-left: 0;
+          border-top: 2px solid $rv-ink;
+        }
+      }
+
+      img {
+        height: 64px;
+        width: auto;
+        max-width: 200px;
+        object-fit: contain;
+        object-position: left center;
+      }
+
+      span {
+        font-size: 0.95rem;
+        color: $rv-ink-muted;
+      }
+
+      b {
+        display: block;
+        font-family: $rv-font-display;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: $rv-ink;
+      }
     }
   }
 
-  .integration-logo {
-    height: 72px;
-    width: auto;
-    max-width: 100%;
-    object-fit: contain;
-    opacity: 0.9;
-    transition: opacity 0.3s;
-
-    &:hover {
-      opacity: 1;
-    }
-
-    &--mercado-envios {
-      height: 120px;
-    }
+  .rv-integrations__me {
+    height: 88px !important;
+    margin: -12px 0;
   }
 
-  .integration-logo-placeholder {
-    height: 72px;
-    min-height: 72px;
+  .rv-integrations__icon {
     font-size: 2.5rem;
+    line-height: 1;
+    color: $rv-ink;
+  }
+
+  .rv-pricing {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+    gap: 2.5rem;
+    align-items: end;
+    margin-top: 4.5rem;
+    padding-top: 2.5rem;
+    border-top: 1px solid $rv-ink;
+
+    @media (max-width: 991.98px) {
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+
+    p {
+      color: $rv-ink-muted;
+      margin: 0;
+      max-width: 34rem;
+    }
+  }
+
+  .rv-pricing__title {
+    font-family: $rv-font-display;
+    font-stretch: 80%;
+    font-weight: 800;
+    font-size: clamp(1.6rem, 3vw, 2.3rem);
+    line-height: 1.05;
+    text-transform: uppercase;
+    margin: 0 0 0.75rem;
+  }
+
+  .rv-pricing__note {
+    font-family: $rv-font-mono;
+    font-size: 0.85rem;
+    color: $rv-ink !important;
+    border-left: 3px solid $rv-ink;
+    padding-left: 1rem;
   }
 }
