@@ -480,10 +480,15 @@
         location.href = "index.html";
         return;
       }
+      const isOwnerBase = String(me.tipo_owner || "").toLowerCase() === "base";
+      qs("#cardCobertura")?.classList.toggle("d-none", !isOwnerBase);
+      qs("#cardIdentidade")?.classList.toggle("d-none", !isOwnerBase);
       const data = await http(API);
       fillForm(data);
-      const ident = await http(API_IDENT);
-      await fillIdentidade(ident);
+      if (isOwnerBase) {
+        const ident = await http(API_IDENT);
+        await fillIdentidade(ident);
+      }
     } finally {
       hydrating = false;
       markClean();
