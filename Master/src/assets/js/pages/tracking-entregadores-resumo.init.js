@@ -80,6 +80,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const fltDataFim = qs("#flt-data-fim");
   const fltEntregador = qs("#flt-entregador");
   const fltStatus = qs("#flt-status");
+  const fltBase = qs("#flt-base");
   const tbody = qs("#tbody-resumo");
   const pagerFirst = qs("#pager-first");
   const pagerPrev = qs("#pager-prev");
@@ -1046,6 +1047,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  async function carregarBases() {
+    if (!fltBase) return;
+    try {
+      const res = await fetch(`${API_URL}/base/`, { credentials: "include" });
+      if (!res.ok) return;
+      const raw = await res.json();
+      const bases = Array.isArray(raw) ? raw : (raw?.items || raw?.data || []);
+      const nomes = Array.from(new Set(
+        bases.map((b) => String((b && (b.base || b.nome)) || (typeof b === "string" ? b : "")).trim()).filter(Boolean)
+      )).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+      const escapar = (v) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+      fltBase.innerHTML = '<option value="">(Todas)</option>' +
+        nomes.map((n) => `<option value="${escapar(n)}">${escapar(n)}</option>`).join("");
+    } catch (err) {
+      console.error("Erro ao carregar bases:", err);
+    }
+  }
+
   async function carregarResumo() {
     const msgEl = qs("#resumoMsg");
     if (msgEl) msgEl.innerHTML = "<div class=\"text-muted\">Carregando...</div>";
@@ -1068,6 +1087,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (executor.tipo === "m" && executor.id > 0) params.append("motoboy_id", executor.id);
     const statusFiltro = fltStatus?.value?.trim() || "";
     if (statusFiltro) params.append("fechamento_status", statusFiltro);
+    const baseFiltro = (fltBase?.value || "").trim();
+    if (baseFiltro) params.append("base", baseFiltro);
 
     try {
       if (!API_URL) {
@@ -1219,6 +1240,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     let n = 0;
     if (parseExecutorVal(fltEntregador?.value || "").id > 0) n++;
     if ((fltStatus?.value || "").trim()) n++;
+    if ((fltBase?.value || "").trim()) n++;
     if (n > 0) {
       filtrosContador.textContent = String(n);
       filtrosContador.classList.remove("d-none");
@@ -1270,6 +1292,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     if (fltEntregador) fltEntregador.value = "";
     if (fltStatus) fltStatus.value = "";
+    if (fltBase) fltBase.value = "";
     state.page = 1;
     state.entregadorLabel = "Todos";
     state.contextoFechamento = null;
@@ -1288,7 +1311,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   pagerNext?.addEventListener("click", () => { if (state.page < state.totalPages) { state.page++; carregarResumo(); } });
   pagerLast?.addEventListener("click", () => { state.page = state.totalPages; carregarResumo(); });
 
-  await carregarExecutores();
+  await Promise.all([carregarExecutores(), carregarBases()]);
   state.entregadorLabel = "Todos";
   atualizarBtnGerarFechamento();
   await carregarResumo();
