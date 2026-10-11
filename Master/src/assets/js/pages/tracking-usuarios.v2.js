@@ -453,16 +453,23 @@ async function gerarConvite(validadeDias, limiteUsos, btn) {
 }
 
 async function copiarConvite() {
-    const input = document.getElementById("conviteLink");
+    const texto = conviteMensagem(document.getElementById("conviteLink").value);
     const btn = document.getElementById("btnCopiarConvite");
     try {
-        await navigator.clipboard.writeText(input.value);
+        await navigator.clipboard.writeText(texto);
     } catch (_) {
-        input.select();
+        const tmp = document.createElement("textarea");
+        tmp.value = texto;
+        tmp.setAttribute("readonly", "");
+        tmp.style.position = "absolute";
+        tmp.style.left = "-9999px";
+        document.body.appendChild(tmp);
+        tmp.select();
         document.execCommand("copy");
+        tmp.remove();
     }
-    btn.querySelector("span").textContent = "Copiado";
-    setTimeout(() => { btn.querySelector("span").textContent = "Copiar"; }, 2000);
+    btn.querySelector("span").textContent = "Copiado!";
+    setTimeout(() => { btn.querySelector("span").textContent = "Copiar convite"; }, 2000);
 }
 
 async function regerarConvite() {
@@ -527,10 +534,6 @@ function initConviteMotoboy() {
         );
     });
     document.getElementById("btnCopiarConvite").addEventListener("click", copiarConvite);
-    document.getElementById("btnWhatsappConvite").addEventListener("click", () => {
-        const link = document.getElementById("conviteLink").value;
-        window.open(`https://wa.me/?text=${encodeURIComponent(conviteMensagem(link))}`, "_blank", "noopener");
-    });
     document.getElementById("btnRegerarConvite").addEventListener("click", regerarConvite);
     document.getElementById("btnDesativarConvite").addEventListener("click", desativarConvite);
 
