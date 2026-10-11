@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  @@include("partials/title-meta.html", {"title": "Cadastro de entregador"})
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="ROTEVO">
+  <meta property="og:title" content="Cadastro de entregador — ROTEVO">
+  <meta property="og:description" content="Você recebeu um convite para entrar na equipe de entregas. Faça seu cadastro em cerca de 3 minutos.">
+  <meta name="theme-color" content="#0B1F3A">
+  @@include("partials/head-css.html")
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="assets/css/auth-rotevo.css?v=rotevo9" rel="stylesheet">
+  <link href="assets/css/cadastro-motoboy.css?v=cm1" rel="stylesheet">
+</head>
+<body class="rotevo-login rv-convite">
+  <div class="rv-shell">
+    <aside class="rv-brand">
+      <div class="rv-brand-inner">
+        <div class="rv-logo-row">
+          <img src="assets/images/logo_rotevo.png" alt="ROTEVO">
+          <span class="rv-wordmark">ROT<span class="rv-e">E</span>VO</span>
+        </div>
+        <p class="rv-tagline">Gestão Inteligente de Entregas</p>
+
+        <h2 class="rv-headline">Entregue com a equipe <em data-owner-name>certa</em></h2>
+        <p class="rv-lead">Faça seu cadastro, baixe o app e comece a receber suas rotas direto no celular.</p>
+
+        <div class="rv-benefits cm-benefits">
+          <div class="rv-benefit">
+            <i class="ri-timer-flash-line" aria-hidden="true"></i>
+            <strong>3 minutos</strong>
+            <span>Cadastro rápido pelo celular</span>
+          </div>
+          <div class="rv-benefit">
+            <i class="ri-shield-user-line" aria-hidden="true"></i>
+            <strong>Acesso na hora</strong>
+            <span>Você mesmo cria sua senha</span>
+          </div>
+          <div class="rv-benefit">
+            <i class="ri-smartphone-line" aria-hidden="true"></i>
+            <strong>App ROTEVO</strong>
+            <span>Rotas e entregas na palma da mão</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="rv-auth cm-main">
+      <header class="cm-head">
+        <div class="cm-head-brand">
+          <img src="assets/images/logo_rotevo.png" alt="">
+          <span class="rv-wordmark">ROT<span class="rv-e">E</span>VO</span>
+        </div>
+        <span class="cm-chip d-none" data-owner-chip>
+          <i class="ri-mail-send-line" aria-hidden="true"></i>
+          <span>Convite de <strong data-owner-name></strong></span>
+        </span>
+      </header>
+
+      <div class="cm-sheet">
+        <!-- Carregando convite -->
+        <section id="cm-loading" class="cm-screen cm-center" aria-live="polite">
+          <span class="cm-spinner cm-spinner-lg" aria-hidden="true"></span>
+          <p class="cm-muted">Abrindo convite...</p>
+        </section>
+
+        <!-- Link inválido / expirado / esgotado / falha de rede -->
+        <section id="cm-invalid" class="cm-screen cm-center" hidden>
+          <div class="cm-status-icon is-warn" aria-hidden="true"><i class="ri-link-unlink-m"></i></div>
+          <h1 class="cm-title" id="cm-invalid-title">Este link não está mais ativo</h1>
+          <p class="cm-text" id="cm-invalid-text">Peça um novo link para quem te enviou.</p>
+          <p class="cm-muted small" id="cm-invalid-detail"></p>
+          <button type="button" class="rv-btn-signup cm-retry" id="cm-retry" hidden>
+            <i class="ri-refresh-line" aria-hidden="true"></i> Tentar novamente
+          </button>
+        </section>
+
+        <!-- Boas-vindas -->
+        <section id="cm-welcome" class="cm-screen" hidden>
+          <span class="cm-chip cm-chip-light" data-owner-chip-inline>
+            <i class="ri-mail-send-line" aria-hidden="true"></i>
+            <span>Convite de <strong data-owner-name></strong></span>
+          </span>
+          <h1 class="cm-title cm-title-lg"><span data-owner-name></span> convidou você para entregar com o ROTEVO</h1>
+          <p class="cm-text">Faça seu cadastro agora. Assim que terminar, você já pode entrar no app.</p>
+
+          <div class="cm-checklist-card">
+            <p class="cm-card-title">Tenha em mãos</p>
+            <ul class="cm-icon-list">
+              <li><span class="cm-icon-tile"><i class="ri-profile-line" aria-hidden="true"></i></span> Seu CPF</li>
+              <li><span class="cm-icon-tile"><i class="ri-map-pin-line" aria-hidden="true"></i></span> Endereço com CEP</li>
+              <li><span class="cm-icon-tile"><i class="ri-whatsapp-line" aria-hidden="true"></i></span> Celular com WhatsApp</li>
+            </ul>
+            <p class="cm-muted small mb-0"><i class="ri-time-line" aria-hidden="true"></i> Leva cerca de 3 minutos.</p>
+          </div>
+
+          <div class="cm-actions">
+            <button type="button" class="rv-btn-enter cm-cta" id="cm-start">
+              Começar cadastro <i class="ri-arrow-right-line" aria-hidden="true"></i>
+            </button>
+          </div>
+        </section>
+
+        <!-- Formulário em 3 etapas -->
+        <form id="cm-form" class="cm-screen" novalidate hidden>
+          <div class="cm-form-top">
+            <button type="button" class="cm-back" id="cm-back" aria-label="Voltar">
+              <i class="ri-arrow-left-line" aria-hidden="true"></i>
+            </button>
+            <div class="cm-route" id="cm-route" role="img" aria-label="Etapa 1 de 3: Seus dados">
+              <div class="cm-route-track" aria-hidden="true"><span class="cm-route-fill" id="cm-route-fill"></span></div>
+              <ol class="cm-stops" aria-hidden="true">
+                <li class="cm-stop" data-stop="0"><span class="cm-pin"><i class="ri-check-line"></i></span><span class="cm-stop-label">Seus dados</span></li>
+                <li class="cm-stop" data-stop="1"><span class="cm-pin"><i class="ri-check-line"></i></span><span class="cm-stop-label">Endereço</span></li>
+                <li class="cm-stop" data-stop="2"><span class="cm-pin"><i class="ri-check-line"></i></span><span class="cm-stop-label">Acesso</span></li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="cm-summary" id="cm-summary" role="alert" hidden></div>
+
+          <!-- Etapa 1: Seus dados -->
+          <fieldset class="cm-step" data-step="0">
+            <legend class="cm-step-title">Seus dados</legend>
+            <p class="cm-step-desc">Use os mesmos dados do seu documento.</p>
+
+            <div class="cm-grid">
+              <div class="cm-field">
+                <label for="nome">Nome <span class="cm-req" aria-hidden="true">*</span></label>
+                <input type="text" id="nome" name="nome" autocomplete="given-name" autocapitalize="words" maxlength="60" required>
+                <div class="cm-err" id="err-nome" hidden></div>
+              </div>
+              <div class="cm-field">
+                <label for="sobrenome">Sobrenome <span class="cm-req" aria-hidden="true">*</span></label>
+                <input type="text" id="sobrenome" name="sobrenome" autocomplete="family-name" autocapitalize="words" maxlength="60" required>
+                <div class="cm-err" id="err-sobrenome" hidden></div>
+              </div>
+              <div class="cm-field">
+                <label for="documento">CPF <span class="cm-req" aria-hidden="true">*</span></label>
+                <input type="text" id="documento" name="documento" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" maxlength="14" required>
+                <div class="cm-err" id="err-documento" hidden></div>
+              </div>
+              <div class="cm-field">
+                <label for="data_nascimento">Data de nascimento <span class="cm-req" aria-hidden="true">*</span></label>
+                <input type="text" id="data_nascimento" name="data_nascimento" inputmode="numeric" autocomplete="bday" placeholder="dd/mm/aaaa" maxlength="10" required>
+                <div class="cm-err" id="err-data_nascimento" hidden></div>
+              </div>
+              <div class="cm-field cm-full">
+                <label for="contato">Celular <span class="cm-req" aria-hidden="true">*</span></label>
+                <input type="tel" id="contato" name="contato" inputmode="tel" autocomplete="tel-national" placeholder="(00) 00000-0000" maxlength="15" aria-describedby="hint-contato" required>
+                <p class="cm-hint" id="hint-contato">Use o número do seu WhatsApp.</p>
+                <div class="cm-err" id="err-contato" hidden></div>
+              </div>
+              <div class="cm-field cm-full">
+                <label for="email">E-mail <span class="cm-opt">(opcional)</span></label>
+                <input type="email" id="email" name="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="voce@email.com">
+                <div class="cm-err" id="err-email" hidden></div>
+              </div>
+            </div>
+
+            <details class="cm-collapse" id="cm-pagamento">
+              <summary>
+                <span><i class="ri-bank-card-line" aria-hidden="true"></i> Dados para pagamento <span class="cm-opt">(opcional)</span></span>
+                <i class="ri-arrow-down-s-line cm-collapse-caret" aria-hidden="true"></i>
+              </summary>
+              <div class="cm-grid cm-collapse-body">
+                <div class="cm-field cm-full">
+                  <label for="chave_pix">Chave PIX <span class="cm-opt">(opcional)</span></label>
+                  <input type="text" id="chave_pix" name="chave_pix" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="140">
+                  <div class="cm-err" id="err-chave_pix" hidden></div>
+                </div>
+                <div class="cm-field cm-full">
+                  <label for="cnpj">CNPJ (MEI) <span class="cm-opt">(opcional)</span></label>
+                  <input type="text" id="cnpj" name="cnpj" inputmode="numeric" autocomplete="off" placeholder="00.000.000/0000-00" maxlength="18">
+                  <div class="cm-err" id="err-cnpj" hidden></div>
+                </div>
+              </div>
+            </details>
+          </fieldset>
+
+          <!-- Etapa 2: Endereço -->
+          <fieldset class="cm-step" data-step="1" hidden>
+            <legend class="cm-step-title">Endereço</legend>
+            <p class="cm-step-desc">Digite o CEP que a gente completa o resto.</p>
+
+            <div class="cm-grid cm-grid-6">
+              <div class="cm-field cm-full">
+                <label for="cep">CEP <span class="cm-req" aria-hidden="true">*</span></label>
+                <input type="text" id="cep" name="cep" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" maxlength="9" aria-describedby="cep-status" required>
+                <p class="cm-hint cm-cep-status" id="cep-status" aria-live="polite"></p>
+                <div class="cm-err" id="err-cep" hidden></div>
+              </div>
+              <div class="cm-field cm-full">
+                <label for="rua">Rua <span class="cm-req" aria-hidden="true">*</span></label>
+                <input type="text" id="rua" name="rua" autocomplete="address-line1" maxlength="120" required>
+                <div class="cm-err" id="err-rua" hidden></div>
+              </div>
+              <div class="cm-field cm-span-2">
+                <label for="numero">Número <span class="cm-req" aria-hidden="true">*</span></label>
+                <input type="text" id="numero" name="numero" inputmode="text" autocomplete="address-line2" maxlength="20" required>
+                <div class="cm-err" id="err-numero" hidden></div>
+              </div>
+              <div class="cm-field cm-span-4">
+                <label for="complemento">Complemento <span class="cm-opt">(opcional)</span></label>
+                <input type="text" id="complemento" name="complemento" autocomplete="off" maxlength="120" placeholder="Apto, bloco...">
+                <div class="cm-err" id="err-complemento" hidden></div>
+              </div>
+              <div class="cm-field cm-full">
+                <label for="bairro">Bairro <span class="cm-req" aria-hidden="true">*</span></label>
+                <input type="text" id="bairro" name="bairro" autocomplete="address-level3" maxlength="120" required>
+                <div class="cm-err" id="err-bairro" hidden></div>
+              </div>
+              <div class="cm-field cm-span-4">
+                <label for="cidade">Cidade <span class="cm-req" aria-hidden="true">*</span></label>
+                <input type="text" id="cidade" name="cidade" autocomplete="address-level2" maxlength="120" required>
+                <div class="cm-err" id="err-cidade" hidden></div>
+              </div>
+              <div class="cm-field cm-span-2">
+                <label for="estado">UF <span class="cm-req" aria-hidden="true">*</span></label>
+                <select id="estado" name="estado" autocomplete="address-level1" required>
+                  <option value="">--</option>
+                  <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option>
+                  <option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option>
+                  <option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option>
+                  <option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+                  <option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option>
+                  <option>SE</option><option>TO</option>
+                </select>
+                <div class="cm-err" id="err-estado" hidden></div>
+              </div>
+            </div>
+          </fieldset>
+
+          <!-- Etapa 3: Acesso -->
+          <fieldset class="cm-step" data-step="2" hidden>
+            <legend class="cm-step-title">Acesso ao app</legend>
+            <p class="cm-step-desc">Crie o usuário e a senha que você vai usar no app.</p>
+
+            <div class="cm-field">
+              <label for="username">Usuário <span class="cm-req" aria-hidden="true">*</span></label>
+              <div class="cm-input-icon">
+                <i class="ri-at-line" aria-hidden="true"></i>
+                <input type="text" id="username" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="30" aria-describedby="hint-username username-status" required>
+              </div>
+              <p class="cm-hint" id="hint-username">É com ele que você vai entrar no app.</p>
+              <p class="cm-username-status" id="username-status" aria-live="polite"></p>
+              <div class="cm-suggestions" id="username-suggestions" hidden></div>
+              <div class="cm-err" id="err-username" hidden></div>
+            </div>
+
+            <div class="cm-field">
+              <label for="senha">Senha <span class="cm-req" aria-hidden="true">*</span></label>
+              <div class="cm-input-icon cm-has-toggle">
+                <i class="ri-lock-2-line" aria-hidden="true"></i>
+                <input type="password" id="senha" name="senha" autocomplete="new-password" maxlength="72" aria-describedby="cm-pass-rules" required>
+                <button type="button" class="cm-toggle-pass" data-target="senha" aria-label="Mostrar senha" aria-pressed="false">
+                  <i class="ri-eye-line" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="cm-err" id="err-senha" hidden></div>
+            </div>
+
+            <div class="cm-field">
+              <label for="confirmar_senha">Confirmar senha <span class="cm-req" aria-hidden="true">*</span></label>
+              <div class="cm-input-icon cm-has-toggle">
+                <i class="ri-lock-2-line" aria-hidden="true"></i>
+                <input type="password" id="confirmar_senha" name="confirmar_senha" autocomplete="new-password" maxlength="72" required>
+                <button type="button" class="cm-toggle-pass" data-target="confirmar_senha" aria-label="Mostrar senha" aria-pressed="false">
+                  <i class="ri-eye-line" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="cm-err" id="err-confirmar_senha" hidden></div>
+            </div>
+
+            <ul class="cm-pass-rules" id="cm-pass-rules" aria-label="Regras da senha">
+              <li data-rule="len"><i class="ri-checkbox-blank-circle-line" aria-hidden="true"></i><span>6 caracteres ou mais</span></li>
+              <li data-rule="trivial"><i class="ri-checkbox-blank-circle-line" aria-hidden="true"></i><span>Não use 123456 ou sequências</span></li>
+              <li data-rule="match"><i class="ri-checkbox-blank-circle-line" aria-hidden="true"></i><span>As senhas são iguais</span></li>
+            </ul>
+
+            <div class="cm-field cm-consent">
+              <label class="cm-check" for="aceite_privacidade">
+                <input type="checkbox" id="aceite_privacidade" name="aceite_privacidade" required>
+                <span>Li e concordo com a <a href="politica-de-privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a></span>
+              </label>
+              <div class="cm-err" id="err-aceite_privacidade" hidden></div>
+            </div>
+
+            <div class="cm-hp" aria-hidden="true">
+              <label for="website">Não preencha este campo</label>
+              <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+            </div>
+          </fieldset>
+
+          <div class="cm-actions cm-actions-sticky">
+            <button type="submit" class="rv-btn-enter cm-cta" id="cm-next">
+              <span class="cm-cta-label">Continuar</span> <i class="ri-arrow-right-line" aria-hidden="true"></i>
+            </button>
+          </div>
+        </form>
+
+        <!-- Sucesso -->
+        <section id="cm-success" class="cm-screen" hidden tabindex="-1">
+          <div class="cm-center">
+            <div class="rv-logout-icon cm-success-icon" aria-hidden="true"><i class="ri-check-line"></i></div>
+            <h1 class="cm-title">Pronto, <span id="cm-ok-nome"></span>!</h1>
+            <p class="cm-text">Você já faz parte da equipe <strong data-owner-name></strong>.</p>
+          </div>
+
+          <div class="cm-access-card">
+            <p class="cm-card-title">Seu acesso</p>
+            <div class="cm-access-row">
+              <div>
+                <span class="cm-muted small d-block">Usuário</span>
+                <strong class="cm-access-user" id="cm-ok-username"></strong>
+              </div>
+              <button type="button" class="cm-copy" id="cm-copy-user">
+                <i class="ri-file-copy-line" aria-hidden="true"></i> <span>Copiar</span>
+              </button>
+            </div>
+            <div class="cm-access-row">
+              <div>
+                <span class="cm-muted small d-block">Senha</span>
+                <span>A que você criou</span>
+              </div>
+            </div>
+          </div>
+
+          <ol class="cm-next-steps">
+            <li>
+              <span class="cm-step-num" aria-hidden="true">1</span>
+              <div>
+                <strong>Baixe o app ROTEVO</strong>
+                <a class="cm-play" href="https://play.google.com/store/apps/details?id=br.com.trackingsaidas.mobile" target="_blank" rel="noopener">
+                  <i class="ri-google-play-fill" aria-hidden="true"></i>
+                  <span><small>Disponível no</small>Baixar na Google Play</span>
+                </a>
+                <p class="cm-ios-note" id="cm-ios-note" hidden>
+                  <i class="ri-information-line" aria-hidden="true"></i>
+                  O app ROTEVO está disponível para Android. Fale com o responsável.
+                </p>
+              </div>
+            </li>
+            <li>
+              <span class="cm-step-num" aria-hidden="true">2</span>
+              <div><strong>Abra o app e entre com seu usuário e senha</strong></div>
+            </li>
+            <li>
+              <span class="cm-step-num" aria-hidden="true">3</span>
+              <div><strong>Aguarde sua primeira rota</strong></div>
+            </li>
+          </ol>
+        </section>
+
+        <p class="rv-secure cm-footer">
+          <i class="ri-shield-check-line" aria-hidden="true"></i> Seus dados são protegidos pela ROTEVO.
+        </p>
+      </div>
+    </main>
+  </div>
+
+  <script src="assets/js/pages/cadastro-motoboy.js?v=cm1"></script>
+</body>
+</html>
