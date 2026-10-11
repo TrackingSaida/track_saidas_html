@@ -2948,10 +2948,10 @@ function setupPagerEvents() {
     if (f.to) f.to.value = r.end;
     updatePeriodLabel(r.start, r.end);
   } else {
-    // fallback: definir período manualmente se date picker não disponível (D-15)
+    // fallback: definir período manualmente se date picker não disponível (últimos 15 dias)
     const now = new Date();
     const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
-    const start = new Date(y, m, d - 15);
+    const start = new Date(y, m, d - 14);
     const fmt = (x) => x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0");
     if (f.from) f.from.value = fmt(start);
     if (f.to) f.to.value = fmt(now);
