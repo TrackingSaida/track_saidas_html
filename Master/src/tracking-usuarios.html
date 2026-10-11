@@ -257,18 +257,6 @@
   background: var(--vz-modal-bg, #fff);
 }
 /* Convite de motoboy */
-#modalConvite .btn-whatsapp {
-  background: #25D366;
-  border-color: #25D366;
-  color: #0B1F14;
-  font-weight: 600;
-}
-#modalConvite .btn-whatsapp:hover,
-#modalConvite .btn-whatsapp:focus-visible {
-  background: #1EBE5A;
-  border-color: #1EBE5A;
-  color: #0B1F14;
-}
 #modalConvite .convite-bubble {
   background: var(--vz-light, #f3f6f9);
   border: 1px solid var(--vz-border-color, #e9ebec);
@@ -334,18 +322,14 @@
           <label class="form-label" for="conviteLink">Link de cadastro</label>
           <div class="input-group">
             <input type="text" class="form-control" id="conviteLink" readonly>
-            <button type="button" class="btn btn-soft-primary" id="btnCopiarConvite">
-              <i class="ri-file-copy-line align-bottom me-1"></i> <span>Copiar</span>
+            <button type="button" class="btn btn-primary" id="btnCopiarConvite">
+              <i class="ri-file-copy-line align-bottom me-1"></i> <span>Copiar convite</span>
             </button>
           </div>
           <div class="small text-muted mt-2" id="conviteMeta"></div>
 
-          <button type="button" class="btn btn-whatsapp w-100 mt-3" id="btnWhatsappConvite">
-            <i class="ri-whatsapp-line align-bottom me-1"></i> Enviar pelo WhatsApp
-          </button>
-
           <div class="mt-3">
-            <div class="small text-muted mb-1">Prévia da mensagem</div>
+            <div class="small text-muted mb-1">Texto copiado (é só colar no WhatsApp)</div>
             <div class="convite-bubble" id="convitePreview"></div>
           </div>
 
@@ -596,7 +580,7 @@
   </div>
 </div>
 
-<script src="assets/js/pages/tracking-usuarios.v2.js?v=2.1"></script>
+<script src="assets/js/pages/tracking-usuarios.v2.js?v=2.2"></script>
 
 </body>
 </html>
