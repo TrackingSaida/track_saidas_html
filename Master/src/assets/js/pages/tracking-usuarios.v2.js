@@ -283,7 +283,269 @@ function initUsers() {
         if ((this.value || "").replace(/\D/g, "").length === 8) buscarCep();
     });
 
+    initConviteMotoboy();
     loadUsers();
+}
+
+
+// =====================================================================
+// CONVITE DE MOTOBOY (link de autocadastro)
+// =====================================================================
+
+const API_CONVITE = `${API_BASE}/convite-motoboy`;
+let CONVITE_STATE = { convite: null, nomeOwner: "" };
+
+function escHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, ch => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[ch]);
+}
+
+function formatDataBr(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("pt-BR");
+}
+
+async function conviteFetch(path, options = {}) {
+    const resp = await fetch(`${API_CONVITE}${path}`, {
+        credentials: "include",
+        headers: options.body ? { "Content-Type": "application/json" } : undefined,
+        ...options,
+    });
+    const body = await resp.json().catch(() => null);
+    if (!resp.ok) {
+        const detail = body?.detail;
+        const msg = typeof detail === "string" ? detail : (detail?.message || "Falha ao comunicar com o servidor.");
+        throw new Error(msg);
+    }
+    return body;
+}
+
+function conviteLink(token) {
+    return new URL(`cadastro-motoboy.html?c=${encodeURIComponent(token)}`, window.location.href).href;
+}
+
+function conviteMensagem(link) {
+    const owner = CONVITE_STATE.nomeOwner || "Nossa equipe";
+    return `Olá! ${owner} está te convidando para a equipe de entregas no ROTEVO. ` +
+        `Faça seu cadastro por este link (leva uns 3 minutos): ${link}`;
+}
+
+function setConviteErro(msg) {
+    const box = document.getElementById("conviteErro");
+    box.textContent = msg || "";
+    box.classList.toggle("d-none", !msg);
+}
+
+function renderConvite() {
+    const { convite } = CONVITE_STATE;
+    const utilizavel = convite && convite.ativo && !convite.expirado && !convite.esgotado;
+
+    document.getElementById("conviteLoading").classList.add("d-none");
+    document.getElementById("conviteVazio").classList.toggle("d-none", !!utilizavel);
+    document.getElementById("conviteAtivo").classList.toggle("d-none", !utilizavel);
+
+    const aviso = document.getElementById("conviteAvisoInativo");
+    if (convite && !utilizavel) {
+        aviso.textContent = convite.esgotado
+            ? "O link atual atingiu o limite de cadastros. Gere um novo link para continuar convidando."
+            : "O link atual expirou. Gere um novo link para continuar convidando.";
+        aviso.classList.remove("d-none");
+    } else {
+        aviso.classList.add("d-none");
+    }
+
+    if (!utilizavel) return;
+
+    const link = conviteLink(convite.token);
+    document.getElementById("conviteLink").value = link;
+    document.getElementById("convitePreview").textContent = conviteMensagem(link);
+    const limite = convite.limite_usos ? `${convite.usos} de ${convite.limite_usos} cadastros` : `${convite.usos} cadastros`;
+    document.getElementById("conviteMeta").textContent = `Válido até ${formatDataBr(convite.expira_em)} · ${limite}`;
+}
+
+function renderConviteCadastros(itens) {
+    const wrap = document.getElementById("conviteCadastros");
+    if (!itens.length) {
+        wrap.innerHTML = `<p class="text-muted mb-0">Ninguém se cadastrou pelo link ainda.</p>`;
+        return;
+    }
+    wrap.innerHTML = `
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                    <tr><th>Nome</th><th>Celular</th><th>Cadastro</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody>
+                    ${itens.map(it => `
+                        <tr>
+                            <td>
+                                <div class="fw-medium text-body">${escHtml(it.nome || "—")}</div>
+                                <div class="text-muted small">@${escHtml(it.username || "")}</div>
+                            </td>
+                            <td>${escHtml(it.contato ? maskCellphone(String(it.contato)) : "—")}</td>
+                            <td>${formatDataBr(it.cadastrado_em)}</td>
+                            <td>${it.ativo
+                                ? '<span class="badge bg-success-subtle text-success">Ativo</span>'
+                                : '<span class="badge bg-secondary-subtle text-secondary">Desativado</span>'}</td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-sm btn-soft-primary" data-convite-edit="${Number(it.user_id)}">
+                                    <i class="ri-edit-2-line align-bottom"></i> Editar
+                                </button>
+                            </td>
+                        </tr>`).join("")}
+                </tbody>
+            </table>
+        </div>`;
+}
+
+async function loadConviteCadastros() {
+    const wrap = document.getElementById("conviteCadastros");
+    wrap.innerHTML = `<p class="text-muted mb-0">Carregando...</p>`;
+    try {
+        const data = await conviteFetch("/cadastros");
+        renderConviteCadastros(data?.itens || []);
+    } catch (err) {
+        wrap.innerHTML = `<p class="text-danger mb-0">${escHtml(err.message)}</p>`;
+    }
+}
+
+async function openConviteModal() {
+    setConviteErro("");
+    document.getElementById("conviteLoading").classList.remove("d-none");
+    document.getElementById("conviteVazio").classList.add("d-none");
+    document.getElementById("conviteAtivo").classList.add("d-none");
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("modalConvite")).show();
+
+    loadConviteCadastros();
+    try {
+        const data = await conviteFetch("");
+        CONVITE_STATE = { convite: data?.convite || null, nomeOwner: data?.nome_owner || "" };
+        renderConvite();
+    } catch (err) {
+        document.getElementById("conviteLoading").classList.add("d-none");
+        setConviteErro(err.message);
+    }
+}
+
+function lerNumero(id, min, max, fallback) {
+    const v = parseInt(document.getElementById(id).value, 10);
+    if (Number.isNaN(v)) return fallback;
+    return Math.min(max, Math.max(min, v));
+}
+
+async function gerarConvite(validadeDias, limiteUsos, btn) {
+    setConviteErro("");
+    if (btn) btn.disabled = true;
+    try {
+        const data = await conviteFetch("", {
+            method: "POST",
+            body: JSON.stringify({ validade_dias: validadeDias, limite_usos: limiteUsos }),
+        });
+        CONVITE_STATE = { convite: data?.convite || null, nomeOwner: data?.nome_owner || CONVITE_STATE.nomeOwner };
+        renderConvite();
+    } catch (err) {
+        setConviteErro(err.message);
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function copiarConvite() {
+    const input = document.getElementById("conviteLink");
+    const btn = document.getElementById("btnCopiarConvite");
+    try {
+        await navigator.clipboard.writeText(input.value);
+    } catch (_) {
+        input.select();
+        document.execCommand("copy");
+    }
+    btn.querySelector("span").textContent = "Copiado";
+    setTimeout(() => { btn.querySelector("span").textContent = "Copiar"; }, 2000);
+}
+
+async function regerarConvite() {
+    const atual = CONVITE_STATE.convite;
+    const { isConfirmed, value } = await Swal.fire({
+        icon: "warning",
+        title: "Gerar novo link?",
+        html: `
+            <p class="mb-3">O link atual deixa de funcionar. Quem já se cadastrou continua ativo.</p>
+            <div class="row g-2 text-start">
+                <div class="col-6">
+                    <label class="form-label" for="swalValidade">Validade (dias)</label>
+                    <input type="number" id="swalValidade" class="form-control" min="1" max="30" value="7">
+                </div>
+                <div class="col-6">
+                    <label class="form-label" for="swalLimite">Limite de cadastros</label>
+                    <input type="number" id="swalLimite" class="form-control" min="1" max="100" value="${Number(atual?.limite_usos) || 20}">
+                </div>
+            </div>`,
+        showCancelButton: true,
+        confirmButtonText: "Gerar novo link",
+        cancelButtonText: "Cancelar",
+        preConfirm: () => ({
+            validade: lerNumero("swalValidade", 1, 30, 7),
+            limite: lerNumero("swalLimite", 1, 100, 20),
+        }),
+    });
+    if (!isConfirmed) return;
+    await gerarConvite(value.validade, value.limite, document.getElementById("btnRegerarConvite"));
+}
+
+async function desativarConvite() {
+    const { isConfirmed } = await Swal.fire({
+        icon: "warning",
+        title: "Desativar link de convite?",
+        text: "Ninguém mais conseguirá se cadastrar por este link. Quem já se cadastrou continua ativo.",
+        showCancelButton: true,
+        confirmButtonText: "Desativar",
+        cancelButtonText: "Cancelar",
+        confirmButtonColor: "#f06548",
+    });
+    if (!isConfirmed) return;
+    try {
+        await conviteFetch("", { method: "DELETE" });
+        CONVITE_STATE.convite = null;
+        renderConvite();
+    } catch (err) {
+        setConviteErro(err.message);
+    }
+}
+
+function initConviteMotoboy() {
+    const btn = document.getElementById("btnConvidarMotoboy");
+    if (!btn) return;
+    btn.addEventListener("click", openConviteModal);
+
+    document.getElementById("btnGerarConvite").addEventListener("click", (ev) => {
+        gerarConvite(
+            lerNumero("conviteValidade", 1, 30, 7),
+            lerNumero("conviteLimite", 1, 100, 20),
+            ev.currentTarget
+        );
+    });
+    document.getElementById("btnCopiarConvite").addEventListener("click", copiarConvite);
+    document.getElementById("btnWhatsappConvite").addEventListener("click", () => {
+        const link = document.getElementById("conviteLink").value;
+        window.open(`https://wa.me/?text=${encodeURIComponent(conviteMensagem(link))}`, "_blank", "noopener");
+    });
+    document.getElementById("btnRegerarConvite").addEventListener("click", regerarConvite);
+    document.getElementById("btnDesativarConvite").addEventListener("click", desativarConvite);
+
+    document.getElementById("conviteCadastros").addEventListener("click", (ev) => {
+        const editBtn = ev.target.closest("[data-convite-edit]");
+        if (!editBtn) return;
+        const userId = Number(editBtn.dataset.conviteEdit);
+        const modalEl = document.getElementById("modalConvite");
+        modalEl.addEventListener("hidden.bs.modal", () => openEdit(userId), { once: true });
+        bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+    });
+
+    document.getElementById("modalConvite").addEventListener("hidden.bs.modal", () => {
+        loadUsers();
+    });
 }
 
 function toggleMotoboySection() {
