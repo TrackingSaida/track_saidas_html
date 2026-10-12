@@ -154,6 +154,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  function servicosHtml(r) {
+    const itens = [
+      ["shopee", "Shopee", r.shopee],
+      ["ml", "ML", r.mercado_livre],
+      ["avulso", "Avulso", r.avulso],
+    ].filter(([, , q]) => num(q) > 0);
+    if (!itens.length) return "";
+    return (
+      '<div class="fm-servicos">' +
+      itens
+        .map(([k, rot, q]) => `<span class="fm-servico fm-servico--${k} fm-num">${rot} ${num(q)}</span>`)
+        .join("") +
+      "</div>"
+    );
+  }
+
   function statusHtml(r) {
     const st = String(r.situacao || "PENDENTE").toUpperCase();
     let html = `<span class="fm-status fm-status--${esc(st.toLowerCase())}">${esc(STATUS_LABEL[st] || st)}</span>`;
@@ -258,7 +274,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           `<tr class="${r.precisa_reajuste ? "fm-linha--revisao" : ""}">` +
           `<td><button type="button" class="fm-expandir" data-acao="expandir" data-base="${esc(k)}" aria-expanded="${aberto}" aria-controls="${idDias}" aria-label="Ver dias de ${esc(r.base)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
           `<td><div class="fw-semibold">${esc(r.base)}</div>${r.cnpj ? `<div class="fm-sub">${esc(r.cnpj)}</div>` : ""}</td>` +
-          `<td class="text-end"><div class="fm-num fw-semibold">${coletas}</div><div class="fm-sub fm-num">Shopee ${num(r.shopee)} · ML ${num(r.mercado_livre)} · Avulso ${num(r.avulso)}</div></td>` +
+          `<td class="text-end"><div class="fm-num fw-semibold">${coletas}</div>${servicosHtml(r)}</td>` +
           `<td class="text-end fm-num">${num(r.pacotes_g)}</td>` +
           `<td class="text-end fm-num">${num(r.cancelados)}</td>` +
           `<td class="text-end"><div class="fw-semibold fm-num">${moeda(valor)}</div>${subValor}</td>` +

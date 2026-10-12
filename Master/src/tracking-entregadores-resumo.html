@@ -3,7 +3,7 @@
   <head>
     @@include("partials/title-meta.html", {"title": "Fechamento de Motoboys"})
     @@include("partials/head-css.html")
-    <link href="assets/css/fechamento-motoboys.css?v=3" rel="stylesheet" type="text/css" />
+    <link href="assets/css/fechamento-motoboys.css?v=4" rel="stylesheet" type="text/css" />
   </head>
   <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
     <div id="layout-wrapper">
@@ -84,17 +84,17 @@
                     <div id="resumoMsg" class="mb-3" role="status" aria-live="polite"></div>
 
                     <div class="fm-cards mb-3" id="fm-cards">
-                      <button type="button" class="fm-card" data-status="PENDENTE" aria-pressed="false">
+                      <button type="button" class="fm-card fm-card--pendente" data-status="PENDENTE" aria-pressed="false">
                         <span class="fm-card-label">Pendentes</span>
                         <span class="fm-card-valor fm-num" id="card-pendentes-valor">R$ 0,00</span>
                         <span class="fm-card-qtd" id="card-pendentes-qtd">0 motoboys</span>
                       </button>
-                      <button type="button" class="fm-card" data-status="GERADO" aria-pressed="false">
+                      <button type="button" class="fm-card fm-card--gerado" data-status="GERADO" aria-pressed="false">
                         <span class="fm-card-label">Gerados, a pagar</span>
                         <span class="fm-card-valor fm-num" id="card-gerados-valor">R$ 0,00</span>
                         <span class="fm-card-qtd" id="card-gerados-qtd">0 motoboys</span>
                       </button>
-                      <button type="button" class="fm-card" data-status="PAGO" aria-pressed="false">
+                      <button type="button" class="fm-card fm-card--pago" data-status="PAGO" aria-pressed="false">
                         <span class="fm-card-label">Pagos</span>
                         <span class="fm-card-valor fm-num" id="card-pagos-valor">R$ 0,00</span>
                         <span class="fm-card-qtd" id="card-pagos-qtd">0 motoboys</span>
