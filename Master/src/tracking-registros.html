@@ -44,7 +44,7 @@
                   <div class="dropdown">
                     <button class="btn btn-soft-primary dropdown-toggle d-flex align-items-center gap-2" type="button" id="registros-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
                       <i class="bx bx-calendar"></i>
-                      <span id="registros-period-label" class="text-truncate">Hoje - 15 dias</span>
+                      <span id="registros-period-label" class="text-truncate">Últimos 15 dias</span>
                     </button>
                     <div class="dropdown-menu dropdown-menu-end p-0 period-panel" id="registros-period-panel">
                       <input type="hidden" id="flt-from" />
@@ -141,6 +141,10 @@
                                   <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-status-encerrado" value="encerrado_sistema">
                                   <label class="form-check-label small" for="flt-status-encerrado">Encerrado</label>
                                 </div>
+                                <div class="form-check form-switch m-0">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-status-etiquetado" value="etiquetado">
+                                  <label class="form-check-label small" for="flt-status-etiquetado">Etiqueta gerada</label>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -209,6 +213,10 @@
                                 <div class="form-check form-switch">
                                   <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-saida-reconferida" value="saida_reconferida">
                                   <label class="form-check-label small" for="flt-acao-saida-reconferida">Saída reconferida</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-etiqueta-gerada" value="etiqueta_gerada">
+                                  <label class="form-check-label small" for="flt-acao-etiqueta-gerada">Emitiu etiqueta</label>
                                 </div>
                               </div>
                             </div>
@@ -520,12 +528,20 @@
   </div></div>
 </div>
 
-<!-- Painel Detalhe + Histórico (drawer, divisão vertical) -->
+<!-- Painel Detalhe + Histórico (drawer lateral, padrão portal) -->
 <div id="reg-detail-panel-overlay" class="reg-detail-overlay" aria-hidden="true"></div>
 <div id="reg-detail-panel" class="reg-detail-panel" aria-hidden="true">
   <div class="reg-detail-panel-inner">
-    <header class="reg-detail-header d-flex justify-content-between align-items-center px-3 py-2 border-bottom bg-light">
-      <h5 class="reg-detail-title mb-0 fw-semibold">Pedido <span id="reg-detail-codigo">—</span></h5>
+    <header class="reg-detail-header d-flex justify-content-between align-items-start px-3 py-3 border-bottom">
+      <div class="reg-detail-header-main min-w-0 flex-grow-1 pe-2">
+        <p class="small text-uppercase text-muted mb-1 fw-semibold">Detalhes do pedido</p>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <h5 class="reg-detail-title mb-0 fw-semibold text-break" id="reg-detail-codigo">—</h5>
+          <button type="button" class="btn btn-ghost-secondary btn-sm px-1 py-0" id="reg-detail-copy" title="Copiar código" aria-label="Copiar código">
+            <i class="ri-file-copy-line"></i>
+          </button>
+        </div>
+      </div>
       <button type="button" class="btn btn-ghost-secondary btn-sm" id="reg-detail-close" title="Fechar">
         <i class="ri-close-line"></i>
       </button>
@@ -560,20 +576,23 @@
   .reg-detail-overlay.show { touch-action: none; }
   .reg-detail-panel {
     position: fixed;
-    left: 0;
+    left: auto;
     right: 0;
+    top: 0;
     bottom: 0;
-    max-height: 55vh;
+    width: min(640px, 100%);
+    max-height: 100vh;
+    height: 100vh;
     z-index: 1050;
     background: var(--bs-body-bg, #fff);
-    box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
-    transform: translateY(100%);
+    box-shadow: -4px 0 24px rgba(15, 23, 42, 0.18);
+    transform: translateX(100%);
     transition: transform 0.25s ease-out;
     display: flex;
     flex-direction: column;
   }
   .reg-detail-panel.open {
-    transform: translateY(0);
+    transform: translateX(0);
   }
   .reg-detail-panel-inner {
     display: flex;
@@ -591,7 +610,7 @@
     gap: 1rem;
     flex: 1;
     min-height: 0;
-    padding: 1rem;
+    padding: 0;
     overflow: hidden;
   }
   .reg-detail-col-full {
@@ -603,18 +622,74 @@
   .reg-detail-content {
     font-size: 0.875rem;
   }
-  .pedido-detail-container { padding: 20px; background: #f8fafc; }
-  .pedido-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-  .pedido-codigo { font-size: 20px; font-weight: 600; }
-  .pedido-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 15px; }
-  .pedido-grid-2 { grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.1fr); }
-  @media (max-width: 1199.98px) {
-    .pedido-grid-2 { grid-template-columns: 1fr; }
+  .pedido-detail-container { padding: 16px 20px 24px; background: #fff; }
+  .pedido-detail-portal .pedido-section {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    margin-top: 0.85rem;
+    background: #fff;
   }
-  .pedido-card { background: #ffffff; border-radius: 8px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-  .pedido-card h5 { font-weight: 600; margin-bottom: 10px; }
-  .timeline-thumb-img { width: 80px; height: 80px; object-fit: cover; cursor: pointer; }
+  .pedido-detail-portal .pedido-section > .section-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin: 0 0 0.65rem;
+  }
+  .pedido-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem 1rem;
+  }
+  .pedido-meta-grid .meta-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 0.15rem;
+  }
+  .pedido-meta-grid .meta-value {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #0f172a;
+    word-break: normal;
+    overflow-wrap: anywhere;
+  }
+  .pedido-ocorrencia-box {
+    margin-top: 0.85rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+    font-size: 0.875rem;
+  }
+  .pedido-actions .btn-cancel-ghost {
+    border-color: transparent;
+    color: #94a3b8;
+    background: transparent;
+  }
+  .pedido-actions .btn-cancel-ghost:hover {
+    color: #dc3545;
+    background: #fef2f2;
+  }
+  .timeline-thumb-img { width: 72px; height: 72px; object-fit: cover; cursor: pointer; }
   .timeline-thumb-btn:focus { outline: 2px solid #0d6efd; outline-offset: 2px; }
+  .timeline-photo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #0d6efd;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    margin-top: 0.35rem;
+    cursor: pointer;
+  }
   .reg-photo-lightbox {
     position: fixed; inset: 0; z-index: 2100;
     background: rgba(15, 23, 42, 0.82);
@@ -645,20 +720,88 @@
     z-index: 2;
   }
   .reg-photo-lightbox-nav:hover { background: rgba(255, 255, 255, 0.28); }
-  .reg-photo-lightbox-prev { left: 16px; }
-  .reg-photo-lightbox-next { right: 16px; }
+  .reg-photo-lightbox-prev { left: 12px; }
+  .reg-photo-lightbox-next { right: 12px; }
   .reg-photo-lightbox-counter {
-    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-    color: #fff; font-size: 14px; font-weight: 600;
-    background: rgba(0, 0, 0, 0.45); padding: 6px 14px; border-radius: 20px;
-    z-index: 2;
+    position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+    color: #fff; font-size: 13px; background: rgba(0,0,0,0.45);
+    padding: 4px 10px; border-radius: 999px;
   }
-  .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-  .status-success { background: #e6f7ee; color: #28a745; }
-  .status-info { background: #e6f0ff; color: #007bff; }
-  .status-warning { background: #fff3cd; color: #ff9800; }
-  .status-danger { background: #fdecea; color: #dc3545; }
-  .status-default { background: #e9ecef; color: #6c757d; }
+  .status-badge { display: inline-block; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+  .status-success { background: #dcfce7; color: #166534; }
+  .status-warning { background: #ffedd5; color: #9a3412; }
+  .status-danger { background: #fee2e2; color: #991b1b; }
+  .status-info { background: #e0f2fe; color: #075985; }
+  .status-default { background: #f1f5f9; color: #475569; }
+  .action-neutral { background: #e9ecef; color: #6c757d; }
+  .action-movement { background: #e6f0ff; color: #007bff; }
+  .action-success { background: #e6f7ee; color: #28a745; }
+  .action-exception { background: #fff3cd; color: #ff9800; }
+  .action-confirmation { background: #ede7ff; color: #5f3dc4; }
+  .timeline {
+    position: relative;
+    margin: 0;
+    padding-left: 1.1rem;
+    border-left: 2px solid #cbd5e1;
+    width: 100%;
+  }
+  .timeline-item {
+    display: block;
+    position: relative;
+    margin-bottom: 0.28rem;
+    width: 100%;
+  }
+  .timeline-item:last-child {
+    margin-bottom: 0;
+  }
+  .timeline-dot {
+    width: 8px;
+    height: 8px;
+    background: #94a3b8;
+    border-radius: 50%;
+    position: absolute;
+    left: -1.3rem;
+    top: 0.4rem;
+  }
+  .timeline-item.is-current .timeline-dot { background: #16a34a; }
+  .timeline-content {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    border-radius: 0.45rem;
+    background: rgba(241, 245, 249, 0.72);
+    box-sizing: border-box;
+  }
+  .timeline-item.is-current .timeline-content {
+    border-color: rgba(22, 163, 74, 0.35);
+    background: rgba(220, 252, 231, 0.55);
+  }
+  .timeline-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #0f172a;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: anywhere;
+  }
+  .timeline-date {
+    color: #64748b;
+    font-size: 0.78rem;
+    margin-top: 0.05rem;
+    white-space: normal;
+  }
+  .timeline-who {
+    color: #64748b;
+    font-size: 0.78rem;
+    margin-top: 0.05rem;
+  }
+  .timeline-extras {
+    margin-top: 0.2rem;
+    font-size: 0.78rem;
+    color: #64748b;
+  }
   .servico-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
   .servico-shopee { background: rgba(255, 180, 130, 0.25); color: #d46a2e; }
   .servico-ml { background: rgba(255, 230, 170, 0.5); color: #b8922e; }
@@ -677,18 +820,8 @@
     text-overflow: ellipsis;
     vertical-align: middle;
   }
-  .action-neutral { background: #e9ecef; color: #6c757d; }
-  .action-movement { background: #e6f0ff; color: #007bff; }
-  .action-success { background: #e6f7ee; color: #28a745; }
-  .action-exception { background: #fff3cd; color: #ff9800; }
-  .action-confirmation { background: #ede7ff; color: #5f3dc4; }
-  .timeline { position: relative; margin-left: 10px; }
-  .timeline-item { display: flex; margin-bottom: 15px; }
-  .timeline-dot { width: 10px; height: 10px; background: #007bff; border-radius: 50%; margin-right: 10px; margin-top: 5px; flex-shrink: 0; }
-  .timeline-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .timeline-date { color: #6c757d; font-size: 12px; }
-  @media (max-width: 768px) {
-    .reg-detail-panel { max-height: 90vh; height: 90vh; }
+  @media (max-width: 575.98px) {
+    .reg-detail-panel { width: 100%; }
   }
 </style>
 
@@ -858,7 +991,7 @@
   <script src="assets/libs/sweetalert2/sweetalert2.min.js"></script>
 
   <!-- Sequência original dos scripts (mantida) -->
-<script src="assets/js/components/date-picker-dashboard.js"></script>
+<script src="assets/js/components/date-picker-dashboard.js?v=2.0"></script>
   <script src="assets/js/pages/tracking-api-leitura-registros.init.js" defer></script>
   <script src="assets/js/pages/tracking-registros.init.js?v=1.4" defer></script>
   <script src="assets/js/app.js"></script>

@@ -18,13 +18,19 @@
   }
 
   function statusNormalizado(status) {
-    return status === "sem_volume" ? "coletado" : status;
+    if (status === "em_coleta") return "em_coleta";
+    if (status === "sem_volume") return "sem_volume";
+    if (status === "coletado") return "coletado";
+    return status || "pendente";
   }
 
   function statusBadge(status) {
     const normal = statusNormalizado(status);
     if (normal === "em_coleta") {
       return '<span class="badge-coleta-status badge-coleta-em-coleta">Em coleta</span>';
+    }
+    if (normal === "sem_volume") {
+      return '<span class="badge-coleta-status badge-coleta-sem-volume">Sem volume</span>';
     }
     if (normal === "coletado") {
       return '<span class="badge-coleta-status badge-coleta-coletada">Coletada</span>';
@@ -50,7 +56,12 @@
     if (!lista.length) return "—";
     return lista
       .map((p) => {
-        const nome = `${esc(p.username)}${p.status === "em_coleta" ? " (em coleta)" : ""}`;
+        const sufixo = p.sem_volume
+          ? " (sem volume)"
+          : p.status === "em_coleta"
+            ? " (em coleta)"
+            : "";
+        const nome = `${esc(p.username)}${sufixo}`;
         if (!p.pode_corrigir) return nome;
         return `${nome}<br><button type="button" class="btn btn-sm btn-outline-primary mt-1 js-corrigir-qtde" data-base-id="${Number(item.base_id)}" data-participante-id="${Number(p.id_participante)}">Corrigir quantidades</button>`;
       })
@@ -59,8 +70,23 @@
 
   function formatarDataHora(value) {
     if (!value) return "—";
-    const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    // API devolve datetime naive do processo (UTC no servidor). Sem sufixo de fuso,
+    // o browser interpreta como horário local e atrasa/adianta a coluna Atualização.
+    const raw = String(value).trim();
+    const hasTz = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+    const iso = hasTz
+      ? raw
+      : raw.includes("T")
+        ? `${raw}Z`
+        : `${raw.replace(" ", "T")}Z`;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    // Hora do dia (HH:mm) no fuso de operação Brasil / São Paulo — não é duração em minutos.
+    return d.toLocaleString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   function itensFiltrados() {
@@ -96,7 +122,7 @@
         return `
       <article class="coleta-mobile-card">
         <div class="d-flex justify-content-between align-items-start gap-2 mb-2"><strong>${esc(item.base)}</strong>${statusBadge(item.status)}</div>
-        <div class="small text-muted mb-2">${(item.participantes || []).map((p) => `${esc(p.username)}${p.status === "em_coleta" ? " (em coleta)" : ""}`).join("<br>") || "—"}</div>
+        <div class="small text-muted mb-2">${(item.participantes || []).map((p) => `${esc(p.username)}${p.sem_volume ? " (sem volume)" : p.status === "em_coleta" ? " (em coleta)" : ""}`).join("<br>") || "—"}</div>
         <div class="d-flex flex-wrap gap-2 mb-2">
           <span class="badge bg-light text-body">Flex ${Number(item.mercado_livre || 0)}</span>
           <span class="badge bg-light text-body">Shopee ${Number(item.shopee || 0)}</span>
@@ -230,6 +256,8 @@
       state.podeCorrigir = Boolean(payload.pode_corrigir_quantidades);
       $("coletas-kpi-pendentes").textContent = Number(payload.resumo?.pendentes || 0);
       $("coletas-kpi-em-coleta").textContent = Number(payload.resumo?.em_coleta || 0);
+      const kpiSem = $("coletas-kpi-sem-volume");
+      if (kpiSem) kpiSem.textContent = Number(payload.resumo?.sem_volume || 0);
       $("coletas-kpi-coletadas").textContent = Number(payload.resumo?.coletadas || 0);
       preencherBases();
       render();

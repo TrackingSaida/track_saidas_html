@@ -54,44 +54,78 @@
   }
 
 // ======================================================
-// Normalização de código PARA FILTRO (sem classificar)
+// Normalização de código PARA FILTRO / leitor / câmera
+// JSON da etiqueta ML deve ser parseado no texto ORIGINAL
+// (nunca depois de toUpperCase — quebra chaves id/sender_id).
 // ======================================================
-function normalizeCodigoForFilter(rawInput){
-  let raw = toAsciiDigits(String(rawInput || "")).toUpperCase().trim();
-  const allDigits = raw.replace(/\D+/g, "");
+function isCepBusca(rawInput){
+  var raw = String(rawInput || "").trim();
+  if (!raw) return false;
+  if (/^\d{5}-\d{3}$/.test(raw)) return true;
+  var digits = raw.replace(/\D+/g, "");
+  // CEP parcial (7–8) ou completo sem máscara — sempre contém, nunca código exato
+  return /^\d{7,8}$/.test(digits) && !/^4[5-9]\d{9,}$/.test(digits);
+}
 
-  // QRCode JSON → external_order_id
-  try {
-    if (raw.startsWith("{") && raw.endsWith("}")) {
-      const obj = JSON.parse(raw);
-      if (obj?.external_order_id) {
-        return String(obj.external_order_id).toUpperCase().trim();
+function isNomeOuTextoLivre(rawInput){
+  var raw = String(rawInput || "").trim();
+  if (!raw) return false;
+  // Qualquer letra → busca contém (nome/identificação)
+  return /[A-Za-zÀ-ÿ]/.test(raw) && !/^AVULSO-/i.test(raw) && !/^RTE[0-9]/i.test(raw) && !/^BR\d/i.test(raw) && !/^LM[\w\d-]+$/i.test(raw);
+}
+
+function normalizeCodigoForFilter(rawInput){
+  var raw = String(rawInput || "").trim();
+  if (!raw) return "";
+
+  // Nome / CEP: nunca normalizar como código de etiqueta
+  if (isCepBusca(raw) || isNomeOuTextoLivre(raw)) {
+    return raw;
+  }
+
+  var cls = classifyCodigo(raw);
+  if (cls && cls.ok && cls.codigo) {
+    var code = String(cls.codigo).trim();
+    if (code && code.charAt(0) !== "{") {
+      if (cls.servico === "Shopee" || cls.servico === "Mercado Livre") {
+        return code;
+      }
+      if (/^AVULSO-/i.test(raw) || /^RTE[0-9]{11,}$/i.test(raw) || /^LM[\w\d-]+$/i.test(raw.trim())) {
+        return code;
+      }
+      if (raw.charAt(0) === "{" && raw.charAt(raw.length - 1) === "}") {
+        return code;
       }
     }
-  } catch (_) {}
-
-  // external_order_id fora de JSON
-  const extMatch = raw.match(/external_order_id["']?\s*[:=]\s*["']?([\w-]+)/i);
-  if (extMatch) return extMatch[1].toUpperCase();
-
-  // Shopee → mantém BR
-  if (/^BR(\d{13}|\d{12}[A-Z])$/i.test(raw)) {
-    return raw;
   }
 
-  // Mercado Livre → normaliza para 11 dígitos
-  const mlMatch = allDigits.match(/4[5-9]\d{9,}/);
-  if (mlMatch) {
-    return mlMatch[0].slice(0, 11);
-  }
-
-  // LMxxxx → mantém inteiro
-  if (/^LM[\w\d-]+$/i.test(raw)) {
-    return raw;
-  }
-
-  // fallback
   return raw;
+}
+
+function isBuscaCodigoEstruturado(rawInput){
+  var raw = String(rawInput || "").trim();
+  if (!raw) return false;
+  // CEP e nome/identificação → sempre contém
+  if (isCepBusca(raw) || isNomeOuTextoLivre(raw)) return false;
+
+  var cls = classifyCodigo(raw);
+  if (!cls || !cls.ok || !cls.codigo || String(cls.codigo).charAt(0) === "{") return false;
+  if (cls.servico === "Shopee" || cls.servico === "Mercado Livre") return true;
+  if (raw.charAt(0) === "{" && raw.charAt(raw.length - 1) === "}") return true;
+  if (/^AVULSO-/i.test(raw) || /^RTE[0-9]{11,}$/i.test(raw) || /^LM[\w\d-]+$/i.test(raw.trim())) return true;
+  return false;
+}
+
+function applyLocalizarInput(rawInput){
+  var raw = String(rawInput || "").trim();
+  var display = normalizeCodigoForFilter(raw);
+  if (f.localizar) f.localizar.value = display;
+  if (display && isBuscaCodigoEstruturado(raw)) {
+    state.forceCodigoExato = String(display).toUpperCase().trim();
+  } else {
+    state.forceCodigoExato = null;
+  }
+  return display;
 }
 
 function normalizeNomeKey(nome){
@@ -506,8 +540,13 @@ function augmentEntregadoresFromRows(rows){
       r.executadoPor ||
       "—";
     var seller = r.base || r.seller || "-";
-    var acaoRaw = r.acao || r.action || "Sem ação";
-    var acao = String(acaoRaw || "").trim() || "Sem ação";
+    var acaoRaw = r.acao || r.action || "";
+    var acao = String(acaoRaw || "").trim();
+    if (!acao || acao === "Sem ação" || acao === "—") {
+      var stRaw = String(r.status || "").toLowerCase();
+      if (stRaw === "etiquetado") acao = "Emitiu etiqueta";
+      else acao = acao || "Sem ação";
+    }
 
     var rawSt = String(r.status || "").toLowerCase();
     var statusUI = formatStatusForDisplay(r.status);
@@ -521,7 +560,10 @@ function augmentEntregadoresFromRows(rows){
       executado_por: executadoPor,
       seller,
       acao,
-      status: statusUI
+      status: statusUI,
+      // UI: identificadores do avulso; codigo interno (AVULSO-*) fica em r.codigo p/ etiqueta/API
+      codigo_exibicao: r.codigo_exibicao || r.label || r.codigo || "",
+      codigo_interno: r.codigo || ""
     };
   }
 
@@ -609,7 +651,11 @@ function augmentEntregadoresFromRows(rows){
     rota_cancelada: "Rota cancelada",
     entrada_base: "Entrada na base",
     saida_conferida: "Saída conferida",
-    saida_reconferida: "Saída reconferida"
+    saida_reconferida: "Saída reconferida",
+    base_transferida: "Transferiu base da coleta",
+    etiqueta_gerada: "Emitiu etiqueta",
+    etiqueta_cancelada: "Cancelou etiqueta",
+    etiqueta_expirada: "Etiqueta expirada"
   };
 
   function normalizeEventoKey(evento) {
@@ -630,8 +676,14 @@ function augmentEntregadoresFromRows(rows){
     if (raw.indexOf("coleta") !== -1) return "coleta";
     if (raw.indexOf("reatrib") !== -1) return "reatribuido";
     if (raw.indexOf("entrada") !== -1) return "entrada_base";
+    if (raw.indexOf("transfer") !== -1 || raw.indexOf("base_transferida") !== -1) return "base_transferida";
     if (raw.indexOf("reconferid") !== -1) return "saida_reconferida";
     if (raw.indexOf("conferid") !== -1) return "saida_conferida";
+    if (raw.indexOf("etiqueta") !== -1) {
+      if (raw.indexOf("cancel") !== -1) return "etiqueta_cancelada";
+      if (raw.indexOf("expir") !== -1) return "etiqueta_expirada";
+      return "etiqueta_gerada";
+    }
     return "unknown";
   }
 
@@ -679,8 +731,14 @@ function augmentEntregadoresFromRows(rows){
     "Nova saída confirmada com mesmo motoboy": { category: "confirmation", className: "action-confirmation" },
     "Entrada na base": { category: "neutral", className: "action-neutral" },
     "Pacote coletado": { category: "neutral", className: "action-neutral" },
+    "Transferiu base da coleta": { category: "neutral", className: "action-neutral" },
     "Saída conferida": { category: "confirmation", className: "action-confirmation" },
     "Saída reconferida": { category: "confirmation", className: "action-confirmation" },
+    "Etiqueta gerada": { category: "neutral", className: "action-neutral" },
+    "Emitiu etiqueta": { category: "neutral", className: "action-neutral" },
+    "Cancelou etiqueta": { category: "exception", className: "action-exception" },
+    "Etiqueta cancelada": { category: "exception", className: "action-exception" },
+    "Etiqueta expirada": { category: "exception", className: "action-exception" },
     "Sem ação": { category: "neutral", className: "action-neutral" }
   };
 
@@ -755,7 +813,7 @@ function augmentEntregadoresFromRows(rows){
           <tr data-id="${rid}" class="${rowClass}">
             <td class="expand-icon"><i class="ri-arrow-right-s-line"></i></td>
             <td><input type="checkbox" class="rowchk form-check-input" /></td>
-            <td><span class="d-inline-flex align-items-center gap-1">${r.codigo || "-"} <button type="button" class="btn btn-link btn-sm p-0 text-primary" title="Gerar etiqueta" data-etiqueta="${(r.codigo || "").replace(/"/g, "&quot;")}" data-id-saida="${rid || ""}" data-servico="${(r.servico || "").replace(/"/g, "&quot;")}"><i class="ri-printer-line"></i></button></span></td>
+            <td><span class="d-inline-flex align-items-center gap-1">${r.codigo_exibicao || r.codigo || "-"} <button type="button" class="btn btn-link btn-sm p-0 text-primary" title="Gerar etiqueta" data-etiqueta="${(r.codigo_interno || r.codigo || "").replace(/"/g, "&quot;")}" data-id-saida="${rid || ""}" data-servico="${(r.servico || "").replace(/"/g, "&quot;")}"><i class="ri-printer-line"></i></button></span></td>
             <td><span class="${servicoBadgeClass}">${r.servico || "-"}</span></td>
             <td><span class="${statusBadgeClass}">${r.status || "-"}</span></td>
             <td>${renderActionBadge(r.acao)}</td>
@@ -1123,6 +1181,7 @@ function setupPagerEvents() {
   var detailHistorical = document.getElementById("reg-detail-historical");
   var detailError = document.getElementById("reg-detail-error");
   var detailCloseBtn = document.getElementById("reg-detail-close");
+  var detailCopyBtn = document.getElementById("reg-detail-copy");
   var detailFetchSeq = 0;
 
   function fmtDt(d) {
@@ -1131,6 +1190,23 @@ function setupPagerEvents() {
       var x = typeof d === "string" ? new Date(d) : d;
       return isNaN(x.getTime()) ? "—" : x.toLocaleString("pt-BR");
     } catch (_) { return "—"; }
+  }
+
+  function formatRelativoAtualizado(iso) {
+    if (!iso) return "";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    var diffMs = Date.now() - d.getTime();
+    if (diffMs < 0) diffMs = 0;
+    var min = Math.floor(diffMs / 60000);
+    if (min < 1) return "Atualizado agora";
+    if (min < 60) return "Atualizado há " + min + " min";
+    var h = Math.floor(min / 60);
+    if (h < 24) return "Atualizado há " + h + " h";
+    var days = Math.floor(h / 24);
+    if (days === 1) return "Atualizado ontem";
+    if (days < 7) return "Atualizado há " + days + " dias";
+    return "Atualizado em " + fmtDt(iso);
   }
 
   /** Tentativa vigente no momento do evento (1 + liberações anteriores). */
@@ -1345,7 +1421,9 @@ function setupPagerEvents() {
     return historico.map(function(item, index) {
       var title = labelEventoHistorico(item.evento, item.acao_label);
       var dateLine = fmtDt(item.timestamp);
-      if (item.usuario_nome) dateLine += " — por " + escapeHtml(item.usuario_nome);
+      var whoLine = item.usuario_nome
+        ? ("Registrado por " + escapeHtml(item.usuario_nome))
+        : "";
 
       var eventPhotos = [];
       if (isEventoAusencia(item.evento)) eventPhotos = maps.ausenciaMap[index] || [];
@@ -1354,23 +1432,22 @@ function setupPagerEvents() {
 
       var extrasHtml = "";
       if (isEventoAusencia(item.evento)) {
-        // Ordem da ausência no histórico (1ª, 2ª…), não o contador interno atual do pedido.
         var tentEvento = ausenciaOrdinal[index] || Number(item.tentativa) || tentativaNoMomento(historico, index);
         var motivoEvento = String(item.motivo_ocorrencia || "").trim();
         var obsEvento = String(item.observacao_ocorrencia || "").trim();
-        // Retrocompat: eventos antigos sem payload só têm motivo no detalhe atual.
         if (!motivoEvento && index === lastAusenciaIndex) motivoEvento = motivoDetail;
         if (!obsEvento && index === lastAusenciaIndex) obsEvento = obsDetail;
-        extrasHtml += "<div class=\"timeline-extras small text-muted mt-1\">";
-        extrasHtml += "<div><strong>Nª tentativa:</strong> " + escapeHtml(String(tentEvento)) + "</div>";
-        if (motivoEvento) extrasHtml += "<div><strong>Motivo:</strong> " + escapeHtml(motivoEvento) + "</div>";
-        if (obsEvento) extrasHtml += "<div><strong>Observação:</strong> " + escapeHtml(obsEvento) + "</div>";
+        extrasHtml += "<div class=\"timeline-extras\">";
+        extrasHtml += "<div>Nª tentativa: " + escapeHtml(String(tentEvento)) + "</div>";
+        if (motivoEvento) extrasHtml += "<div>Motivo: " + escapeHtml(motivoEvento) + "</div>";
+        if (obsEvento) extrasHtml += "<div>Observação: " + escapeHtml(obsEvento) + "</div>";
         extrasHtml += "</div>";
       }
 
       var thumbHtml = "";
       if (eventPhotos.length) {
-        thumbHtml = "<div class=\"timeline-thumbs d-flex flex-wrap gap-2 mt-2\">" +
+        var fotoLabel = isEventoAusencia(item.evento) ? "Foto da ocorrência" : "Foto da entrega";
+        thumbHtml = "<div class=\"timeline-thumbs d-flex flex-wrap gap-2 mt-1\">" +
           eventPhotos.map(function(photo, photoIndex) {
             return "<button type=\"button\" class=\"timeline-thumb-btn border-0 p-0 bg-transparent\" data-photo-index=\"" +
               String(photo.globalIndex != null ? photo.globalIndex : photoIndex) +
@@ -1379,16 +1456,23 @@ function setupPagerEvents() {
               "\" class=\"rounded border timeline-thumb-img\" />" +
               "</button>";
           }).join("") +
-          "</div>";
+          "</div>" +
+          "<button type=\"button\" class=\"timeline-photo-link timeline-thumb-btn\" data-photo-index=\"" +
+            String(eventPhotos[0].globalIndex != null ? eventPhotos[0].globalIndex : 0) +
+            "\">" + escapeHtml(fotoLabel) + " <i class=\"ri-external-link-line\"></i></button>";
       }
 
-      return "<div class=\"timeline-item\"><div class=\"timeline-dot\"></div><div class=\"timeline-content\">" +
+      var isLatest = index === historico.length - 1;
+      return "<div class=\"timeline-item" + (isLatest ? " is-current" : "") + "\">" +
+        "<div class=\"timeline-dot\"></div>" +
+        "<div class=\"timeline-content\">" +
         "<div class=\"timeline-title\">" + escapeHtml(title) + "</div>" +
-        "<div class=\"timeline-date\">" + dateLine + "</div>" +
+        "<div class=\"timeline-date\">" + escapeHtml(dateLine) + "</div>" +
+        (whoLine ? "<div class=\"timeline-who\">" + whoLine + "</div>" : "") +
         extrasHtml +
         thumbHtml +
         "</div></div>";
-    }).join("");
+    }).reverse().join("");
   }
 
   async function baixarOuCompartilharComprovante(idSaida, index) {
@@ -1539,7 +1623,7 @@ function setupPagerEvents() {
       var saida = results[0];
       var historico = Array.isArray(results[1]) ? results[1] : [];
 
-      if (detailTitleCodigo) detailTitleCodigo.textContent = saida.codigo || idSaida;
+      if (detailTitleCodigo) detailTitleCodigo.textContent = saida.codigo_exibicao || saida.codigo || idSaida;
 
       var d = saida.detail || {};
       var statusClass = getStatusClass(saida.status);
@@ -1549,7 +1633,8 @@ function setupPagerEvents() {
       var bloqueadoAusencias = !!saida.bloqueado_ausencias;
       var podeLiberar = canEditG() && bloqueadoAusencias;
       var statusJaCancelado = statusLower === "cancelado";
-      var podeCancelar = canEditG() && !statusJaCancelado;
+      var statusJaEntregue = statusLower === "entregue";
+      var podeCancelar = canEditG() && !statusJaCancelado && !statusJaEntregue;
       var podeReverterCancelado = canReverterCancelado() && statusJaCancelado;
       var entregador = formatPersonName(saida.entregador);
       var entregueEv = historico.filter(function(h) { return (h.evento || "").toLowerCase() === "entregue" || (h.status_novo || "").toLowerCase() === "entregue"; }).pop();
@@ -1557,19 +1642,19 @@ function setupPagerEvents() {
         var ev = (h.evento || "").toLowerCase();
         return ev === "ausente" || ev === "ausente_lote";
       }).pop();
-      var dataLabel = isAusente ? "Data da ocorrência" : "Data Entrega";
+      var dataLabel = isAusente ? "Data da ocorrência" : "Data da entrega";
       var dataEntrega = isAusente
         ? (ausenteEv && ausenteEv.timestamp ? fmtDt(ausenteEv.timestamp) : (saida.data_hora_entrega ? fmtDt(saida.data_hora_entrega) : "—"))
         : (entregueEv && entregueEv.timestamp ? fmtDt(entregueEv.timestamp) : (saida.data_hora_entrega ? fmtDt(saida.data_hora_entrega) : "—"));
       var motivoAusencia = (d.motivo_ocorrencia && d.motivo_ocorrencia.trim()) ? d.motivo_ocorrencia.trim() : "";
       var obsAusencia = (d.observacao_ocorrencia && d.observacao_ocorrencia.trim()) ? d.observacao_ocorrencia.trim() : "";
-      var ocorrenciaHtml = isAusente
-        ? '<h6 class="mt-3 mb-2">Ocorrência</h6>' +
-          '<p><strong>Motivo:</strong> ' + escapeHtml(motivoAusencia || "—") + '</p>' +
-          (obsAusencia ? '<p><strong>Observação:</strong> ' + escapeHtml(obsAusencia) + '</p>' : '')
+      var ocorrenciaHtml = isAusente && motivoAusencia
+        ? '<div class="pedido-ocorrencia-box"><strong>Ocorrência:</strong> ' + escapeHtml(motivoAusencia) +
+          (obsAusencia ? '<div class="mt-1 small">' + escapeHtml(obsAusencia) + "</div>" : "") +
+          "</div>"
         : "";
-      var tipoRecebedor = (d.tipo_recebedor && d.tipo_recebedor.trim()) ? d.tipo_recebedor : "—";
-      var recebedor = (d.nome_recebedor && d.nome_recebedor.trim()) ? d.nome_recebedor : "—";
+      var tipoRecebedor = (d.tipo_recebedor && d.tipo_recebedor.trim()) ? d.tipo_recebedor : "";
+      var recebedorNome = (d.nome_recebedor && d.nome_recebedor.trim()) ? d.nome_recebedor : "";
       var endParts = [d.dest_rua, d.dest_numero, d.dest_complemento, d.dest_bairro, d.dest_cidade, d.dest_estado, d.dest_cep].filter(Boolean);
       var enderecoCompleto = endParts.length ? endParts.join(", ") : (d.endereco_formatado || "—");
       var destContato = (d.dest_contato && d.dest_contato.trim()) ? d.dest_contato : "";
@@ -1581,17 +1666,34 @@ function setupPagerEvents() {
           var avulsoRes = await fetch(base + "/avulsos/" + encodeURIComponent(String(idSaida)), { credentials: "include" });
           if (avulsoRes.ok) {
             var avulso = await avulsoRes.json();
-            var camposObj = avulso.campos || {};
-            var campoLinhas = Object.keys(camposObj).map(function(k) {
-              return "<p><strong>" + escapeHtml(k) + ":</strong> " + escapeHtml(String(camposObj[k])) + "</p>";
-            }).join("");
+            var metaItems = [];
+            if (avulso.origem_label) {
+              metaItems.push({ label: "Origem", value: avulso.origem_label });
+            }
+            var camposExib = Array.isArray(avulso.campos_exibicao) ? avulso.campos_exibicao : [];
+            if (camposExib.length) {
+              camposExib.forEach(function(c) {
+                metaItems.push({
+                  label: (c && c.label) ? c.label : (c && c.chave) ? c.chave : "Campo",
+                  value: (c && c.valor != null) ? String(c.valor) : ""
+                });
+              });
+            } else if (avulso.label) {
+              metaItems.push({ label: "Identificação", value: avulso.label });
+            } else if (avulso.base) {
+              metaItems.push({ label: "Referência", value: avulso.base });
+            }
+            var metaGrid = metaItems.length
+              ? '<div class="pedido-meta-grid">' + metaItems.map(function(m) {
+                  return '<div><span class="meta-label">' + escapeHtml(m.label) + '</span>' +
+                    '<span class="meta-value">' + escapeHtml(m.value) + "</span></div>";
+                }).join("") + "</div>"
+              : "<p class=\"text-muted mb-0 small\">Sem campos extras.</p>";
             avulsoHtml =
-              '<div class="pedido-card mt-3">' +
-                "<h5>Identificação do avulso</h5>" +
-                (avulso.label ? "<p><strong>Resumo:</strong> " + escapeHtml(avulso.label) + "</p>" : "") +
-                (avulso.origem_label ? "<p><strong>Origem:</strong> " + escapeHtml(avulso.origem_label) + "</p>" : "") +
-                (avulso.avulso_criado_excepcional ? '<p class="text-warning mb-1">Cadastrado fora do fluxo normal na saída.</p>' : "") +
-                (campoLinhas || (avulso.base ? "<p><strong>Referência:</strong> " + escapeHtml(avulso.base) + "</p>" : "<p class=\"text-muted mb-0\">Sem campos extras.</p>")) +
+              '<div class="pedido-section">' +
+                '<p class="section-title">Identificação do avulso</p>' +
+                (avulso.avulso_criado_excepcional ? '<p class="text-warning mb-2 small">Cadastrado fora do fluxo normal na saída.</p>' : "") +
+                metaGrid +
               "</div>";
           }
         } catch (_) {}
@@ -1631,59 +1733,91 @@ function setupPagerEvents() {
       });
 
       var bloqueioBadgeHtml = bloqueadoAusencias
-        ? '<span class="badge bg-danger ms-2 align-middle">Bloqueado por ausências</span>'
+        ? '<span class="badge bg-danger ms-1 align-middle">Bloqueado por ausências</span>'
         : "";
       var acoesHtml = "";
       if (podeLiberar || podeCancelar || podeReverterCancelado || hasPhotos) {
-        acoesHtml = '<div class="pedido-actions d-flex flex-wrap gap-2 mt-3 mb-2">';
+        acoesHtml = '<div class="pedido-actions d-flex flex-wrap align-items-center gap-2 mt-2 mb-1">';
         if (podeLiberar) {
           acoesHtml += '<button type="button" class="btn btn-sm btn-warning" id="btn-liberar-nova-tentativa">Liberar nova tentativa</button>';
-        }
-        if (podeCancelar) {
-          acoesHtml += '<button type="button" class="btn btn-sm btn-outline-danger" id="btn-cancelar-pedido">Cancelar pedido</button>';
-        }
-        if (podeReverterCancelado) {
-          acoesHtml += '<button type="button" class="btn btn-sm btn-outline-warning" id="btn-reverter-cancelamento">Reverter cancelamento</button>';
         }
         if (hasPhotos) {
           acoesHtml += '<button type="button" class="btn btn-sm btn-outline-primary" id="btn-export-comprovante">Baixar / compartilhar comprovante</button>';
         }
+        if (podeReverterCancelado) {
+          acoesHtml += '<button type="button" class="btn btn-sm btn-outline-warning" id="btn-reverter-cancelamento">Reverter cancelamento</button>';
+        }
+        if (podeCancelar) {
+          acoesHtml += '<button type="button" class="btn btn-sm btn-cancel-ghost" id="btn-cancelar-pedido">Cancelar pedido</button>';
+        }
         acoesHtml += "</div>";
       }
 
+      var ultimoTs = null;
+      if (historico.length) {
+        ultimoTs = historico[historico.length - 1].timestamp || null;
+      }
+      if (!ultimoTs) ultimoTs = saida.data_hora_acao || saida.timestamp || saida.data_hora_entrega || null;
+      var relativoTxt = formatRelativoAtualizado(ultimoTs);
+
+      var destNome = (d.dest_nome && String(d.dest_nome).trim()) ? d.dest_nome.trim() : "";
+      var temEndereco = endParts.length > 0 || (d.endereco_formatado && String(d.endereco_formatado).trim());
+      var destinoBlock = "";
+      if (destNome || temEndereco || destContato) {
+        destinoBlock =
+          '<div class="pedido-section">' +
+            '<p class="section-title">Destinatário</p>' +
+            (destNome ? '<p class="mb-1 fw-semibold">' + escapeHtml(destNome) + "</p>" : "") +
+            (temEndereco ? '<p class="text-muted small mb-1">' + escapeHtml(enderecoCompleto) + "</p>" : "") +
+            (destContato ? '<p class="small mb-0">Telefone: ' + escapeHtml(destContato) + "</p>" : "") +
+          "</div>";
+      }
+
+      var entregaMeta = [
+        { label: "Entregador", value: entregador || "—" },
+        { label: dataLabel, value: dataEntrega || "—" }
+      ];
+      if (tipoRecebedor) {
+        entregaMeta.push({ label: "Tipo do recebedor", value: tipoRecebedor });
+      }
+      if (recebedorNome) {
+        entregaMeta.push({ label: "Nome do recebedor", value: recebedorNome });
+      }
+      var entregaBlock =
+        '<div class="pedido-section">' +
+          '<p class="section-title">Entrega</p>' +
+          '<div class="pedido-meta-grid">' +
+            entregaMeta.map(function(m) {
+              return '<div><span class="meta-label">' + escapeHtml(m.label) + '</span>' +
+                '<span class="meta-value">' + escapeHtml(m.value) + "</span></div>";
+            }).join("") +
+          "</div>" +
+          ocorrenciaHtml +
+        "</div>";
+
       var pedidoHtml =
-        '<div class="pedido-detail-container">' +
-          '<div class="pedido-header">' +
-            '<div class="pedido-codigo">' + escapeHtml(saida.codigo || idSaida) + bloqueioBadgeHtml + '</div>' +
-            '<div class="pedido-status status-badge ' + statusClass + '">' + escapeHtml(statusText) + '</div>' +
-          '</div>' +
+        '<div class="pedido-detail-container pedido-detail-portal">' +
+          '<div class="d-flex flex-wrap align-items-center gap-2 mb-2">' +
+            '<span class="status-badge ' + statusClass + '">' + escapeHtml(statusText) + "</span>" +
+            bloqueioBadgeHtml +
+            (relativoTxt ? '<span class="small text-muted">' + escapeHtml(relativoTxt) + "</span>" : "") +
+          "</div>" +
           acoesHtml +
-          '<div class="pedido-grid pedido-grid-2">' +
-            '<div class="pedido-card">' +
-              '<h5>Informações da Entrega</h5>' +
-              '<p><strong>Entregador:</strong> ' + escapeHtml(entregador) + '</p>' +
-              '<p><strong>' + escapeHtml(dataLabel) + ':</strong> ' + escapeHtml(dataEntrega) + '</p>' +
-              '<p><strong>Tipo do recebedor:</strong> ' + escapeHtml(tipoRecebedor) + '</p>' +
-              '<p><strong>Recebedor:</strong> ' + escapeHtml(recebedor) + '</p>' +
-              '<p><strong>Destino:</strong> ' + escapeHtml(enderecoCompleto) + '</p>' +
-              (destContato ? '<p><strong>Contato destino:</strong> ' + escapeHtml(destContato) + '</p>' : '') +
-              ocorrenciaHtml +
-              avulsoHtml +
-            '</div>' +
-            '<div class="pedido-card historico-card">' +
-              '<h5>Histórico</h5>' +
-              '<p class="text-muted small mb-2">Miniaturas por evento. Clique para ampliar.</p>' +
-              '<div class="timeline">' + timelineHtml + '</div>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
+          destinoBlock +
+          entregaBlock +
+          avulsoHtml +
+          '<div class="pedido-section">' +
+            '<p class="section-title">Histórico do pedido</p>' +
+            '<div class="timeline timeline-portal">' + timelineHtml + "</div>" +
+          "</div>" +
+        "</div>" +
         '<div id="reg-photo-lightbox" class="reg-photo-lightbox d-none" role="dialog" aria-modal="true">' +
           '<button type="button" class="reg-photo-lightbox-close" aria-label="Fechar">&times;</button>' +
           '<button type="button" class="reg-photo-lightbox-nav reg-photo-lightbox-prev" aria-label="Anterior">&lsaquo;</button>' +
           '<button type="button" class="reg-photo-lightbox-nav reg-photo-lightbox-next" aria-label="Próxima">&rsaquo;</button>' +
           '<span class="reg-photo-lightbox-counter" aria-live="polite"></span>' +
           '<img id="reg-photo-lightbox-img" alt="Comprovante ampliado" />' +
-        '</div>';
+        "</div>";
 
       if (detailContent) detailContent.innerHTML = pedidoHtml;
 
@@ -1839,6 +1973,27 @@ function setupPagerEvents() {
   }
 
   if (detailCloseBtn) detailCloseBtn.addEventListener("click", closeDetailPanel);
+  if (detailCopyBtn) {
+    detailCopyBtn.addEventListener("click", async function() {
+      var codigo = (detailTitleCodigo && detailTitleCodigo.textContent || "").trim();
+      if (!codigo || codigo === "…" || codigo === "—") return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(codigo);
+        } else {
+          var ta = document.createElement("textarea");
+          ta.value = codigo;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          ta.remove();
+        }
+        notify("Código copiado.", "success");
+      } catch (_) {
+        notify("Não foi possível copiar o código.", "error");
+      }
+    });
+  }
   if (detailOverlay) detailOverlay.addEventListener("click", closeDetailPanel);
 
   if (chkAll){
@@ -1848,11 +2003,12 @@ function setupPagerEvents() {
     });
   }
 
-  // Localizar: busca ao pressionar Enter
+  // Localizar: Enter normaliza etiqueta ML / código estruturado antes de buscar
   if (f.localizar) {
     f.localizar.addEventListener("keydown", function (e) {
       if (e.key === "Enter") {
         e.preventDefault();
+        applyLocalizarInput(f.localizar.value);
         state.page = 1;
         refresh(true);
       }
@@ -1928,12 +2084,8 @@ function setupPagerEvents() {
             const raw = result.getText();
             if (!raw) return;
 
-            if (f.localizar) {
-              f.localizar.value = normalizeCodigoForFilter(raw);
-            }
-
+            applyLocalizarInput(raw);
             state.page = 1;
-            state.forceCodigoExato = normalizeCodigoForFilter(raw) || String(raw || "").trim();
             stopScanner();
             setTimeout(() => refresh(true), 150);
           });
@@ -1961,12 +2113,8 @@ function setupPagerEvents() {
         const raw = codes[0].rawValue || '';
         if (!raw) return;
 
-        if (f.localizar) {
-          f.localizar.value = normalizeCodigoForFilter(raw);
-        }
-
+        applyLocalizarInput(raw);
         state.page = 1;
-        state.forceCodigoExato = normalizeCodigoForFilter(raw) || String(raw || "").trim();
         stopScanner();
         setTimeout(() => refresh(true), 150);
 
@@ -2169,6 +2317,28 @@ function setupPagerEvents() {
     btnSave.disabled = !isEditChanged();
   }
 
+  function rowOperacaoDia(row){
+    var raw = row?.data || row?.data_operacao || row?.timestamp || row?.criado_em || "";
+    var s = String(raw || "").trim();
+    if (!s) return "";
+    // Aceita YYYY-MM-DD, ISO ou DD/MM/YYYY
+    var mIso = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (mIso) return mIso[1];
+    var mBr = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (mBr) return mBr[3] + "-" + mBr[2] + "-" + mBr[1];
+    try {
+      var d = new Date(s);
+      if (!isNaN(d.getTime())) {
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      }
+    } catch (_) {}
+    return s.slice(0, 10);
+  }
+
+  function rowBaseKey(row){
+    return String(row?.base || row?.seller || "").trim().toUpperCase();
+  }
+
   function validateBulkHomogeneity(ids){
     var registros = ids.map(function(id){
       return state.rows.find(function(r){ return String(getRowId(r)) === String(id); });
@@ -2176,11 +2346,74 @@ function setupPagerEvents() {
     if (!registros.length) return false;
     var statuses = Array.from(new Set(registros.map(function(r){ return normalizeStatusForBulk(r.status); })));
     var executors = Array.from(new Set(registros.map(function(r){ return getExecutorKeyForBulk(r); })));
-    if (statuses.length > 1 || executors.length > 1){
-      notify("Para edição em lote, selecione pedidos com o mesmo status e o mesmo motoboy.", "warning");
+    if (statuses.length === 1 && executors.length === 1) return true;
+
+    // Transferência de coleta: mesma base + mesmo dia (status/motoboy podem variar)
+    var bases = Array.from(new Set(registros.map(rowBaseKey).filter(Boolean)));
+    var dias = Array.from(new Set(registros.map(rowOperacaoDia).filter(Boolean)));
+    if (supportsColetaStatus() && bases.length === 1 && dias.length === 1) return true;
+
+    notify(
+      "Para edição em lote, selecione pedidos com o mesmo status e o mesmo motoboy — ou, para transferir coleta, a mesma base e o mesmo dia.",
+      "warning"
+    );
+    return false;
+  }
+
+  function summarizeServicoCounts(registros){
+    var counts = { shopee: 0, mercado_livre: 0, avulso: 0 };
+    (registros || []).forEach(function(r){
+      var s = String(r?.servico || "").toLowerCase();
+      if (s.indexOf("shopee") !== -1) counts.shopee += 1;
+      else if (s.indexOf("mercado") !== -1 || s.indexOf("flex") !== -1) counts.mercado_livre += 1;
+      else counts.avulso += 1;
+    });
+    var parts = [];
+    if (counts.mercado_livre) parts.push("Flex " + counts.mercado_livre);
+    if (counts.shopee) parts.push("Shopee " + counts.shopee);
+    if (counts.avulso) parts.push("Avulso " + counts.avulso);
+    return parts.join(" · ") || String((registros || []).length);
+  }
+
+  function buildTransferConfirmMsg(registros, baseOrigem, baseDestino){
+    var n = (registros || []).length;
+    var resumo = summarizeServicoCounts(registros);
+    return (
+      "Transferir " + n + " pacote(s) de coleta?\n\n" +
+      "De: " + (baseOrigem || "—") + "\n" +
+      "Para: " + (baseDestino || "—") + "\n" +
+      "Volumes: " + resumo + "\n\n" +
+      "As quantidades e o status da coleta acompanham a nova base."
+    );
+  }
+
+  async function applyTransferenciaBase(ids, baseDestino, registros){
+    if (!TrackAPI?.transferirBaseColeta) {
+      notify("API de transferência não disponível.", "error");
       return false;
     }
-    return true;
+    var baseOrigem = uniqueValueOrDifferent(
+      (registros || []).map(function(r){ return r?.base || r?.seller; }),
+      "—",
+      true
+    );
+    var conf = await confirmDlg(
+      buildTransferConfirmMsg(registros, baseOrigem, baseDestino),
+      "Transferir coleta de base"
+    );
+    if (!conf?.isConfirmed) return false;
+    var r = await TrackAPI.transferirBaseColeta(ids, baseDestino);
+    if (r.ok || r.status === 200) {
+      notify(
+        "Transferência concluída: " + (r.data?.transferidos || ids.length) + " pacote(s).",
+        "success"
+      );
+      return true;
+    }
+    var msg = r.error || "Falha ao transferir base da coleta.";
+    if (typeof r.data?.detail === "string") msg = r.data.detail;
+    notify(msg, r.status === 409 ? "warning" : "error");
+    return false;
   }
 
   if (btnEdit){
@@ -2241,12 +2474,17 @@ function setupPagerEvents() {
         }
       }
 
-      if (eBase?.value && (
+      // Troca de base com coleta ativa → transferência explícita (ledger + status).
+      var transferBaseOnly = supportsColetaStatus() && baseChanged && eBase?.value;
+      if (transferBaseOnly) {
+        // Base sai do PATCH; vai pelo endpoint de transferência.
+      } else if (eBase?.value && (
         eSta.value === "Não Coletado" ||
         eSta.value === "Coletado" ||
         baseChanged
-      ))
+      )) {
         payload.base = eBase.value;
+      }
 
       if (!TrackAPI?.updateSaida)
         return notify("API de atualização não disponível.", "error");
@@ -2258,7 +2496,11 @@ function setupPagerEvents() {
 
       var confirmMsg = "Campos alterados: " + (camposAlterados.length ? camposAlterados.join(", ") : "nenhum");
       var confirmTitle = "Confirmar alterações";
-      if (cohortCancelado && eSta?.value !== "Cancelado" && statusChanged) {
+      if (transferBaseOnly && !motoboyChanged && !statusChanged && (eSrv?.value || "") === editInitialState.servico) {
+        // Confirmação específica fica em applyTransferenciaBase
+        confirmTitle = null;
+        confirmMsg = null;
+      } else if (cohortCancelado && eSta?.value !== "Cancelado" && statusChanged) {
         confirmTitle = "Reverter cancelamento";
         confirmMsg = "Este pedido está cancelado. Deseja reverter o cancelamento e alterar o status?\n\n" + confirmMsg;
       } else if (cohortEntregue && eSta?.value === "Cancelado" && statusChanged) {
@@ -2267,22 +2509,41 @@ function setupPagerEvents() {
       } else if (cohortEntregue && motoboyChanged && !statusChanged) {
         confirmTitle = "Reatribuir pedido entregue";
         confirmMsg = "O pedido será reatribuído e colocado Em rota no novo motoboy.\n\n" + confirmMsg;
+      } else if (transferBaseOnly) {
+        confirmTitle = "Transferir coleta e alterar campos";
+        confirmMsg = "A base será transferida (quantidades/status da coleta acompanham) e os demais campos serão atualizados.\n\n" + confirmMsg;
       }
-      confirmDlg(confirmMsg, confirmTitle)
-        .then(function(conf){
-          if (!conf?.isConfirmed) return;
+
+      var runSave = function(){
           if (btnSave) {
             btnSave.disabled = true;
             btnSave.dataset.originalText = btnSave.textContent;
             btnSave.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Salvando...';
           }
-          return TrackAPI.updateSaida(id, payload)
+          var chain = Promise.resolve(true);
+          if (transferBaseOnly) {
+            var rowAtual = state.rows.find(function(r){ return String(getRowId(r)) === String(id); });
+            chain = applyTransferenciaBase([id], eBase.value, rowAtual ? [rowAtual] : []);
+          }
+          return chain.then(function(transferOk){
+            if (transferBaseOnly && !transferOk) return { skipped: true };
+            var onlyTransfer = transferBaseOnly && !motoboyChanged && !statusChanged
+              && (eSrv?.value || "") === (editInitialState?.servico || "")
+              && (eCod?.value || "") === (editInitialState?.codigo || "");
+            if (onlyTransfer) return { ok: true, status: 200 };
+            return TrackAPI.updateSaida(id, payload);
+          })
         .then(r => {
+          if (r?.skipped) return;
           if (r.status === 200){
             bustListCache();
             refresh(true);
             modal?.hide();
-            notify("Atualizado com sucesso.", "success");
+            if (!(transferBaseOnly && !motoboyChanged && !statusChanged
+              && (eSrv?.value || "") === (editInitialState?.servico || "")
+              && (eCod?.value || "") === (editInitialState?.codigo || ""))) {
+              notify(transferBaseOnly ? "Transferência/atualização concluída." : "Atualizado com sucesso.", "success");
+            }
             updateEditButtonState();
             return;
           }
@@ -2313,7 +2574,16 @@ function setupPagerEvents() {
           }
           updateEditSaveState();
         });
+      };
+
+      if (!confirmTitle) {
+        runSave();
+      } else {
+        confirmDlg(confirmMsg, confirmTitle).then(function(conf){
+          if (!conf?.isConfirmed) return;
+          runSave();
         });
+      }
     });
   }
 
@@ -2363,7 +2633,7 @@ function setupPagerEvents() {
     if (!show && bulkBase) bulkBase.value = "";
     if (bulkBaseHint) {
       bulkBaseHint.textContent = show
-        ? ("Vale para todos os pedidos selecionados, com ou sem " + labelBase("base_lower") + " informado.")
+        ? ("Ao trocar a " + labelBase("base_lower") + ", a coleta é transferida: quantidades e status (Coletada/Pendente) acompanham a nova base.")
         : "";
     }
   }
@@ -2477,6 +2747,10 @@ function setupPagerEvents() {
         return notify("Pedido cancelado. Apenas root ou admin podem reverter o cancelamento.", "warning");
       }
 
+      var registros = ids.map(function(id){
+        return state.rows.find(function(r){ return String(getRowId(r)) === String(id); });
+      }).filter(Boolean);
+
       function mapStatusToApi(v){
         return (
           v === "Saiu para entrega" ? "saiu" :
@@ -2499,7 +2773,23 @@ function setupPagerEvents() {
         delete body.status;
       }
       if (bulkServico?.value) body.servico = normalizeServicoForEdit(bulkServico.value, "");
-      if (bulkBase?.value) body.base = bulkBase.value;
+
+      var willTransferBase = supportsColetaStatus() && !!bulkBase?.value;
+      if (willTransferBase) {
+        var basesSel = Array.from(new Set(registros.map(rowBaseKey).filter(Boolean)));
+        var diasSel = Array.from(new Set(registros.map(rowOperacaoDia).filter(Boolean)));
+        if (basesSel.length !== 1) {
+          return notify("Para transferir coleta, selecione apenas pacotes da mesma base.", "warning");
+        }
+        if (diasSel.length !== 1) {
+          return notify("Para transferir coleta, selecione apenas pacotes do mesmo dia.", "warning");
+        }
+        if (basesSel[0] === String(bulkBase.value || "").trim().toUpperCase()) {
+          return notify("A base de destino deve ser diferente da origem.", "warning");
+        }
+      } else if (bulkBase?.value) {
+        body.base = bulkBase.value;
+      }
 
       if (
         body.base &&
@@ -2510,15 +2800,37 @@ function setupPagerEvents() {
         return notify("Pedidos finalizados não permitem alterar apenas o " + labelBase("base_lower") + ".", "warning");
       }
 
+      var otherFields = !!(body.status || body.motoboy_id || body.servico);
+      if (otherFields) {
+        var statuses = Array.from(new Set(registros.map(function(r){ return normalizeStatusForBulk(r.status); })));
+        var executors = Array.from(new Set(registros.map(function(r){ return getExecutorKeyForBulk(r); })));
+        if (statuses.length > 1 || executors.length > 1) {
+          return notify(
+            "Para alterar status/motoboy/serviço em lote, selecione pedidos com o mesmo status e o mesmo motoboy.",
+            "warning"
+          );
+        }
+      }
+
       var campos = [];
       if (bulkMotoboy?.value) campos.push("Motoboy");
       if (bulkStatus?.value) campos.push("Status");
       if (bulkServico?.value) campos.push("Serviço");
-      if (body.base) campos.push(labelBase("base"));
+      if (willTransferBase || body.base) campos.push(labelBase("base"));
 
-      var bulkConfirmTitle = "Confirmar alterações em lote";
-      var bulkConfirmMsg = "Aplicar alterações em " + ids.length + " registros?\nCampos: " + campos.join(", ");
-      if (bulkCurrentCohortStatus === "cancelado" && bulkStatus?.value && bulkStatus.value !== "Cancelado") {
+      var onlyTransfer = willTransferBase && !otherFields;
+      var bulkConfirmTitle = onlyTransfer ? "Transferir coleta de base" : "Confirmar alterações em lote";
+      var bulkConfirmMsg = onlyTransfer
+        ? null
+        : ("Aplicar alterações em " + ids.length + " registros?\nCampos: " + campos.join(", "));
+      if (onlyTransfer) {
+        // confirmação dedicada em applyTransferenciaBase
+      } else if (willTransferBase) {
+        bulkConfirmTitle = "Transferir coleta e alterar campos";
+        bulkConfirmMsg =
+          "A base será transferida (quantidades/status da coleta acompanham) e os demais campos serão atualizados.\n\n" +
+          bulkConfirmMsg;
+      } else if (bulkCurrentCohortStatus === "cancelado" && bulkStatus?.value && bulkStatus.value !== "Cancelado") {
         bulkConfirmTitle = "Reverter cancelamento em lote";
         bulkConfirmMsg = "Reverter o cancelamento de " + ids.length + " pedidos?\n\n" + bulkConfirmMsg;
       } else if (bulkCurrentCohortStatus === "entregue" && bulkStatus?.value === "Cancelado") {
@@ -2530,36 +2842,60 @@ function setupPagerEvents() {
         bulkConfirmMsg = "Reatribuir " + ids.length + " pedidos entregues a " + motoboyLabel + " (Em rota)?\n\n" + bulkConfirmMsg;
       }
 
-      confirmDlg(bulkConfirmMsg, bulkConfirmTitle)
-        .then(function(conf){
-          if (!conf?.isConfirmed) return;
+      function runBulkApply(){
           if (bulkApplyBtn) {
             bulkApplyBtn.disabled = true;
             bulkApplyBtn.dataset.originalText = bulkApplyBtn.textContent;
             bulkApplyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Aplicando...';
           }
-          return Promise.allSettled(
-        ids.map((id,i) =>
-          new Promise(res => setTimeout(res, 50*i))
-          .then(() => TrackAPI.updateSaida(id, body))
-        )
-      ).then(results => {
-        var ok = results.filter(r => r.status==="fulfilled" && (r.value.ok || r.value.status===200)).length;
-        var fail = results.length - ok;
+          var chain = Promise.resolve(true);
+          if (willTransferBase) {
+            chain = applyTransferenciaBase(ids, bulkBase.value, registros);
+          }
+          return chain.then(function(transferOk){
+            if (willTransferBase && !transferOk) return { skipped: true };
+            if (onlyTransfer) return { skipped: false, transferOnly: true };
+            return Promise.allSettled(
+              ids.map(function(id, i){
+                return new Promise(function(res){ setTimeout(res, 50 * i); })
+                  .then(function(){ return TrackAPI.updateSaida(id, body); });
+              })
+            ).then(function(results){
+              var ok = results.filter(function(r){
+                return r.status === "fulfilled" && (r.value.ok || r.value.status === 200);
+              }).length;
+              return { ok: ok, fail: results.length - ok };
+            });
+          }).then(function(summary){
+            if (summary?.skipped) return;
+            bulkModal?.hide();
+            if (summary?.transferOnly) {
+              bustListCache();
+              refresh(false);
+              updateEditButtonState();
+              return;
+            }
+            notify("Lote concluído: " + summary.ok + " ok, " + summary.fail + " falha(s).", summary.fail ? "warning" : "success");
+            bustListCache();
+            refresh(false);
+            updateEditButtonState();
+          }).finally(function(){
+            if (bulkApplyBtn) {
+              bulkApplyBtn.innerHTML = bulkApplyBtn.dataset.originalText || "Aplicar alterações";
+              delete bulkApplyBtn.dataset.originalText;
+            }
+            updateBulkApplyState();
+          });
+      }
 
-        bulkModal?.hide();
-        notify(`Lote concluído: ${ok} ok, ${fail} falha(s).`, fail ? "warning" : "success");
-        bustListCache();
-        refresh(false);
-        updateEditButtonState();
-      }).finally(function(){
-        if (bulkApplyBtn) {
-          bulkApplyBtn.innerHTML = bulkApplyBtn.dataset.originalText || "Aplicar alterações";
-          delete bulkApplyBtn.dataset.originalText;
-        }
-        updateBulkApplyState();
-      });
+      if (onlyTransfer) {
+        runBulkApply();
+      } else {
+        confirmDlg(bulkConfirmMsg, bulkConfirmTitle).then(function(conf){
+          if (!conf?.isConfirmed) return;
+          runBulkApply();
         });
+      }
     });
   }
 
@@ -2628,10 +2964,10 @@ function setupPagerEvents() {
     if (f.to) f.to.value = r.end;
     updatePeriodLabel(r.start, r.end);
   } else {
-    // fallback: definir período manualmente se date picker não disponível (D-15)
+    // fallback: definir período manualmente se date picker não disponível (últimos 15 dias)
     const now = new Date();
     const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
-    const start = new Date(y, m, d - 15);
+    const start = new Date(y, m, d - 14);
     const fmt = (x) => x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0");
     if (f.from) f.from.value = fmt(start);
     if (f.to) f.to.value = fmt(now);
@@ -2667,6 +3003,7 @@ function setupPagerEvents() {
   if (btnFiltroAplicar) {
     btnFiltroAplicar.onclick = () => {
       if (loadingState.active) return;
+      if (f.localizar) applyLocalizarInput(f.localizar.value);
       state.page = 1;
       refresh();
       atualizarContadorFiltros();
@@ -2890,12 +3227,15 @@ function setupPagerEvents() {
     var statusRaw = (params.get("status") || "").trim().toLowerCase().replace(/\s+/g, "_");
     if (statusRaw) {
       var wanted = statusRaw.replace(/-/g, "_");
+      // Card "Ainda na base": estoque unificado (entrada NA_BASE + coletado)
+      var wantedAindaNaBase = wanted === "ainda_na_base" || wanted === "ainda na base";
       (f.statusToggles || []).forEach(function (el) {
         var val = String(el.value || "").toLowerCase().replace(/\s+/g, "_");
         var match =
           val === wanted ||
           (wanted === "na_base" && (val === "na_base" || val === "na base")) ||
-          (wanted === "na base" && val === "na_base");
+          (wanted === "na base" && val === "na_base") ||
+          (wantedAindaNaBase && (val === "na_base" || val === "na base" || val === "coletado"));
         if (match) {
           el.checked = true;
           applied = true;

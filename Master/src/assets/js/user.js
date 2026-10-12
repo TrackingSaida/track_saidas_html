@@ -165,7 +165,72 @@
     if (typeof window.applyOwnerLabels === "function") {
       window.applyOwnerLabels();
     }
+
+    maybeShowAniversarioGreeting(user);
     return user;
+  }
+
+  function todaySaoPauloYmd() {
+    try {
+      return new Date().toLocaleDateString("en-CA", {
+        timeZone: "America/Sao_Paulo",
+      });
+    } catch (_) {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+  }
+
+  function escapeHtmlAniv(s) {
+    return String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function maybeShowAniversarioGreeting(user) {
+    const aniv = user && user.aniversario;
+    if (!aniv || !aniv.titulo || !aniv.mensagem) return;
+    if (user.must_change_password === true) return;
+    if (isOnLoginPage()) return;
+
+    const uid = user.id;
+    if (uid == null) return;
+
+    const key = `birthday_greeted_${uid}_${todaySaoPauloYmd()}`;
+    try {
+      if (localStorage.getItem(key)) return;
+      // Marca antes do Swal: focus da janela pode refazer /auth/me.
+      localStorage.setItem(key, "1");
+    } catch (_) {
+      return;
+    }
+
+    const titulo = String(aniv.titulo || "").trim() || "Feliz aniversário!";
+    const mensagem = escapeHtmlAniv(aniv.mensagem).replace(/\n/g, "<br>");
+    const botao = (aniv.botao || "OK").trim() || "OK";
+
+    const show = () => {
+      if (window.Swal) {
+        void Swal.fire({
+          icon: "success",
+          title: titulo,
+          html: `<div style="text-align:left;white-space:normal;line-height:1.5">${mensagem}</div>`,
+          confirmButtonText: botao,
+        });
+      }
+    };
+
+    // Garante que Swal já carregou nas páginas que o incluem no fim do body.
+    if (window.Swal) {
+      show();
+    } else {
+      setTimeout(show, 300);
+    }
   }
 
   /**

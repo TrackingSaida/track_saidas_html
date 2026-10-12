@@ -146,14 +146,7 @@
         return false;
       }
       var blob = await res.blob();
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href = url;
-      a.download = "etiqueta-" + (codigo || idEnvio) + ".pdf";
-      a.click();
-      setTimeout(function () {
-        URL.revokeObjectURL(url);
-      }, 2000);
+      downloadBlob(blob, filenameFromResponse(res, codigo || idEnvio));
       return true;
     } catch (ex) {
       if (ex && ex.status === 401) return false;
@@ -551,6 +544,40 @@
     return String(value || "").replace(/\D/g, "");
   }
 
+  function etiquetaFilename(codigo) {
+    var safe = String(codigo || "etiqueta").replace(/[^\w.\-]+/g, "") || "etiqueta";
+    return "etq-" + safe + ".pdf";
+  }
+
+  function filenameFromResponse(res, fallbackCodigo) {
+    var cd = (res && res.headers && res.headers.get("Content-Disposition")) || "";
+    var star = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+    if (star && star[1]) {
+      try {
+        return decodeURIComponent(star[1].trim());
+      } catch (e) {}
+    }
+    var quoted = /filename="([^"]+)"/i.exec(cd);
+    if (quoted && quoted[1]) return quoted[1];
+    var plain = /filename=([^;]+)/i.exec(cd);
+    if (plain && plain[1]) return plain[1].trim().replace(/^["']|["']$/g, "");
+    var codigo = (res && res.headers && res.headers.get("X-Codigo")) || fallbackCodigo;
+    return etiquetaFilename(codigo);
+  }
+
+  function downloadBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename || etiquetaFilename("etiqueta");
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+    }, 2000);
+  }
+
   async function bootShell() {
     if (!w.PortalSeller.requireAuth()) return false;
     bindSair();
@@ -613,6 +640,9 @@
     maskCep: maskCep,
     maskPhone: maskPhone,
     digitsOnly: digitsOnly,
+    etiquetaFilename: etiquetaFilename,
+    filenameFromResponse: filenameFromResponse,
+    downloadBlob: downloadBlob,
     requireAuth: function () {
       if (!token()) {
         location.href = "portal-login.html";

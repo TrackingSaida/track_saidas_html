@@ -179,11 +179,12 @@
     const hasColeta = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_coleta");
     const hasSaida = Object.prototype.hasOwnProperty.call(src, "pode_criar_avulso_saida");
     if (hasColeta || hasSaida) {
-      qs("#defCriarAvulsoColeta").checked = asBoolFlag(src.pode_criar_avulso_coleta, false);
+      // Preset: coleta on / saída off quando a chave vier ausente (false explícito da API permanece).
+      qs("#defCriarAvulsoColeta").checked = asBoolFlag(src.pode_criar_avulso_coleta, true);
       qs("#defCriarAvulsoSaida").checked = asBoolFlag(src.pode_criar_avulso_saida, false);
       return;
     }
-    qs("#defCriarAvulsoColeta").checked = false;
+    qs("#defCriarAvulsoColeta").checked = true;
     qs("#defCriarAvulsoSaida").checked = false;
   }
 
@@ -368,11 +369,13 @@
     if (bloquearWrap) bloquearWrap.classList.toggle("d-none", !coletaOn);
     const hint = qs("#hintColetaEntrada");
     if (hint) hint.classList.toggle("d-none", !(coletaOn && entradaOn));
-    const avulsoOn = !!qs("#defCriarAvulsoColeta")?.checked || !!qs("#defCriarAvulsoSaida")?.checked;
+    const avulsoOn =
+      !!qs("#defCriarAvulsoColeta")?.checked || !!qs("#defCriarAvulsoSaida")?.checked;
     const foto = qs("#defAvulsoFoto");
     if (foto) {
       foto.disabled = !avulsoOn;
-      if (!avulsoOn) foto.checked = false;
+      // Só zera foto em interação do usuário (não durante hydrate/save).
+      if (!avulsoOn && !hydrating) foto.checked = false;
     }
   }
 
@@ -389,12 +392,20 @@
     qs("#defPodeSaida").checked = pad.pode_ler_saida !== false;
     qs("#defDigitarManual").checked = !!pad.pode_digitar_codigo_manual;
     fillAvulsoFlags(pad);
-    qs("#defAvulsoFoto").checked = !!pad.avulso_exige_foto;
+    const fotoEl = qs("#defAvulsoFoto");
+    const fotoFromApi = asBoolFlag(pad.avulso_exige_foto, true);
+    if (fotoEl) fotoEl.checked = fotoFromApi;
     qs("#aplicarAosMotoboys").checked = false;
     const cob = data?.cobertura || {};
     setRegioesFromApi(cob);
     if (qs("#expiracaoDias")) qs("#expiracaoDias").value = cob.expiracao_dias || 30;
+    // Caller deve manter hydrating=true aqui para syncUiDeps não zerar a foto.
     syncUiDeps();
+    if (fotoEl) {
+      const avulsoOn =
+        !!qs("#defCriarAvulsoColeta")?.checked || !!qs("#defCriarAvulsoSaida")?.checked;
+      fotoEl.checked = avulsoOn ? fotoFromApi : false;
+    }
   }
 
   function showFallbackPreview() {
@@ -469,10 +480,15 @@
         location.href = "index.html";
         return;
       }
+      const isOwnerBase = String(me.tipo_owner || "").toLowerCase() === "base";
+      qs("#cardCobertura")?.classList.toggle("d-none", !isOwnerBase);
+      qs("#cardIdentidade")?.classList.toggle("d-none", !isOwnerBase);
       const data = await http(API);
       fillForm(data);
-      const ident = await http(API_IDENT);
-      await fillIdentidade(ident);
+      if (isOwnerBase) {
+        const ident = await http(API_IDENT);
+        await fillIdentidade(ident);
+      }
     } finally {
       hydrating = false;
       markClean();
@@ -549,10 +565,14 @@
     const nOk = Number.isFinite(n) ? n : 0;
     const semOk = Number.isFinite(sem) ? sem : 0;
     if (nOk === 0) {
-      toast("Políticas salvas. Nenhum motoboy desta base foi atualizado.", true, "warning");
+      toast(
+        "Políticas salvas. Nenhum motoboy desta base foi atualizado (sem perfil vinculado).",
+        true,
+        "warning"
+      );
       return;
     }
-    let msg = "Políticas salvas. " + nOk + " motoboy(s) atualizado(s).";
+    let msg = "Políticas salvas. " + nOk + " motoboy(s) atualizado(s) com o padrão.";
     if (semOk > 0) {
       msg += " " + semOk + " sem perfil de motoboy.";
     }

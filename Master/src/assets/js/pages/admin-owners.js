@@ -105,7 +105,7 @@ function initOwners() {
 async function loadOwners() {
     const tbody = document.getElementById("tbody-owners");
     tbody.innerHTML = `
-        <tr><td colspan="10" class="text-center py-4 text-muted">Carregando...</td></tr>
+        <tr><td colspan="12" class="text-center py-4 text-muted">Carregando...</td></tr>
     `;
 
     try {
@@ -117,7 +117,7 @@ async function loadOwners() {
 
     } catch (err) {
         tbody.innerHTML = `
-            <tr><td colspan="10" class="text-center text-danger py-4">Erro ao carregar owners.</td></tr>
+            <tr><td colspan="12" class="text-center text-danger py-4">Erro ao carregar owners.</td></tr>
         `;
     }
 }
@@ -197,6 +197,11 @@ function renderTable() {
             <td>${o.ignorar_coleta ? "Não" : "Sim"}</td>
             <td>${o.teste ? "Sim" : "Não"}</td>
             <td>${o.ativo ? "Sim" : "Não"}</td>
+            <td class="text-end">
+                <a href="tracking-cobranca-owner-detalhe.html?owner_id=${encodeURIComponent(o.id_owner)}" class="btn btn-sm btn-soft-primary">
+                    <i class="ri-bill-line me-1"></i>Ver cobrança
+                </a>
+            </td>
         </tr>
     `).join("");
 

@@ -161,6 +161,39 @@
   // =============================
   // Alterar senha
   // =============================
+  function passwordErrorMessage(err) {
+    const detail = err && err.detail;
+    if (typeof detail === "string" && detail.trim()) return detail;
+    if (Array.isArray(detail) && detail.length) {
+      const first = detail[0] || {};
+      const field = Array.isArray(first.loc) ? first.loc[first.loc.length - 1] : "";
+      if (field === "new_password") return "A nova senha deve ter no mínimo 8 caracteres.";
+    }
+    return "Não foi possível alterar a senha. Tente novamente.";
+  }
+
+  function setPasswordBusy(busy) {
+    const btn = document.getElementById("btnAlterarSenha");
+    if (!btn) return;
+    btn.disabled = busy;
+    btn.innerHTML = busy
+      ? '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Alterando…'
+      : "Alterar senha";
+  }
+
+  async function logoutAfterPasswordChange() {
+    try {
+      ["trackingToken", "trackingUser", "access_token"].forEach((k) => {
+        localStorage.removeItem(k);
+        sessionStorage.removeItem(k);
+      });
+    } catch (_) {}
+    try {
+      await fetch(`${API_URL}/auth/logout`, { method: "POST", credentials: "include" });
+    } catch (_) {}
+    window.location.href = "auth-signin-tracking-v2.html";
+  }
+
   async function handlePasswordSubmit(e) {
     e.preventDefault();
 
@@ -173,11 +206,17 @@
       return;
     }
 
+    if (newPass.length < 8) {
+      swalError("A nova senha deve ter no mínimo 8 caracteres.");
+      return;
+    }
+
     if (newPass !== confirmPass) {
       swalError("A nova senha e a confirmação não coincidem.");
       return;
     }
 
+    setPasswordBusy(true);
     try {
       const res = await fetch(`${API_URL}${PASSWORD_ENDPOINT}`, {
         method: "POST",
@@ -191,20 +230,29 @@
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        swalError(err.detail || "Erro ao alterar senha.");
+        swalError(passwordErrorMessage(err));
+        setPasswordBusy(false);
         return;
       }
 
-      swalSuccess("Senha alterada com sucesso!");
-
-      // limpar campos
       document.getElementById("current-pass").value = "";
       document.getElementById("new-pass").value = "";
       document.getElementById("confirm-pass").value = "";
 
+      await Swal.fire({
+        icon: "success",
+        title: "Senha alterada com sucesso",
+        text: "Por segurança, faça login novamente com a nova senha.",
+        confirmButtonText: "Ir para o login",
+        confirmButtonColor: "#556ee6",
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      });
+      await logoutAfterPasswordChange();
     } catch (err) {
       console.error(err);
       swalError("Erro ao comunicar com o servidor.");
+      setPasswordBusy(false);
     }
   }
 

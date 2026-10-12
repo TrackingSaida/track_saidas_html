@@ -81,6 +81,7 @@
       btnCancel.classList.toggle("d-none", !(data.id_envio && data.pode_cancelar));
       if (data.id_envio) {
         btnPdf.setAttribute("data-id", String(data.id_envio));
+        btnPdf.setAttribute("data-codigo", data.codigo || "");
         btnCancel.setAttribute("data-id", String(data.id_envio));
       }
     } catch (ex) {
@@ -95,7 +96,7 @@
 
   document.getElementById("btnPdf")?.addEventListener("click", function () {
     var envioId = this.getAttribute("data-id");
-    if (envioId) PS.baixarEtiqueta(envioId, document.getElementById("pedidoCodigo").textContent);
+    if (envioId) PS.baixarEtiqueta(envioId, this.getAttribute("data-codigo") || document.getElementById("pedidoCodigo").textContent);
   });
 
   document.getElementById("btnCancelar")?.addEventListener("click", async function () {

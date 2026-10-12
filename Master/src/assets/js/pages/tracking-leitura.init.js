@@ -1724,15 +1724,24 @@ btnSelecionarAvulso?.addEventListener("click", async (e) => {
       box.innerHTML = `<div class="text-muted small py-2">${data.mensagem || "Digite para buscar os avulsos de hoje."}</div>`;
       return;
     }
-    box.innerHTML = itemsCache.map((it, idx) => `
+    const firstElegivel = itemsCache.findIndex((x) => x && x.elegivel_saida);
+    const checkedIdx = firstElegivel >= 0 ? firstElegivel : 0;
+    box.innerHTML = itemsCache.map((it, idx) => {
+      const displayCode = it.codigo_exibicao || it.label || it.codigo || "—";
+      const interno = it.codigo && displayCode !== it.codigo
+        ? `<div class="small text-muted">Interno: ${it.codigo}</div>`
+        : "";
+      return `
       <label class="d-flex align-items-start gap-2 border rounded p-2 mb-2 text-start" style="cursor:pointer">
-        <input type="radio" name="avulso-pendente" value="${idx}" class="mt-1" ${idx === 0 ? "checked" : ""} />
+        <input type="radio" name="avulso-pendente" value="${idx}" class="mt-1" ${idx === checkedIdx ? "checked" : ""} />
         <span>
-          <strong>${it.label || it.codigo || "—"}</strong>
+          <strong>${displayCode}</strong>
           <div class="small text-muted">${itemMeta(it)}</div>
+          ${interno}
         </span>
       </label>
-    `).join("");
+    `;
+    }).join("");
   }
 
   const modal = await Swal.fire({
@@ -1788,15 +1797,27 @@ btnSelecionarAvulso?.addEventListener("click", async (e) => {
     servico: "Avulso",
   });
   if (!res?.ok) {
-    showMsgIcon("erro", parseApiDetailError(res, "Erro ao atribuir avulso."));
+    const detail = res?.data || res?.detail || {};
+    const code = detail.code || res?.code;
+    if (res.status === 409 && code === "AVULSO_PENDENTE_EXISTENTE") {
+      const label = detail.codigo_exibicao_pendente || detail.codigo_pendente || "pedido novo";
+      showMsgIcon(
+        "erro",
+        detail.message ||
+          `Pedido encerrado. Use o avulso ativo: ${label}.`
+      );
+    } else {
+      showMsgIcon("erro", parseApiDetailError(res, "Erro ao atribuir avulso."));
+    }
     Sound.play("err");
     return;
   }
   const row = res.data?.data || res.data || {};
+  const displayOk = item.codigo_exibicao || item.label || row.codigo || item.codigo;
   appendOrUpdateRow({
     tsFmt: new Date().toLocaleString("pt-BR"),
     entregador,
-    codigo: row.codigo || item.codigo,
+    codigo: displayOk,
     servico: row.servico || "Avulso",
     status: row.status || "Saiu",
     id_saida: row.id_saida || item.id_saida,
@@ -1804,7 +1825,7 @@ btnSelecionarAvulso?.addEventListener("click", async (e) => {
   });
   codigosLidosSessao.add(String(row.codigo || item.codigo || ""));
   updateSummary();
-  showMsgIcon("ok", `Avulso ${item.codigo} atribuído.`);
+  showMsgIcon("ok", `Avulso ${displayOk} atribuído.`);
   Sound.play("ok");
   try { window.leituraStartScanner?.(); } catch (_) {}
 });
@@ -1820,10 +1841,10 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
   const motoboyId = parseInt(motoboyIdRaw, 10);
   const entregador = selEnt?.options[selEnt.selectedIndex]?.text?.trim() || entregadoresMap.get(motoboyIdRaw) || "";
   const roleUser = Number(window.__USER__?.role);
-  const isRootAdmin = roleUser === 0 || roleUser === 1;
   const isStaff = [0, 1, 2, 3].includes(roleUser);
+  const exigeFotoGlobal = !!(window.__USER__?.avulso_exige_foto);
   const exigeFotoMotoboy = !!(motoboysMetaMap.get(motoboyIdRaw)?.avulso_exige_foto);
-  const exigeFoto = exigeFotoMotoboy && !isRootAdmin;
+  const exigeFoto = !!(exigeFotoGlobal || exigeFotoMotoboy);
   const mostrarFoto = exigeFoto || isStaff;
   const excepcional = ownerExigeSelecaoAvulso();
   const camposCfg = await loadSchemaCamposAvulso("SAIDA_AVULSO");
@@ -1847,7 +1868,7 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
     ? `
         <label class="form-label mb-1" for="avulso-foto">Imagem ${exigeFoto ? '<span class="text-danger">*</span>' : '<span class="text-muted">(opcional)</span>'}</label>
         <input id="avulso-foto" type="file" accept="image/*" capture="environment" class="form-control mb-1" />
-        ${exigeFoto ? '<div class="form-text mb-3">Este entregador exige foto ao lançar avulso.</div>' : '<div class="mb-3"></div>'}
+        ${exigeFoto ? '<div class="form-text mb-3">Foto obrigatória ao lançar avulso.</div>' : '<div class="mb-3"></div>'}
       `
     : "";
   const motivoHtml = excepcional
