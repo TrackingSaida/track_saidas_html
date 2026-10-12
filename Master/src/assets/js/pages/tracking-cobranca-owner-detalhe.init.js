@@ -18,6 +18,7 @@
     itens: { page: 1, filtro: "", codigo: "", fechamentoId: null, total: 0 },
     decisaoRef: null,
     chaveAjuste: null,
+    chaveAjustePeriodo: null,
     seqItens: 0
   };
 
@@ -105,12 +106,18 @@
       "<td class='text-end' style='width: 9rem;'>" + C.money(valor) + "</td></tr>";
   }
 
+  var CLASSES_AJUSTE = ["ajuste", "ajuste_periodo", "isencao"];
+
   function renderComposicao(d) {
     var comp = d.composicao || [];
-    var brutos = comp.filter(function (c) { return ["cancelado", "duplicidade", "ajuste"].indexOf(c.classificacao) < 0; });
+    var brutos = comp.filter(function (c) {
+      return ["cancelado", "duplicidade"].indexOf(c.classificacao) < 0 && CLASSES_AJUSTE.indexOf(c.classificacao) < 0;
+    });
+    var ajustes = comp.filter(function (c) { return CLASSES_AJUSTE.indexOf(c.classificacao) >= 0; });
     var cancel = comp.find(function (c) { return c.classificacao === "cancelado"; });
     var dup = comp.find(function (c) { return c.classificacao === "duplicidade"; });
     var subtotal = brutos.reduce(function (s, c) { return s + Number(c.valor || 0); }, 0);
+    $("cobd-explicacao").textContent = d.explicacao_modelo || "";
     var html = "";
     if (!brutos.length) {
       html += "<tr><td colspan='3' class='cob-muted'>Sem pacotes cobráveis neste período.</td></tr>";
@@ -119,11 +126,10 @@
     html += linhaLedger("Subtotal bruto", d.totais.bruto, subtotal.toFixed(2), "cob-ledger-sub");
     if (cancel) html += linhaLedger("(−) Cancelados", Math.abs(cancel.quantidade), cancel.valor);
     html += linhaLedger("Pacotes faturáveis", d.totais.faturavel, d.totais.valor_pacotes, "fw-medium");
-    if (Number(d.totais.valor_ajustes || 0) !== 0) {
-      html += linhaLedger("Ajustes", null, d.totais.valor_ajustes);
-    }
+    ajustes.forEach(function (c) { html += linhaLedger(c.label, null, c.valor); });
     html += linhaLedger("Total", null, d.totais.valor_total, "cob-ledger-total");
     $("cobd-composicao").innerHTML = html;
+    renderAjustesPeriodo(d);
     var notas = [];
     if (dup) {
       notas.push(dup.quantidade === 1
@@ -137,6 +143,150 @@
     }
     notas.push("Cancelado só aparece como dedução se entrou no bruto.");
     $("cobd-composicao-nota").textContent = notas.join(" ");
+  }
+
+  function renderAjustesPeriodo(d) {
+    var lista = d.ajustes || [];
+    $("cobd-ajustes-wrap").classList.toggle("d-none", !lista.length);
+    $("cobd-ajustes").innerHTML = lista.map(function (a) {
+      var remover = d.pode_ajustar && a.removivel
+        ? "<button type='button' class='btn btn-link btn-sm p-0 text-danger ms-2' data-remover-ajuste='" + a.id + "'>Remover</button>"
+        : "";
+      return "<li class='d-flex justify-content-between gap-2 py-1 border-bottom'><span><span class='fw-medium'>" +
+        C.escapeHtml(a.tipo_label) + "</span> <span class='cob-muted'>· " + C.escapeHtml(a.escopo_label) + "</span>" +
+        "<div class='cob-muted'>" + C.escapeHtml(a.motivo) + (a.criado_por ? " · " + C.escapeHtml(a.criado_por) : "") + "</div></span>" +
+        "<span class='text-nowrap'><span class='cob-num fw-medium'>" + C.money(a.valor) + "</span>" + remover + "</span></li>";
+    }).join("");
+  }
+
+  function renderSituacao(d) {
+    var sit = d.situacao_pacotes || [];
+    var total = sit.reduce(function (s, x) { return s + Number(x.quantidade || 0); }, 0);
+    $("cobd-situacao-wrap").classList.toggle("d-none", !total);
+    if (!total) return;
+    $("cobd-situacao-total").textContent = C.int(total) + (total === 1 ? " pacote cobrado" : " pacotes cobrados");
+    $("cobd-situacao-bar").innerHTML = sit.map(function (x) {
+      return "<span data-sit='" + C.escapeHtml(x.chave) + "' style='width:" + (100 * x.quantidade / total).toFixed(2) + "%'></span>";
+    }).join("");
+    $("cobd-situacao").innerHTML = sit.map(function (x) {
+      var pct = Math.round(100 * x.quantidade / total);
+      return "<li><span class='d-flex align-items-baseline'><span class='cob-sit-dot' data-sit='" + C.escapeHtml(x.chave) + "'></span>" +
+        C.escapeHtml(x.label) + "</span><span class='cob-num'><span class='fw-medium'>" + C.int(x.quantidade) + "</span>" +
+        " <span class='cob-muted'>" + pct + "%</span></span></li>";
+    }).join("");
+  }
+
+  // -------------------------------------------------------------------------
+  // Mensagem para o Owner
+  // -------------------------------------------------------------------------
+
+  function telefoneWhatsapp(raw) {
+    var n = String(raw || "").replace(/\D/g, "");
+    if (n.length === 10 || n.length === 11) n = "55" + n;
+    return n.length >= 12 && n.length <= 13 ? n : "";
+  }
+
+  function montarMensagem(d) {
+    var cad = d.cadastro || {};
+    var nome = cad.razao_social || d.owner.nome;
+    var linhas = [
+      "Olá, " + nome + "!",
+      "",
+      "Segue o demonstrativo de utilização da ROTEVO referente a " + C.periodoLabel(d.periodo.inicio, d.periodo.fim) + ".",
+      "",
+      "• Pacotes cobrados: " + C.int(d.totais.faturavel) + " × " + C.preco(d.totais.preco_unitario) + " = " + C.money(d.totais.valor_pacotes)
+    ];
+    (d.ajustes || []).forEach(function (a) {
+      linhas.push("• " + a.tipo_label + ": " + C.money(a.valor) + (a.motivo ? " (" + a.motivo + ")" : ""));
+    });
+    linhas.push("• Total do período: " + C.money(d.totais.valor_total));
+    var sit = d.situacao_pacotes || [];
+    if (sit.length) {
+      linhas.push("", "Situação dos pacotes cobrados:");
+      sit.forEach(function (x) { linhas.push("• " + x.label + ": " + C.int(x.quantidade)); });
+    }
+    if (d.explicacao_modelo) linhas.push("", "Como calculamos: " + d.explicacao_modelo);
+    linhas.push("", "O demonstrativo completo segue em anexo. Qualquer dúvida, estamos à disposição.");
+    return linhas.join("\n");
+  }
+
+  function atualizarLinkWhatsapp() {
+    var d = state.data;
+    var tel = telefoneWhatsapp((d.cadastro || {}).telefone);
+    var texto = $("msg-texto").value;
+    $("msg-whatsapp").href = "https://wa.me/" + tel + "?text=" + encodeURIComponent(texto);
+    $("msg-ajuda").textContent = tel
+      ? "Abre a conversa com " + (d.cadastro.telefone || "") + ". Anexe o demonstrativo em PDF."
+      : "Owner sem telefone no cadastro: o WhatsApp pede o contato. Anexe o demonstrativo em PDF.";
+  }
+
+  function abrirMensagem() {
+    $("msg-texto").value = montarMensagem(state.data);
+    atualizarLinkWhatsapp();
+    bootstrap.Modal.getOrCreateInstance($("cobd-modal-mensagem")).show();
+  }
+
+  async function copiarTexto(texto) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(texto);
+      return;
+    }
+    var ta = $("msg-texto");
+    ta.focus();
+    ta.select();
+    document.execCommand("copy");
+  }
+
+  // -------------------------------------------------------------------------
+  // Ajuste do período
+  // -------------------------------------------------------------------------
+
+  function tipoAjuste() {
+    var el = document.querySelector("input[name='ap-tipo']:checked");
+    return el ? el.value : "desconto_valor";
+  }
+
+  function efeitoAjuste() {
+    var d = state.data;
+    var t = tipoAjuste();
+    var atual = Number(d.totais.valor_total || 0);
+    if (t === "isencao") return -atual;
+    var v = parseValor($("ap-valor").value);
+    if (v === null) return null;
+    v = Number(v);
+    if (t === "desconto_pct") return -Math.round(Number(d.totais.valor_pacotes || 0) * v) / 100;
+    return t === "acrescimo" ? v : -v;
+  }
+
+  function syncAjuste() {
+    var t = tipoAjuste();
+    var isencao = t === "isencao";
+    $("ap-bloco-valor").classList.toggle("d-none", isencao);
+    $("ap-isencao-nota").classList.toggle("d-none", !isencao);
+    var pct = t === "desconto_pct";
+    $("ap-valor-label").innerHTML = (pct ? "Percentual (%)" : "Valor (R$)") + " <span class='text-danger'>*</span>";
+    $("ap-valor").placeholder = pct ? "10" : "0,00";
+    $("ap-valor-ajuda").textContent = pct
+      ? "Sobre o valor dos pacotes (" + C.money(state.data.totais.valor_pacotes) + ")."
+      : "";
+    var atual = Number(state.data.totais.valor_total || 0);
+    var ef = efeitoAjuste();
+    $("ap-atual").textContent = C.money(atual);
+    $("ap-efeito").textContent = ef === null ? "—" : C.money(ef);
+    var novo = ef === null ? null : atual + ef;
+    $("ap-novo").textContent = novo === null ? "—" : C.money(novo);
+    $("ap-novo").classList.toggle("text-danger", novo !== null && novo < 0);
+  }
+
+  function abrirAjuste() {
+    $("ap-tipo-desc-valor").checked = true;
+    $("ap-valor").value = "";
+    $("ap-motivo").value = "";
+    state.chaveAjustePeriodo = null;
+    var jaIsento = (state.data.ajustes || []).some(function (a) { return a.tipo === "isencao"; });
+    $("ap-tipo-isencao").disabled = jaIsento;
+    syncAjuste();
+    bootstrap.Modal.getOrCreateInstance($("cobd-modal-ajuste")).show();
   }
 
   // -------------------------------------------------------------------------
@@ -183,6 +333,7 @@
     var nota = $("cobd-acao-nota");
     var html = "";
     var texto = "";
+    var ajustar = d.pode_ajustar ? botao("act-ajustar", "Ajustar valor", "btn-outline-secondary", "ri-percent-line") : "";
     if (d.fonte === "previa") {
       if (d.status === "em_apuracao") {
         if (d.pode_conferir) html += botao("act-conferir", "Conferir", "btn-primary", "ri-check-double-line");
@@ -200,8 +351,10 @@
           (d.conferencia.conferido_por ? " por " + d.conferencia.conferido_por : "") + "." : "";
         if (d.motivo_bloqueio_fechar) texto += " " + d.motivo_bloqueio_fechar;
       }
+      html += ajustar;
     } else if (d.fechamento) {
       html += botao("act-pdf", "Gerar demonstrativo", "btn-primary", "ri-file-pdf-2-line");
+      html += botao("act-mensagem", "Mensagem para o Owner", "btn-outline-secondary", "ri-whatsapp-line");
       if (d.status === "fechado") html += botao("act-informar", "Marcar como informado", "btn-outline-secondary", "ri-mail-check-line");
       html += botao("act-csv", "Baixar CSV", "btn-outline-secondary", "ri-download-2-line");
       html += "<div class='dropdown'>" +
@@ -224,6 +377,8 @@
     state.data = d;
     renderCabecalho(d);
     renderComposicao(d);
+    renderSituacao(d);
+    renderCadastro(d);
     renderBloqueios(d);
     renderAcoes(d);
     renderVersoes(d);
@@ -356,11 +511,6 @@
     $("cfg-sugestao").textContent = cfg.confirmado
       ? "Confirmado em " + C.dmyHm(cfg.confirmado_em) + "."
       : (sug ? "Sugestão pelas regras de operação: " + sug.label + ". Confirme antes de fechar." : "");
-    $("cfg-razao").value = cfg.razao_social || "";
-    $("cfg-documento").value = cfg.documento || "";
-    $("cfg-telefone").value = cfg.telefone || "";
-    $("cfg-endereco").value = cfg.endereco || "";
-    $("cfg-contato").value = cfg.contato_financeiro || "";
     $("cfg-obs").value = cfg.observacao || "";
     $("cfg-preco-vigente").textContent = C.preco(r.preco_vigente);
     if (!$("preco-inicio").value && r.periodo_atual) {
@@ -374,6 +524,23 @@
         (p.fim ? C.dmy(p.fim) : "hoje") + (p.motivo ? "<div class='cob-muted'>" + C.escapeHtml(p.motivo) + "</div>" : "") +
         "</span><span class='cob-num fw-medium'>" + C.preco(p.valor) + "</span></li>";
     }).join("") || "<li class='cob-muted'>Nenhum preço cadastrado.</li>";
+  }
+
+  function renderCadastro(d) {
+    var cad = d.cadastro || {};
+    var campos = [
+      ["Nome", cad.razao_social || cad.nome],
+      ["CNPJ/CPF", cad.documento],
+      ["Endereço", cad.endereco],
+      ["E-mail", cad.email],
+      ["Telefone", cad.telefone],
+      ["Contato financeiro", cad.contato_financeiro]
+    ];
+    $("cfg-cadastro").innerHTML = campos.map(function (c) {
+      return "<dt>" + c[0] + "</dt><dd>" + (c[1] ? C.escapeHtml(c[1]) : "<span class='cob-muted'>Sem cadastro</span>") + "</dd>";
+    }).join("");
+    $("cfg-editar-cadastro").href = "admin-owners.html?editar=" + encodeURIComponent(d.owner.id_owner);
+    $("cfg-editar-cadastro").classList.toggle("d-none", d.fonte === "snapshot");
   }
 
   function renderPainelPeriodo(d) {
@@ -523,6 +690,12 @@
         case "act-fechar":
           abrirFechar();
           break;
+        case "act-ajustar":
+          abrirAjuste();
+          break;
+        case "act-mensagem":
+          abrirMensagem();
+          break;
         case "act-pdf":
           comBotao(btn, function () { return C.download("/fechamentos/" + fid + "/demonstrativo.pdf", "demonstrativo.pdf"); });
           break;
@@ -624,11 +797,6 @@
         modelo: $("cfg-modelo").value,
         periodicidade: $("cfg-periodicidade").value,
         confirmar: $("cfg-confirmar").checked,
-        razao_social: $("cfg-razao").value.trim(),
-        documento: $("cfg-documento").value.trim(),
-        telefone: $("cfg-telefone").value.trim(),
-        endereco: $("cfg-endereco").value.trim(),
-        contato_financeiro: $("cfg-contato").value.trim(),
         observacao: $("cfg-obs").value.trim()
       };
       comBotao($("cfg-salvar"), async function () {
@@ -687,6 +855,61 @@
     });
 
     $("cobd-painel").addEventListener("show.bs.offcanvas", carregarConfig);
+
+    document.querySelectorAll("input[name='ap-tipo']").forEach(function (r) {
+      r.addEventListener("change", function () { state.chaveAjustePeriodo = null; syncAjuste(); });
+    });
+    ["ap-valor", "ap-motivo"].forEach(function (id) {
+      $(id).addEventListener("input", function () { state.chaveAjustePeriodo = null; syncAjuste(); });
+    });
+    $("cobd-form-ajuste-periodo").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var t = tipoAjuste();
+      var motivo = $("ap-motivo").value.trim();
+      var payload = Object.assign(periodoParams(), {
+        tipo: t === "desconto_valor" || t === "desconto_pct" ? "desconto" : t,
+        motivo: motivo
+      });
+      if (t !== "isencao") {
+        var v = parseValor($("ap-valor").value);
+        if (v === null || Number(v) <= 0) { C.alertError({ message: "Informe um valor maior que zero." }); return; }
+        if (t === "desconto_pct") {
+          if (Number(v) > 100) { C.alertError({ message: "O percentual vai até 100." }); return; }
+          payload.percentual = Number(v).toFixed(2);
+        } else {
+          payload.valor = Number(v).toFixed(2);
+        }
+      }
+      if (motivo.length < 5) { C.alertError({ message: "Informe o motivo (mínimo 5 caracteres)." }); return; }
+      var ef = efeitoAjuste();
+      if (ef !== null && Number(state.data.totais.valor_total || 0) + ef < -0.004) {
+        C.alertError({ message: "Esse desconto deixaria o total negativo." });
+        return;
+      }
+      if (!state.chaveAjustePeriodo) state.chaveAjustePeriodo = C.novaChave();
+      payload.chave_idempotencia = state.chaveAjustePeriodo;
+      comBotao($("ap-salvar"), async function () {
+        var d = await C.post(base() + "/ajustes", payload);
+        state.chaveAjustePeriodo = null;
+        bootstrap.Modal.getOrCreateInstance($("cobd-modal-ajuste")).hide();
+        aplicar(d, t === "isencao" ? "Período isento" : "Ajuste aplicado");
+      });
+    });
+    $("cobd-ajustes").addEventListener("click", function (ev) {
+      var b = ev.target.closest("[data-remover-ajuste]");
+      if (!b) return;
+      comBotao(b, async function () {
+        var d = await C.del(base() + "/ajustes/" + b.getAttribute("data-remover-ajuste"));
+        aplicar(d, "Ajuste removido");
+      });
+    });
+
+    $("msg-texto").addEventListener("input", atualizarLinkWhatsapp);
+    $("msg-copiar").addEventListener("click", function () {
+      copiarTexto($("msg-texto").value).then(function () { C.toast("Mensagem copiada"); }, function () {
+        C.alertError({ message: "Não foi possível copiar. Selecione o texto e copie manualmente." });
+      });
+    });
 
     $("cobd-chips").addEventListener("click", function (ev) {
       var b = ev.target.closest(".cob-chip");

@@ -1,0 +1,171 @@
+/* Configurações → Owners: modal "Editar Owner" (.of). Mesmos tokens da Cobrança de Owners. */
+.of {
+  --of-text: #0F172A;
+  --of-strong: #0B1F3A;
+  --of-muted: #64748B;
+  --of-border: #E2E8F0;
+  --of-soft: #F8FAFC;
+  color: var(--of-text);
+}
+
+.of .of-sub {
+  font-size: 0.8125rem;
+  color: var(--of-muted);
+}
+
+.of .of-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  min-height: 100%;
+  background: linear-gradient(var(--of-border), var(--of-border)) 199px 0 / 1px 100% no-repeat;
+}
+
+.of .of-nav {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 1.25rem 0.75rem;
+}
+
+.of .of-nav a {
+  display: block;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  color: var(--of-muted);
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.of .of-nav a:hover { color: var(--of-text); background: var(--of-soft); }
+
+.of .of-nav a.active {
+  color: var(--of-strong);
+  background: var(--of-soft);
+  font-weight: 600;
+}
+
+.of .of-body { padding: 0.25rem 1.5rem 1.5rem; }
+
+.of .of-section {
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--of-border);
+  scroll-margin-top: 0.5rem;
+}
+
+.of .of-section:last-child { border-bottom: 0; }
+
+.of .of-section-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--of-strong);
+  margin-bottom: 0.75rem;
+}
+
+.of .of-section-desc {
+  font-size: 0.8125rem;
+  color: var(--of-muted);
+  margin: -0.4rem 0 0.75rem;
+}
+
+.of .of-group-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--of-muted);
+  margin: 1rem 0 0.25rem;
+}
+
+.of .of-group-title:first-of-type { margin-top: 0; }
+
+/* Linha de configuração: rótulo + descrição à esquerda, controle à direita */
+.of .of-rows {
+  border: 1px solid var(--of-border);
+  border-radius: 8px;
+}
+
+.of .of-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.9rem;
+}
+
+.of .of-row + .of-row { border-top: 1px solid var(--of-border); }
+
+.of .of-row--sub { background: var(--of-soft); padding-left: 1.75rem; }
+
+.of .of-row-title {
+  display: block;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--of-text);
+  cursor: pointer;
+}
+
+.of .of-row-desc {
+  font-size: 0.8125rem;
+  color: var(--of-muted);
+  line-height: 1.35;
+}
+
+.of .of-row .form-switch .form-check-input {
+  width: 2.25rem;
+  height: 1.25rem;
+  margin: 0;
+  cursor: pointer;
+}
+
+.of .of-row-select { width: auto; min-width: 11rem; flex: none; }
+
+.of .of-cep-status { min-width: 2.5rem; justify-content: center; color: var(--of-muted); }
+
+.of .of-cobranca {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--of-border);
+  border-radius: 8px;
+  background: var(--of-soft);
+}
+
+.of .of-label { font-size: 0.75rem; color: var(--of-muted); }
+
+.of .of-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--of-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.of .of-footer-note { font-size: 0.8125rem; color: var(--of-muted); }
+
+/* Lista: cidade/UF abaixo da sub-base */
+.of-local { display: block; font-size: 0.75rem; color: #64748B; }
+
+@media (max-width: 991.98px) {
+  .of .of-layout { grid-template-columns: 1fr; background: none; }
+  .of .of-nav {
+    position: sticky;
+    z-index: 2;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--of-border);
+    background: #fff;
+  }
+  .of .of-nav a { white-space: nowrap; }
+  .of .of-body { padding: 0 1rem 1rem; }
+  .of .of-row { align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .of .modal-body { scroll-behavior: smooth; }
+}

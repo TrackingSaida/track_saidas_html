@@ -33,6 +33,63 @@ function gerarLinkWhatsapp(contatoRaw) {
     return `https://wa.me/55${numero}`;
 }
 
+// ---------------------------------------------------------------------
+// CEP / CNPJ-CPF
+// ---------------------------------------------------------------------
+const onlyDigits = (s) => (s || "").toString().replace(/\D/g, "");
+
+function escapeHtml(s) {
+    return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function maskCep(value) {
+    const d = onlyDigits(value).slice(0, 8);
+    return d.length > 5 ? d.replace(/(\d{5})(\d{0,3})/, "$1-$2") : d;
+}
+
+function maskDocumento(value) {
+    const d = onlyDigits(value).slice(0, 14);
+    if (d.length <= 11) {
+        return d
+            .replace(/^(\d{3})(\d)/, "$1.$2")
+            .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+            .replace(/\.(\d{3})(\d{1,2})$/, ".$1-$2");
+    }
+    return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2}).*/, "$1.$2.$3/$4-$5");
+}
+
+async function lookupCep(cepRaw) {
+    const cep = onlyDigits(cepRaw);
+    if (cep.length !== 8) throw new Error("CEP inválido");
+    const r = await fetch(`${window.getTrackApiUrl()}/cep/${cep}`, { credentials: "include" });
+    if (r.ok) return r.json();
+    if (r.status >= 500) {
+        const direct = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        if (direct.ok) {
+            const data = await direct.json();
+            if (data && !data.erro) return data;
+        }
+    }
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.detail || "CEP não encontrado");
+}
+
+const SELLER_CAMPOS = {
+    cnpj: "ownerCnpj",
+    cep: "ownerCep",
+    rua: "ownerRua",
+    numero: "ownerNumero",
+    complemento: "ownerComplemento",
+    bairro: "ownerBairro",
+    cidade: "ownerCidade",
+    estado: "ownerEstado",
+};
+const SELLER_OBRIGATORIOS_BASE = ["cnpj", "cep", "rua", "numero", "bairro", "cidade"];
+let SELLER_ORIGINAL = {};
+let OWNER_EDIT_SEQ = 0;
+
 
 // -------------------------------------------------------------------------
 // SOMENTE ADMIN
@@ -94,8 +151,179 @@ function initOwners() {
     });
 
     document.getElementById("ownerColetaHabilitadaToggle").addEventListener("change", syncModoOperacaoSelect);
+    document.getElementById("ownerTipo").addEventListener("change", syncTipoOwner);
+    bindEnderecoOwner();
+    bindNavOwner();
 
-    loadOwners();
+    loadOwners().then(() => {
+        const editar = new URLSearchParams(window.location.search).get("editar");
+        const alvo = editar && ALL_OWNERS.find(x => String(x.id_owner) === String(editar));
+        if (alvo) openEdit(alvo);
+    });
+}
+
+function bindEnderecoOwner() {
+    const cepEl = document.getElementById("ownerCep");
+    const status = document.getElementById("ownerCepStatus");
+    const docEl = document.getElementById("ownerCnpj");
+    docEl.addEventListener("input", (ev) => { ev.target.value = maskDocumento(ev.target.value); });
+    document.getElementById("ownerEstado").addEventListener("input", (ev) => {
+        ev.target.value = ev.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 2);
+    });
+
+    let ultimoCep = "";
+    async function buscar() {
+        const raw = onlyDigits(cepEl.value);
+        if (raw.length !== 8 || raw === ultimoCep) return;
+        ultimoCep = raw;
+        status.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span class="visually-hidden">Buscando CEP</span>';
+        try {
+            const data = await lookupCep(raw);
+            document.getElementById("ownerRua").value = data.logradouro || document.getElementById("ownerRua").value;
+            document.getElementById("ownerBairro").value = data.bairro || document.getElementById("ownerBairro").value;
+            document.getElementById("ownerCidade").value = data.localidade || document.getElementById("ownerCidade").value;
+            document.getElementById("ownerEstado").value = (data.uf || document.getElementById("ownerEstado").value || "").toUpperCase();
+            status.innerHTML = '<i class="ri-check-line text-success" aria-hidden="true"></i><span class="visually-hidden">Endereço preenchido</span>';
+            document.getElementById("ownerNumero").focus();
+        } catch (_) {
+            status.innerHTML = '<i class="ri-error-warning-line text-warning" aria-hidden="true"></i><span class="visually-hidden">CEP não encontrado</span>';
+            setFooterNote("CEP não encontrado. Preencha o endereço manualmente.");
+        }
+    }
+    cepEl.addEventListener("input", (ev) => {
+        ev.target.value = maskCep(ev.target.value);
+        if (onlyDigits(ev.target.value).length !== 8) { status.innerHTML = ""; ultimoCep = ""; }
+        else buscar();
+    });
+    cepEl.addEventListener("blur", buscar);
+}
+
+function bindNavOwner() {
+    const nav = document.querySelector("#oc-owner .of-nav");
+    const scroller = document.querySelector("#oc-owner .modal-body");
+    if (!nav || !scroller) return;
+    const links = [...nav.querySelectorAll("a")];
+    nav.addEventListener("click", (ev) => {
+        const a = ev.target.closest("a[href^='#']");
+        if (!a) return;
+        ev.preventDefault();
+        const alvo = document.querySelector(a.getAttribute("href"));
+        if (alvo) alvo.scrollIntoView({ block: "start" });
+    });
+    scroller.addEventListener("scroll", () => {
+        const topo = scroller.getBoundingClientRect().top;
+        let atual = links[0];
+        links.forEach((a) => {
+            const sec = document.querySelector(a.getAttribute("href"));
+            if (sec && sec.getBoundingClientRect().top - topo <= 80) atual = a;
+        });
+        links.forEach((a) => a.classList.toggle("active", a === atual));
+    }, { passive: true });
+}
+
+function setFooterNote(msg) {
+    const el = document.getElementById("ownerFooterNote");
+    if (el) el.textContent = msg || "";
+}
+
+function isOwnerBase() {
+    return (document.getElementById("ownerTipo").value || "subbase") === "base";
+}
+
+function syncTipoOwner() {
+    const base = isOwnerBase();
+    document.querySelectorAll("#oc-owner .of-req-base").forEach((el) => el.classList.toggle("d-none", !base));
+    document.getElementById("ownerEnderecoHelp").textContent = base
+        ? "Base (Seller) exige CNPJ e endereço completo. Usados no demonstrativo de cobrança e na mensagem ao Owner."
+        : "Opcionais para Subbase. Usados no demonstrativo de cobrança e na mensagem ao Owner; campo vazio sai em branco.";
+}
+
+function lerSeller() {
+    const out = {};
+    Object.keys(SELLER_CAMPOS).forEach((k) => {
+        out[k] = (document.getElementById(SELLER_CAMPOS[k]).value || "").trim();
+    });
+    out.cnpj = onlyDigits(out.cnpj);
+    out.cep = onlyDigits(out.cep);
+    out.estado = out.estado.toUpperCase();
+    return out;
+}
+
+function preencherSeller(s) {
+    s = s || {};
+    document.getElementById("ownerCnpj").value = s.cnpj ? maskDocumento(s.cnpj) : "";
+    document.getElementById("ownerCep").value = s.cep ? maskCep(s.cep) : "";
+    ["rua", "numero", "complemento", "bairro", "cidade", "estado"].forEach((k) => {
+        document.getElementById(SELLER_CAMPOS[k]).value = s[k] || "";
+    });
+    document.getElementById("ownerCepStatus").innerHTML = "";
+    SELLER_ORIGINAL = lerSeller();
+}
+
+function validarOwnerForm() {
+    const form = document.getElementById("formOwner");
+    form.querySelectorAll(".is-invalid").forEach((el) => el.classList.remove("is-invalid"));
+    const invalidos = [];
+    const marcar = (id) => { const el = document.getElementById(id); el.classList.add("is-invalid"); invalidos.push(el); };
+
+    if (!document.getElementById("ownerUsername").value.trim()) marcar("ownerUsername");
+    const email = document.getElementById("ownerEmail");
+    if (!email.value.trim() || !email.checkValidity()) marcar("ownerEmail");
+    const valor = document.getElementById("ownerValor").value;
+    if (valor === "" || Number(valor) < 0) marcar("ownerValor");
+
+    const s = lerSeller();
+    if (s.cnpj && s.cnpj.length !== 11 && s.cnpj.length !== 14) marcar("ownerCnpj");
+    if (s.cep && s.cep.length !== 8) marcar("ownerCep");
+    if (isOwnerBase()) {
+        SELLER_OBRIGATORIOS_BASE.forEach((k) => {
+            if (!s[k] && invalidos.indexOf(document.getElementById(SELLER_CAMPOS[k])) < 0) marcar(SELLER_CAMPOS[k]);
+        });
+    }
+    if (invalidos.length) {
+        invalidos[0].scrollIntoView({ block: "center" });
+        invalidos[0].focus({ preventScroll: true });
+        setFooterNote(invalidos.length === 1 ? "Corrija o campo destacado." : `Corrija os ${invalidos.length} campos destacados.`);
+        return false;
+    }
+    return true;
+}
+
+async function carregarCobrancaOwner(idOwner, seq) {
+    const preco = document.getElementById("ownerPrecoVigente");
+    const modelo = document.getElementById("ownerModeloCobranca");
+    preco.textContent = "—";
+    modelo.textContent = "";
+    document.getElementById("ownerLinkCobranca").href =
+        `tracking-cobranca-owner-detalhe.html?owner_id=${encodeURIComponent(idOwner)}`;
+    try {
+        const r = await fetch(`${window.getTrackApiUrl()}/admin/cobranca-owners/owners/${idOwner}/configuracao`, { credentials: "include" });
+        if (!r.ok || seq !== OWNER_EDIT_SEQ) return;
+        const c = await r.json();
+        if (seq !== OWNER_EDIT_SEQ) return;
+        if (c.preco_vigente !== null && c.preco_vigente !== undefined) {
+            const n = Number(c.preco_vigente);
+            preco.textContent = n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 4 });
+        } else {
+            preco.textContent = "Sem preço cadastrado";
+        }
+        const cfg = c.config || {};
+        modelo.textContent = `${cfg.modelo_label || ""}${cfg.confirmado ? "" : " (a confirmar)"} · ${cfg.periodicidade === "mensal" ? "Mensal" : "Quinzenal"}`;
+    } catch (_) {
+        /* resumo opcional */
+    }
+}
+
+async function carregarSellerOwner(idOwner, seq) {
+    preencherSeller({});
+    try {
+        const r = await fetch(`${API}/${idOwner}/seller-dados`, { credentials: "include" });
+        if (seq !== OWNER_EDIT_SEQ) return;
+        if (r.ok) preencherSeller(await r.json());
+        else if (r.status !== 404) setFooterNote("Não foi possível carregar o endereço do cadastro.");
+    } catch (_) {
+        if (seq === OWNER_EDIT_SEQ) setFooterNote("Não foi possível carregar o endereço do cadastro.");
+    }
 }
 
 
@@ -114,6 +342,7 @@ async function loadOwners() {
 
         ALL_OWNERS = await resp.json();
         applyFilters();
+        document.getElementById("btnHeaderEdit").disabled = true;
 
     } catch (err) {
         tbody.innerHTML = `
@@ -171,7 +400,7 @@ function renderTable() {
             <td>
                 <input type="checkbox" class="form-check-input row-select">
             </td>
-            <td>${o.sub_base}</td>
+            <td>${escapeHtml(o.sub_base)}${(o.cidade || o.estado) ? `<span class="of-local">${escapeHtml([o.cidade, o.estado].filter(Boolean).join("/"))}</span>` : ""}</td>
             <td>${(o.tipo_owner || "subbase") === "base" ? "Base" : "Subbase"}</td>
             <td>${o.username}</td>
             <td>${o.email}</td>
@@ -376,10 +605,22 @@ function openEdit(o) {
     document.getElementById("ownerTesteToggle").checked = !!o.teste;
     document.getElementById("ownerAtivoToggle").checked = o.ativo;
 
-    syncModoOperacaoSelect();
-    fillOwnerIdentidade(o.id_owner);
+    document.getElementById("ownerHeaderSub").textContent =
+        `${o.nome_fantasia || o.username} · sub-base ${o.sub_base}`;
+    document.querySelectorAll("#formOwner .is-invalid").forEach((el) => el.classList.remove("is-invalid"));
+    setFooterNote("");
 
-    new bootstrap.Modal("#oc-owner").show();
+    syncModoOperacaoSelect();
+    syncTipoOwner();
+    fillOwnerIdentidade(o.id_owner);
+    const seq = ++OWNER_EDIT_SEQ;
+    carregarSellerOwner(o.id_owner, seq);
+    carregarCobrancaOwner(o.id_owner, seq);
+
+    const modalEl = document.getElementById("oc-owner");
+    const body = modalEl.querySelector(".modal-body");
+    if (body) body.scrollTop = 0;
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
 }
 
 
@@ -389,8 +630,17 @@ function openEdit(o) {
 // -------------------------------------------------------------------------
 document.getElementById("formOwner").addEventListener("submit", async (ev) => {
     ev.preventDefault();
+    if (!validarOwnerForm()) return;
 
     const id = document.getElementById("ownerId").value;
+    const btnSalvar = document.getElementById("saveOwnerBtn");
+    if (btnSalvar.disabled) return;
+    const labelSalvar = btnSalvar.innerHTML;
+    btnSalvar.disabled = true;
+    btnSalvar.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Salvando…';
+    setFooterNote("");
+    const seller = lerSeller();
+    const sellerMudou = Object.keys(seller).some((k) => seller[k] !== (SELLER_ORIGINAL[k] || ""));
 
     const body = {
         username: document.getElementById("ownerUsername").value.trim(),
@@ -417,7 +667,20 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
             body: JSON.stringify(body)
         });
 
-        if (!resp.ok) throw new Error("Erro ao salvar.");
+        if (!resp.ok) throw new Error(await readApiError(resp, "Erro ao salvar."));
+
+        if (sellerMudou) {
+            const sellerResp = await fetch(`${API}/${id}/seller-dados`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(seller)
+            });
+            if (!sellerResp.ok) {
+                throw new Error(await readApiError(sellerResp, "Dados salvos, mas falhou ao salvar o endereço."));
+            }
+            SELLER_ORIGINAL = seller;
+        }
 
         const slogan = (document.getElementById("ownerSlogan")?.value || "").trim() || null;
         const identResp = await fetch(`${API}/${id}/identidade`, {
@@ -447,6 +710,9 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
             title: "Erro ao salvar",
             text: err.message
         });
+    } finally {
+        btnSalvar.disabled = false;
+        btnSalvar.innerHTML = labelSalvar;
     }
 });
 
