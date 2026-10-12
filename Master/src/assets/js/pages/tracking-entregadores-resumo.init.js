@@ -102,7 +102,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     if (r.pode_reajustar) html += ' <span class="fm-chip fm-chip--revisao">Precisa revisão</span>';
     if (r.alerta_pos_pago) html += ' <span class="fm-chip fm-chip--info" title="O valor mudou depois do pagamento">Mudou após pagar</span>';
+    const semConf = num(r.dias_sem_conferencia);
+    if (semConf > 0) {
+      const titulo = `${semConf} de ${plural(num(r.dias_com_entrega), "dia com entrega", "dias com entrega")} sem conferência de saída`;
+      html += ` <span class="fm-chip fm-chip--revisao" title="${esc(titulo)}">${esc(plural(semConf, "dia sem conferência", "dias sem conferência"))}</span>`;
+    }
     return html;
+  }
+
+  const CONFERENCIA_LABEL = { conferida: "Conferido", pendente: "Não conferido", reconferir: "Reconferir" };
+
+  function conferenciaHtml(d) {
+    const st = String(d.conferencia_status || "").toLowerCase();
+    if (!CONFERENCIA_LABEL[st]) return "";
+    return `<span class="fm-status fm-conf--${esc(st)}">${esc(d.conferencia_label || CONFERENCIA_LABEL[st])}</span>`;
+  }
+
+  function diasSemConferencia(row) {
+    return (row?.dias || []).filter((d) => d && (d.conferencia_status === "pendente" || d.conferencia_status === "reconferir"));
+  }
+
+  function resumoConferencia(row) {
+    const sem = diasSemConferencia(row);
+    const total = (row?.dias || []).filter((d) => d && d.conferencia_status).length;
+    return { sem, total, texto: `${sem.length} de ${plural(total, "dia com entrega", "dias com entrega")} sem conferência de saída` };
   }
 
   const state = {
@@ -112,6 +135,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     totalPages: 0,
     items: [],
     totais: {},
+    conferenciaHabilitada: false,
     expandidos: new Set(),
     gerandoLote: false,
     painel: null,
@@ -180,6 +204,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function diasHtml(r) {
     const dias = Array.isArray(r.dias) ? r.dias : [];
     if (!dias.length) return '<div class="fm-sub py-1">Sem entregas no período; só diárias de coleta.</div>';
+    const comConf = state.conferenciaHabilitada;
     const linhas = dias
       .map((d) => {
         const st = String(d.fechamento_status || "PENDENTE").toUpperCase();
@@ -192,6 +217,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           `<td class="text-end fm-num">${num(d.g_total)}</td>` +
           `<td class="text-end fm-num">${num(d.total_cancelado)}</td>` +
           `<td class="text-end fm-num">${moeda(d.valor_feitos)}</td>` +
+          (comConf ? `<td>${conferenciaHtml(d)}</td>` : "") +
           `<td><span class="fm-status fm-status--${esc(st.toLowerCase())}">${esc(STATUS_LABEL[st] || st)}</span></td>` +
           "</tr>"
         );
@@ -200,7 +226,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     return (
       '<table class="table table-sm"><thead><tr>' +
       '<th>Dia</th><th class="text-end">Mercado Livre</th><th class="text-end">Shopee</th><th class="text-end">Avulso</th>' +
-      '<th class="text-end">Pacotes G</th><th class="text-end">Cancelados</th><th class="text-end">Valor</th><th>Situação</th>' +
+      '<th class="text-end">Pacotes G</th><th class="text-end">Cancelados</th><th class="text-end">Valor</th>' +
+      (comConf ? "<th>Conferência</th>" : "") +
+      "<th>Situação</th>" +
       `</tr></thead><tbody>${linhas}</tbody></table>`
     );
   }
@@ -327,6 +355,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const data = await api(`${API_RESUMO}?${paramsResumo()}`);
       state.items = Array.isArray(data.items) ? data.items : [];
       state.totais = data.totais || {};
+      state.conferenciaHabilitada = !!data.conferencia_habilitada;
       state.total = num(data.totalItems);
       state.totalPages = num(data.totalPages);
     } catch (err) {
@@ -615,7 +644,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       valorColetas: 0,
       gTotal: 0,
       row: null,
-      naoConferidos: [],
+      conferencia: null,
       pronto: false,
     };
     state.fecharPainelConfirmado = false;
@@ -673,9 +702,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         p.valorColetas = num(calc.valor_coletas);
         p.gTotal = num(calc.g_total);
         p.row = row;
-        if (calc.conferencia_habilitada) {
-          p.naoConferidos = (calc.conferencia_por_dia || []).filter((d) => d && d.status !== "conferida").map((d) => dmy(d.data));
-        }
       }
     } catch (err) {
       if (state.painel !== p) return;
@@ -689,9 +715,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (p.divergente) {
       qs("#painel-divergencia-texto").textContent = `Valor atual: ${moeda(p.valorBaseAtual)} (antes ${moeda(p.valorBaseFechado)})`;
     }
-    const conf = qs("#painel-conferencia");
-    conf.classList.toggle("d-none", !p.naoConferidos.length);
-    qs("#painel-conferencia-dias").textContent = p.naoConferidos.join(", ");
+    p.conferencia = resumoConferencia(p.row);
+    qs("#painel-conferencia").classList.toggle("d-none", !p.conferencia.sem.length);
+    qs("#painel-conferencia-titulo").textContent = p.conferencia.texto;
+    qs("#painel-conferencia-dias").innerHTML = p.conferencia.sem
+      .map((d) => {
+        const [, m, dd] = String(d.data).split("-");
+        const reconferir = d.conferencia_status === "reconferir";
+        return `<span class="fm-chip ${reconferir ? "fm-chip--reconferir" : "fm-chip--revisao"}">${esc(`${dd}/${m}`)}${reconferir ? " · Reconferir" : ""}</span>`;
+      })
+      .join(" ");
 
     p.pronto = true;
     p.assinaturaInicial = assinaturaAjustes();
@@ -744,11 +777,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const p = state.painel;
     if (!p || !p.pronto || state.salvando) return;
     if (centavos(baseDoPainel() + totalAjustes()) < 0) return;
-    if (p.modo === "gerar" && p.naoConferidos.length && window.Swal) {
+    const semConf = p.conferencia ? p.conferencia.sem : [];
+    if (p.modo === "gerar" && semConf.length && window.Swal) {
       const ok = await Swal.fire({
         icon: "warning",
         title: "Há dias sem conferência de saída",
-        text: `Dias: ${p.naoConferidos.join(", ")}. Gerar mesmo assim?`,
+        text: `${p.conferencia.texto}: ${semConf.map((d) => dmy(d.data)).join(", ")}. Gerar mesmo assim?`,
         showCancelButton: true,
         confirmButtonText: "Gerar mesmo assim",
         cancelButtonText: "Voltar",

@@ -414,7 +414,7 @@
             },
             {
               title: "Revise a lista",
-              text: "Cada linha é um motoboy. Abra a seta para ver os dias. Os cards mostram pendentes, gerados, pagos e quem precisa revisão.",
+              text: "Cada linha é um motoboy. Abra a seta para ver os dias. Os cards mostram pendentes, gerados, pagos e quem precisa revisão. Com conferência de saída ativa, cada dia mostra Conferido, Não conferido ou Reconferir, e a linha avisa quantos dias ficaram sem conferência.",
             },
             {
               title: "Gere todos ou um por vez",
