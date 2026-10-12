@@ -1183,56 +1183,56 @@
   color: var(--vz-danger) !important;
 }
 
-.contab-stack {
-  display: flex;
-  height: 6px;
-  overflow: hidden;
-  border-radius: 3px;
-  background: var(--vz-tertiary-bg);
-  gap: 2px;
+.contab-regime {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
 
-  > span {
-    display: block;
-    height: 100%;
+.contab-grade {
+  th,
+  td {
+    padding: 0.75rem 1rem;
   }
-}
 
-.contab-ledger-row {
-  display: grid;
-  grid-template-columns: 6.25rem minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 0;
-  border-bottom: 1px solid var(--vz-border-color);
-}
+  thead th {
+    vertical-align: bottom;
+  }
 
-.contab-status {
-  justify-self: start;
-  font-weight: 600;
-}
+  .contab-grade-rotulo {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    min-width: 11rem;
+    text-align: left;
+    font-weight: 600;
+    background: var(--vz-secondary-bg, #fff);
+  }
 
-.contab-ledger-desc {
-  min-width: 0;
-  line-height: 1.35;
-}
+  thead .contab-grade-rotulo {
+    background: var(--vz-tertiary-bg);
+  }
 
-.contab-ledger-value {
-  font-weight: 600;
-  text-align: right;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
+  .contab-grade-valor {
+    display: block;
+    font-weight: 600;
+  }
 
-.contab-ledger-total {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.75rem;
-  padding-top: 0.75rem;
-  font-weight: 600;
+  .contab-grade-nota {
+    display: block;
+    margin-top: 0.125rem;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--vz-secondary-color);
+  }
 
-  .contab-ledger-value {
+  .contab-grade-destaque .contab-grade-valor {
     font-size: 1.0625rem;
+  }
+
+  .contab-grade-saldo > * {
+    background: var(--vz-tertiary-bg);
+    border-top: 2px solid var(--vz-border-color);
   }
 }
 
@@ -1274,27 +1274,6 @@
   text-align: right;
 }
 
-.contab-dre {
-  th {
-    font-weight: 400;
-  }
-
-  .contab-dre-group > * {
-    font-weight: 600;
-    background: var(--vz-tertiary-bg);
-  }
-
-  .contab-dre-sub th {
-    padding-left: 1.75rem;
-    color: var(--vz-secondary-color);
-  }
-
-  .contab-dre-result > * {
-    font-weight: 600;
-    border-top: 1px solid var(--vz-border-color);
-  }
-}
-
 .contab-kpi {
   display: flex;
   flex-direction: column;
@@ -1321,15 +1300,3 @@
   font-size: 0.75rem;
   color: var(--vz-secondary-color);
 }
-
-@media (max-width: 575.98px) {
-  .contab-ledger-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    row-gap: 0.25rem;
-  }
-
-  .contab-status {
-    grid-column: 1 / -1;
-  }
-}
-

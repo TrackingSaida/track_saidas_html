@@ -81,7 +81,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function updatePeriodLabel(from, to) {
     const label = qs("#contabilidade-period-label");
-    const texto = qs("#contab-periodo-texto");
     let txt = "Quinzena atual";
     const fromD = from ? new Date(from + "T12:00:00") : null;
     const toD = to ? new Date(to + "T12:00:00") : null;
@@ -91,7 +90,6 @@ document.addEventListener("DOMContentLoaded", () => {
       txt = fmtDMY(fromD) + " — " + fmtDMY(toD);
     }
     if (label) label.textContent = txt;
-    if (texto) texto.textContent = txt;
   }
 
   let datePickerInstance = null;
@@ -163,16 +161,20 @@ document.addEventListener("DOMContentLoaded", () => {
   function textoVariacao(res, prevIni, prevFim) {
     if (!res || res.anterior == null) return "";
     const periodoAnt = prevIni && prevFim ? `${isoParaBr(prevIni).slice(0, 5)} a ${isoParaBr(prevFim).slice(0, 5)}` : "período anterior";
-    if (res.variacao_pct == null) {
-      return `<span class="text-muted">${esc(periodoAnt)}: ${esc(formatarMoeda(res.anterior))}</span>`;
+    const atual = num(res.valor);
+    const anterior = num(res.anterior);
+    const diferenca = atual - anterior;
+    const referencia = `<span class="text-muted"> vs ${esc(periodoAnt)} <span class="text-nowrap">(${esc(formatarMoeda(anterior))})</span></span>`;
+    if (Math.abs(diferenca) < 0.005) {
+      return `<span class="text-muted fw-medium">Sem variação</span>${referencia}`;
     }
-    const v = num(res.variacao_pct);
-    const subiu = v >= 0;
+    const subiu = diferenca > 0;
     const icone = subiu ? "ri-arrow-up-line" : "ri-arrow-down-line";
     const cls = subiu ? "text-success" : "text-danger";
-    const sinal = subiu ? "Alta de" : "Queda de";
-    return `<span class="${cls} fw-medium"><i class="${icone} align-middle" aria-hidden="true"></i> ${sinal} ${esc(formatarPct(Math.abs(v)))}</span>` +
-      `<span class="text-muted"> vs ${esc(periodoAnt)} (${esc(formatarMoeda(res.anterior))})</span>`;
+    // % entre lucro e prejuízo não tem leitura contábil; só mostra quando o sinal se mantém.
+    const mesmoSinal = res.variacao_pct != null && anterior !== 0 && Math.sign(atual) === Math.sign(anterior);
+    const pct = mesmoSinal ? ` (${subiu ? "+" : "−"}${esc(formatarPct(Math.abs(num(res.variacao_pct))))})` : "";
+    return `<span class="${cls} fw-medium"><i class="${icone} align-middle" aria-hidden="true"></i> ${esc(formatarMoeda(Math.abs(diferenca)))} ${subiu ? "a mais" : "a menos"}${pct}</span>${referencia}`;
   }
 
   function renderResultado(idValor, idVariacao, res, bal) {
@@ -186,60 +188,63 @@ document.addEventListener("DOMContentLoaded", () => {
     if (elVar) elVar.innerHTML = textoVariacao(res, bal && bal.periodo_anterior_inicio, bal && bal.periodo_anterior_fim);
   }
 
-  /* ---------------- Livros (a receber / a pagar) ---------------- */
+  /* ---------------- Balanço por status (grade) ---------------- */
 
-  const LIVROS = {
-    receber: {
-      pendente: { label: "Pendente", badge: "warning", desc: "Coletas ainda sem fechamento", unidade: ["pacote", "pacotes"], estimado: true },
-      gerado: { label: "Gerado", badge: "success", desc: "Gerados ou reajustados, aguardando recebimento", unidade: ["fechamento", "fechamentos"] },
-      baixado: { label: "Recebido", badge: "primary", desc: "Já recebidos", unidade: ["fechamento", "fechamentos"] },
-      total: "Total a receber no período",
-    },
-    pagar: {
-      pendente: { label: "Pendente", badge: "warning", desc: "Saídas ainda sem fechamento", unidade: ["saída", "saídas"], estimado: true },
-      gerado: { label: "Gerado", badge: "success", desc: "Gerados ou reajustados, aguardando pagamento", unidade: ["fechamento", "fechamentos"] },
-      baixado: { label: "Pago", badge: "primary", desc: "Já pagos", unidade: ["fechamento", "fechamentos"] },
-      total: "Total a pagar no período",
-    },
+  const FAIXAS = ["pendente", "gerado", "baixado"];
+  const UNIDADES = {
+    pacotes: ["pacote", "pacotes"],
+    saidas: ["saída", "saídas"],
+    fechamentos: ["fechamento", "fechamentos"],
   };
 
-  function renderLivro(containerId, lado, cfg) {
-    const el = qs(containerId);
+  function celulaValor(valor, nota, destaque) {
+    const negativo = num(valor) < 0 ? " contab-negative" : "";
+    return `<td class="text-end${destaque ? " contab-grade-destaque" : ""}">
+        <span class="contab-grade-valor${negativo}">${esc(formatarMoeda(valor))}</span>
+        ${nota ? `<span class="contab-grade-nota">${esc(nota)}</span>` : ""}
+      </td>`;
+  }
+
+  function linhaLado(titulo, subtitulo, href, link, lado) {
+    const celulas = FAIXAS.map((f) => {
+      const faixa = lado[f] || { valor: 0, quantidade: 0, unidade: "fechamentos" };
+      const u = UNIDADES[faixa.unidade] || UNIDADES.fechamentos;
+      return celulaValor(faixa.valor, plural(faixa.quantidade, u[0], u[1]));
+    }).join("");
+    return `<tr>
+        <th scope="row" class="contab-grade-rotulo">
+          <span class="d-block">${titulo}</span>
+          <span class="contab-grade-nota text-start">${subtitulo} · <a href="${href}" class="text-decoration-none">${link} <i class="ri-arrow-right-line align-middle" aria-hidden="true"></i></a></span>
+        </th>
+        ${celulas}
+        ${celulaValor(lado.total, "", true)}
+      </tr>`;
+  }
+
+  function renderGrade(bal) {
+    const el = qs("#contab-grade");
     if (!el) return;
-    if (!lado) {
-      el.innerHTML = "<p class=\"text-muted small mb-0\">Sem dados para este período.</p>";
+    if (!bal) {
+      el.innerHTML = linhaVazia(5, "Balanço indisponível para este período.");
       return;
     }
-    const faixas = ["pendente", "gerado", "baixado"];
-    const totalAbs = faixas.reduce((acc, f) => acc + Math.abs(num(lado[f] && lado[f].valor)), 0);
-    const barra = totalAbs > 0
-      ? `<div class="contab-stack mb-3" aria-hidden="true">${faixas.map((f) => {
-          const pct = Math.abs(num(lado[f].valor)) / totalAbs * 100;
-          return pct > 0 ? `<span class="bg-${cfg[f].badge}" style="width:${pct.toFixed(2)}%"></span>` : "";
-        }).join("")}</div>`
-      : "";
-    const linhas = faixas.map((f) => {
-      const faixa = lado[f] || { valor: 0, quantidade: 0 };
-      const c = cfg[f];
-      const qtd = plural(faixa.quantidade, c.unidade[0], c.unidade[1]);
-      const nota = c.estimado ? " · estimado" : "";
-      return `
-        <li class="contab-ledger-row">
-          <span class="badge bg-${c.badge}-subtle text-${c.badge === "warning" ? "warning-emphasis" : c.badge} contab-status">${c.label}</span>
-          <span class="contab-ledger-desc">
-            <span class="d-block">${esc(c.desc)}</span>
-            <span class="small text-muted">${esc(qtd + nota)}</span>
-          </span>
-          <span class="contab-ledger-value${num(faixa.valor) < 0 ? " contab-negative" : ""}">${esc(formatarMoeda(faixa.valor))}</span>
-        </li>`;
-    }).join("");
-    el.innerHTML = `
-      ${barra}
-      <ul class="list-unstyled mb-0 contab-ledger">${linhas}</ul>
-      <div class="contab-ledger-total">
-        <span>${esc(cfg.total)}</span>
-        <span class="contab-ledger-value">${esc(formatarMoeda(lado.total))}</span>
-      </div>`;
+    const r = bal.receber;
+    const p = bal.pagar;
+    const saldo = (f) => num(r[f] && r[f].valor) - num(p[f] && p[f].valor);
+    el.innerHTML = [
+      linhaLado("A receber", "Coletas", "tracking-bases-a-receber.html", "Ver recebimentos", r),
+      linhaLado("A pagar", "Motoboys", "tracking-entregadores-a-pagar.html", "Ver pagamentos", p),
+      `<tr class="contab-grade-saldo">
+        <th scope="row" class="contab-grade-rotulo">
+          <span class="d-block">Saldo</span>
+          <span class="contab-grade-nota text-start">A receber − a pagar</span>
+        </th>
+        ${celulaValor(saldo("pendente"), "ainda sem fechamento")}
+        ${celulaValor(saldo("gerado"), "em aberto")}
+        ${celulaValor(bal.realizado.valor, "= realizado", true)}
+        ${celulaValor(bal.previsto.valor, "= previsto", true)}
+      </tr>`,
+    ].join("");
   }
 
   function renderAviso(bal) {
@@ -264,34 +269,6 @@ document.addEventListener("DOMContentLoaded", () => {
       `<strong>Parte do balanço ainda é estimativa.</strong> Sem fechamento no período: ${partes.join(" e ")}. ` +
       "Esses valores já entram no resultado previsto e passam a ser oficiais quando o fechamento for gerado.";
     avisoFechamentos.classList.remove("d-none");
-  }
-
-  /* ---------------- Demonstrativo ---------------- */
-
-  function renderDre(bal) {
-    const el = qs("#container-dre");
-    if (!el) return;
-    if (!bal) {
-      el.innerHTML = "<tr><td class=\"text-muted small py-3 px-3\">Demonstrativo indisponível para este período.</td></tr>";
-      return;
-    }
-    const r = bal.receber;
-    const p = bal.pagar;
-    const linha = (rotulo, valor, cls) =>
-      `<tr class="${cls || ""}"><th scope="row">${rotulo}</th><td class="text-end">${esc(formatarMoeda(valor))}</td></tr>`;
-    const margem = num(r.total) > 0 ? num(bal.previsto.valor) / num(r.total) * 100 : null;
-    el.innerHTML = [
-      linha("Receita das coletas", r.total, "contab-dre-group"),
-      linha("Recebido", r.baixado.valor, "contab-dre-sub"),
-      linha("Gerado, aguardando recebimento", r.gerado.valor, "contab-dre-sub"),
-      linha("Pendente de fechamento (estimado)", r.pendente.valor, "contab-dre-sub"),
-      linha("(−) Custo com motoboys", p.total, "contab-dre-group"),
-      linha("Pago", p.baixado.valor, "contab-dre-sub"),
-      linha("Gerado, aguardando pagamento", p.gerado.valor, "contab-dre-sub"),
-      linha("Pendente de fechamento (estimado)", p.pendente.valor, "contab-dre-sub"),
-      linha("Resultado previsto" + (margem != null ? ` <span class="text-muted fw-normal small">· margem ${esc(formatarPct(margem))}</span>` : ""), bal.previsto.valor, "contab-dre-result"),
-      linha("Resultado realizado <span class=\"text-muted fw-normal small\">· recebido − pago</span>", bal.realizado.valor, "contab-dre-result"),
-    ].join("");
   }
 
   /* ---------------- Operação ---------------- */
@@ -399,10 +376,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const totalReceber = bal ? num(bal.receber.total) : 0;
       elMargem.textContent = totalReceber > 0 ? `Margem ${formatarPct(num(bal.previsto.valor) / totalReceber * 100)}` : "";
     }
-    renderLivro("#contab-ledger-receber", bal && bal.receber, LIVROS.receber);
-    renderLivro("#contab-ledger-pagar", bal && bal.pagar, LIVROS.pagar);
+    renderGrade(bal);
     renderAviso(bal);
-    renderDre(bal);
     renderIndicadores(data);
     renderServicos(data);
     renderBases(data);
