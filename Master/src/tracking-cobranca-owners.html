@@ -1,0 +1,150 @@
+@@include("partials/main.html")
+
+<head>
+  @@include("partials/title-meta.html", {"title": "Cobrança de Owners"})
+  @@include("partials/head-css.html")
+  <link href="assets/css/cobranca-owners.css?v=1" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+  <div id="layout-wrapper">
+    @@include("partials/menu.html")
+
+    <div class="main-content">
+      <div class="page-content">
+        <div class="container-fluid cob">
+
+          @@include("partials/page-title.html", {"pagetitle": "Financeiro", "title": "Cobrança de Owners", "withSubtitle": false, "ownerTerm": ""})
+
+          <div id="cob-acesso-negado" class="alert alert-warning d-none" role="alert">
+            <h5 class="alert-heading">Acesso restrito</h5>
+            <p class="mb-0">A Cobrança de Owners está disponível apenas para o perfil root.</p>
+          </div>
+
+          <div id="cob-content" class="d-none">
+            <p class="cob-lede mb-3">Valor devido no período. Ainda não é nota nem boleto.</p>
+
+            <!-- Filtros -->
+            <div class="d-flex flex-wrap align-items-end gap-2 mb-3">
+              <div>
+                <label for="cob-periodo" class="form-label small mb-1">Período</label>
+                <select id="cob-periodo" class="form-select form-select-sm" style="min-width: 220px;"></select>
+              </div>
+              <div id="cob-periodo-custom" class="d-none">
+                <div class="d-flex align-items-end gap-2">
+                  <div>
+                    <label for="cob-data-inicio" class="form-label small mb-1">Início</label>
+                    <input type="date" id="cob-data-inicio" class="form-control form-control-sm" />
+                  </div>
+                  <div>
+                    <label for="cob-data-fim" class="form-label small mb-1">Fim</label>
+                    <input type="date" id="cob-data-fim" class="form-control form-control-sm" />
+                  </div>
+                  <button type="button" id="cob-aplicar-periodo" class="btn btn-outline-secondary btn-sm">Aplicar</button>
+                </div>
+              </div>
+              <div>
+                <label for="cob-owner" class="form-label small mb-1">Owner</label>
+                <select id="cob-owner" class="form-select form-select-sm" style="min-width: 220px;">
+                  <option value="">Todos os Owners</option>
+                </select>
+              </div>
+              <button type="button" id="cob-refresh" class="btn btn-outline-secondary btn-sm" aria-label="Atualizar">
+                <i class="ri-refresh-line" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <!-- Erro -->
+            <div id="cob-erro" class="alert alert-danger d-none" role="alert">
+              <div class="d-flex align-items-center justify-content-between gap-2">
+                <span id="cob-erro-msg">Não foi possível carregar a cobrança.</span>
+                <button type="button" id="cob-erro-retry" class="btn btn-sm btn-outline-danger">Tentar de novo</button>
+              </div>
+            </div>
+
+            <!-- Total -->
+            <section class="cob-surface p-3 mb-3" aria-live="polite">
+              <div class="d-flex flex-wrap align-items-end justify-content-between gap-3">
+                <div>
+                  <div class="cob-label" id="cob-total-label">Valor apurado</div>
+                  <div class="cob-total" id="cob-total"><span class="cob-skel cob-skel--total"></span></div>
+                  <div class="cob-label mt-1" id="cob-periodo-label">&nbsp;</div>
+                </div>
+                <div class="d-flex gap-4">
+                  <div>
+                    <div class="cob-label">Já fechado</div>
+                    <div class="cob-side-value" id="cob-valor-fechado">—</div>
+                  </div>
+                  <div>
+                    <div class="cob-label">Owners sem fechar</div>
+                    <div class="cob-side-value" id="cob-pendentes">—</div>
+                  </div>
+                </div>
+              </div>
+              <div class="cob-strip" id="cob-strip">
+                <span>Pacotes faturáveis <strong id="cob-strip-faturavel">—</strong></span>
+                <span>Cancelados <strong id="cob-strip-cancelados">—</strong></span>
+                <span>Desconsiderados <strong id="cob-strip-desconsiderados">—</strong></span>
+              </div>
+            </section>
+
+            <!-- Abas + filtro de divergência -->
+            <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-0">
+              <div class="cob-tabs flex-grow-1" role="tablist" id="cob-tabs">
+                <button type="button" class="cob-tab active" role="tab" data-status="em_apuracao" aria-selected="true">Em apuração <span class="cob-count" data-count="em_apuracao">0</span></button>
+                <button type="button" class="cob-tab" role="tab" data-status="conferido" aria-selected="false">Conferido <span class="cob-count" data-count="conferido">0</span></button>
+                <button type="button" class="cob-tab" role="tab" data-status="fechado" aria-selected="false">Fechado <span class="cob-count" data-count="fechado">0</span></button>
+                <button type="button" class="cob-tab" role="tab" data-status="informado" aria-selected="false">Informado <span class="cob-count" data-count="informado">0</span></button>
+              </div>
+              <div class="form-check form-switch mb-2 ms-2">
+                <input class="form-check-input" type="checkbox" role="switch" id="cob-so-divergencia" />
+                <label class="form-check-label small" for="cob-so-divergencia">Só com divergência</label>
+              </div>
+            </div>
+
+            <!-- Tabela -->
+            <div class="cob-surface border-top-0 rounded-top-0 mb-3">
+              <div class="cob-table-wrap">
+                <table class="table cob-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Owner</th>
+                      <th scope="col">Modelo</th>
+                      <th scope="col" class="text-end">Pacotes</th>
+                      <th scope="col" class="text-end">Preço</th>
+                      <th scope="col" class="text-end">Total</th>
+                      <th scope="col">Status</th>
+                      <th scope="col" class="text-end"><span class="visually-hidden">Ações</span></th>
+                    </tr>
+                  </thead>
+                  <tbody id="cob-tbody"></tbody>
+                </table>
+              </div>
+              <div id="cob-vazio" class="text-center py-4 d-none">
+                <p class="cob-muted mb-2" id="cob-vazio-msg">Nenhum owner nesta aba.</p>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="cob-limpar-filtro">Limpar filtros</button>
+              </div>
+            </div>
+
+            <p class="cob-muted small mb-0">
+              O Indicador Admin é uma estimativa ao vivo. A cobrança oficial é a desta tela, e o fechamento congela o valor.
+            </p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    @@include("partials/footer.html")
+  </div>
+
+  @@include("partials/customizer.html")
+  @@include("partials/vendor-scripts.html")
+
+  <script src="assets/js/user.js"></script>
+  <script src="assets/js/pages/cobranca-owners-common.js?v=1"></script>
+  <script src="assets/js/pages/tracking-cobranca-owners.init.js?v=1"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+
+</html>
