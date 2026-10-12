@@ -7,8 +7,10 @@
 (function () {
   "use strict";
 
-  const API_URL = (window.TRACK_API_URL || "").replace(/\/+$/, "");
-  const API_FECHAMENTOS = `${API_URL}/entregadores/fechamentos`;
+  function apiFechamentos() {
+    const base = typeof window.getTrackApiUrl === "function" ? window.getTrackApiUrl() : window.TRACK_API_URL || "";
+    return `${String(base).replace(/\/+$/, "")}/entregadores/fechamentos`;
+  }
 
   function triggerBlobDownload(blob, filename) {
     const url = URL.createObjectURL(blob);
@@ -29,7 +31,7 @@
       return;
     }
     try {
-      const res = await fetch(`${API_FECHAMENTOS}/${id}/pdf`, { credentials: "include" });
+      const res = await fetch(`${apiFechamentos()}/${id}/pdf`, { credentials: "include" });
       if (res.status === 401) {
         window.location.href = "auth-signin-tracking-v2.html";
         return;

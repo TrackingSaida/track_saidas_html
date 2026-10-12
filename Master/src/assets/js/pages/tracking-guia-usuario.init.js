@@ -399,11 +399,15 @@
             },
             {
               title: "Revise a lista",
-              text: "Confira feitos, cancelados e valores. Filtre por motoboy ou situação se precisar.",
+              text: "Cada linha é um motoboy. Abra a seta para ver os dias. Os cards mostram pendentes, gerados, pagos e quem precisa revisão.",
             },
             {
-              title: "Clique em Gerar Fechamento",
-              text: "O botão libera quando o recorte está pronto. Depois disso, o período segue para A Pagar.",
+              title: "Gere todos ou um por vez",
+              text: "Gerar todos os pendentes cria os fechamentos sem ajustes. Para lançar ajuste antes, use Revisar e gerar na linha do motoboy.",
+            },
+            {
+              title: "Reajuste quando o valor mudar",
+              text: "Se aparecer Precisa revisão, clique em Reajustar, confira o valor atual e salve. Depois o período segue para A Pagar.",
             },
           ],
         },

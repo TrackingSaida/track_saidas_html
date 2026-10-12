@@ -7,7 +7,9 @@
 document.addEventListener("DOMContentLoaded", () => {
   "use strict";
 
-  const API_URL = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+  const API_URL = String(
+    typeof window.getTrackApiUrl === "function" ? window.getTrackApiUrl() : window.TRACK_API_URL || ""
+  ).replace(/\/+$/, "");
   const API_FECHAMENTOS = `${API_URL}/entregadores/fechamentos`;
 
   const qs = (s) => document.querySelector(s);
@@ -336,86 +338,47 @@ document.addEventListener("DOMContentLoaded", () => {
   async function fluxoMarcarPago() {
     const list = elegiveis();
     if (!list.length) return;
+    const total = list.reduce((s, i) => s + (Number(i.valor_final) || 0), 0);
+    const divergentes = list.filter((i) => i.precisa_reajuste).length;
+    const qtdTexto = list.length === 1 ? "1 fechamento" : `${list.length} fechamentos`;
 
-    let todos = false;
     if (window.Swal) {
+      const avisoDiv = divergentes
+        ? `<p class="small text-warning mb-0 mt-2">${
+            divergentes === 1 ? "1 deles tem" : `${divergentes} deles têm`
+          } valor diferente do atual. Ao confirmar, ${
+            divergentes === 1 ? "ele será pago" : "eles serão pagos"
+          } pelo valor gerado.</p>`
+        : "";
       const r = await Swal.fire({
         icon: "question",
         title: "Marcar como pago",
-        html: "Todos os motoboys com fechamento gerado neste período?",
+        html:
+          `<p class="mb-1">Todos os motoboys com fechamento gerado neste período?</p>` +
+          `<p class="mb-0"><strong>${qtdTexto}</strong> · total <strong>${formatarMoeda(total)}</strong></p>` +
+          avisoDiv,
         showDenyButton: true,
         showCancelButton: true,
         confirmButtonText: "Sim, todos",
         denyButtonText: "Não, selecionar",
         cancelButtonText: "Cancelar",
+        confirmButtonColor: "#0B1F3A",
       });
       if (r.isDismissed) return;
-      todos = !!r.isConfirmed;
       if (r.isDenied) {
         abrirModalSelecao();
         return;
       }
-    } else {
-      todos = confirm("Todos os motoboys com fechamento gerado neste período?");
-      if (!todos) {
-        abrirModalSelecao();
-        return;
-      }
+    } else if (!confirm(`Marcar ${qtdTexto} (${formatarMoeda(total)}) como pagos?`)) {
+      abrirModalSelecao();
+      return;
     }
 
-    await executarMarcarPago({ todosElegiveis: true, ids: null, confirmarComDivergencia: false });
+    await executarMarcarPago({ todosElegiveis: true, ids: null, confirmarComDivergencia: divergentes > 0 });
   }
 
-  async function reajustarFechamento(idFechamento) {
-    try {
-      const data = await fetchJson(`${API_FECHAMENTOS}/${idFechamento}`);
-      const temDiv = !!data.divergencia_valor_base;
-      let html =
-        `<p class="mb-2"><strong>${labelMotoboy(data).replace(/</g, "&lt;")}</strong></p>` +
-        `<p class="mb-1">Valor base atual: <strong>${formatarMoeda(data.valor_base)}</strong></p>`;
-      if (temDiv) {
-        html +=
-          `<p class="mb-1 text-warning">Novo valor base calculado: <strong>${formatarMoeda(
-            data.valor_base_recalculado
-          )}</strong></p>` +
-          `<p class="small text-muted">O valor base será atualizado e o status passará para Reajustado.</p>`;
-      } else {
-        html += `<p class="small text-muted">Não há divergência de valor base. Confirme para registrar o reajuste.</p>`;
-      }
-
-      let ok = true;
-      if (window.Swal) {
-        const r = await Swal.fire({
-          icon: "warning",
-          title: "Gerar reajuste",
-          html,
-          showCancelButton: true,
-          confirmButtonText: "Confirmar reajuste",
-          cancelButtonText: "Cancelar",
-        });
-        ok = !!r.isConfirmed;
-      } else {
-        ok = confirm("Confirmar reajuste deste fechamento?");
-      }
-      if (!ok) return;
-
-      await fetchJson(`${API_FECHAMENTOS}/${idFechamento}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          atualizar_valor_base: temDiv ? true : false,
-        }),
-      });
-
-      if (window.Swal) {
-        await Swal.fire({ icon: "success", title: "Reajuste salvo", text: "Fechamento atualizado." });
-      }
-      await carregarLista();
-    } catch (err) {
-      const msg = err.message || "Erro ao reajustar.";
-      if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: msg });
-      else alert(msg);
-    }
+  function reajustarFechamento(idFechamento) {
+    window.location.href = `tracking-entregadores-resumo.html?revisar=${encodeURIComponent(idFechamento)}`;
   }
 
   // Events
@@ -436,10 +399,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (modalEl && typeof bootstrap !== "undefined") {
         bootstrap.Modal.getOrCreateInstance(modalEl).hide();
       }
+      const idsSet = new Set(ids);
+      const divergentes = elegiveis().filter((i) => idsSet.has(Number(i.id_fechamento)) && i.precisa_reajuste).length;
+      if (divergentes && !(await confirmarDivergencia(divergentes))) return;
       await executarMarcarPago({
         todosElegiveis: false,
         ids,
-        confirmarComDivergencia: false,
+        confirmarComDivergencia: divergentes > 0,
       });
     });
   }
