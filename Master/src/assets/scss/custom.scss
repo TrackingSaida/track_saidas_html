@@ -1138,3 +1138,198 @@
   overflow-x: auto;
 }
 
+/* Contabilidade: balanço por status */
+.contab-page {
+  transition: opacity 0.15s ease;
+
+  &.contab-loading .contab-panel,
+  &.contab-loading .contab-kpi {
+    opacity: 0.55;
+  }
+
+  .min-w-0 {
+    min-width: 0;
+  }
+}
+
+.contab-panel {
+  border: 1px solid var(--vz-border-color);
+  box-shadow: none;
+
+  .card-header {
+    border-bottom: 1px solid var(--vz-border-color);
+  }
+}
+
+.contab-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vz-secondary-color);
+}
+
+.contab-result {
+  margin: 0.5rem 0 0.25rem;
+  font-size: clamp(1.75rem, 1.2rem + 1.6vw, 2.375rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--vz-heading-color, var(--vz-body-color));
+  font-variant-numeric: tabular-nums;
+}
+
+.contab-negative {
+  color: var(--vz-danger) !important;
+}
+
+.contab-stack {
+  display: flex;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--vz-tertiary-bg);
+  gap: 2px;
+
+  > span {
+    display: block;
+    height: 100%;
+  }
+}
+
+.contab-ledger-row {
+  display: grid;
+  grid-template-columns: 6.25rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--vz-border-color);
+}
+
+.contab-status {
+  justify-self: start;
+  font-weight: 600;
+}
+
+.contab-ledger-desc {
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.contab-ledger-value {
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.contab-ledger-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+  font-weight: 600;
+
+  .contab-ledger-value {
+    font-size: 1.0625rem;
+  }
+}
+
+.contab-table {
+  th,
+  td {
+    padding: 0.625rem 0.75rem;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  thead th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--vz-secondary-color);
+    background: var(--vz-tertiary-bg);
+    border-bottom-width: 1px;
+  }
+
+  tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+
+  .contab-col-nome {
+    max-width: 14rem;
+  }
+
+  .contab-col-share {
+    min-width: 9.5rem;
+  }
+}
+
+.contab-share {
+  height: 6px;
+}
+
+.contab-share-pct {
+  min-width: 3.25rem;
+  text-align: right;
+}
+
+.contab-dre {
+  th {
+    font-weight: 400;
+  }
+
+  .contab-dre-group > * {
+    font-weight: 600;
+    background: var(--vz-tertiary-bg);
+  }
+
+  .contab-dre-sub th {
+    padding-left: 1.75rem;
+    color: var(--vz-secondary-color);
+  }
+
+  .contab-dre-result > * {
+    font-weight: 600;
+    border-top: 1px solid var(--vz-border-color);
+  }
+}
+
+.contab-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  height: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--vz-border-color);
+  border-radius: 0.25rem;
+  background: var(--vz-secondary-bg, #fff);
+}
+
+.contab-kpi-label {
+  font-size: 0.8125rem;
+  color: var(--vz-secondary-color);
+}
+
+.contab-kpi-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.contab-kpi-hint {
+  font-size: 0.75rem;
+  color: var(--vz-secondary-color);
+}
+
+@media (max-width: 575.98px) {
+  .contab-ledger-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 0.25rem;
+  }
+
+  .contab-status {
+    grid-column: 1 / -1;
+  }
+}
+
