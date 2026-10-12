@@ -288,7 +288,6 @@
           href: "tracking-coleta-leitura.html",
           roles: WEB_ROLES,
           coleta: true,
-          coletaLeitura: true,
           steps: [
             {
               title: "Abra Operação → Registrar Coletas",
@@ -297,6 +296,10 @@
             {
               title: "Faça a leitura",
               text: "Bipe os códigos ou lance avulso, do mesmo jeito das saídas.",
+            },
+            {
+              title: "Ou informe as quantidades",
+              text: "Quando a operação permite lançamento manual, use Informar quantidades para registrar Shopee, Mercado Livre e Avulso de uma vez. Cada usuário lança uma vez por dia; para corrigir, edite em Consultar Coletas.",
             },
             {
               title: "Confira depois",
@@ -528,7 +531,6 @@
     if (topic.roles && topic.roles.indexOf(ctx.role) === -1) return false;
     if (topic.rootOnly && ctx.role !== 0) return false;
     if (topic.coleta && ctx.ignorarColeta) return false;
-    if (topic.coletaLeitura && ["codigo", "ambos"].indexOf(ctx.modoOperacao) === -1) return false;
     if (topic.entrada && !ctx.entrada) return false;
     if (topic.baseOnly && ctx.tipoOwner !== "base") return false;
     return true;
