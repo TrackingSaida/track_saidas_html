@@ -208,8 +208,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     return `Não foi possível concluir (erro ${status}).`;
   }
 
+  const TEMPO_LIMITE_CONSULTA_MS = 90000;
+
   async function api(url, options) {
-    const res = await fetch(url, { credentials: "include", ...(options || {}) });
+    const opts = { credentials: "include", ...(options || {}) };
+    const consulta = !opts.method || opts.method.toUpperCase() === "GET";
+    if (consulta && !opts.signal && typeof AbortSignal !== "undefined" && AbortSignal.timeout) {
+      opts.signal = AbortSignal.timeout(TEMPO_LIMITE_CONSULTA_MS);
+    }
+    let res;
+    try {
+      res = await fetch(url, opts);
+    } catch (e) {
+      if (e && (e.name === "TimeoutError" || e.name === "AbortError")) {
+        throw new Error("A consulta demorou mais que o esperado. Tente novamente em instantes.");
+      }
+      throw new Error("Não foi possível falar com o servidor. Verifique a conexão e tente novamente.");
+    }
     if (res.status === 401) {
       window.location.href = "auth-signin-tracking-v2.html";
       throw new Error("Sessão expirada.");
