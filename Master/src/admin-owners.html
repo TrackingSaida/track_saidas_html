@@ -3,6 +3,7 @@
 <head>
     @@include("partials/title-meta.html", {"title": "Owners"})
     @@include("partials/head-css.html")
+    <link href="assets/css/admin-owners.css?v=1" rel="stylesheet" type="text/css" />
 </head>
 
 <body>
@@ -109,169 +110,259 @@
 
 <!-- ===================== MODAL: FORMULÁRIO EDITAR ===================== -->
 <div class="modal fade" id="oc-owner" tabindex="-1" aria-labelledby="ocLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content of">
       <div class="modal-header">
-        <h5 class="modal-title" id="ocLabel">Editar Owner</h5>
+        <div>
+          <h5 class="modal-title mb-0" id="ocLabel">Editar Owner</h5>
+          <div class="of-sub" id="ownerHeaderSub"></div>
+        </div>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
       </div>
-      <form id="formOwner" class="needs-validation" novalidate>
-        <div class="modal-body">
+      <form id="formOwner" class="d-flex flex-column flex-grow-1 overflow-hidden" novalidate>
+        <div class="modal-body p-0">
           <input type="hidden" id="ownerId" />
+          <div class="of-layout">
+            <nav class="of-nav" aria-label="Seções do cadastro">
+              <a href="#of-identificacao" class="active">Identificação</a>
+              <a href="#of-contato">Contato e endereço</a>
+              <a href="#of-operacao">Operação</a>
+              <a href="#of-cobranca">Cobrança</a>
+              <a href="#of-identidade">Identidade visual</a>
+            </nav>
 
-          <div class="row g-3">
-            <div class="col-lg-6">
-              <div class="card h-100 mb-0">
-                <div class="card-header bg-light fw-semibold">Dados do Owner</div>
-                <div class="card-body">
-                  <div class="row g-3">
-                    <div class="col-12">
-                      <label class="form-label">Sub-base</label>
-                      <input type="text" id="ownerSubBase" class="form-control" disabled>
-                    </div>
-                    <div class="col-12">
-                      <label class="form-label fw-semibold">Tipo do owner</label>
-                      <select id="ownerTipo" class="form-select" title="Define se este owner é Base (Seller) ou Subbase">
-                        <option value="subbase">Subbase</option>
-                        <option value="base">Base</option>
-                      </select>
-                      <small class="text-muted d-block mt-1">Base = Seller (menu e páginas mostram &quot;Seller&quot;, &quot;Fechamento Seller&quot;). Subbase = labels como &quot;Base&quot;.</small>
-                    </div>
-                    <div class="col-12">
-                      <label class="form-label">Username</label>
-                      <input type="text" id="ownerUsername" class="form-control" required>
-                    </div>
-                    <div class="col-12">
-                      <label class="form-label">Nome fantasia (opcional)</label>
-                      <input type="text" id="ownerNomeFantasia" class="form-control" placeholder="Ex: MBI LOG Transportes">
-                      <small class="text-muted d-block mt-1">Usado em relatórios como &quot;Emitido por&quot;.</small>
-                    </div>
-                    <div class="col-12">
-                      <label class="form-label">E-mail</label>
-                      <input type="email" id="ownerEmail" class="form-control" required>
-                    </div>
-                    <div class="col-12">
-                      <label class="form-label" for="ownerContato">Contato</label>
-                      <div class="input-group">
-                        <span class="input-group-text"><i class="ri-phone-line" aria-hidden="true"></i></span>
-                        <input type="tel" id="ownerContato" class="form-control" inputmode="tel" maxlength="15" placeholder="(11) 99999-9999" autocomplete="tel">
-                      </div>
-                      <small class="text-muted d-block mt-1">Telefone da operação. Também aparece na etiqueta, abaixo da logo.</small>
-                    </div>
-                    <div class="col-12">
-                      <label class="form-label">Valor por saída (R$)</label>
-                      <input type="number" step="0.01" id="ownerValor" class="form-control" required>
-                    </div>
+            <div class="of-body" id="ownerFormBody">
+
+              <!-- 1. Identificação -->
+              <section class="of-section" id="of-identificacao" aria-labelledby="of-identificacao-t">
+                <h6 class="of-section-title" id="of-identificacao-t">Identificação</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label" for="ownerSubBase">Sub-base</label>
+                    <input type="text" id="ownerSubBase" class="form-control" disabled>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="ownerTipo">Tipo do owner</label>
+                    <select id="ownerTipo" class="form-select" aria-describedby="ownerTipoHelp">
+                      <option value="subbase">Subbase</option>
+                      <option value="base">Base (Seller)</option>
+                    </select>
+                    <div class="form-text" id="ownerTipoHelp">Base mostra &quot;Seller&quot; no menu e exige CNPJ e endereço.</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="ownerUsername">Username <span class="text-danger">*</span></label>
+                    <input type="text" id="ownerUsername" class="form-control" required>
+                    <div class="invalid-feedback">Informe o username.</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="ownerNomeFantasia">Nome fantasia</label>
+                    <input type="text" id="ownerNomeFantasia" class="form-control" placeholder="Ex.: MBI LOG Transportes">
+                    <div class="form-text">Aparece em relatórios, etiquetas e no demonstrativo de cobrança.</div>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <div class="col-lg-6">
-              <div class="card h-100 mb-0">
-                <div class="card-header bg-light fw-semibold">Operação</div>
-                <div class="card-body">
-                  <div class="row g-3">
-                    <div class="col-12">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerColetaHabilitadaToggle">
-                        <label class="form-check-label">Controle de coleta</label>
-                      </div>
-                      <small class="text-muted d-block mt-1">Habilita o registro de coletas por Base/Seller, com acompanhamento e fechamento das coletas.</small>
+                <div class="of-rows mt-3">
+                  <div class="of-row">
+                    <div>
+                      <label class="of-row-title" for="ownerAtivoToggle">Ativo</label>
+                      <div class="of-row-desc">Owner inativo não aparece nas operações nem na cobrança.</div>
                     </div>
-                    <div class="col-12" id="ownerModoOperacaoWrap">
-                      <label class="form-label">Forma de registro da coleta</label>
-                      <select id="ownerModoOperacao" class="form-select">
-                        <option value="codigo">Coleta por leitura</option>
-                        <option value="coleta_manual">Coleta manual</option>
-                        <option value="ambos">Leitura e manual</option>
-                      </select>
-                      <small class="text-muted">Define como os pacotes serão registrados durante a coleta.</small>
+                    <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="ownerAtivoToggle"></div>
+                  </div>
+                  <div class="of-row">
+                    <div>
+                      <label class="of-row-title" for="ownerTesteToggle">Owner de teste</label>
+                      <div class="of-row-desc">Fica fora da cobrança e dos indicadores, salvo quando o filtro pedir.</div>
                     </div>
-                    <div class="col-12" id="ownerBloquearSaidaSemColetaWrap">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerBloquearSaidaSemColetaToggle">
-                        <label class="form-check-label">Bloquear saída sem coleta</label>
-                      </div>
-                      <small class="text-muted d-block mt-1">Quando ativo, impede registrar a saída de pacotes que ainda não foram coletados. Quando desativado, o sistema avisa e permite registrar mesmo assim.</small>
-                    </div>
-                    <div class="col-12">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerEntradaToggle">
-                        <label class="form-check-label">Controle de entrada</label>
-                      </div>
-                      <small class="text-muted d-block mt-1">Permite registrar a entrada dos pacotes sem controle de coleta por Base/Seller. A entrada ou a coleta valida o pacote para saída.</small>
-                    </div>
-                    <div class="col-12">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerConferenciaToggle">
-                        <label class="form-check-label">Conferência diária das saídas</label>
-                      </div>
-                      <small class="text-muted d-block mt-1">Permite registrar se as saídas dos entregadores foram conferidas no dia, mantendo essa informação no fechamento.</small>
-                    </div>
-                    <div class="col-12">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerDevolucaoToggle">
-                        <label class="form-check-label">Devolução de pacotes pelo app</label>
-                      </div>
-                      <small class="text-muted d-block mt-1">Permite registrar pelo aplicativo a devolução de pacotes, incluindo foto quando aplicável.</small>
-                    </div>
-                    <div class="col-12">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerTesteToggle">
-                        <label class="form-check-label">Owner de teste</label>
-                      </div>
-                    </div>
-                    <div class="col-12">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="ownerAtivoToggle">
-                        <label class="form-check-label">Ativo</label>
-                      </div>
-                    </div>
+                    <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="ownerTesteToggle"></div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
+              </section>
 
-          <div class="row g-3 mt-1">
-            <div class="col-12">
-              <div class="card mb-0">
-                <div class="card-header bg-light fw-semibold">Identidade visual (etiquetas)</div>
-                <div class="card-body">
-                  <p class="text-muted small mb-3">
-                    Logo e slogan usados nas etiquetas de envio próprio deste Owner.
-                    Sem logo, a etiqueta usa a marca ROTEVO no cabeçalho (mantendo o nome da base).
-                  </p>
-                  <div class="row g-3 align-items-start">
-                    <div class="col-md-6">
-                      <label class="form-label" for="ownerSlogan">Slogan (opcional)</label>
-                      <input type="text" id="ownerSlogan" class="form-control" maxlength="120" placeholder="Ex.: Mais que entregas, conexões.">
-                      <small class="text-muted d-block mt-1">O nome fantasia acima é o nome exibido na etiqueta.</small>
+              <!-- 2. Contato e endereço -->
+              <section class="of-section" id="of-contato" aria-labelledby="of-contato-t">
+                <h6 class="of-section-title" id="of-contato-t">Contato e endereço</h6>
+                <p class="of-section-desc" id="ownerEnderecoHelp">Usados no demonstrativo de cobrança e na mensagem ao Owner. Campo vazio sai em branco.</p>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label" for="ownerEmail">E-mail <span class="text-danger">*</span></label>
+                    <input type="email" id="ownerEmail" class="form-control" required autocomplete="email">
+                    <div class="invalid-feedback">Informe um e-mail válido.</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="ownerContato">Telefone / WhatsApp</label>
+                    <input type="tel" id="ownerContato" class="form-control" inputmode="tel" maxlength="15" placeholder="(11) 99999-9999" autocomplete="tel">
+                    <div class="form-text">Também aparece na etiqueta, abaixo da logo.</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="ownerCnpj">CNPJ ou CPF <span class="text-danger of-req-base d-none">*</span></label>
+                    <input type="text" id="ownerCnpj" class="form-control" inputmode="numeric" maxlength="18" placeholder="00.000.000/0000-00">
+                    <div class="invalid-feedback">Informe um CNPJ (14 dígitos) ou CPF (11 dígitos).</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="ownerCep">CEP <span class="text-danger of-req-base d-none">*</span></label>
+                    <div class="input-group has-validation">
+                      <input type="text" id="ownerCep" class="form-control" inputmode="numeric" maxlength="9" placeholder="00000-000" aria-describedby="ownerCepStatus">
+                      <span class="input-group-text of-cep-status" id="ownerCepStatus" aria-live="polite"></span>
+                      <div class="invalid-feedback">CEP com 8 dígitos.</div>
                     </div>
-                    <div class="col-md-6">
-                      <div class="d-flex align-items-start gap-3 flex-wrap">
-                        <div class="border rounded p-2 bg-light" id="ownerLogoPreviewBox" style="width:200px;height:80px;display:flex;align-items:center;justify-content:center;">
-                          <img id="ownerLogoPreview" alt="Preview da logo" class="d-none" style="max-width:100%;max-height:64px;object-fit:contain;">
-                          <span id="ownerLogoPlaceholder" class="text-muted small text-center">Logo padrão ROTEVO</span>
+                    <div class="form-text">Ao completar o CEP, rua, bairro, cidade e UF são preenchidos.</div>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label" for="ownerRua">Rua <span class="text-danger of-req-base d-none">*</span></label>
+                    <input type="text" id="ownerRua" class="form-control" autocomplete="address-line1">
+                    <div class="invalid-feedback">Informe a rua.</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label" for="ownerNumero">Número <span class="text-danger of-req-base d-none">*</span></label>
+                    <input type="text" id="ownerNumero" class="form-control" maxlength="20">
+                    <div class="invalid-feedback">Informe o número.</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="ownerComplemento">Complemento</label>
+                    <input type="text" id="ownerComplemento" class="form-control" autocomplete="address-line2">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="ownerBairro">Bairro <span class="text-danger of-req-base d-none">*</span></label>
+                    <input type="text" id="ownerBairro" class="form-control">
+                    <div class="invalid-feedback">Informe o bairro.</div>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label" for="ownerCidade">Cidade <span class="text-danger of-req-base d-none">*</span></label>
+                    <input type="text" id="ownerCidade" class="form-control" autocomplete="address-level2">
+                    <div class="invalid-feedback">Informe a cidade.</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label" for="ownerEstado">UF</label>
+                    <input type="text" id="ownerEstado" class="form-control text-uppercase" maxlength="2" autocomplete="address-level1">
+                  </div>
+                </div>
+              </section>
+
+              <!-- 3. Operação -->
+              <section class="of-section" id="of-operacao" aria-labelledby="of-operacao-t">
+                <h6 class="of-section-title" id="of-operacao-t">Operação</h6>
+
+                <div class="of-group-title">Coleta</div>
+                <div class="of-rows">
+                  <div class="of-row">
+                    <div>
+                      <label class="of-row-title" for="ownerColetaHabilitadaToggle">Controle de coleta</label>
+                      <div class="of-row-desc">Registro de coletas por Base/Seller, com acompanhamento e fechamento.</div>
+                    </div>
+                    <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="ownerColetaHabilitadaToggle"></div>
+                  </div>
+                  <div class="of-row of-row--sub" id="ownerModoOperacaoWrap">
+                    <div>
+                      <label class="of-row-title" for="ownerModoOperacao">Forma de registro da coleta</label>
+                      <div class="of-row-desc">Como os pacotes são registrados durante a coleta.</div>
+                    </div>
+                    <select id="ownerModoOperacao" class="form-select form-select-sm of-row-select">
+                      <option value="codigo">Leitura</option>
+                      <option value="coleta_manual">Manual</option>
+                      <option value="ambos">Leitura e manual</option>
+                    </select>
+                  </div>
+                  <div class="of-row of-row--sub" id="ownerBloquearSaidaSemColetaWrap">
+                    <div>
+                      <label class="of-row-title" for="ownerBloquearSaidaSemColetaToggle">Bloquear saída sem coleta</label>
+                      <div class="of-row-desc">Ligado: impede a saída de pacote não coletado. Desligado: avisa e permite.</div>
+                    </div>
+                    <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="ownerBloquearSaidaSemColetaToggle"></div>
+                  </div>
+                </div>
+
+                <div class="of-group-title">Entrada</div>
+                <div class="of-rows">
+                  <div class="of-row">
+                    <div>
+                      <label class="of-row-title" for="ownerEntradaToggle">Controle de entrada</label>
+                      <div class="of-row-desc">Registra a entrada dos pacotes na base. Entrada ou coleta liberam o pacote para saída.</div>
+                    </div>
+                    <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="ownerEntradaToggle"></div>
+                  </div>
+                </div>
+
+                <div class="of-group-title">Saída</div>
+                <div class="of-rows">
+                  <div class="of-row">
+                    <div>
+                      <label class="of-row-title" for="ownerConferenciaToggle">Conferência diária das saídas</label>
+                      <div class="of-row-desc">Marca se as saídas dos entregadores foram conferidas no dia e leva isso ao fechamento.</div>
+                    </div>
+                    <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="ownerConferenciaToggle"></div>
+                  </div>
+                </div>
+
+                <div class="of-group-title">App do entregador</div>
+                <div class="of-rows">
+                  <div class="of-row">
+                    <div>
+                      <label class="of-row-title" for="ownerDevolucaoToggle">Devolução de pacotes pelo app</label>
+                      <div class="of-row-desc">Permite registrar a devolução pelo aplicativo, com foto quando aplicável.</div>
+                    </div>
+                    <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="ownerDevolucaoToggle"></div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 4. Cobrança -->
+              <section class="of-section" id="of-cobranca" aria-labelledby="of-cobranca-t">
+                <h6 class="of-section-title" id="of-cobranca-t">Cobrança</h6>
+                <div class="of-cobranca">
+                  <div>
+                    <div class="of-label">Preço por pacote na cobrança</div>
+                    <div class="of-value" id="ownerPrecoVigente">—</div>
+                    <div class="of-row-desc" id="ownerModeloCobranca"></div>
+                  </div>
+                  <a class="btn btn-sm btn-soft-primary" id="ownerLinkCobranca" href="tracking-cobranca-owners.html">
+                    <i class="ri-bill-line me-1" aria-hidden="true"></i>Ver cobrança
+                  </a>
+                </div>
+                <div class="row g-3 mt-1">
+                  <div class="col-md-6">
+                    <label class="form-label" for="ownerValor">Valor por saída (R$) <span class="text-danger">*</span></label>
+                    <input type="number" step="0.01" min="0" id="ownerValor" class="form-control" required>
+                    <div class="form-text">Usado no Indicador Admin. A cobrança usa o preço com vigência, alterado na tela de cobrança.</div>
+                    <div class="invalid-feedback">Informe o valor.</div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 5. Identidade visual -->
+              <section class="of-section" id="of-identidade" aria-labelledby="of-identidade-t">
+                <h6 class="of-section-title" id="of-identidade-t">Identidade visual (etiquetas)</h6>
+                <p class="of-section-desc">
+                  Logo e slogan das etiquetas de envio próprio. Sem logo, a etiqueta usa a marca ROTEVO no cabeçalho (mantendo o nome da base).
+                </p>
+                <div class="row g-3 align-items-start">
+                  <div class="col-md-6">
+                    <label class="form-label" for="ownerSlogan">Slogan</label>
+                    <input type="text" id="ownerSlogan" class="form-control" maxlength="120" placeholder="Ex.: Mais que entregas, conexões.">
+                    <div class="form-text">O nome fantasia é o nome exibido na etiqueta.</div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="d-flex align-items-start gap-3 flex-wrap">
+                      <div class="border rounded p-2 bg-light" id="ownerLogoPreviewBox" style="width:200px;height:80px;display:flex;align-items:center;justify-content:center;">
+                        <img id="ownerLogoPreview" alt="Preview da logo" class="d-none" style="max-width:100%;max-height:64px;object-fit:contain;">
+                        <span id="ownerLogoPlaceholder" class="text-muted small text-center">Logo padrão ROTEVO</span>
+                      </div>
+                      <div>
+                        <input type="file" id="ownerLogoFile" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" class="d-none">
+                        <div class="d-flex gap-2 flex-wrap">
+                          <button type="button" class="btn btn-sm btn-soft-primary" id="btnOwnerEnviarLogo">Enviar logo</button>
+                          <button type="button" class="btn btn-sm btn-soft-secondary d-none" id="btnOwnerRemoverLogo">Remover</button>
                         </div>
-                        <div>
-                          <input type="file" id="ownerLogoFile" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" class="d-none">
-                          <div class="d-flex gap-2 flex-wrap">
-                            <button type="button" class="btn btn-sm btn-soft-primary" id="btnOwnerEnviarLogo">Enviar logo</button>
-                            <button type="button" class="btn btn-sm btn-soft-secondary d-none" id="btnOwnerRemoverLogo">Remover</button>
-                          </div>
-                          <small class="text-muted d-block mt-2">PNG, JPG ou WEBP até 5 MB. Após selecionar, você pode recortar.</small>
-                        </div>
+                        <small class="text-muted d-block mt-2">PNG, JPG ou WEBP até 5 MB. Após selecionar, você pode recortar.</small>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </section>
             </div>
           </div>
         </div>
         <div class="modal-footer">
+          <span class="of-footer-note me-auto" id="ownerFooterNote" aria-live="polite"></span>
           <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
           <button type="submit" class="btn btn-primary" id="saveOwnerBtn">Salvar</button>
         </div>
@@ -281,7 +372,7 @@
 </div>
 
 <script src="assets/js/pages/logo-crop-modal.js?v=1.0"></script>
-<script src="assets/js/pages/admin-owners.js?v=1.3"></script>
+<script src="assets/js/pages/admin-owners.js?v=1.4"></script>
 
 </body>
 </html>

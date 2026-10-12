@@ -3,7 +3,7 @@
 <head>
   @@include("partials/title-meta.html", {"title": "Cobrança do Owner"})
   @@include("partials/head-css.html")
-  <link href="assets/css/cobranca-owners.css?v=1" rel="stylesheet" type="text/css" />
+  <link href="assets/css/cobranca-owners.css?v=2" rel="stylesheet" type="text/css" />
 </head>
 
 <body>
@@ -54,13 +54,18 @@
               <!-- Composição -->
               <div class="col-lg-7">
                 <section class="cob-surface p-3 h-100">
-                  <h5 class="fs-15 mb-2">Composição</h5>
+                  <h5 class="fs-15 mb-1">Como o valor foi calculado</h5>
+                  <p class="cob-lede mb-2" id="cobd-explicacao"></p>
                   <table class="cob-ledger" aria-describedby="cobd-composicao-nota">
                     <tbody id="cobd-composicao"></tbody>
                   </table>
                   <p class="cob-muted small mt-2 mb-0" id="cobd-composicao-nota">
                     Cancelado só aparece como dedução se entrou no bruto. Duplicidade não entra na conta.
                   </p>
+                  <div id="cobd-ajustes-wrap" class="d-none mt-3">
+                    <div class="cob-label">Ajustes aplicados neste valor</div>
+                    <ul class="list-unstyled small mb-0" id="cobd-ajustes"></ul>
+                  </div>
                 </section>
               </div>
 
@@ -82,6 +87,20 @@
                 </section>
               </div>
             </div>
+
+            <!-- Situação dos pacotes cobrados -->
+            <section class="cob-surface p-3 mb-3" id="cobd-situacao-wrap" aria-labelledby="cobd-situacao-titulo">
+              <div class="d-flex flex-wrap align-items-baseline justify-content-between gap-2 mb-2">
+                <h5 class="fs-15 mb-0" id="cobd-situacao-titulo">O que aconteceu com os pacotes cobrados</h5>
+                <span class="cob-muted small" id="cobd-situacao-total"></span>
+              </div>
+              <div class="cob-sit-bar mb-2" id="cobd-situacao-bar" aria-hidden="true"></div>
+              <ul class="cob-sit-legenda list-unstyled mb-2" id="cobd-situacao"></ul>
+              <p class="cob-muted small mb-0">
+                O pacote é cobrado quando entra na operação (coleta ou recebimento), mesmo que ainda não tenha saído para entrega.
+                A situação mostra onde cada pacote está hoje.
+              </p>
+            </section>
 
             <!-- Itens -->
             <section class="cob-surface mb-3">
@@ -171,25 +190,21 @@
                   <input class="form-check-input" type="checkbox" id="cfg-confirmar" />
                   <label class="form-check-label small" for="cfg-confirmar">Confirmo o modelo e a periodicidade para cobrança</label>
                 </div>
-                <details class="mb-3">
-                  <summary class="small fw-medium">Cadastro para o demonstrativo (opcional)</summary>
-                  <div class="mt-2">
-                    <label for="cfg-razao" class="form-label small mb-1">Razão social</label>
-                    <input id="cfg-razao" class="form-control form-control-sm mb-2" maxlength="200" />
-                    <label for="cfg-documento" class="form-label small mb-1">CNPJ ou CPF</label>
-                    <input id="cfg-documento" class="form-control form-control-sm mb-2" maxlength="40" />
-                    <label for="cfg-telefone" class="form-label small mb-1">Telefone</label>
-                    <input id="cfg-telefone" class="form-control form-control-sm mb-2" maxlength="40" />
-                    <label for="cfg-endereco" class="form-label small mb-1">Endereço</label>
-                    <input id="cfg-endereco" class="form-control form-control-sm mb-2" maxlength="300" />
-                    <label for="cfg-contato" class="form-label small mb-1">Contato financeiro</label>
-                    <input id="cfg-contato" class="form-control form-control-sm mb-2" maxlength="200" />
-                    <label for="cfg-obs" class="form-label small mb-1">Observação</label>
-                    <textarea id="cfg-obs" class="form-control form-control-sm" rows="2" maxlength="1000"></textarea>
-                  </div>
-                </details>
+                <div class="mb-3">
+                  <label for="cfg-obs" class="form-label small mb-1">Observação interna</label>
+                  <textarea id="cfg-obs" class="form-control form-control-sm" rows="2" maxlength="1000"></textarea>
+                </div>
                 <button type="submit" class="btn btn-primary btn-sm" id="cfg-salvar">Salvar configuração</button>
               </form>
+
+              <hr />
+
+              <div class="d-flex align-items-baseline justify-content-between gap-2 mb-1">
+                <h3 class="h6 mb-0">Dados do cadastro</h3>
+                <a href="admin-owners.html" class="cob-link small" id="cfg-editar-cadastro">Editar no cadastro</a>
+              </div>
+              <p class="small cob-muted mb-2">Vão para o demonstrativo. Campo sem cadastro sai em branco.</p>
+              <dl class="cob-dados small mb-0" id="cfg-cadastro"></dl>
 
               <hr />
 
@@ -281,6 +296,76 @@
             </div>
           </div>
 
+          <!-- Modal: ajustar valor do período -->
+          <div class="modal fade" id="cobd-modal-ajuste" tabindex="-1" aria-labelledby="cobd-modal-ajuste-titulo" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content cob">
+                <form id="cobd-form-ajuste-periodo" novalidate>
+                  <div class="modal-header">
+                    <h2 class="modal-title h5" id="cobd-modal-ajuste-titulo">Ajustar valor do período</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                  </div>
+                  <div class="modal-body">
+                    <fieldset class="mb-3">
+                      <legend class="form-label small mb-1">O que fazer?</legend>
+                      <div class="cob-opcoes" role="radiogroup">
+                        <input type="radio" class="btn-check" name="ap-tipo" id="ap-tipo-desc-valor" value="desconto_valor" checked />
+                        <label class="btn btn-sm btn-outline-secondary" for="ap-tipo-desc-valor">Desconto em R$</label>
+                        <input type="radio" class="btn-check" name="ap-tipo" id="ap-tipo-desc-pct" value="desconto_pct" />
+                        <label class="btn btn-sm btn-outline-secondary" for="ap-tipo-desc-pct">Desconto em %</label>
+                        <input type="radio" class="btn-check" name="ap-tipo" id="ap-tipo-acrescimo" value="acrescimo" />
+                        <label class="btn btn-sm btn-outline-secondary" for="ap-tipo-acrescimo">Acréscimo</label>
+                        <input type="radio" class="btn-check" name="ap-tipo" id="ap-tipo-isencao" value="isencao" />
+                        <label class="btn btn-sm btn-outline-secondary" for="ap-tipo-isencao">Isentar período</label>
+                      </div>
+                    </fieldset>
+                    <div id="ap-bloco-valor" class="mb-3">
+                      <label for="ap-valor" class="form-label small mb-1" id="ap-valor-label">Valor (R$) <span class="text-danger">*</span></label>
+                      <input id="ap-valor" class="form-control form-control-sm" inputmode="decimal" placeholder="0,00" style="max-width: 160px;" />
+                      <div class="form-text" id="ap-valor-ajuda"></div>
+                    </div>
+                    <p id="ap-isencao-nota" class="small d-none">O total do período fica zerado. Os pacotes continuam no demonstrativo.</p>
+                    <label for="ap-motivo" class="form-label small mb-1">Motivo <span class="text-danger">*</span></label>
+                    <input id="ap-motivo" class="form-control form-control-sm mb-3" maxlength="500" placeholder="Ex.: negociação comercial de outubro" />
+                    <table class="cob-ledger">
+                      <tbody>
+                        <tr><td>Total atual</td><td class="text-end" id="ap-atual"></td></tr>
+                        <tr><td>Este ajuste</td><td class="text-end" id="ap-efeito"></td></tr>
+                        <tr class="cob-ledger-total"><td>Novo total</td><td class="text-end" id="ap-novo"></td></tr>
+                      </tbody>
+                    </table>
+                    <p class="small cob-muted mt-2 mb-0">Muda o valor deste período. Se já estiver conferido, confira de novo antes de fechar.</p>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="ap-salvar">Aplicar ajuste</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: mensagem para o Owner -->
+          <div class="modal fade" id="cobd-modal-mensagem" tabindex="-1" aria-labelledby="cobd-modal-mensagem-titulo" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content cob">
+                <div class="modal-header">
+                  <h2 class="modal-title h5" id="cobd-modal-mensagem-titulo">Mensagem para o Owner</h2>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                  <label for="msg-texto" class="form-label small mb-1">Revise antes de enviar</label>
+                  <textarea id="msg-texto" class="form-control form-control-sm" rows="12"></textarea>
+                  <div class="form-text" id="msg-ajuda">Anexe o demonstrativo em PDF na conversa.</div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-outline-secondary" id="msg-copiar"><i class="ri-file-copy-line me-1" aria-hidden="true"></i>Copiar</button>
+                  <a class="btn btn-primary" id="msg-whatsapp" target="_blank" rel="noopener"><i class="ri-whatsapp-line me-1" aria-hidden="true"></i>Abrir no WhatsApp</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Modal: decisão sobre coleta manual -->
           <div class="modal fade" id="cobd-modal-decisao" tabindex="-1" aria-labelledby="cobd-modal-decisao-titulo" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
@@ -344,7 +429,7 @@
 
   <script src="assets/js/user.js"></script>
   <script src="assets/js/pages/cobranca-owners-common.js?v=1"></script>
-  <script src="assets/js/pages/tracking-cobranca-owner-detalhe.init.js?v=1"></script>
+  <script src="assets/js/pages/tracking-cobranca-owner-detalhe.init.js?v=2"></script>
   <script src="assets/js/app.js"></script>
 </body>
 

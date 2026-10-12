@@ -238,3 +238,68 @@
 }
 
 .cob .cob-muted { color: var(--cob-muted); }
+
+/* Situação dos pacotes cobrados: barra empilhada + legenda */
+.cob {
+  --cob-sit-entregue: #0F766E;
+  --cob-sit-em_entrega: #2563EB;
+  --cob-sit-na_base: #D97706;
+  --cob-sit-manual: #94A3B8;
+}
+
+.cob .cob-sit-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--cob-soft);
+}
+
+.cob .cob-sit-bar span { display: block; height: 100%; }
+
+.cob .cob-sit-legenda {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.5rem 1.5rem;
+  font-size: 0.875rem;
+}
+
+.cob .cob-sit-legenda li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--cob-border);
+}
+
+.cob .cob-sit-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  margin-right: 0.4rem;
+  flex: none;
+}
+
+.cob [data-sit="entregue"] { background: var(--cob-sit-entregue); }
+.cob [data-sit="em_entrega"] { background: var(--cob-sit-em_entrega); }
+.cob [data-sit="na_base"] { background: var(--cob-sit-na_base); }
+.cob [data-sit="manual"] { background: var(--cob-sit-manual); }
+
+/* Opções segmentadas do ajuste */
+.cob .cob-opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+/* Dados do cadastro (somente leitura) */
+.cob .cob-dados {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 0.35rem 0.75rem;
+}
+
+.cob .cob-dados dt { font-weight: 400; color: var(--cob-muted); }
+.cob .cob-dados dd { margin: 0; overflow-wrap: anywhere; }
