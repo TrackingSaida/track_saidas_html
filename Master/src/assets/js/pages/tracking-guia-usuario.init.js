@@ -442,15 +442,19 @@
           steps: [
             {
               title: "Abra Financeiro → {fechamento_base}",
-              text: "No passo 1, selecione {a_base_lower}.",
+              text: "Escolha o período, em geral a quinzena. Cada linha é uma base; abra a seta para ver os dias.",
             },
             {
-              title: "Revise os totais",
-              text: "Confira coletas, avulsos e valores antes de gerar.",
+              title: "Gere todos ou um por vez",
+              text: "Gerar todos os pendentes cria os fechamentos sem ajustes. Bases com pacotes grandes ou dias sem lançamento ficam de fora: use Revisar e gerar na linha.",
             },
             {
-              title: "Gere o fechamento",
-              text: "Depois de gerado, o valor segue para A Receber.",
+              title: "Revise antes de gerar",
+              text: "No painel, resolva os dias sem lançamento (lance a coleta ou justifique), confira os dias, informe o valor por pacote grande e lance ajustes com motivo.",
+            },
+            {
+              title: "Reajuste quando as coletas mudarem",
+              text: "Se aparecer Precisa revisão, clique em Reajustar e use as quantidades atuais. Depois de gerado, o valor segue para A Receber.",
             },
           ],
         },
@@ -464,11 +468,15 @@
           steps: [
             {
               title: "Abra Financeiro → A Receber",
-              text: "A lista mostra os fechamentos já gerados, aguardando recebimento.",
+              text: "A lista mostra os fechamentos gerados que ainda não foram recebidos, com o CNPJ de cada base. Use Exportar CSV para ter a lista completa.",
             },
             {
-              title: "Marque como recebido",
-              text: "Selecione o item e clique em Marcar como recebido.",
+              title: "Confira os pagamentos",
+              text: "Se aparecer Precisa revisão, clique em Revisar antes de receber: depois de recebido, o fechamento não pode mais ser reajustado.",
+            },
+            {
+              title: "Marque os recebidos",
+              text: "Selecione as bases que já pagaram (ou todas pela caixa do cabeçalho) e clique em Marcar como recebido.",
             },
           ],
         },

@@ -263,7 +263,8 @@
 .fm-status--pendente { color: #475569; }
 .fm-status--gerado { color: #0B1F3A; }
 .fm-status--reajustado { color: #1D4ED8; }
-.fm-status--pago { color: #15803D; }
+.fm-status--pago,
+.fm-status--recebido { color: #15803D; }
 
 .fm-chip {
   display: inline-block;
@@ -384,4 +385,115 @@
   display: flex;
   gap: 0.5rem;
   justify-content: flex-end;
+}
+
+/* Fechamento de Bases */
+.fm .fm-busca {
+  position: relative;
+}
+
+.fm .fm-busca i {
+  position: absolute;
+  left: 0.625rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fm-muted);
+  pointer-events: none;
+}
+
+.fm .fm-busca input {
+  padding-left: 2rem;
+  width: 14rem;
+}
+
+.fm-painel.fm-painel--largo.offcanvas-end {
+  width: min(760px, 100vw);
+}
+
+.fm-painel .fm-painel-rodape {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.fm-painel .fm-painel-totais {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.fm-painel .fm-secoes > .fm-secao {
+  border-top: 0;
+  padding-top: 0;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--fm-border);
+}
+
+.fm-painel .fm-secoes > .fm-secao:last-child {
+  border-bottom: 0;
+  margin-bottom: 0;
+}
+
+.fm-painel .fm-secao-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--fm-strong);
+}
+
+.fm-painel .fm-secao-toggle[aria-expanded="true"] i {
+  transform: rotate(90deg);
+}
+
+.fm-painel .fm-grade {
+  font-size: 0.8125rem;
+}
+
+.fm-painel .fm-grade th {
+  font-weight: 600;
+  color: var(--fm-muted);
+  white-space: nowrap;
+}
+
+.fm-painel .fm-grade input {
+  width: 4.25rem;
+  margin-left: auto;
+  padding: 0.125rem 0.375rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.fm-painel .fm-grade input.fm-celula-alterada {
+  background: #FFFBEB;
+  border-color: #F59E0B;
+}
+
+.fm-painel .fm-grade tfoot td {
+  font-weight: 700;
+  border-top: 1px solid var(--fm-border);
+}
+
+.fm-painel .fm-pendencia {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+  border-top: 1px solid #FDE68A;
+}
+
+.fm-painel .fm-pendencia:first-child {
+  border-top: 0;
+}
+
+.fm-chip--aviso { background: #FFFBEB; color: #B45309; }
+
+@media (max-width: 575.98px) {
+  .fm .fm-busca,
+  .fm .fm-busca input {
+    width: 100%;
+  }
 }
