@@ -1,5 +1,5 @@
 /* ======================================================
-   A Pagar — fechamentos consolidados + marcar como pago
+   A Pagar — fechamentos gerados do período e registro de pagamento
    GET  /api/entregadores/fechamentos
    POST /api/entregadores/fechamentos/marcar-pago
    ====================================================== */
@@ -7,163 +7,237 @@
 document.addEventListener("DOMContentLoaded", () => {
   "use strict";
 
-  const API_URL = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+  const API_URL = String(
+    typeof window.getTrackApiUrl === "function" ? window.getTrackApiUrl() : window.TRACK_API_URL || ""
+  ).replace(/\/+$/, "");
   const API_FECHAMENTOS = `${API_URL}/entregadores/fechamentos`;
+  const COR_PRIMARIA = "#0B1F3A";
 
   const qs = (s) => document.querySelector(s);
-  const formatarMoeda = (v) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v) || 0);
+  const num = (v) => Number(v) || 0;
+  const moeda = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(num(v));
+  const esc = (s) =>
+    String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
 
-  const STATUS_LABEL = {
-    GERADO: "Gerado",
-    REAJUSTADO: "Reajustado",
-    PAGO: "Pago",
-    FECHADO: "Gerado",
+  const STATUS = {
+    GERADO: { label: "Gerado", cls: "gerado" },
+    FECHADO: { label: "Gerado", cls: "gerado" },
+    REAJUSTADO: { label: "Reajustado", cls: "reajustado" },
+    PAGO: { label: "Pago", cls: "pago" },
   };
-
-  function labelMotoboy(item) {
-    const raw =
-      (item && (item.nome_exibicao || item.username_entregador)) || "—";
-    if (typeof window.formatPersonName === "function" && raw !== "—") {
-      return window.formatPersonName(raw) || raw;
-    }
-    return String(raw);
-  }
-
-  function compareMotoboyLabel(a, b) {
-    const la = labelMotoboy(a);
-    const lb = labelMotoboy(b);
-    if (typeof window.comparePersonNames === "function") {
-      return window.comparePersonNames(la, lb);
-    }
-    return la.localeCompare(lb, "pt-BR", { sensitivity: "base" });
-  }
 
   const state = {
     items: [],
-    totais: {
-      total_a_pagar: 0,
-      total_pago: 0,
-      qtd_precisa_reajuste: 0,
-      qtd_a_pagar: 0,
-      qtd_pago: 0,
-    },
+    filtro: "A_PAGAR",
+    selecionados: new Set(),
+    pagando: false,
   };
 
   const fltDataInicio = qs("#flt-data-inicio");
   const fltDataFim = qs("#flt-data-fim");
-  const fltStatus = qs("#flt-status");
-  const fltDivergencia = qs("#flt-apenas-divergencia");
   const tbody = qs("#tbody-a-pagar");
   const msgEl = qs("#aPagarMsg");
+  const chkTodos = qs("#chkTodos");
+  const barra = qs("#barraSelecao");
   const btnMarcarPago = qs("#btnMarcarPago");
-  const filtrosContador = qs("#filtrosContador");
+  const btnExportar = qs("#btnExportar");
 
-  function updatePeriodLabel(start, end) {
-    const label = document.getElementById("a-pagar-period-label");
-    if (!label || !start || !end) return;
-    const [y1, m1, d1] = start.split("-");
-    const [y2, m2, d2] = end.split("-");
-    label.textContent = `${d1}/${m1}/${y1} – ${d2}/${m2}/${y2}`;
+  const statusDe = (i) => String(i.status || "").toUpperCase();
+  const aPagar = (i) => ["GERADO", "REAJUSTADO", "FECHADO"].includes(statusDe(i));
+
+  function nomeMotoboy(item) {
+    const raw = (item && (item.nome_exibicao || item.username_entregador)) || "—";
+    if (typeof window.formatPersonName === "function" && raw !== "—") return window.formatPersonName(raw) || raw;
+    return String(raw);
   }
 
-  function atualizarContadorFiltros() {
-    if (!filtrosContador) return;
-    let n = 0;
-    if ((fltStatus?.value || "").trim()) n++;
-    if (fltDivergencia?.checked) n++;
-    if (n > 0) {
-      filtrosContador.textContent = String(n);
-      filtrosContador.classList.remove("d-none");
-    } else {
-      filtrosContador.classList.add("d-none");
-    }
+  function compararNome(a, b) {
+    const la = nomeMotoboy(a);
+    const lb = nomeMotoboy(b);
+    if (typeof window.comparePersonNames === "function") return window.comparePersonNames(la, lb);
+    return la.localeCompare(lb, "pt-BR", { sensitivity: "base" });
   }
 
-  function statusBadge(item) {
-    const st = String(item.status || "").toUpperCase();
-    const label = STATUS_LABEL[st] || st || "—";
-    if (st === "PAGO") {
-      return `<span class="badge bg-primary-subtle text-primary">${label}</span>`;
-    }
-    if (st === "REAJUSTADO") {
-      return `<span class="badge bg-info-subtle text-info">${label}</span>`;
-    }
-    if (st === "GERADO" || st === "FECHADO") {
-      return `<span class="badge bg-success-subtle text-success">${label}</span>`;
-    }
-    return `<span class="badge bg-secondary-subtle text-secondary">${label}</span>`;
+  function dmy(iso) {
+    if (!iso) return "";
+    const [y, m, d] = String(iso).slice(0, 10).split("-");
+    return `${d}/${m}/${y}`;
   }
 
-  function fmtPeriodo(inicio, fim) {
-    if (!inicio || !fim) return "—";
-    const f = (s) => {
-      const [y, m, d] = String(s).split("-");
-      return `${d}/${m}`;
-    };
-    return `${f(inicio)} a ${f(fim)}`;
+  function periodoTexto(ini, fim) {
+    if (!ini || !fim) return "—";
+    return `${dmy(ini).slice(0, 5)} a ${dmy(fim)}`;
   }
 
-  function updateCards(totais) {
-    const t = totais || {};
-    const elA = qs("#card-a-pagar");
-    const elAQ = qs("#card-a-pagar-qtd");
-    const elP = qs("#card-pago");
-    const elPQ = qs("#card-pago-qtd");
-    const elR = qs("#card-reajuste");
-    if (elA) elA.textContent = formatarMoeda(t.total_a_pagar);
-    if (elAQ) elAQ.textContent = `${t.qtd_a_pagar || 0} fechamento(s)`;
-    if (elP) elP.textContent = formatarMoeda(t.total_pago);
-    if (elPQ) elPQ.textContent = `${t.qtd_pago || 0} fechamento(s)`;
-    if (elR) elR.textContent = String(t.qtd_precisa_reajuste || 0);
+  function dataHora(iso) {
+    if (!iso) return "";
+    const s = String(iso);
+    const d = new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(s) ? s : `${s}Z`);
+    if (Number.isNaN(d.getTime())) return "";
+    const p = (n) => String(n).padStart(2, "0");
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)} às ${p(d.getHours())}:${p(d.getMinutes())}`;
   }
 
-  function elegiveis() {
-    return (state.items || []).filter((i) => {
-      const st = String(i.status || "").toUpperCase();
-      return st === "GERADO" || st === "REAJUSTADO";
+  function valorAtual(item) {
+    return num(item.valor_base_recalculado) + num(item.valor_adicao) - num(item.valor_subtracao);
+  }
+
+  function itensVisiveis() {
+    const lista = state.items.filter((i) => {
+      if (state.filtro === "A_PAGAR") return aPagar(i);
+      if (state.filtro === "PAGO") return statusDe(i) === "PAGO";
+      if (state.filtro === "REVISAO") return !!i.precisa_reajuste || !!i.alerta_pos_pago;
+      return true;
+    });
+    return lista.sort(compararNome);
+  }
+
+  // ====== Cards ======
+  function renderCards() {
+    const pendentes = state.items.filter(aPagar);
+    const pagos = state.items.filter((i) => statusDe(i) === "PAGO");
+    const revisao = state.items.filter((i) => i.precisa_reajuste || i.alerta_pos_pago);
+    const soma = (arr) => arr.reduce((s, i) => s + num(i.valor_final), 0);
+    qs("#card-a-pagar").textContent = moeda(soma(pendentes));
+    qs("#card-a-pagar-qtd").textContent = plural(pendentes.length, "motoboy", "motoboys");
+    qs("#card-pago").textContent = moeda(soma(pagos));
+    qs("#card-pago-qtd").textContent = plural(pagos.length, "motoboy", "motoboys");
+    qs("#card-reajuste").textContent = String(revisao.length);
+    document.querySelectorAll("#ap-cards .fm-card").forEach((c) => {
+      c.setAttribute("aria-pressed", c.dataset.filtro === state.filtro ? "true" : "false");
     });
   }
 
-  function renderTable(items) {
-    if (!tbody) return;
-    const list = (items || []).slice().sort(compareMotoboyLabel);
-    if (!list.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="7" class="text-center text-muted py-4">Nenhum fechamento neste período.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = list
-      .map((item) => {
-        const precisa = !!item.precisa_reajuste;
-        const alertaPago = !!item.alerta_pos_pago;
-        const rowClass = precisa ? "table-warning" : alertaPago ? "table-secondary" : "";
-        const pix = (item.chave_pix || "").trim() || "—";
-        const pdfBtn = item.id_fechamento
-          ? `<button type="button" class="btn btn-sm btn-soft-secondary btn-pdf" data-id="${item.id_fechamento}" title="Baixar PDF"><i class="ri-file-pdf-line"></i></button>`
-          : "—";
-        let acoes = "—";
-        if (precisa) {
-          acoes = `<button type="button" class="btn btn-sm btn-warning btn-reajustar" data-id="${item.id_fechamento}"><i class="ri-refresh-line me-1"></i>Gerar reajuste</button>`;
-        } else if (alertaPago) {
-          acoes = `<span class="badge bg-secondary-subtle text-secondary" title="Valor base mudou após o pagamento">Alerta pós-pago</span>`;
-        }
-        return (
-          `<tr class="${rowClass}" data-id="${item.id_fechamento}">` +
-          `<td>${labelMotoboy(item).replace(/</g, "&lt;")}</td>` +
-          `<td>${fmtPeriodo(item.periodo_inicio, item.periodo_fim)}</td>` +
-          `<td class="text-end fw-semibold">${formatarMoeda(item.valor_final)}</td>` +
-          `<td>${statusBadge(item)}${precisa ? ' <span class="badge bg-warning text-dark">Precisa reajuste</span>' : ""}</td>` +
-          `<td class="small text-break" style="max-width:160px">${pix.replace(/</g, "&lt;")}</td>` +
-          `<td class="text-center">${pdfBtn}</td>` +
-          `<td class="text-center">${acoes}</td>` +
-          `</tr>`
-        );
-      })
-      .join("");
+  // ====== Tabela ======
+  function celulaPix(item) {
+    const chave = (item.chave_pix || "").trim();
+    if (!chave) return '<span class="fm-chip fm-chip--revisao">Sem PIX cadastrado</span>';
+    return (
+      `<span class="fm-pix"><span class="fm-pix-chave" title="${esc(chave)}">${esc(chave)}</span>` +
+      `<button type="button" class="fm-pix-copiar" data-pix="${esc(chave)}" aria-label="Copiar chave PIX de ${esc(nomeMotoboy(item))}" title="Copiar chave PIX">` +
+      '<i class="ri-file-copy-line"></i></button></span>'
+    );
   }
 
-  async function fetchJson(url, options) {
+  function subLinha(item) {
+    if (statusDe(item) === "PAGO") {
+      const quando = dataHora(item.pago_em);
+      const quem = (item.pago_por || "").trim();
+      if (!quando) return "";
+      return `Pago em ${quando}${quem ? ` por ${quem}` : ""}`;
+    }
+    const partes = [];
+    if (num(item.valor_adicao) > 0) partes.push(`adicional de ${moeda(item.valor_adicao)}`);
+    if (num(item.valor_subtracao) > 0) partes.push(`desconto de ${moeda(item.valor_subtracao)}`);
+    return partes.length ? `Inclui ${partes.join(" e ")}` : "";
+  }
+
+  function celulaSituacao(item) {
+    const st = STATUS[statusDe(item)] || { label: statusDe(item) || "—", cls: "pendente" };
+    let html = `<span class="fm-status fm-status--${st.cls}">${esc(st.label)}</span>`;
+    if (item.precisa_reajuste) html += ' <span class="fm-chip fm-chip--revisao">Precisa revisão</span>';
+    if (item.alerta_pos_pago) html += ' <span class="fm-chip fm-chip--info" title="O valor mudou depois do pagamento">Mudou após pagar</span>';
+    return html;
+  }
+
+  function linhaMensagem(html) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">${html}</td></tr>`;
+  }
+
+  function mensagemVazia() {
+    if (!state.items.length) {
+      return 'Nenhum fechamento gerado neste período. <a href="tracking-entregadores-resumo.html">Ir para Fechamento de Motoboys</a>';
+    }
+    if (state.filtro === "A_PAGAR") return "Tudo pago neste período.";
+    if (state.filtro === "PAGO") return "Nenhum pagamento registrado neste período.";
+    if (state.filtro === "REVISAO") return "Nenhum fechamento precisa de revisão.";
+    return "Nenhum fechamento neste período.";
+  }
+
+  function renderTabela() {
+    const lista = itensVisiveis();
+    const visiveisIds = new Set(lista.filter(aPagar).map((i) => Number(i.id_fechamento)));
+    state.selecionados.forEach((id) => {
+      if (!visiveisIds.has(id)) state.selecionados.delete(id);
+    });
+
+    if (!lista.length) {
+      linhaMensagem(mensagemVazia());
+    } else {
+      tbody.innerHTML = lista
+        .map((item) => {
+          const id = Number(item.id_fechamento);
+          const pagavel = aPagar(item);
+          const marcado = state.selecionados.has(id);
+          const nome = nomeMotoboy(item);
+          const sub = subLinha(item);
+          const classes = [item.precisa_reajuste ? "fm-linha--revisao" : "", marcado ? "fm-linha--selecionada" : ""].join(" ").trim();
+          const chk = pagavel
+            ? `<input class="form-check-input chk-pagar" type="checkbox" value="${id}" ${marcado ? "checked" : ""} aria-label="Selecionar ${esc(nome)}">`
+            : "";
+          const valorSub = item.precisa_reajuste && item.valor_base_recalculado != null
+            ? `<div class="fm-linha-sub">valor atual ${moeda(valorAtual(item))}</div>`
+            : "";
+          const btnRevisar = pagavel
+            ? `<button type="button" class="btn btn-sm ${item.precisa_reajuste ? "btn-fm-primary" : "btn-outline-primary"} btn-revisar" data-id="${id}">Revisar</button>`
+            : "";
+          const btnPdf = `<button type="button" class="btn btn-sm btn-link text-muted px-1 btn-pdf" data-id="${id}" title="Baixar PDF" aria-label="Baixar PDF de ${esc(nome)}"><i class="ri-file-pdf-line fs-5"></i></button>`;
+          return (
+            `<tr class="${classes}" data-id="${id}">` +
+            `<td>${chk}</td>` +
+            `<td><div class="fw-semibold">${esc(nome)}</div><div class="fm-linha-sub">${esc(periodoTexto(item.periodo_inicio, item.periodo_fim))}${sub ? ` · ${esc(sub)}` : ""}</div></td>` +
+            `<td>${celulaPix(item)}</td>` +
+            `<td class="text-end"><span class="fw-semibold fm-num">${moeda(item.valor_final)}</span>${valorSub}</td>` +
+            `<td>${celulaSituacao(item)}</td>` +
+            `<td class="text-end text-nowrap">${btnRevisar} ${btnPdf}</td>` +
+            "</tr>"
+          );
+        })
+        .join("");
+    }
+    renderSelecao();
+    if (btnExportar) btnExportar.disabled = !lista.length;
+  }
+
+  function renderSelecao() {
+    const pagaveis = itensVisiveis().filter(aPagar);
+    const selecionados = pagaveis.filter((i) => state.selecionados.has(Number(i.id_fechamento)));
+    if (chkTodos) {
+      chkTodos.disabled = !pagaveis.length || state.pagando;
+      chkTodos.checked = pagaveis.length > 0 && selecionados.length === pagaveis.length;
+      chkTodos.indeterminate = selecionados.length > 0 && selecionados.length < pagaveis.length;
+    }
+    if (!barra) return;
+    barra.classList.toggle("d-none", !pagaveis.length);
+    qs("#selecaoQtd").textContent = selecionados.length
+      ? plural(selecionados.length, "selecionado", "selecionados")
+      : "Selecione os motoboys que você já pagou";
+    qs("#selecaoTotal").textContent = selecionados.length ? moeda(selecionados.reduce((s, i) => s + num(i.valor_final), 0)) : "";
+    qs("#btnLimparSelecao").classList.toggle("d-none", !selecionados.length);
+    btnMarcarPago.disabled = state.pagando || !selecionados.length;
+    btnMarcarPago.innerHTML = state.pagando
+      ? "Registrando…"
+      : `<i class="ri-checkbox-circle-line me-1"></i> Marcar ${selecionados.length === 1 ? "como pago" : "como pagos"}`;
+  }
+
+  function render() {
+    renderCards();
+    renderTabela();
+  }
+
+  // ====== API ======
+  function mensagemErro(data, status) {
+    const d = data && data.detail;
+    if (typeof d === "string") return d;
+    if (d && typeof d === "object" && !Array.isArray(d) && d.message) return d.message;
+    if (Array.isArray(d) && d.length) {
+      return d.map((i) => (typeof i === "string" ? i : i && i.msg) || "").filter(Boolean).join(" | ");
+    }
+    return `Não foi possível concluir (erro ${status}).`;
+  }
+
+  async function api(url, options) {
     const res = await fetch(url, { credentials: "include", ...(options || {}) });
     if (res.status === 401) {
       window.location.href = "auth-signin-tracking-v2.html";
@@ -171,25 +245,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      let msg = data.message || `HTTP ${res.status}`;
-      const detail = data.detail;
-      if (typeof detail === "string") {
-        msg = detail;
-      } else if (detail && typeof detail === "object" && !Array.isArray(detail) && detail.message) {
-        msg = detail.message;
-      } else if (Array.isArray(detail) && detail.length) {
-        msg = detail
-          .map((item) => {
-            if (typeof item === "string") return item;
-            const loc = Array.isArray(item.loc) ? item.loc.filter((x) => x !== "body" && x !== "query").join(".") : "";
-            const text = item.msg || item.message || JSON.stringify(item);
-            return loc ? `${loc}: ${text}` : text;
-          })
-          .join(" | ");
-      }
-      const err = new Error(msg);
+      const err = new Error(res.status === 403 ? "Seu perfil não tem acesso aos pagamentos de motoboys." : mensagemErro(data, res.status));
       err.status = res.status;
-      err.detail = detail;
+      err.detail = data && data.detail;
       throw err;
     }
     return data;
@@ -200,311 +258,258 @@ document.addEventListener("DOMContentLoaded", () => {
     const fim = (fltDataFim?.value || "").trim();
     if (!inicio || !fim) return;
     if (!API_URL) {
-      if (msgEl) msgEl.innerHTML = '<div class="text-danger">URL da API não configurada.</div>';
+      linhaMensagem('<span class="text-danger">URL da API não configurada.</span>');
       return;
     }
-    if (msgEl) msgEl.innerHTML = '<div class="text-muted">Carregando…</div>';
+    if (msgEl) msgEl.innerHTML = "";
+    linhaMensagem("Carregando…");
     try {
-      const params = new URLSearchParams({
-        periodo_inicio: inicio,
-        periodo_fim: fim,
-      });
-      const st = (fltStatus?.value || "").trim();
-      if (st) params.append("status", st);
-      if (fltDivergencia?.checked) params.append("apenas_com_divergencia", "true");
-
-      const data = await fetchJson(`${API_FECHAMENTOS}?${params.toString()}`);
-      state.items = data.items || [];
-      state.totais = data.totais || {};
-      updateCards(state.totais);
-      renderTable(state.items);
-      if (btnMarcarPago) btnMarcarPago.disabled = elegiveis().length === 0;
-      atualizarContadorFiltros();
-      if (msgEl) msgEl.innerHTML = "";
+      const data = await api(`${API_FECHAMENTOS}?${new URLSearchParams({ periodo_inicio: inicio, periodo_fim: fim })}`);
+      state.items = Array.isArray(data.items) ? data.items : [];
     } catch (err) {
       console.error("A Pagar — carregarLista:", err);
-      if (msgEl) {
-        msgEl.innerHTML =
-          '<div class="text-danger">' +
-          String(err.message || "Erro ao carregar.").replace(/</g, "&lt;") +
-          "</div>";
-      }
       state.items = [];
-      state.totais = {
-        total_a_pagar: 0,
-        total_pago: 0,
-        qtd_precisa_reajuste: 0,
-        qtd_a_pagar: 0,
-        qtd_pago: 0,
-      };
-      updateCards(state.totais);
-      renderTable([]);
-      if (btnMarcarPago) btnMarcarPago.disabled = true;
+      state.selecionados.clear();
+      renderCards();
+      linhaMensagem(`<span class="text-danger">${esc(err.message || "Não foi possível carregar.")}</span>`);
+      renderSelecao();
+      if (btnExportar) btnExportar.disabled = true;
+      return;
     }
+    render();
   }
 
-  async function confirmarDivergencia(qtd) {
-    const msg =
-      qtd === 1
-        ? "Há 1 fechamento com valor base divergente. Deseja marcar como pago mesmo assim?"
-        : `Há ${qtd} fechamentos com valor base divergente. Deseja marcar como pago mesmo assim?`;
-    if (window.Swal) {
-      const r = await Swal.fire({
-        icon: "warning",
-        title: "Confirmar pagamento com divergência",
-        html: msg,
-        showCancelButton: true,
-        confirmButtonText: "Sim, marcar como pago",
-        cancelButtonText: "Cancelar",
-        confirmButtonColor: "#f59e0b",
-      });
-      return !!r.isConfirmed;
-    }
-    return confirm(msg);
-  }
+  // ====== Marcar como pago ======
+  async function marcarSelecionados() {
+    if (state.pagando) return;
+    const lista = itensVisiveis().filter((i) => aPagar(i) && state.selecionados.has(Number(i.id_fechamento)));
+    if (!lista.length) return;
+    const total = lista.reduce((s, i) => s + num(i.valor_final), 0);
+    const divergentes = lista.filter((i) => i.precisa_reajuste).length;
+    const semPix = lista.filter((i) => !(i.chave_pix || "").trim()).length;
 
-  async function executarMarcarPago({ todosElegiveis, ids, confirmarComDivergencia }) {
-    const inicio = (fltDataInicio?.value || "").trim();
-    const fim = (fltDataFim?.value || "").trim();
+    const linhas = lista
+      .map((i) => `<tr><td>${esc(nomeMotoboy(i))}${i.precisa_reajuste ? ' <span class="fm-chip fm-chip--revisao">Precisa revisão</span>' : ""}</td><td class="text-end fm-num">${moeda(i.valor_final)}</td></tr>`)
+      .join("");
+    const avisos = [
+      divergentes
+        ? `${divergentes === 1 ? "1 fechamento teve" : `${divergentes} fechamentos tiveram`} o valor alterado depois de gerado e ${divergentes === 1 ? "será pago" : "serão pagos"} pelo valor gerado.`
+        : "",
+      semPix ? `${plural(semPix, "motoboy está", "motoboys estão")} sem chave PIX cadastrada.` : "",
+    ].filter(Boolean);
+
+    const conf = await Swal.fire({
+      icon: divergentes ? "warning" : "question",
+      title: `Marcar ${plural(lista.length, "pagamento", "pagamentos")}?`,
+      html:
+        `<p class="mb-2">Total <strong class="fm-num">${moeda(total)}</strong></p>` +
+        `<div class="text-start border rounded" style="max-height:220px;overflow:auto"><table class="table table-sm mb-0"><tbody>${linhas}</tbody></table></div>` +
+        avisos.map((a) => `<p class="small text-warning-emphasis mt-2 mb-0 text-start">${esc(a)}</p>`).join("") +
+        '<p class="small text-muted mt-2 mb-0">Confirme somente depois de fazer as transferências.</p>',
+      showCancelButton: true,
+      confirmButtonText: lista.length === 1 ? "Marcar como pago" : "Marcar como pagos",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: COR_PRIMARIA,
+      focusCancel: true,
+    });
+    if (!conf.isConfirmed) return;
+
+    state.pagando = true;
+    renderSelecao();
     const body = {
-      periodo_inicio: inicio,
-      periodo_fim: fim,
-      todos_elegiveis: !!todosElegiveis,
-      ids_fechamento: todosElegiveis ? null : ids,
-      confirmar_com_divergencia: !!confirmarComDivergencia,
+      periodo_inicio: (fltDataInicio?.value || "").trim(),
+      periodo_fim: (fltDataFim?.value || "").trim(),
+      todos_elegiveis: false,
+      ids_fechamento: lista.map((i) => Number(i.id_fechamento)),
+      confirmar_com_divergencia: true,
     };
     try {
-      const data = await fetchJson(`${API_FECHAMENTOS}/marcar-pago`, {
+      const data = await api(`${API_FECHAMENTOS}/marcar-pago`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (window.Swal) {
-        await Swal.fire({
-          icon: "success",
-          title: "Pagamento registrado",
-          text: `${data.marcados || 0} fechamento(s) marcado(s) como pago.`,
-        });
-      }
-      await carregarLista();
+      state.selecionados.clear();
+      const qtd = num(data.marcados);
+      Swal.fire({
+        icon: "success",
+        title: "Pagamento registrado",
+        html: `<strong>${esc(plural(qtd, "fechamento pago", "fechamentos pagos"))}</strong> · total <strong class="fm-num">${moeda(total)}</strong>`,
+        confirmButtonColor: COR_PRIMARIA,
+      });
     } catch (err) {
-      if (err.status === 409 && err.detail && err.detail.divergentes) {
-        const ok = await confirmarDivergencia(err.detail.divergentes.length);
-        if (!ok) return;
-        return executarMarcarPago({
-          todosElegiveis,
-          ids,
-          confirmarComDivergencia: true,
-        });
-      }
-      const msg = err.message || "Não foi possível marcar como pago.";
-      if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: msg });
-      else alert(msg);
-    }
-  }
-
-  function abrirModalSelecao() {
-    const lista = elegiveis().slice().sort(compareMotoboyLabel);
-    const container = qs("#listaSelecaoMotoboys");
-    if (!container) return;
-    if (!lista.length) {
-      container.innerHTML = '<p class="text-muted mb-0">Nenhum fechamento elegível.</p>';
-    } else {
-      container.innerHTML = lista
-        .map((item) => {
-          const nome = labelMotoboy(item).replace(/</g, "&lt;");
-          const warn = item.precisa_reajuste
-            ? ' <span class="badge bg-warning text-dark">divergência</span>'
-            : "";
-          return (
-            `<div class="form-check border rounded px-3 py-2">` +
-            `<input class="form-check-input chk-motoboy-pago" type="checkbox" value="${item.id_fechamento}" id="chk-fech-${item.id_fechamento}">` +
-            `<label class="form-check-label w-100" for="chk-fech-${item.id_fechamento}">` +
-            `<strong>${nome}</strong>${warn}` +
-            `<span class="float-end">${formatarMoeda(item.valor_final)}</span>` +
-            `</label></div>`
-          );
-        })
-        .join("");
-    }
-    const modalEl = qs("#modalSelecionarMotoboys");
-    if (modalEl && typeof bootstrap !== "undefined") {
-      bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    }
-  }
-
-  async function fluxoMarcarPago() {
-    const list = elegiveis();
-    if (!list.length) return;
-
-    let todos = false;
-    if (window.Swal) {
-      const r = await Swal.fire({
-        icon: "question",
-        title: "Marcar como pago",
-        html: "Todos os motoboys com fechamento gerado neste período?",
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: "Sim, todos",
-        denyButtonText: "Não, selecionar",
-        cancelButtonText: "Cancelar",
-      });
-      if (r.isDismissed) return;
-      todos = !!r.isConfirmed;
-      if (r.isDenied) {
-        abrirModalSelecao();
-        return;
-      }
-    } else {
-      todos = confirm("Todos os motoboys com fechamento gerado neste período?");
-      if (!todos) {
-        abrirModalSelecao();
-        return;
-      }
-    }
-
-    await executarMarcarPago({ todosElegiveis: true, ids: null, confirmarComDivergencia: false });
-  }
-
-  async function reajustarFechamento(idFechamento) {
-    try {
-      const data = await fetchJson(`${API_FECHAMENTOS}/${idFechamento}`);
-      const temDiv = !!data.divergencia_valor_base;
-      let html =
-        `<p class="mb-2"><strong>${labelMotoboy(data).replace(/</g, "&lt;")}</strong></p>` +
-        `<p class="mb-1">Valor base atual: <strong>${formatarMoeda(data.valor_base)}</strong></p>`;
-      if (temDiv) {
-        html +=
-          `<p class="mb-1 text-warning">Novo valor base calculado: <strong>${formatarMoeda(
-            data.valor_base_recalculado
-          )}</strong></p>` +
-          `<p class="small text-muted">O valor base será atualizado e o status passará para Reajustado.</p>`;
-      } else {
-        html += `<p class="small text-muted">Não há divergência de valor base. Confirme para registrar o reajuste.</p>`;
-      }
-
-      let ok = true;
-      if (window.Swal) {
-        const r = await Swal.fire({
-          icon: "warning",
-          title: "Gerar reajuste",
-          html,
-          showCancelButton: true,
-          confirmButtonText: "Confirmar reajuste",
-          cancelButtonText: "Cancelar",
-        });
-        ok = !!r.isConfirmed;
-      } else {
-        ok = confirm("Confirmar reajuste deste fechamento?");
-      }
-      if (!ok) return;
-
-      await fetchJson(`${API_FECHAMENTOS}/${idFechamento}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          atualizar_valor_base: temDiv ? true : false,
-        }),
-      });
-
-      if (window.Swal) {
-        await Swal.fire({ icon: "success", title: "Reajuste salvo", text: "Fechamento atualizado." });
-      }
+      Swal.fire({ icon: "error", title: "Não foi possível registrar o pagamento", text: err.message || "Tente novamente.", confirmButtonColor: COR_PRIMARIA });
+    } finally {
+      state.pagando = false;
       await carregarLista();
-    } catch (err) {
-      const msg = err.message || "Erro ao reajustar.";
-      if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: msg });
-      else alert(msg);
     }
   }
 
-  // Events
-  if (btnMarcarPago) btnMarcarPago.addEventListener("click", () => fluxoMarcarPago());
+  // ====== Copiar PIX ======
+  function copiarViaSelecao(texto) {
+    const tmp = document.createElement("textarea");
+    tmp.value = texto;
+    tmp.setAttribute("readonly", "");
+    tmp.style.position = "fixed";
+    tmp.style.opacity = "0";
+    document.body.appendChild(tmp);
+    tmp.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    tmp.remove();
+    return ok;
+  }
 
-  const btnConfirmarSelecao = qs("#btnConfirmarSelecaoPago");
-  if (btnConfirmarSelecao) {
-    btnConfirmarSelecao.addEventListener("click", async () => {
-      const ids = Array.from(document.querySelectorAll(".chk-motoboy-pago:checked")).map((el) =>
-        Number(el.value)
-      );
-      if (!ids.length) {
-        if (window.Swal) Swal.fire({ icon: "info", title: "Selecione ao menos um motoboy" });
-        else alert("Selecione ao menos um motoboy.");
-        return;
+  async function copiarPix(btn) {
+    const chave = btn.dataset.pix || "";
+    let ok = false;
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(chave);
+        ok = true;
+      } catch (e) {
+        ok = false;
       }
-      const modalEl = qs("#modalSelecionarMotoboys");
-      if (modalEl && typeof bootstrap !== "undefined") {
-        bootstrap.Modal.getOrCreateInstance(modalEl).hide();
-      }
-      await executarMarcarPago({
-        todosElegiveis: false,
-        ids,
-        confirmarComDivergencia: false,
-      });
+    }
+    if (!ok) ok = copiarViaSelecao(chave);
+    if (ok) {
+      const icone = btn.querySelector("i");
+      btn.classList.add("is-copiado");
+      btn.title = "Copiado";
+      if (icone) icone.className = "ri-check-line";
+      setTimeout(() => {
+        btn.classList.remove("is-copiado");
+        btn.title = "Copiar chave PIX";
+        if (icone) icone.className = "ri-file-copy-line";
+      }, 1500);
+      return;
+    }
+    Swal.fire({
+      title: "Copie a chave PIX",
+      html: `<input type="text" class="form-control text-center" readonly value="${esc(chave)}" id="apPixManual">` +
+        `<div class="text-muted small mt-2">Seu navegador bloqueou a cópia automática. Use Ctrl+C.</div>`,
+      confirmButtonText: "Fechar",
+      confirmButtonColor: COR_PRIMARIA,
+      didOpen: () => {
+        const input = document.getElementById("apPixManual");
+        if (input) input.select();
+      },
     });
   }
 
-  if (tbody) {
-    tbody.addEventListener("click", (ev) => {
-      const pdfBtn = ev.target.closest(".btn-pdf");
-      if (pdfBtn) {
-        const id = Number(pdfBtn.getAttribute("data-id"));
-        if (window.TrackSaidasFechamentoPdf && id) {
-          window.TrackSaidasFechamentoPdf.gerar(id);
-        }
-        return;
-      }
-      const rejBtn = ev.target.closest(".btn-reajustar");
-      if (rejBtn) {
-        const id = Number(rejBtn.getAttribute("data-id"));
-        if (id) reajustarFechamento(id);
-      }
-    });
+  // ====== Exportar CSV ======
+  function celulaCsv(v) {
+    let s = String(v ?? "");
+    if (/^[=+\-@]/.test(s)) s = `'${s}`;
+    return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   }
 
-  qs("#btnFiltroAplicar")?.addEventListener("click", () => {
-    atualizarContadorFiltros();
-    carregarLista();
-  });
-  qs("#btnFiltroLimpar")?.addEventListener("click", () => {
-    if (fltStatus) fltStatus.value = "";
-    if (fltDivergencia) fltDivergencia.checked = false;
-    atualizarContadorFiltros();
-    carregarLista();
+  function exportarCsv() {
+    const lista = itensVisiveis();
+    if (!lista.length) return;
+    const cab = ["Motoboy", "Chave PIX", "Valor", "Período", "Situação", "Pago em"];
+    const linhas = lista.map((i) => [
+      nomeMotoboy(i),
+      (i.chave_pix || "").trim(),
+      num(i.valor_final).toFixed(2).replace(".", ","),
+      periodoTexto(i.periodo_inicio, i.periodo_fim),
+      (STATUS[statusDe(i)] || { label: statusDe(i) }).label,
+      statusDe(i) === "PAGO" ? dataHora(i.pago_em) : "",
+    ]);
+    const csv = "\uFEFF" + [cab, ...linhas].map((l) => l.map(celulaCsv).join(";")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `a-pagar_${fltDataInicio?.value || ""}_${fltDataFim?.value || ""}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // ====== Eventos ======
+  qs("#ap-cards")?.addEventListener("click", (ev) => {
+    const card = ev.target.closest(".fm-card");
+    if (!card) return;
+    state.filtro = state.filtro === card.dataset.filtro ? "TODOS" : card.dataset.filtro;
+    render();
   });
 
-  // Date picker
-  let datePickerInstance = null;
-  const periodBtn = document.getElementById("a-pagar-period-btn");
+  tbody?.addEventListener("change", (ev) => {
+    const chk = ev.target.closest(".chk-pagar");
+    if (!chk) return;
+    const id = Number(chk.value);
+    if (chk.checked) state.selecionados.add(id);
+    else state.selecionados.delete(id);
+    chk.closest("tr")?.classList.toggle("fm-linha--selecionada", chk.checked);
+    renderSelecao();
+  });
+
+  tbody?.addEventListener("click", (ev) => {
+    const copiar = ev.target.closest(".fm-pix-copiar");
+    if (copiar) {
+      copiarPix(copiar);
+      return;
+    }
+    const pdf = ev.target.closest(".btn-pdf");
+    if (pdf) {
+      const id = Number(pdf.dataset.id);
+      if (window.TrackSaidasFechamentoPdf && id) window.TrackSaidasFechamentoPdf.gerar(id);
+      return;
+    }
+    const revisar = ev.target.closest(".btn-revisar");
+    if (revisar) {
+      window.location.href = `tracking-entregadores-resumo.html?revisar=${encodeURIComponent(revisar.dataset.id)}`;
+    }
+  });
+
+  chkTodos?.addEventListener("change", () => {
+    const pagaveis = itensVisiveis().filter(aPagar);
+    pagaveis.forEach((i) => {
+      if (chkTodos.checked) state.selecionados.add(Number(i.id_fechamento));
+      else state.selecionados.delete(Number(i.id_fechamento));
+    });
+    renderTabela();
+  });
+
+  qs("#btnLimparSelecao")?.addEventListener("click", () => {
+    state.selecionados.clear();
+    renderTabela();
+  });
+  btnMarcarPago?.addEventListener("click", marcarSelecionados);
+  btnExportar?.addEventListener("click", exportarCsv);
+
+  // ====== Período ======
+  function atualizarRotuloPeriodo(start, end) {
+    const label = qs("#a-pagar-period-label");
+    if (label && start && end) label.textContent = `${dmy(start)} — ${dmy(end)}`;
+  }
+
+  const periodBtn = qs("#a-pagar-period-btn");
+  const fecharPeriodo = () => {
+    if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) bootstrap.Dropdown.getInstance(periodBtn)?.hide();
+  };
   if (typeof window.initDatePickerDashboard === "function") {
-    datePickerInstance = window.initDatePickerDashboard({
+    const picker = window.initDatePickerDashboard({
       containerId: "a-pagar-date-picker-container",
       prefix: "a-pagar-dp",
       defaultPreset: "quinzena-ant",
-      onApply: function (start, end) {
+      onApply: (start, end) => {
         if (fltDataInicio) fltDataInicio.value = start;
         if (fltDataFim) fltDataFim.value = end;
-        updatePeriodLabel(start, end);
-        if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
-          const d = bootstrap.Dropdown.getInstance(periodBtn);
-          if (d) d.hide();
-        }
+        atualizarRotuloPeriodo(start, end);
+        fecharPeriodo();
+        state.selecionados.clear();
         carregarLista();
       },
-      onCancel: function () {
-        if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
-          const d = bootstrap.Dropdown.getInstance(periodBtn);
-          if (d) d.hide();
-        }
-      },
+      onCancel: fecharPeriodo,
     });
-    if (datePickerInstance && datePickerInstance.applyPreset) {
-      datePickerInstance.applyPreset("quinzena-ant");
-    }
-    const r = datePickerInstance ? datePickerInstance.getResolvedRange() : { start: "", end: "" };
+    if (picker && picker.applyPreset) picker.applyPreset("quinzena-ant");
+    const r = picker ? picker.getResolvedRange() : { start: "", end: "" };
     if (fltDataInicio) fltDataInicio.value = r.start;
     if (fltDataFim) fltDataFim.value = r.end;
-    updatePeriodLabel(r.start, r.end);
+    atualizarRotuloPeriodo(r.start, r.end);
     carregarLista();
   }
 });

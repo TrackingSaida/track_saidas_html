@@ -188,7 +188,7 @@
                     </div>
                   </div>
 
-                  <div class="col-md-5">
+                  <div class="col-md-5" id="colCodigoLeitura">
                     <label class="form-label">Código (escaneie ou digite)</label>
                     <div class="input-group">
                       <input id="codigo" class="form-control" placeholder="Ex: BR... / código marketplace" aria-label="Código (escaneie ou digite)">
@@ -201,6 +201,9 @@
                   <div class="col-md-4 d-flex flex-wrap gap-2">
                     <button id="btnRegistrar" class="btn btn-success flex-fill">
                       <i class="ri-scan-line"></i> Registrar
+                    </button>
+                    <button id="btnInformarQuantidades" type="button" class="btn btn-primary flex-fill d-none" title="Lançar a coleta informando as quantidades por marketplace">
+                      <i class="ri-edit-box-line"></i> Informar quantidades
                     </button>
                     <button id="btnLancarAvulso" type="button" class="btn btn-outline-primary flex-fill">
                       <i class="ri-add-circle-line"></i> Lançar Avulso
@@ -331,7 +334,7 @@
     @@include("partials/vendor-scripts.html")
     @@include("partials/scan-overlay.html")
 
-<script src="assets/js/pages/tracking-coleta-leitura.init.js"></script>
+<script src="assets/js/pages/tracking-coleta-leitura.init.js?v=2"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>

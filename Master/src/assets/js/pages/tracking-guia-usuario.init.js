@@ -288,7 +288,6 @@
           href: "tracking-coleta-leitura.html",
           roles: WEB_ROLES,
           coleta: true,
-          coletaLeitura: true,
           steps: [
             {
               title: "Abra Operação → Registrar Coletas",
@@ -297,6 +296,10 @@
             {
               title: "Faça a leitura",
               text: "Bipe os códigos ou lance avulso, do mesmo jeito das saídas.",
+            },
+            {
+              title: "Ou informe as quantidades",
+              text: "Quando a operação permite lançamento manual, use Informar quantidades para registrar Shopee, Mercado Livre e Avulso de uma vez. Cada usuário lança uma vez por dia; para corrigir, edite em Consultar Coletas.",
             },
             {
               title: "Confira depois",
@@ -399,11 +402,15 @@
             },
             {
               title: "Revise a lista",
-              text: "Confira feitos, cancelados e valores. Filtre por motoboy ou situação se precisar.",
+              text: "Cada linha é um motoboy. Abra a seta para ver os dias. Os cards mostram pendentes, gerados, pagos e quem precisa revisão.",
             },
             {
-              title: "Clique em Gerar Fechamento",
-              text: "O botão libera quando o recorte está pronto. Depois disso, o período segue para A Pagar.",
+              title: "Gere todos ou um por vez",
+              text: "Gerar todos os pendentes cria os fechamentos sem ajustes. Para lançar ajuste antes, use Revisar e gerar na linha do motoboy.",
+            },
+            {
+              title: "Reajuste quando o valor mudar",
+              text: "Se aparecer Precisa revisão, clique em Reajustar, confira o valor atual e salve. Depois o período segue para A Pagar.",
             },
           ],
         },
@@ -416,11 +423,15 @@
           steps: [
             {
               title: "Abra Financeiro → A Pagar",
-              text: "A lista mostra os fechamentos já gerados, aguardando pagamento.",
+              text: "A lista mostra os fechamentos gerados que ainda não foram pagos. Use o ícone ao lado da chave PIX para copiá-la, ou Exportar CSV para ter a lista completa.",
             },
             {
-              title: "Selecione o motoboy",
-              text: "Marque o fechamento e clique em Marcar como pago.",
+              title: "Faça as transferências",
+              text: "Pague cada motoboy pelo banco usando a chave PIX e o valor da lista.",
+            },
+            {
+              title: "Marque os pagos",
+              text: "Selecione os motoboys que você já pagou (ou todos pela caixa do cabeçalho) e clique em Marcar como pago.",
             },
           ],
         },
@@ -434,15 +445,19 @@
           steps: [
             {
               title: "Abra Financeiro → {fechamento_base}",
-              text: "No passo 1, selecione {a_base_lower}.",
+              text: "Escolha o período, em geral a quinzena. Cada linha é uma base; abra a seta para ver os dias.",
             },
             {
-              title: "Revise os totais",
-              text: "Confira coletas, avulsos e valores antes de gerar.",
+              title: "Gere todos ou um por vez",
+              text: "Gerar todos os pendentes cria os fechamentos sem ajustes. Bases com pacotes grandes ou dias sem lançamento ficam de fora: use Revisar e gerar na linha.",
             },
             {
-              title: "Gere o fechamento",
-              text: "Depois de gerado, o valor segue para A Receber.",
+              title: "Revise antes de gerar",
+              text: "No painel, resolva os dias sem lançamento (lance a coleta ou justifique), confira os dias, informe o valor por pacote grande e lance ajustes com motivo.",
+            },
+            {
+              title: "Reajuste quando as coletas mudarem",
+              text: "Se aparecer Precisa revisão, clique em Reajustar e use as quantidades atuais. Depois de gerado, o valor segue para A Receber.",
             },
           ],
         },
@@ -456,11 +471,15 @@
           steps: [
             {
               title: "Abra Financeiro → A Receber",
-              text: "A lista mostra os fechamentos já gerados, aguardando recebimento.",
+              text: "A lista mostra os fechamentos gerados que ainda não foram recebidos, com o CNPJ de cada base. Use Exportar CSV para ter a lista completa.",
             },
             {
-              title: "Marque como recebido",
-              text: "Selecione o item e clique em Marcar como recebido.",
+              title: "Confira os pagamentos",
+              text: "Se aparecer Precisa revisão, clique em Revisar antes de receber: depois de recebido, o fechamento não pode mais ser reajustado.",
+            },
+            {
+              title: "Marque os recebidos",
+              text: "Selecione as bases que já pagaram (ou todas pela caixa do cabeçalho) e clique em Marcar como recebido.",
             },
           ],
         },
@@ -512,7 +531,6 @@
     if (topic.roles && topic.roles.indexOf(ctx.role) === -1) return false;
     if (topic.rootOnly && ctx.role !== 0) return false;
     if (topic.coleta && ctx.ignorarColeta) return false;
-    if (topic.coletaLeitura && ["codigo", "ambos"].indexOf(ctx.modoOperacao) === -1) return false;
     if (topic.entrada && !ctx.entrada) return false;
     if (topic.baseOnly && ctx.tipoOwner !== "base") return false;
     return true;
