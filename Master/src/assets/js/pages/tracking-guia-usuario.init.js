@@ -420,11 +420,15 @@
           steps: [
             {
               title: "Abra Financeiro → A Pagar",
-              text: "A lista mostra os fechamentos já gerados, aguardando pagamento.",
+              text: "A lista mostra os fechamentos gerados que ainda não foram pagos. Use o ícone ao lado da chave PIX para copiá-la, ou Exportar CSV para ter a lista completa.",
             },
             {
-              title: "Selecione o motoboy",
-              text: "Marque o fechamento e clique em Marcar como pago.",
+              title: "Faça as transferências",
+              text: "Pague cada motoboy pelo banco usando a chave PIX e o valor da lista.",
+            },
+            {
+              title: "Marque os pagos",
+              text: "Selecione os motoboys que você já pagou (ou todos pela caixa do cabeçalho) e clique em Marcar como pago.",
             },
           ],
         },
