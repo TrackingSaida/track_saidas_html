@@ -10,197 +10,235 @@
 
       <div class="main-content">
         <div class="page-content">
-          <div class="container-fluid">
+          <div class="container-fluid contab-page">
 
             @@include("partials/page-title.html", {"pagetitle": "Financeiro", "title": "Contabilidade", "withSubtitle": false, "ownerTerm": ""})
 
-            <div class="row">
-              <div class="col-12">
-                <div class="card">
-                  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-                    <h4 class="card-title mb-0">Análise financeira detalhada</h4>
-                    <div class="d-flex flex-wrap align-items-center gap-2">
-                      
-                      <div class="dropdown">
-                        <button class="btn btn-soft-primary dropdown-toggle d-flex align-items-center gap-2" type="button" id="contabilidade-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                          <i class="bx bx-calendar"></i>
-                          <span id="contabilidade-period-label" class="text-truncate">Quinzena atual</span>
-                        </button>
-                        <div class="dropdown-menu dropdown-menu-end p-0 period-panel" id="contabilidade-period-panel">
-                          <input type="hidden" id="flt-data-inicio" />
-                          <input type="hidden" id="flt-data-fim" />
-                          <div id="contabilidade-date-picker-container"></div>
-                        </div>
-                      </div>
-                    </div>
+            <!-- Barra do período -->
+            <div class="contab-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+              <div class="min-w-0">
+                <h5 class="mb-0">Balanço do período</h5>
+                <span class="text-muted small" id="contab-periodo-texto">Quinzena atual</span>
+              </div>
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <div class="dropdown">
+                  <button class="btn btn-light border dropdown-toggle d-flex align-items-center gap-2" type="button" id="contabilidade-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-label="Escolher período">
+                    <i class="bx bx-calendar" aria-hidden="true"></i>
+                    <span id="contabilidade-period-label" class="text-truncate">Quinzena atual</span>
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-end p-0 period-panel" id="contabilidade-period-panel">
+                    <input type="hidden" id="flt-data-inicio" />
+                    <input type="hidden" id="flt-data-fim" />
+                    <div id="contabilidade-date-picker-container"></div>
                   </div>
+                </div>
+                <button type="button" class="btn btn-primary d-flex align-items-center gap-2" id="btnEmitirRelatorio" disabled>
+                  <i class="ri-file-pdf-2-line" aria-hidden="true"></i>
+                  <span>Emitir relatório</span>
+                </button>
+              </div>
+            </div>
+
+            <div id="resumoMsg" class="mb-3" role="status" aria-live="polite"></div>
+            <div id="avisoFechamentos" class="alert alert-warning d-none mb-3" role="alert">
+              <div class="d-flex gap-2">
+                <i class="ri-time-line fs-5 lh-1" aria-hidden="true"></i>
+                <div id="avisoFechamentosTexto"></div>
+              </div>
+            </div>
+
+            <!-- Resultados -->
+            <div class="row g-3 mb-3">
+              <div class="col-lg-6">
+                <section class="card contab-panel h-100 mb-0" aria-labelledby="contab-previsto-titulo">
                   <div class="card-body">
-                    <div id="resumoMsg" class="mb-3"></div>
-                    <div id="avisoFechamentos" class="alert alert-info d-none mb-3" role="alert">
-                      <i class="ri-information-line me-2"></i>
-                      <span id="avisoFechamentosTexto"></span>
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                      <h6 class="contab-eyebrow mb-0" id="contab-previsto-titulo">Resultado previsto</h6>
+                      <span class="small text-muted" id="contab-previsto-margem"></span>
                     </div>
-                   
-
-                    <!-- Cards principais -->
-                    <div class="row g-3 mb-4">
-                      <div class="col-6 col-lg-3">
-                        <div class="card border-0 shadow-sm bg-success bg-opacity-10">
-                          <div class="card-body">
-                            <div class="d-flex align-items-center">
-                              <div class="flex-shrink-0 me-2"><i class="ri-wallet-3-line fs-2 text-success"></i></div>
-                              <div>
-                                <span class="text-uppercase small text-muted fw-semibold">Receita bruta</span>
-                                <div class="fs-5 fw-bold text-success" id="card-receita">R$ 0,00</div>
-                                <span class="small text-muted d-block" id="card-receita-detalhe">— coletas</span>
-                                <span class="small text-muted d-block" id="card-receita-variacao"></span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="col-6 col-lg-3">
-                        <div class="card border-0 shadow-sm bg-danger bg-opacity-10">
-                          <div class="card-body">
-                            <div class="d-flex align-items-center">
-                              <div class="flex-shrink-0 me-2"><i class="ri-money-dollar-circle-line fs-2 text-danger"></i></div>
-                              <div>
-                                <span class="text-uppercase small text-muted fw-semibold">Despesas totais</span>
-                                <div class="fs-5 fw-bold text-danger" id="card-despesas">R$ 0,00</div>
-                                <span class="small text-muted d-block" id="card-despesas-detalhe">Confirmadas: R$ 0,00 · Pendentes: R$ 0,00</span>
-                                <span class="small text-warning d-none" id="card-despesas-aviso"><i class="ri-time-line me-1"></i>Aguardando fechamento</span>
-                                <span class="small text-muted d-block" id="card-despesas-variacao"></span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="col-6 col-lg-3">
-                        <div class="card border-0 shadow-sm bg-primary bg-opacity-10">
-                          <div class="card-body">
-                            <div class="d-flex align-items-center">
-                              <div class="flex-shrink-0 me-2"><i class="ri-line-chart-line fs-2 text-primary"></i></div>
-                              <div>
-                                <span class="text-uppercase small text-muted fw-semibold">Lucro líquido</span>
-                                <div class="fs-5 fw-bold text-primary" id="card-lucro">R$ 0,00</div>
-                                <span class="small text-muted d-block">Receita − Despesas</span>
-                                <span class="small text-muted d-block" id="card-lucro-variacao"></span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="col-6 col-lg-3">
-                        <div class="card border-0 shadow-sm bg-warning bg-opacity-10">
-                          <div class="card-body">
-                            <div class="d-flex align-items-center">
-                              <div class="flex-shrink-0 me-2"><i class="ri-percent-line fs-2 text-warning"></i></div>
-                              <div>
-                                <span class="text-uppercase small text-muted fw-semibold">Margem líquida</span>
-                                <div class="fs-5 fw-bold text-warning" id="card-margem">0%</div>
-                                <span class="small text-muted d-block">Lucro / Receita</span>
-                                <span class="small text-muted d-block" id="card-margem-variacao"></span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Cards secundários -->
-                    <div class="row g-2 mb-4">
-                      <div class="col-6 col-md-3">
-                        <div class="p-3 rounded bg-light text-center">
-                          <span class="d-block small text-muted fw-semibold">Ticket médio (coleta)</span>
-                          <span class="fw-bold" id="card-ticket">R$ 0,00</span>
-                          <span class="d-block small text-muted">Receita / Total Coletas</span>
-                        </div>
-                      </div>
-                      <div class="col-6 col-md-3">
-                        <div class="p-3 rounded bg-light text-center">
-                          <span class="d-block small text-muted fw-semibold">Custo médio (saída)</span>
-                          <span class="fw-bold" id="card-custo">R$ 0,00</span>
-                          <span class="d-block small text-muted">Despesa / Total Saídas</span>
-                        </div>
-                      </div>
-                      <div class="col-6 col-md-3">
-                        <div class="p-3 rounded bg-light text-center">
-                          <span class="d-block small text-muted fw-semibold">Lucro por pacote</span>
-                          <span class="fw-bold" id="card-lucro-pacote">R$ 0,00</span>
-                          <span class="d-block small text-muted">Lucro / Total Coletas</span>
-                        </div>
-                      </div>
-                      <div class="col-6 col-md-3">
-                        <div class="p-3 rounded bg-light text-center">
-                          <span class="d-block small text-muted fw-semibold">Taxa de conversão</span>
-                          <span class="fw-bold" id="card-taxa">0%</span>
-                          <span class="d-block small text-muted">Saídas / Coletas</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Análise por Serviço -->
-                    <h5 class="mb-2"><i class="ri-pie-chart-line me-2"></i>Análise por Serviço</h5>
-                    <p class="text-muted small mb-3">Breakdown de receita, despesa e margem por tipo de serviço.</p>
-                    <div class="row g-3 mb-4" id="container-servicos">
-                      <!-- preenchido por JS -->
-                    </div>
-
-                    <!-- Participação na Receita (barras) -->
-                    <div class="mb-4" id="container-participacao">
-                      <h6 class="text-muted mb-2">Participação na Receita Total</h6>
-                      <div id="barras-participacao"></div>
-                    </div>
-
-                    <div class="row">
-                      <!-- Rentabilidade por Base -->
-                      <div class="col-lg-6 mb-4">
-                        <div class="card h-100">
-                          <div class="card-header">
-                            <h5 class="card-title mb-0"><i class="ri-home-4-line me-2"></i><span data-owner-term="rentabilidade_por_base">Rentabilidade por Base</span></h5>
-                            <span class="small text-muted" data-owner-term="ranking_bases_lucro">Ranking de bases ordenado por lucro líquido</span>
-                          </div>
-                          <div class="card-body">
-                            <div id="lista-rentabilidade-base"></div>
-                          </div>
-                        </div>
-                      </div>
-                      <!-- Distribuição de Despesas -->
-                      <div class="col-lg-6 mb-4">
-                        <div class="card h-100">
-                          <div class="card-header">
-                            <h5 class="card-title mb-0"><i class="ri-truck-line me-2"></i>Distribuição de Despesas</h5>
-                            <span class="small text-muted">Custo operacional por entregador</span>
-                          </div>
-                          <div class="card-body">
-                            <div id="lista-despesas-entregador"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- DRE Simplificado -->
-                    <div class="card mb-4">
-                      <div class="card-header">
-                        <h5 class="card-title mb-0"><i class="ri-bar-chart-2-line me-2"></i>Demonstrativo de Resultado (DRE Simplificado)</h5>
-                      </div>
-                      <div class="card-body">
-                        <div id="container-dre"></div>
-                      </div>
-                    </div>
+                    <div class="contab-result" id="contab-previsto">R$ 0,00</div>
+                    <p class="text-muted small mb-2">A receber menos a pagar, incluindo o que ainda não foi fechado.</p>
+                    <div class="small" id="contab-previsto-variacao"></div>
                   </div>
+                </section>
+              </div>
+              <div class="col-lg-6">
+                <section class="card contab-panel h-100 mb-0" aria-labelledby="contab-realizado-titulo">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                      <h6 class="contab-eyebrow mb-0" id="contab-realizado-titulo">Resultado realizado</h6>
+                    </div>
+                    <div class="contab-result" id="contab-realizado">R$ 0,00</div>
+                    <p class="text-muted small mb-2">Só o que já foi recebido das bases menos o que já foi pago aos motoboys.</p>
+                    <div class="small" id="contab-realizado-variacao"></div>
+                  </div>
+                </section>
+              </div>
+            </div>
+
+            <!-- Livros por status -->
+            <div class="row g-3 mb-4">
+              <div class="col-lg-6">
+                <section class="card contab-panel h-100 mb-0" aria-labelledby="contab-receber-titulo">
+                  <div class="card-header bg-transparent d-flex justify-content-between align-items-center gap-2">
+                    <div class="min-w-0">
+                      <h6 class="card-title mb-0" id="contab-receber-titulo">A receber</h6>
+                      <span class="small text-muted">Fechamentos das <span data-owner-term="bases_lower">bases</span></span>
+                    </div>
+                    <a href="tracking-bases-a-receber.html" class="btn btn-sm btn-link text-decoration-none px-0">Ver recebimentos <i class="ri-arrow-right-line align-middle" aria-hidden="true"></i></a>
+                  </div>
+                  <div class="card-body pt-2" id="contab-ledger-receber"></div>
+                </section>
+              </div>
+              <div class="col-lg-6">
+                <section class="card contab-panel h-100 mb-0" aria-labelledby="contab-pagar-titulo">
+                  <div class="card-header bg-transparent d-flex justify-content-between align-items-center gap-2">
+                    <div class="min-w-0">
+                      <h6 class="card-title mb-0" id="contab-pagar-titulo">A pagar</h6>
+                      <span class="small text-muted">Fechamentos de motoboys</span>
+                    </div>
+                    <a href="tracking-entregadores-a-pagar.html" class="btn btn-sm btn-link text-decoration-none px-0">Ver pagamentos <i class="ri-arrow-right-line align-middle" aria-hidden="true"></i></a>
+                  </div>
+                  <div class="card-body pt-2" id="contab-ledger-pagar"></div>
+                </section>
+              </div>
+            </div>
+
+            <!-- Demonstrativo -->
+            <section class="card contab-panel mb-4" aria-labelledby="contab-dre-titulo">
+              <div class="card-header bg-transparent">
+                <h6 class="card-title mb-0" id="contab-dre-titulo">Demonstrativo do resultado</h6>
+                <span class="small text-muted">Valores pelo status de cada fechamento. Pendentes são estimados até o fechamento.</span>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle mb-0 contab-table contab-dre">
+                    <tbody id="container-dre"></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <!-- Operação -->
+            <h6 class="contab-eyebrow mb-2">Operação do período</h6>
+            <div class="row g-2 mb-4" id="contab-indicadores">
+              <div class="col-6 col-md-3">
+                <div class="contab-kpi">
+                  <span class="contab-kpi-label">Ticket médio por pacote</span>
+                  <span class="contab-kpi-value" id="card-ticket">R$ 0,00</span>
+                  <span class="contab-kpi-hint" id="card-ticket-hint">Receita das coletas ÷ pacotes</span>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="contab-kpi">
+                  <span class="contab-kpi-label">Custo médio por saída</span>
+                  <span class="contab-kpi-value" id="card-custo">R$ 0,00</span>
+                  <span class="contab-kpi-hint" id="card-custo-hint">Custo de entregas ÷ saídas</span>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="contab-kpi">
+                  <span class="contab-kpi-label">Resultado por pacote</span>
+                  <span class="contab-kpi-value" id="card-lucro-pacote">R$ 0,00</span>
+                  <span class="contab-kpi-hint">Resultado previsto ÷ pacotes</span>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="contab-kpi">
+                  <span class="contab-kpi-label">Taxa de conversão</span>
+                  <span class="contab-kpi-value" id="card-taxa">0%</span>
+                  <span class="contab-kpi-hint">Saídas ÷ pacotes coletados</span>
                 </div>
               </div>
             </div>
+
+            <section class="card contab-panel mb-4" aria-labelledby="contab-servico-titulo">
+              <div class="card-header bg-transparent">
+                <h6 class="card-title mb-0" id="contab-servico-titulo">Por serviço</h6>
+                <span class="small text-muted">Receita das coletas e custo de entregas rateados pelo volume de cada serviço.</span>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle mb-0 contab-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Serviço</th>
+                        <th scope="col" class="text-end">Pacotes</th>
+                        <th scope="col" class="text-end">Receita</th>
+                        <th scope="col" class="text-end">Saídas</th>
+                        <th scope="col" class="text-end">Custo</th>
+                        <th scope="col" class="text-end">Resultado</th>
+                        <th scope="col" class="text-end">Margem</th>
+                        <th scope="col" class="contab-col-share">Participação na receita</th>
+                      </tr>
+                    </thead>
+                    <tbody id="container-servicos"></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <div class="row g-3 mb-4">
+              <div class="col-lg-6">
+                <section class="card contab-panel h-100 mb-0" aria-labelledby="contab-base-titulo">
+                  <div class="card-header bg-transparent">
+                    <h6 class="card-title mb-0" id="contab-base-titulo"><span data-owner-term="rentabilidade_por_base">Rentabilidade por Base</span></h6>
+                    <span class="small text-muted" data-owner-term="ranking_bases_lucro">Ranking de bases ordenado por lucro líquido</span>
+                  </div>
+                  <div class="card-body p-0">
+                    <div class="table-responsive">
+                      <table class="table table-sm align-middle mb-0 contab-table">
+                        <thead>
+                          <tr>
+                            <th scope="col"><span data-owner-term="base">Base</span></th>
+                            <th scope="col" class="text-end">Receita</th>
+                            <th scope="col" class="text-end">Custo</th>
+                            <th scope="col" class="text-end">Resultado</th>
+                            <th scope="col" class="text-end">Margem</th>
+                          </tr>
+                        </thead>
+                        <tbody id="lista-rentabilidade-base"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="col-lg-6">
+                <section class="card contab-panel h-100 mb-0" aria-labelledby="contab-entregador-titulo">
+                  <div class="card-header bg-transparent">
+                    <h6 class="card-title mb-0" id="contab-entregador-titulo">Custo por motoboy</h6>
+                    <span class="small text-muted">Fechamentos e estimativa do que ainda não foi fechado</span>
+                  </div>
+                  <div class="card-body p-0">
+                    <div class="table-responsive">
+                      <table class="table table-sm align-middle mb-0 contab-table">
+                        <thead>
+                          <tr>
+                            <th scope="col">Motoboy</th>
+                            <th scope="col" class="text-end">Saídas</th>
+                            <th scope="col" class="text-end">Custo</th>
+                            <th scope="col" class="contab-col-share">Participação</th>
+                          </tr>
+                        </thead>
+                        <tbody id="lista-despesas-entregador"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+
           </div>
         </div>
         @@include("partials/footer.html")
       </div>
     </div>
     @@include("partials/vendor-scripts.html")
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.min.js"></script>
     <script src="assets/js/components/date-picker-dashboard.js"></script>
-<script src="assets/js/pages/tracking-contabilidade.init.js"></script>
+    <script src="assets/js/pages/tracking-contabilidade-relatorio.js"></script>
+    <script src="assets/js/pages/tracking-contabilidade.init.js"></script>
     <script src="assets/js/app.js"></script>
-    
   </body>
 </html>
