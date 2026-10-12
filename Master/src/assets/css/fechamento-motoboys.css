@@ -260,11 +260,39 @@
   background: currentColor;
 }
 
-.fm-status--pendente { color: #475569; }
-.fm-status--gerado { color: #0B1F3A; }
-.fm-status--reajustado { color: #1D4ED8; }
+.fm-status--pendente { color: #B45309; }
+.fm-status--gerado { color: #1D4ED8; }
+.fm-status--reajustado { color: #7C3AED; }
 .fm-status--pago,
 .fm-status--recebido { color: #15803D; }
+
+[data-bs-theme="dark"] .fm-status--pendente { color: #FBBF24; }
+[data-bs-theme="dark"] .fm-status--gerado { color: #60A5FA; }
+[data-bs-theme="dark"] .fm-status--reajustado { color: #A78BFA; }
+[data-bs-theme="dark"] .fm-status--pago,
+[data-bs-theme="dark"] .fm-status--recebido { color: #4ADE80; }
+
+/* Serviços (mesma paleta de Registros) */
+.fm-servicos {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin-top: 0.125rem;
+}
+
+.fm-servico {
+  display: inline-block;
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fm-servico--shopee { background: rgba(255, 180, 130, 0.25); color: #d46a2e; }
+.fm-servico--ml { background: rgba(255, 230, 170, 0.5); color: #9a7a22; }
+.fm-servico--avulso { background: rgba(180, 200, 230, 0.4); color: #4a7ab8; }
 
 .fm-chip {
   display: inline-block;
