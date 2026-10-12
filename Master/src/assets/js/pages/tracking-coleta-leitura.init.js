@@ -1303,11 +1303,65 @@ document.addEventListener("DOMContentLoaded", async () => {
     toast(`Modo outra data ativo: ${dataOp}. Escaneie ou digite os códigos.`, true);
   }
 
+  async function carregarCategoriasG() {
+    try {
+      const r = await fetch(`${getBaseUrl()}/entregadores/precos/categorias-g`, {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+      if (!r.ok) return [];
+      const lista = await r.json();
+      return (Array.isArray(lista) ? lista : [])
+        .filter((c) => c && c.ativo !== false)
+        .sort((a, b) => (Number(a.ordem) || 0) - (Number(b.ordem) || 0) || a.id - b.id);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function htmlCategoriasG(categorias) {
+    if (!categorias.length) return "";
+    const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const campo = (c, servico, rotulo) =>
+      `<td><input type="number" min="0" inputmode="numeric" class="form-control form-control-sm ret-g-qtd" data-cat="${esc(c.id)}" data-servico="${servico}" aria-label="${esc(c.nome)} ${rotulo}" placeholder="0" /></td>`;
+    return `
+      <details class="ret-g mt-2">
+        <summary class="fw-semibold small">Pacotes grandes (opcional)</summary>
+        <p class="text-muted small mt-2 mb-2">Quantos dos pacotes acima são grandes, por tamanho.</p>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead><tr><th scope="col">Tamanho</th><th scope="col">Shopee</th><th scope="col">ML / Flex</th><th scope="col">Avulso</th></tr></thead>
+            <tbody>
+              ${categorias.map((c) => `
+                <tr>
+                  <th scope="row" class="small">${esc(c.nome)}${c.descricao ? `<div class="text-muted fw-normal">${esc(c.descricao)}</div>` : ""}</th>
+                  ${campo(c, "shopee", "Shopee")}${campo(c, "ml", "Mercado Livre")}${campo(c, "avulso", "Avulso")}
+                </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      </details>`;
+  }
+
+  function lerCategoriasG() {
+    const mapa = {};
+    document.querySelectorAll(".ret-g-qtd").forEach((el) => {
+      const qtd = parseInt(String(el.value || "0"), 10) || 0;
+      if (qtd < 0) throw new Error("Quantidades não podem ser negativas.");
+      if (!qtd) return;
+      const cid = el.getAttribute("data-cat");
+      mapa[cid] = mapa[cid] || { categoria_g_id: Number(cid), shopee: 0, ml: 0, avulso: 0 };
+      mapa[cid][el.getAttribute("data-servico")] += qtd;
+    });
+    return Object.values(mapa);
+  }
+
   async function abrirModalQuantidades({ dataOp, baseId, baseNome, acrescentar }) {
     if (typeof Swal === "undefined") {
       toast("Não foi possível abrir o formulário manual.", false);
       return;
     }
+    const categoriasG = await carregarCategoriasG();
     const ehHoje = dataOp === hojeBR();
     const titulo = acrescentar
       ? `Acrescentar quantidades — ${baseNome}`
@@ -1326,6 +1380,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <input id="ret-ml" type="number" min="0" class="form-control mb-2" value="0" />
           <label class="form-label mb-1">Avulso</label>
           <input id="ret-avulso" type="number" min="0" class="form-control mb-2" value="0" />
+          ${htmlCategoriasG(categoriasG)}
         </div>
       `,
       showCancelButton: true,
@@ -1344,7 +1399,24 @@ document.addEventListener("DOMContentLoaded", async () => {
           Swal.showValidationMessage("Informe ao menos uma quantidade.");
           return null;
         }
-        return { shopee, mercado_livre, avulso };
+        let g_categorias;
+        try {
+          g_categorias = lerCategoriasG();
+        } catch (err) {
+          Swal.showValidationMessage(err.message);
+          return null;
+        }
+        const somaG = (s) => g_categorias.reduce((t, c) => t + c[s], 0);
+        const excedido = [
+          ["Shopee", somaG("shopee"), shopee],
+          ["Mercado Livre", somaG("ml"), mercado_livre],
+          ["Avulso", somaG("avulso"), avulso],
+        ].find(([, g, total]) => g > total);
+        if (excedido) {
+          Swal.showValidationMessage(`${excedido[0]}: ${excedido[1]} pacotes grandes, mas só ${excedido[2]} no total.`);
+          return null;
+        }
+        return { shopee, mercado_livre, avulso, g_categorias };
       },
     });
     if (!modal.isConfirmed || !modal.value) return;
@@ -1358,6 +1430,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       acrescentar: !!acrescentar,
       origem_cliente: "web",
     };
+    if (modal.value.g_categorias.length) {
+      body.g_categorias = modal.value.g_categorias;
+      body.pacotes_g = modal.value.g_categorias.reduce((t, c) => t + c.shopee + c.ml + c.avulso, 0);
+    }
     try {
       const r = await fetch(`${getBaseUrl()}/coletas/operacionais/manual`, {
         method: "POST",

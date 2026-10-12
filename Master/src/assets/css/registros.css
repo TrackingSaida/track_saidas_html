@@ -1,0 +1,137 @@
+/* Registros: tabela compacta (Pacote, Situação, Responsável, Base, Entrada, Ações) */
+
+.reg-table { margin-bottom: 0; }
+.reg-table th { white-space: nowrap; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; color: #64748b; }
+.reg-table td { vertical-align: middle; }
+.reg-table .reg-col-chk { width: 36px; }
+.reg-table .reg-col-pacote { min-width: 220px; }
+.reg-table .reg-col-situacao { min-width: 200px; }
+.reg-table .reg-col-responsavel { min-width: 150px; }
+.reg-table .reg-col-base { min-width: 110px; }
+.reg-table .reg-col-entrada { min-width: 110px; white-space: nowrap; }
+.reg-table .reg-col-acoes { width: 84px; white-space: nowrap; }
+
+.reg-codigo {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+  word-break: break-all;
+}
+.reg-linha2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+.reg-linha2 .servico-badge { padding: 2px 8px; font-size: 11px; }
+
+.reg-g-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 1px 8px;
+  border: 1px solid #b45309;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+}
+button.reg-g-chip { cursor: pointer; }
+button.reg-g-chip:hover,
+button.reg-g-chip:focus-visible { background: #fde68a; outline: none; }
+
+.reg-pessoa { font-weight: 500; color: #0f172a; }
+.reg-sub { display: block; font-size: 0.78rem; color: #64748b; margin-top: 0.15rem; }
+.reg-base { color: #475569; }
+
+.reg-acao {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  font-size: 1.05rem;
+}
+.reg-acao:hover,
+.reg-acao:focus-visible { background: #eef2f7; color: #0f172a; outline: none; }
+.reg-acao:disabled { opacity: 0.5; }
+
+/* Colunas ocultadas pelo usuário */
+.reg-table.reg-oculta-responsavel [data-col="responsavel"],
+.reg-table.reg-oculta-base [data-col="base"],
+.reg-table.reg-oculta-entrada [data-col="entrada"] { display: none; }
+
+.reg-colunas-menu { min-width: 200px; }
+
+/* Menu de tamanho (flutuante, compartilhado por linha e lote) */
+.reg-tamanho-menu {
+  position: fixed;
+  z-index: 1080;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 0.35rem;
+}
+.reg-tamanho-menu .reg-tamanho-titulo {
+  padding: 0.35rem 0.6rem 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+.reg-tamanho-menu .dropdown-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+  white-space: normal;
+}
+.reg-tamanho-menu .dropdown-item .reg-tamanho-check { width: 1rem; flex-shrink: 0; color: #0f172a; }
+.reg-tamanho-menu .dropdown-item small { display: block; color: #64748b; }
+.reg-tamanho-menu .dropdown-item.active,
+.reg-tamanho-menu .dropdown-item:active { background: #eef2f7; color: #0f172a; }
+
+/* Detalhe: bloco de tamanho */
+.pedido-tamanho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.pedido-tamanho-info { font-size: 0.85rem; color: #475569; }
+
+/* Telas pequenas: cada linha vira um cartão */
+@media (max-width: 767.98px) {
+  .reg-table thead { display: none; }
+  .reg-table, .reg-table tbody { display: block; }
+  .reg-table tbody tr {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 0.35rem 0.5rem;
+    padding: 0.75rem 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .reg-table tbody td { display: block; padding: 0; border: 0; }
+  .reg-table tbody td[colspan] { grid-column: 1 / -1; }
+  .reg-table td.reg-col-chk { grid-row: 1 / span 2; }
+  .reg-table td.reg-col-acoes { grid-column: 3; grid-row: 1; }
+  .reg-table td.reg-col-situacao,
+  .reg-table td.reg-col-responsavel { grid-column: 2 / -1; }
+  .reg-table td.reg-col-base,
+  .reg-table td.reg-col-entrada { display: none; }
+  .reg-table td.reg-col-pacote { grid-column: 2; grid-row: 1; min-width: 0; }
+}

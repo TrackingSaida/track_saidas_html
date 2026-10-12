@@ -170,19 +170,35 @@
           </div>
 
           <div class="fm-secao d-none" id="painel-g">
-            <div class="fm-secao-titulo">Pacotes grandes (G)</div>
+            <div class="fm-secao-titulo">Pacotes grandes</div>
             <div class="fm-painel-sub mb-2" id="painel-g-info"></div>
-            <div class="row g-2 align-items-end">
+            <table class="fm-composicao mb-2">
+              <tbody id="painel-g-categorias"></tbody>
+            </table>
+            <div id="painel-g-aviso" class="small text-warning-emphasis mb-2 d-none" role="status"></div>
+            <div id="painel-g-ajuste"></div>
+            <button type="button" class="btn btn-link btn-sm px-0" id="btnAjustarG" aria-expanded="false" aria-controls="painel-g-form">Ajustar valor dos pacotes grandes</button>
+            <div id="painel-g-form" class="row g-2 d-none">
               <div class="col-5">
-                <label class="form-label small mb-1" for="g-valor-unit">Valor por pacote (R$) <span class="text-danger">*</span></label>
-                <input type="number" id="g-valor-unit" class="form-control form-control-sm" step="0.01" min="0.01" inputmode="decimal" placeholder="0,00">
+                <label class="form-label small mb-1" for="g-ajuste-tipo">Tipo</label>
+                <select id="g-ajuste-tipo" class="form-select form-select-sm">
+                  <option value="ADICAO">Adicional (+)</option>
+                  <option value="SUBTRACAO">Desconto (−)</option>
+                </select>
               </div>
               <div class="col-7">
-                <label class="form-label small mb-1" for="g-motivo">Descrição</label>
-                <input type="text" id="g-motivo" class="form-control form-control-sm" maxlength="120" placeholder="Adicional por pacote grande">
+                <label class="form-label small mb-1" for="g-ajuste-valor">Valor (R$) <span class="text-danger">*</span></label>
+                <input type="number" id="g-ajuste-valor" class="form-control form-control-sm" step="0.01" min="0.01" inputmode="decimal" placeholder="0,00">
+              </div>
+              <div class="col-12">
+                <label class="form-label small mb-1" for="g-ajuste-motivo">Motivo <span class="text-danger">*</span></label>
+                <input type="text" id="g-ajuste-motivo" class="form-control form-control-sm" maxlength="120" placeholder="Ex.: 2 pacotes eram G3, não G2">
+              </div>
+              <div class="col-12">
+                <div id="g-ajuste-erro" class="small text-danger d-none" role="alert"></div>
+                <button type="button" id="btnAplicarAjusteG" class="btn btn-outline-secondary btn-sm mt-1">Aplicar ajuste</button>
               </div>
             </div>
-            <div class="fm-painel-sub fm-num mt-1" id="g-preview"></div>
           </div>
 
           <div class="fm-secao">
@@ -262,22 +278,10 @@
                 <input type="number" id="modalColetaManualAvulso" class="form-control" min="0" value="0" inputmode="numeric" />
               </div>
               <div class="col-12">
-                <div class="form-label mb-1">Pacotes grandes (G)</div>
-                <p class="small text-muted mb-2">Informe quantos pacotes grandes vieram em cada serviço. Deixe 0 se não houve.</p>
-                <div class="row g-2">
-                  <div class="col-4">
-                    <label class="form-label small mb-1" for="inputColetaGshopee">Shopee</label>
-                    <input type="number" id="inputColetaGshopee" class="form-control form-control-sm" min="0" value="0" inputmode="numeric" />
-                  </div>
-                  <div class="col-4">
-                    <label class="form-label small mb-1" for="inputColetaGml">Mercado Livre</label>
-                    <input type="number" id="inputColetaGml" class="form-control form-control-sm" min="0" value="0" inputmode="numeric" />
-                  </div>
-                  <div class="col-4">
-                    <label class="form-label small mb-1" for="inputColetaGavulso">Avulso</label>
-                    <input type="number" id="inputColetaGavulso" class="form-control form-control-sm" min="0" value="0" inputmode="numeric" />
-                  </div>
-                </div>
+                <div class="form-label mb-1">Pacotes grandes</div>
+                <p class="small text-muted mb-2">Quantos dos pacotes acima são grandes, por tamanho. Deixe em branco se não houve.</p>
+                <div id="coletaGCategorias"></div>
+                <div id="coletaGErro" class="small text-danger mt-1 d-none" role="alert"></div>
               </div>
             </div>
           </div>
@@ -296,7 +300,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.min.js"></script>
     <script src="assets/js/components/date-picker-dashboard.js?v=2.0"></script>
     <script src="assets/js/pages/tracking-coletas-relatorio.js"></script>
-    <script src="assets/js/pages/tracking-bases-fechamento.init.js?v=1"></script>
+    <script src="assets/js/pages/tracking-bases-fechamento.init.js?v=3"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>

@@ -349,6 +349,14 @@
               text: "Selecione um ou mais registros e clique em Editar. Dá para corrigir dados em lote.",
             },
             {
+              title: "Marque pacotes grandes",
+              text: "Clique no ícone de caixa da linha e escolha o tamanho (G1, G2…). Para vários, selecione e use Definir tamanho. Pacotes entregues não mudam de tamanho.",
+            },
+            {
+              title: "Escolha as colunas",
+              text: "Em Colunas, esconda o que não usa. A escolha fica salva neste navegador.",
+            },
+            {
               title: "Exporte se necessário",
               text: "Use a exportação da tela quando precisar levar a lista para planilha.",
             },
@@ -453,11 +461,11 @@
             },
             {
               title: "Gere todos ou um por vez",
-              text: "Gerar todos os pendentes cria os fechamentos sem ajustes. Bases com pacotes grandes ou dias sem lançamento ficam de fora: use Revisar e gerar na linha.",
+              text: "Gerar todos os pendentes cria os fechamentos sem ajustes. Bases com dias sem lançamento ou pacotes grandes de tamanho sem valor de cobrança ficam de fora: use Revisar e gerar na linha.",
             },
             {
               title: "Revise antes de gerar",
-              text: "No painel, resolva os dias sem lançamento (lance a coleta ou justifique), confira os dias, informe o valor por pacote grande e lance ajustes com motivo.",
+              text: "No painel, resolva os dias sem lançamento (lance a coleta ou justifique), confira os dias e lance ajustes com motivo. O valor dos pacotes grandes vem das categorias de Preços de Entrega; se precisar, use Ajustar valor dos pacotes grandes.",
             },
             {
               title: "Reajuste quando as coletas mudarem",
