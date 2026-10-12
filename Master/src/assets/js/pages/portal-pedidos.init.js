@@ -19,6 +19,7 @@
   var boxCustom = document.getElementById("boxCustomPeriodo");
   var drawerEl = document.getElementById("pedidoDrawer");
   var drawer = null;
+  var drawerAtual = { codigo: "", idEnvio: null };
   var rangePicker = null;
 
   var estado = { q: "", canal: "", status: "", periodo: "30d", de: "", ate: "", page: 1 };
@@ -288,6 +289,10 @@
         }
       }
       document.getElementById("drawerLinkCompleto").href = "portal-pedido.html?id=" + encodeURIComponent(id);
+      drawerAtual = { codigo: data.codigo || "", idEnvio: data.id_envio || null };
+      document.getElementById("drawerCopiar").classList.toggle("d-none", !data.codigo);
+      document.getElementById("drawerPdf").classList.toggle("d-none", !data.id_envio);
+      document.getElementById("drawerCancelar").classList.toggle("d-none", !(data.id_envio && data.pode_cancelar));
 
       PS.renderTimeline(
         document.getElementById("drawerTimeline"),
@@ -321,6 +326,23 @@
     if (ev.target.closest(".ps-row-actions")) return;
     var row = ev.target.closest("tr.portal-pedido-row");
     if (row) openDrawer(row.getAttribute("data-id"));
+  });
+
+  document.getElementById("drawerCopiar").addEventListener("click", function () {
+    PS.copiarTexto(drawerAtual.codigo, this);
+  });
+
+  document.getElementById("drawerPdf").addEventListener("click", async function () {
+    if (!drawerAtual.idEnvio) return;
+    this.disabled = true;
+    await PS.baixarEtiqueta(drawerAtual.idEnvio, drawerAtual.codigo);
+    this.disabled = false;
+  });
+
+  document.getElementById("drawerCancelar").addEventListener("click", async function () {
+    if (!drawerAtual.idEnvio) return;
+    if (drawer) drawer.hide();
+    if (await PS.cancelarEtiqueta(drawerAtual.idEnvio, drawerAtual.codigo)) reload();
   });
 
   tbody.addEventListener("keydown", function (ev) {

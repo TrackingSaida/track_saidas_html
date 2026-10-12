@@ -162,49 +162,64 @@
     }
   }
 
-  var cancelModalEl = null;
+  var confirmModalEl = null;
 
-  function confirmarCancelamento(codigo) {
-    if (!cancelModalEl) {
-      cancelModalEl = document.createElement("div");
-      cancelModalEl.className = "modal fade";
-      cancelModalEl.id = "psModalCancelar";
-      cancelModalEl.tabIndex = -1;
-      cancelModalEl.setAttribute("aria-labelledby", "psModalCancelarLabel");
-      cancelModalEl.setAttribute("aria-hidden", "true");
-      cancelModalEl.innerHTML =
+  function confirmar(opts) {
+    opts = opts || {};
+    if (!confirmModalEl) {
+      confirmModalEl = document.createElement("div");
+      confirmModalEl.className = "modal fade";
+      confirmModalEl.id = "psModalConfirmar";
+      confirmModalEl.tabIndex = -1;
+      confirmModalEl.setAttribute("aria-labelledby", "psModalConfirmarLabel");
+      confirmModalEl.setAttribute("aria-hidden", "true");
+      confirmModalEl.innerHTML =
         '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">' +
-        '<div class="modal-header"><h2 class="modal-title h5" id="psModalCancelarLabel">Cancelar etiqueta</h2>' +
+        '<div class="modal-header"><h2 class="modal-title h5" id="psModalConfirmarLabel"></h2>' +
         '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>' +
-        '<div class="modal-body"><p class="mb-0" id="psCancelarTexto"></p></div>' +
-        '<div class="modal-footer"><button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Manter</button>' +
-        '<button type="button" class="btn btn-danger" id="psCancelarConfirmar">Cancelar etiqueta</button></div>' +
+        '<div class="modal-body"><p class="mb-0" id="psConfirmarTexto"></p></div>' +
+        '<div class="modal-footer"><button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal" id="psConfirmarVoltar"></button>' +
+        '<button type="button" class="btn" id="psConfirmarOk"></button></div>' +
         "</div></div>";
-      document.body.appendChild(cancelModalEl);
+      document.body.appendChild(confirmModalEl);
     }
-    var texto = cancelModalEl.querySelector("#psCancelarTexto");
-    texto.innerHTML = codigo
-      ? "Cancelar a etiqueta <strong>" + escapeHtml(codigo) + "</strong>? Só é possível antes da coleta."
-      : "Cancelar esta etiqueta? Só é possível antes da coleta.";
+    var texto = confirmModalEl.querySelector("#psConfirmarTexto");
+    var btn = confirmModalEl.querySelector("#psConfirmarOk");
+    confirmModalEl.querySelector("#psModalConfirmarLabel").textContent = opts.titulo || "Confirmar";
+    confirmModalEl.querySelector("#psConfirmarVoltar").textContent = opts.voltar || "Voltar";
+    texto.innerHTML = opts.html || escapeHtml(opts.texto || "");
+    btn.textContent = opts.ok || "Confirmar";
+    btn.className = "btn " + (opts.okClass || "btn-danger");
     if (!w.bootstrap) {
       return Promise.resolve(confirm(texto.textContent));
     }
-    var modal = bootstrap.Modal.getOrCreateInstance(cancelModalEl);
+    var modal = bootstrap.Modal.getOrCreateInstance(confirmModalEl);
     return new Promise(function (resolve) {
       var confirmed = false;
-      var btn = cancelModalEl.querySelector("#psCancelarConfirmar");
       function onConfirm() {
         confirmed = true;
         modal.hide();
       }
       function onHidden() {
         btn.removeEventListener("click", onConfirm);
-        cancelModalEl.removeEventListener("hidden.bs.modal", onHidden);
+        confirmModalEl.removeEventListener("hidden.bs.modal", onHidden);
         resolve(confirmed);
       }
       btn.addEventListener("click", onConfirm);
-      cancelModalEl.addEventListener("hidden.bs.modal", onHidden);
+      confirmModalEl.addEventListener("hidden.bs.modal", onHidden);
       modal.show();
+    });
+  }
+
+  function confirmarCancelamento(codigo) {
+    codigo = String(codigo || "").trim();
+    return confirmar({
+      titulo: "Cancelar etiqueta",
+      html: codigo
+        ? "Cancelar a etiqueta <strong>" + escapeHtml(codigo) + "</strong>? Só é possível antes da coleta."
+        : "Cancelar esta etiqueta? Só é possível antes da coleta.",
+      voltar: "Manter",
+      ok: "Cancelar etiqueta",
     });
   }
 
@@ -359,10 +374,16 @@
     events.forEach(function (ev, idx) {
       var li = document.createElement("li");
       li.className = "list-group-item px-0 portal-timeline-item" + (idx === 0 ? " is-current" : "");
-      var motoboy =
-        ev.motoboy_nome && String(ev.detalhe || "").indexOf(ev.motoboy_nome) === -1
-          ? '<div class="small mt-1">Entregador: ' + escapeHtml(ev.motoboy_nome) + "</div>"
-          : "";
+      var nome = String(ev.motoboy_nome || "").trim();
+      var jaCitado =
+        !nome ||
+        (String(ev.titulo || "") + " " + String(ev.detalhe || ""))
+          .toLowerCase()
+          .indexOf(nome.toLowerCase()) !== -1 ||
+        (idx > 0 && String(events[idx - 1].motoboy_nome || "").trim() === nome);
+      var motoboy = jaCitado
+        ? ""
+        : '<div class="small mt-1">Entregador: ' + escapeHtml(nome) + "</div>";
       li.innerHTML =
         '<div class="fw-semibold">' +
         escapeHtml(ev.titulo || "") +
@@ -560,6 +581,7 @@
     copiarTexto: copiarTexto,
     baixarEtiqueta: baixarEtiqueta,
     cancelarEtiqueta: cancelarEtiqueta,
+    confirmar: confirmar,
     initDatePicker: initDatePicker,
     isoDate: isoDate,
     escapeHtml: escapeHtml,

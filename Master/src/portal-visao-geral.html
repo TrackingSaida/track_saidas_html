@@ -4,7 +4,7 @@
   @@include("partials/title-meta.html", {"title": "Visão geral"})
   @@include("partials/head-css.html")
   <link href="assets/libs/flatpickr/flatpickr.min.css" rel="stylesheet">
-  <link href="assets/css/portal-shell.css?v=5" rel="stylesheet">
+  <link href="assets/css/portal-shell.css?v=6" rel="stylesheet">
 </head>
 <body>
   @@include("partials/portal-shell.html")
@@ -30,12 +30,13 @@
             <label class="form-label small mb-0" for="filtroAte">Até</label>
             <input type="date" class="form-control form-control-sm" id="filtroAte">
           </div>
-          <button type="button" class="btn btn-sm btn-primary" id="btnAplicarPeriodo">Aplicar</button>
+          <button type="button" class="btn btn-sm ps-btn-primary" id="btnAplicarPeriodo">Aplicar</button>
         </div>
       </div>
     </div>
 
     <div id="dashLoading" class="portal-kpi-grid" aria-hidden="true">
+      <div class="ps-skeleton ps-skeleton-kpi"></div>
       <div class="ps-skeleton ps-skeleton-kpi"></div>
       <div class="ps-skeleton ps-skeleton-kpi"></div>
       <div class="ps-skeleton ps-skeleton-kpi"></div>
@@ -107,7 +108,7 @@
 <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/plugins.js"></script>
 <script src="assets/libs/flatpickr/l10n/pt.js"></script>
-<script src="assets/js/pages/portal-common.js?v=5"></script>
-<script src="assets/js/pages/portal-visao-geral.init.js?v=5"></script>
+<script src="assets/js/pages/portal-common.js?v=6"></script>
+<script src="assets/js/pages/portal-visao-geral.init.js?v=6"></script>
 </body>
 </html>

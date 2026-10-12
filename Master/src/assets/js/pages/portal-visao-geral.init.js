@@ -52,56 +52,26 @@
         ? "—"
         : String(kpis.taxa_sucesso).replace(".", ",") + "%";
     var cards = [
+      { label: "Recebidos", value: kpis.recebidos || 0, filter: "" },
       {
-        key: "recebidos",
-        type: "recebidos",
-        label: "Recebidos",
-        value: kpis.recebidos || 0,
-        filter: "",
-      },
-      {
-        key: "aguardando_coleta",
-        type: "aguardando",
         label: "Aguardando coleta",
         value: kpis.aguardando_coleta || 0,
         filter: "aguardando_coleta",
+        acao: true,
       },
-      {
-        key: "em_rota",
-        type: "em_rota",
-        label: "Em rota",
-        value: kpis.em_rota || 0,
-        filter: "em_entrega",
-      },
-      {
-        key: "entregues",
-        type: "entregues",
-        label: "Entregues",
-        value: kpis.entregues || 0,
-        filter: "entregue",
-      },
-      {
-        key: "cancelados",
-        type: "cancelados",
-        label: "Cancelados",
-        value: kpis.cancelados || 0,
-        filter: "cancelado",
-      },
-      {
-        key: "taxa",
-        type: "taxa",
-        label: "Taxa de sucesso",
-        value: taxa,
-        filter: "entregue",
-        hint: "sobre finalizados",
-      },
+      { label: "Saiu para entrega", value: kpis.em_rota || 0, filter: "em_entrega" },
+      { label: "Ausente", value: kpis.ausentes || 0, filter: "ausente", acao: true },
+      { label: "Entregues", value: kpis.entregues || 0, filter: "entregue" },
+      { label: "Cancelados", value: kpis.cancelados || 0, filter: "cancelado" },
+      { label: "Taxa de sucesso", value: taxa, filter: "entregue", hint: "sobre finalizados" },
     ];
     kpiGrid.innerHTML = cards
       .map(function (c) {
         var href = pedidosUrl(c.filter ? { status: c.filter } : {});
+        var destaque = c.acao && Number(c.value) > 0;
         return (
-          '<a class="portal-kpi portal-kpi--' +
-          c.type +
+          '<a class="portal-kpi' +
+          (destaque ? " portal-kpi--acao" : "") +
           '" href="' +
           href +
           '">' +

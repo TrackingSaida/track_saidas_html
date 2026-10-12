@@ -4,7 +4,7 @@
   @@include("partials/title-meta.html", {"title": "Pedidos"})
   @@include("partials/head-css.html")
   <link href="assets/libs/flatpickr/flatpickr.min.css" rel="stylesheet">
-  <link href="assets/css/portal-shell.css?v=5" rel="stylesheet">
+  <link href="assets/css/portal-shell.css?v=6" rel="stylesheet">
 </head>
 <body>
   @@include("partials/portal-shell.html")
@@ -96,6 +96,11 @@
         <span id="drawerStatus"></span>
         <span class="small text-muted" id="drawerAtualizado"></span>
       </div>
+      <div class="ps-detail-actions mb-3">
+        <button type="button" class="btn btn-sm btn-light" id="drawerCopiar"><i class="ri-file-copy-line" aria-hidden="true"></i> Copiar código</button>
+        <button type="button" class="btn btn-sm btn-light d-none" id="drawerPdf"><i class="ri-printer-line" aria-hidden="true"></i> Reimprimir</button>
+        <button type="button" class="btn btn-sm btn-soft-danger d-none" id="drawerCancelar"><i class="ri-close-circle-line" aria-hidden="true"></i> Cancelar</button>
+      </div>
       <h3 class="h6">Destinatário</h3>
       <p class="mb-1 fw-semibold" id="drawerDestNome"></p>
       <p class="text-muted small mb-1" id="drawerDestEndereco"></p>
@@ -114,7 +119,7 @@
 <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/plugins.js"></script>
 <script src="assets/libs/flatpickr/l10n/pt.js"></script>
-<script src="assets/js/pages/portal-common.js?v=5"></script>
-<script src="assets/js/pages/portal-pedidos.init.js?v=5"></script>
+<script src="assets/js/pages/portal-common.js?v=6"></script>
+<script src="assets/js/pages/portal-pedidos.init.js?v=6"></script>
 </body>
 </html>

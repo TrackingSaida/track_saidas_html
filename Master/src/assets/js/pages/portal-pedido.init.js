@@ -74,26 +74,24 @@
         data.timeline || []
       );
 
-      var acoes = document.getElementById("boxAcoes");
       var btnPdf = document.getElementById("btnPdf");
       var btnCancel = document.getElementById("btnCancelar");
+      document.getElementById("btnCopiar").classList.toggle("d-none", !data.codigo);
+      btnPdf.classList.toggle("d-none", !data.id_envio);
+      btnCancel.classList.toggle("d-none", !(data.id_envio && data.pode_cancelar));
       if (data.id_envio) {
-        acoes.classList.remove("d-none");
         btnPdf.setAttribute("data-id", String(data.id_envio));
-        if (data.pode_cancelar) {
-          btnCancel.classList.remove("d-none");
-          btnCancel.setAttribute("data-id", String(data.id_envio));
-        } else {
-          btnCancel.classList.add("d-none");
-        }
-      } else {
-        acoes.classList.add("d-none");
+        btnCancel.setAttribute("data-id", String(data.id_envio));
       }
     } catch (ex) {
       if (ex && ex.status === 401) return;
       showError(PS.friendlyError(ex, "Não foi possível carregar o pedido."));
     }
   }
+
+  document.getElementById("btnCopiar")?.addEventListener("click", function () {
+    PS.copiarTexto(document.getElementById("pedidoCodigo").textContent, this);
+  });
 
   document.getElementById("btnPdf")?.addEventListener("click", function () {
     var envioId = this.getAttribute("data-id");
