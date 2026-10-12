@@ -15,6 +15,12 @@
   .rv-hero {
     padding: calc(#{$rv-nav-height} + 4.5rem) 0 5.5rem;
     overflow: hidden;
+    background: $rv-dark-bg;
+    color: $rv-on-dark;
+
+    .rv-kicker {
+      color: #5EEAD4;
+    }
 
     @media (max-width: 767.98px) {
       padding: calc(#{$rv-nav-height} + 2.5rem) 0 4rem;
@@ -41,18 +47,25 @@
     line-height: 0.86;
     letter-spacing: -0.015em;
     text-transform: uppercase;
-    color: $rv-ink;
+    color: $rv-on-dark;
     margin: 0 0 1.75rem;
 
     span {
       display: block;
     }
+
+    span:last-child {
+      background: linear-gradient(90deg, #2DD4BF 0%, #60A5FA 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
   }
 
   .rv-hero__lead {
-    font-size: 1.2rem;
-    line-height: 1.5;
-    color: $rv-ink-muted;
+    font-size: 1.15rem;
+    line-height: 1.6;
+    color: $rv-on-dark-muted;
     max-width: 32rem;
     text-wrap: pretty;
     margin: 0 0 2rem;
@@ -60,27 +73,57 @@
 
   .rv-hero__actions {
     display: flex;
-    align-items: center;
-    gap: 1.75rem;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.9rem;
+
+    .rv-link-arrow {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: $rv-on-dark-muted;
+
+      &:hover {
+        color: $rv-on-dark;
+      }
+    }
+
+    @media (max-width: 991.98px) {
+      align-items: center;
+
+      .rv-btn {
+        width: 100%;
+        max-width: 26rem;
+        justify-content: center;
+      }
+    }
   }
 
   .rv-hero__meta {
     list-style: none;
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 1.5rem;
-    padding: 1.25rem 0 0;
-    margin: 2.25rem 0 0;
-    border-top: 1px dashed $rv-rule;
-    font-family: $rv-font-mono;
-    font-size: 0.8rem;
-    color: $rv-ink-muted;
+    flex-direction: column;
+    gap: 0.7rem;
+    padding: 1.5rem 0 0;
+    margin: 2rem 0 0;
+    border-top: 1px solid $rv-on-dark-rule;
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: $rv-on-dark;
 
-    li::before {
-      content: "▪";
-      margin-right: 0.5rem;
-      color: $rv-ink;
+    li {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    i {
+      font-size: 1.3rem;
+      color: #2DD4BF;
+    }
+
+    @media (max-width: 991.98px) {
+      display: grid;
+      justify-content: center;
     }
   }
 
@@ -94,18 +137,19 @@
     position: relative;
     width: min(100%, 460px);
     background: #fff;
-    border: 2px solid $rv-ink;
-    box-shadow: $rv-shadow-print;
+    border-radius: $rv-radius-sm;
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
     padding: 1.4rem 1.5rem 1.6rem;
     transform: rotate(-2.5deg);
     font-family: $rv-font-mono;
-    color: $rv-ink;
+    color: #0B0B0C;
 
     &::before {
       content: "";
       position: absolute;
       inset: 8px;
-      border: 1px dashed rgba(11, 11, 12, 0.35);
+      border: 1px dashed rgba($rv-ink, 0.3);
+      border-radius: 6px;
       pointer-events: none;
     }
   }
@@ -140,7 +184,7 @@
     top: 50%;
     height: 3px;
     background: $rv-scan;
-    box-shadow: 0 0 12px 2px rgba(132, 204, 22, 0.7);
+    box-shadow: 0 0 12px 2px rgba($rv-scan, 0.7);
     opacity: 0;
   }
 
@@ -157,7 +201,7 @@
     gap: 0.75rem 1rem;
     margin: 0;
     padding-top: 0.9rem;
-    border-top: 1px solid $rv-ink;
+    border-top: 1px solid $rv-rule;
 
     div:first-child {
       grid-column: 1 / -1;

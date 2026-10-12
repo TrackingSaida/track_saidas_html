@@ -3,11 +3,14 @@
 .layout-wrapper.landing.rv-landing {
   .rv-switch {
     display: inline-flex;
-    border: 2px solid $rv-ink;
+    border: 1px solid $rv-line;
+    border-radius: $rv-radius-sm;
+    overflow: hidden;
+    background: #fff;
     margin-bottom: 2.5rem;
 
     .switch-btn {
-      font-family: $rv-font-mono;
+      font-family: $rv-font-body;
       font-size: 0.85rem;
       font-weight: 600;
       letter-spacing: 0.08em;
@@ -20,12 +23,12 @@
       cursor: pointer;
 
       & + .switch-btn {
-        border-left: 2px solid $rv-ink;
+        border-left: 1px solid $rv-line;
       }
 
       &.active {
-        background: $rv-ink;
-        color: $rv-paper;
+        background: $rv-gradient;
+        color: #fff;
       }
     }
   }

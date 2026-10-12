@@ -6,7 +6,7 @@
   @@include("partials/head-css.html")
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body data-bs-spy="scroll" data-bs-target="#navbar-example">
@@ -56,8 +56,8 @@
                 <span>Fechou.</span>
               </h1>
               <p class="rv-hero__lead">
-                O sistema de entregas que qualquer pessoa opera. Da coleta ao acerto do entregador,
-                cada pacote fica bipado, rastreado e conferido.
+                O sistema de entregas que qualquer pessoa opera. Da coleta ao pagamento do entregador,
+                cada pacote fica registrado, rastreado e conferido.
               </p>
               <div class="rv-hero__actions" id="rv-hero-actions">
                 <a href="https://wa.me/5511970485792" class="rv-btn rv-btn--primary rv-btn--lg" target="_blank" rel="noopener">
@@ -66,9 +66,9 @@
                 <a href="#como-funciona" class="rv-link-arrow">Ver como funciona <span aria-hidden="true">↓</span></a>
               </div>
               <ul class="rv-hero__meta">
-                <li>Sem mensalidade fixa</li>
-                <li>Implantação acompanhada</li>
-                <li>Etiqueta pronta em segundos</li>
+                <li><i class="ri-checkbox-circle-fill" aria-hidden="true"></i>Sem mensalidade fixa</li>
+                <li><i class="ri-checkbox-circle-fill" aria-hidden="true"></i>Implantação acompanhada</li>
+                <li><i class="ri-checkbox-circle-fill" aria-hidden="true"></i>Etiqueta pronta em segundos</li>
               </ul>
             </div>
 
@@ -195,11 +195,9 @@
       <section class="rv-section" id="como-funciona">
         <div class="container">
           <header class="rv-section__head">
-            <p class="rv-kicker">Como funciona</p>
-            <h2 class="rv-title">Um pacote, do bipe ao fechamento.</h2>
+            <h2 class="rv-title">Como funciona:</h2>
             <p class="rv-lead">
-              Siga o código <code class="rv-code">BR654321789SP</code>. Cada etapa fica registrada
-              e aparece para a gestão na hora, sem planilha paralela.
+              Cada etapa fica registrada e aparece para a gestão na hora, sem planilha paralela.
             </p>
           </header>
 
@@ -208,7 +206,7 @@
               <div class="rv-journey__marker"><span class="rv-journey__dot"></span><span class="rv-journey__num">01</span></div>
               <h3 class="rv-journey__title">Coletado</h3>
               <p class="rv-journey__time">08:12</p>
-              <p class="rv-journey__text">Bipado na coleta do cliente. O pacote entra na operação com origem registrada.</p>
+              <p class="rv-journey__text">Bipado na coleta do cliente, o pacote entra na operação com origem registrada.</p>
               <div class="rv-screen rv-screen--phone" aria-hidden="true">
                 <div class="rv-screen__bar">Ler pacotes</div>
                 <div class="rv-scanview"><span class="rv-scanview__frame"></span></div>
@@ -222,7 +220,7 @@
               <div class="rv-journey__marker"><span class="rv-journey__dot"></span><span class="rv-journey__num">02</span></div>
               <h3 class="rv-journey__title">Saiu com Carlos</h3>
               <p class="rv-journey__time">09:40</p>
-              <p class="rv-journey__text">A saída registra qual entregador levou cada pacote. Sem dúvida no fim do dia.</p>
+              <p class="rv-journey__text">A saída registra qual entregador levou cada pacote, sem dúvida no fim do dia.</p>
               <div class="rv-screen" aria-hidden="true">
                 <div class="rv-screen__bar">Saídas de hoje</div>
                 <div class="rv-screen__row"><span>Carlos S.</span><strong>38</strong></div>
@@ -252,7 +250,7 @@
               <div class="rv-journey__marker"><span class="rv-journey__dot"></span><span class="rv-journey__num">04</span></div>
               <h3 class="rv-journey__title">Entregue com foto</h3>
               <p class="rv-journey__time">14:32</p>
-              <p class="rv-journey__text">Comprovante com foto e nome de quem recebeu, no histórico do pacote.</p>
+              <p class="rv-journey__text">O comprovante com foto e nome de quem recebeu fica no histórico do pacote.</p>
               <div class="rv-screen" aria-hidden="true">
                 <div class="rv-screen__bar">Comprovante</div>
                 <div class="rv-photo"><i class="ri-camera-line"></i><span>Foto da entrega</span></div>
@@ -263,9 +261,9 @@
               <div class="rv-journey__marker"><span class="rv-journey__dot"></span><span class="rv-journey__num">05</span></div>
               <h3 class="rv-journey__title">Fechado</h3>
               <p class="rv-journey__time">Fim do dia</p>
-              <p class="rv-journey__text">A entrega entra sozinha no acerto do Carlos e no fechamento do cliente.</p>
+              <p class="rv-journey__text">A entrega entra sozinha no pagamento do Carlos e no fechamento do cliente.</p>
               <div class="rv-screen" aria-hidden="true">
-                <div class="rv-screen__bar">Acerto · Carlos S.</div>
+                <div class="rv-screen__bar">Pagamento · Carlos S.</div>
                 <div class="rv-screen__row"><span class="rv-code">…789SP</span><strong>R$ 4,50</strong></div>
                 <div class="rv-screen__row"><span class="rv-code">…123SP</span><strong>R$ 4,50</strong></div>
                 <div class="rv-screen__row rv-screen__row--ok"><span>Total conferido</span><span class="rv-tag rv-tag--ok">OK</span></div>
@@ -282,7 +280,7 @@
               <p class="rv-kicker">Etiquetas</p>
               <h2 class="rv-title">Etiqueta pronta em segundos.</h2>
               <p class="rv-lead">
-                Digite o código e a etiqueta sai pronta para imprimir. Se o pacote não tem etiqueta,
+                Digite o código e a etiqueta sai pronta para imprimir. Se o pacote não tiver etiqueta,
                 crie um envio próprio com remetente e destinatário.
               </p>
               <ol class="rv-manifest">
@@ -319,7 +317,7 @@
         <div class="container">
           <header class="rv-section__head">
             <p class="rv-kicker">Para quem é</p>
-            <h2 class="rv-title">Quem contrata e quem executa, no mesmo sistema.</h2>
+            <h2 class="rv-title">Para transportadoras e sub-bases.</h2>
           </header>
 
           <div class="rv-switch profile-switch" role="group" aria-label="Escolha o perfil">
@@ -340,7 +338,7 @@
           </div>
           <div class="mockup-content" id="subbase">
             <div class="rv-profile">
-              <p class="rv-profile__lead">Cada entregador com seus pacotes e o acerto calculado sozinho.</p>
+              <p class="rv-profile__lead">Cada entregador com seus pacotes e o pagamento calculado automaticamente.</p>
               <ol class="rv-manifest">
                 <li><span class="rv-manifest__idx">01</span>Gestão individual de entregadores</li>
                 <li><span class="rv-manifest__idx">02</span>Rastreio de cada pacote, da coleta à entrega</li>
@@ -357,21 +355,21 @@
           <div class="rv-split">
             <div class="rv-split__copy">
               <p class="rv-kicker">Fechamento</p>
-              <h2 class="rv-title">Fechamento sem discussão.</h2>
+              <h2 class="rv-title">Fechamento pronto no fim do dia.</h2>
               <p class="rv-lead">
-                Todo pacote que saiu tem destino registrado. O acerto do entregador sai pronto,
+                Todo pacote que sai tem destino registrado. O valor de cada entregador sai calculado,
                 com as divergências à vista antes de virar desconto.
               </p>
               <ol class="rv-manifest">
-                <li><span class="rv-manifest__idx">01</span>Quanto cada entregador tem a receber</li>
-                <li><span class="rv-manifest__idx">02</span>Quanto volume cada cliente gerou</li>
-                <li><span class="rv-manifest__idx">03</span>Onde estão ausências e cancelamentos</li>
+                <li><span class="rv-manifest__idx">01</span>Valor que cada entregador recebe</li>
+                <li><span class="rv-manifest__idx">02</span>Volume gerado por cliente</li>
+                <li><span class="rv-manifest__idx">03</span>Ausências e cancelamentos</li>
               </ol>
             </div>
             <div class="rv-split__visual">
-              <div class="rv-statement" role="img" aria-label="Exemplo de acerto do entregador: 142 pacotes saíram, 136 entregues, 4 ausentes, 2 sem baixa, total a pagar 612 reais">
+              <div class="rv-statement" role="img" aria-label="Exemplo de pagamento do entregador: 142 pacotes saíram, 136 entregues, 4 ausentes, 2 sem baixa, total a pagar 612 reais">
                 <div class="rv-statement__head">
-                  <span>Acerto do entregador</span>
+                  <span>Pagamento do entregador</span>
                   <span>28/09</span>
                 </div>
                 <p class="rv-statement__name">Carlos Silva</p>
@@ -410,14 +408,14 @@
             </li>
             <li>
               <i class="ri-barcode-box-line rv-integrations__icon" aria-hidden="true"></i>
-              <span><b>Avulsos</b> Cadastro manual com etiqueta e rastreio</span>
+              <span><b>Avulsos:</b> cadastro manual com etiqueta e rastreio</span>
             </li>
           </ul>
 
           <div class="rv-pricing">
             <div>
               <h3 class="rv-pricing__title">Você paga pelo que movimenta.</h3>
-              <p>Sem mensalidade fixa e sem fidelidade. As condições são definidas numa conversa, com implantação acompanhada.</p>
+              <p>Sem mensalidade fixa e sem fidelidade. As condições são definidas em uma conversa, com implantação acompanhada.</p>
             </div>
             <p class="rv-pricing__note">Se não trouxer mais controle para a sua operação, você simplesmente não continua.</p>
           </div>
@@ -456,7 +454,7 @@
 
   @@include("partials/vendor-scripts.html")
   <script src="assets/libs/swiper/swiper-bundle.min.js"></script>
-  <script src="assets/js/pages/landing.init.js?v=rv-etiqueta-3"></script>
+  <script src="assets/js/pages/landing.init.js?v=rv-identidade-1"></script>
   <script>document.getElementById('current-year')&&(document.getElementById('current-year').textContent=new Date().getFullYear());</script>
 </body>
 

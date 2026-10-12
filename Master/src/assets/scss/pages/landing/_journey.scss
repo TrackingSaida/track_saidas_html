@@ -75,9 +75,9 @@
   }
 
   @keyframes rv-dot-beep {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(132, 204, 22, 0.8); }
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba($rv-scan, 0.8); }
     40% { transform: scale(1.35); }
-    100% { transform: scale(1); box-shadow: 0 0 0 10px rgba(132, 204, 22, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 10px rgba($rv-scan, 0); }
   }
 
   .rv-journey__step:last-child .rv-journey__marker::after {
@@ -87,7 +87,8 @@
   .rv-journey__dot {
     width: 14px;
     height: 14px;
-    border: 2px solid $rv-ink;
+    border-radius: 50%;
+    border: 1px solid $rv-line;
     background: $rv-scan;
     flex: 0 0 auto;
   }
@@ -126,8 +127,10 @@
   // Telas reconstruídas do produto
   .rv-screen {
     background: #fff;
-    border: 2px solid $rv-ink;
-    box-shadow: 4px 4px 0 $rv-ink;
+    border: 1px solid $rv-line;
+    border-radius: $rv-radius-sm;
+    overflow: hidden;
+    box-shadow: $rv-shadow-soft;
     font-size: 0.8rem;
     height: 184px;
     overflow: hidden;
@@ -160,7 +163,7 @@
   }
 
   .rv-screen__row--ok {
-    background: rgba(132, 204, 22, 0.08);
+    background: rgba($rv-scan, 0.08);
   }
 
   .rv-screen__foot {
