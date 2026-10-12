@@ -92,7 +92,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const STATUS_LABEL = { PENDENTE: "Pendente", GERADO: "Gerado", REAJUSTADO: "Reajustado", RECEBIDO: "Recebido" };
   const MOTIVO_LOTE = {
-    PACOTES_G: "Tem pacotes grandes: defina o valor por pacote em Revisar e gerar.",
+    PACOTES_G: "Tem pacotes grandes de tamanho sem valor de cobrança: revise em Revisar e gerar.",
     DIAS_PENDENTES: "Há dias de coleta sem lançamento.",
     SEM_COLETAS: "Sem coletas no período.",
     JA_GERADO: "Já tem fechamento neste período.",
@@ -160,8 +160,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const pend = (r.dias_pendentes || []).length;
     if (st === "PENDENTE" && pend) {
       html += ` <span class="fm-chip fm-chip--aviso" title="Dias de coleta sem lançamento">${esc(plural(pend, "dia pendente", "dias pendentes"))}</span>`;
-    } else if (st === "PENDENTE" && num(r.pacotes_g) > 0) {
-      html += ' <span class="fm-chip fm-chip--info" title="Defina o valor por pacote grande ao gerar">Pacotes G</span>';
+    } else if (st === "PENDENTE" && r.motivo_bloqueio === "PACOTES_G") {
+      html += ' <span class="fm-chip fm-chip--info" title="Há pacotes grandes de tamanho sem valor de cobrança: revise antes de gerar">Revisar pacotes G</span>';
     }
     if (r.precisa_reajuste) html += ' <span class="fm-chip fm-chip--revisao">Precisa revisão</span>';
     if (r.alerta_pos_recebido) html += ' <span class="fm-chip fm-chip--info" title="As coletas mudaram depois do recebimento">Mudou após receber</span>';
@@ -250,8 +250,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         let subValor = "";
         if (r.precisa_reajuste && r.valor_final_recalculado != null) {
           subValor = `<div class="fm-sub fm-num">valor atual ${moeda(r.valor_final_recalculado)}</div>`;
-        } else if (st === "PENDENTE" && num(r.pacotes_g) > 0) {
-          subValor = '<div class="fm-sub">+ pacotes G</div>';
+        } else if (st === "PENDENTE" && num(r.valor_g) > 0) {
+          subValor = `<div class="fm-sub fm-num">inclui ${moeda(r.valor_g)} de pacotes G</div>`;
         }
         const idDias = `fm-dias-${esc(k.replace(/[^\w-]/g, "_"))}`;
         return (
@@ -410,7 +410,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ====== Ajustes gravados (agregados por tipo no backend) ======
-  const RE_ROTULO_G = /^\[Pacotes G\]\s*Motivo:\s*(.*?);\s*Valor:\s*R\$\s*([\d.,]+)\s*$/;
+  const RE_ROTULO_G = /^\[(Pacotes G|Ajuste G)\]\s*Motivo:\s*(.*?);\s*Valor:\s*R\$\s*([\d.,]+)\s*$/;
   const PREFIXO_ECO_G = "Ajuste Pacotes G - ";
 
   function decomporAjustes(tipo, valorTotal, motivoTotal) {
@@ -419,13 +419,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     const partes = String(motivoTotal || "").split(" | ").map((p) => p.trim()).filter(Boolean);
     let valorG = null;
     let motivoG = "";
+    let ajusteG = false;
     let eco = false;
     const manuais = [];
     partes.forEach((p) => {
       const m = p.match(RE_ROTULO_G);
       if (m) {
-        valorG = (valorG || 0) + (parseFloat(m[2].replace(",", ".")) || 0);
-        motivoG = m[1].trim();
+        valorG = (valorG || 0) + (parseFloat(m[3].replace(",", ".")) || 0);
+        motivoG = m[2].trim();
+        ajusteG = m[1] === "Ajuste G";
       } else if (p.startsWith(PREFIXO_ECO_G)) {
         eco = true;
         motivoG = motivoG || p.slice(PREFIXO_ECO_G.length).trim();
@@ -433,10 +435,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         manuais.push(p);
       }
     });
-    if (tipo === "ADICAO" && valorG !== null && valorG > 0 && valorG <= valor + 0.005) {
+    if (valorG !== null && valorG > 0 && valorG <= valor + 0.005) {
       const resto = centavos(valor - valorG);
       return {
-        g: { valor: centavos(valorG), motivo: motivoG && motivoG !== "Ajuste Pacotes G" ? motivoG : "" },
+        g: { valor: centavos(valorG), motivo: motivoG && motivoG !== "Ajuste Pacotes G" ? motivoG : "", ajuste: ajusteG },
         manuais: resto > 0 ? [{ tipo, valor: resto, motivo: manuais.join(" | ") || "Ajuste anterior sem motivo" }] : [],
       };
     }
@@ -455,6 +457,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     [...CAMPOS_QTDE, "pacotes_g", "g_shopee", "g_ml", "g_avulso"].forEach((c) => {
       out[c] = Math.max(0, parseInt(it[c], 10) || 0);
     });
+    out.g_categorias = it.g_categorias && typeof it.g_categorias === "object" ? it.g_categorias : null;
     return out;
   }
 
@@ -479,19 +482,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     const bruto = centavos(qtd.shopee * num(pr.shopee) + qtd.ml * num(pr.ml) + qtd.avulso * num(pr.avulso));
     const cancelados = centavos(canc.shopee * num(pr.shopee) + canc.ml * num(pr.ml) + canc.avulso * num(pr.avulso));
     const g = totaisG(p.itens);
-    const gUnit = p.legadoG ? 0 : num(qs("#g-valor-unit")?.value);
-    const valorG = centavos(g.total * gUnit);
+    const gAuto = centavos(num(p.valorGAuto));
+    const ajusteG = p.ajusteG ? centavos(p.ajusteG.valor) : 0;
+    const valorG = centavos(gAuto + ajusteG);
     const adicoes = p.ajustes.filter((a) => a.tipo === "ADICAO").reduce((s, a) => s + num(a.valor), 0);
     const descontos = p.ajustes.filter((a) => a.tipo !== "ADICAO").reduce((s, a) => s + num(a.valor), 0);
     const total = centavos(bruto - cancelados + valorG + adicoes - descontos);
-    return { qtd, canc, bruto, cancelados, g, gUnit, valorG, adicoes: centavos(adicoes), descontos: centavos(descontos), total };
+    return { qtd, canc, bruto, cancelados, g, gAuto, ajusteG, valorG, adicoes: centavos(adicoes), descontos: centavos(descontos), total };
   }
 
   function errosValidacao(c) {
     const p = state.painel;
     const erros = [];
     if (p.modo === "gerar" && p.pendentes.length) erros.push("Resolva os dias de coleta sem lançamento.");
-    if (c.g.total > 0 && !p.legadoG && !(c.gUnit > 0)) erros.push("Informe o valor por pacote grande.");
     if (c.total < 0) erros.push("O total não pode ficar negativo. Revise os descontos.");
     return erros;
   }
@@ -504,13 +507,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function assinatura() {
     const p = state.painel;
-    return JSON.stringify([p.itens, p.ajustes, p.legadoG ? 0 : centavos(qs("#g-valor-unit")?.value), (qs("#g-motivo")?.value || "").trim()]);
+    return JSON.stringify([p.itens, p.ajustes, p.ajusteG]);
   }
 
   function painelAlterado() {
     const p = state.painel;
     if (!p || !p.pronto) return false;
-    const digitando = (qs("#ajuste-valor")?.value || "").trim() || (qs("#ajuste-motivo")?.value || "").trim();
+    const digitando = ["#ajuste-valor", "#ajuste-motivo", "#g-ajuste-valor", "#g-ajuste-motivo"].some((sel) => (qs(sel)?.value || "").trim());
     return assinatura() !== p.assinaturaInicial || !!digitando;
   }
 
@@ -527,7 +530,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     html += linhaComp("Avulso", `${c.qtd.avulso} × ${moeda(pr.avulso)}`, moeda(c.qtd.avulso * num(pr.avulso)));
     const totalCanc = c.canc.shopee + c.canc.ml + c.canc.avulso;
     if (totalCanc > 0) html += linhaComp("Cancelados", plural(totalCanc, "pacote", "pacotes"), `− ${moeda(c.cancelados)}`);
-    if (c.g.total > 0 && !p.legadoG) html += linhaComp("Pacotes grandes", `${c.g.total} × ${moeda(c.gUnit)}`, `+ ${moeda(c.valorG)}`);
+    if (c.g.total > 0) html += linhaComp("Pacotes grandes", plural(c.g.total, "pacote", "pacotes"), `+ ${moeda(c.gAuto)}`);
+    if (c.ajusteG) html += linhaComp("Ajuste de pacotes grandes", "", `${c.ajusteG > 0 ? "+" : "−"} ${moeda(Math.abs(c.ajusteG))}`);
     if (c.adicoes > 0) html += linhaComp("Adicionais", "", `+ ${moeda(c.adicoes)}`);
     if (c.descontos > 0) html += linhaComp("Descontos", "", `− ${moeda(c.descontos)}`);
     html += linhaComp("Total", "", moeda(c.total), "fm-linha-total");
@@ -598,13 +602,53 @@ document.addEventListener("DOMContentLoaded", async () => {
   function renderG(c) {
     const p = state.painel;
     const sec = qs("#painel-g");
-    sec.classList.toggle("d-none", c.g.total <= 0);
-    if (c.g.total <= 0) return;
-    qs("#painel-g-info").textContent = p.legadoG
-      ? `${plural(c.g.total, "pacote grande", "pacotes grandes")}. O adicional já está incluído no ajuste anterior.`
-      : `${plural(c.g.total, "pacote grande", "pacotes grandes")} no período (Shopee ${c.g.s} · ML ${c.g.m} · Avulso ${c.g.a}).`;
-    qs("#g-valor-unit").closest(".row").classList.toggle("d-none", !!p.legadoG);
-    qs("#g-preview").textContent = !p.legadoG && c.gUnit > 0 ? `${c.g.total} × ${moeda(c.gUnit)} = ${moeda(c.valorG)}` : "";
+    const mostrar = c.g.total > 0 || !!p.ajusteG;
+    sec.classList.toggle("d-none", !mostrar);
+    if (!mostrar) return;
+    qs("#painel-g-info").textContent = `${plural(c.g.total, "pacote grande", "pacotes grandes")} no período. Valor calculado pelas categorias de Preços de Entrega.`;
+    qs("#painel-g-categorias").innerHTML = (p.gCategorias || [])
+      .map((cat) => {
+        const valor = cat.valor == null ? "—" : num(cat.valor) > 0 ? `+ ${moeda(cat.valor)}` : "sem cobrança";
+        return linhaComp(cat.nome, plural(num(cat.qtd), "pacote", "pacotes"), valor);
+      })
+      .join("");
+    const semCobranca = (p.gCategorias || []).filter((cat) => num(cat.qtd) > 0 && cat.valor != null && !(num(cat.valor) > 0));
+    const avisos = [p.avisoG];
+    if (semCobranca.length && !p.ajusteG) {
+      avisos.push(
+        `${semCobranca.map((cat) => cat.nome).join(", ")} sem valor de cobrança para a ${TERMO_BASE.toLowerCase()}. ` +
+          "Configure em Preços de Entrega ou faça um ajuste se houver cobrança."
+      );
+    }
+    const textoAviso = avisos.filter(Boolean).join(" ");
+    const aviso = qs("#painel-g-aviso");
+    aviso.textContent = textoAviso;
+    aviso.classList.toggle("d-none", !textoAviso);
+    qs("#painel-g-ajuste").innerHTML = p.ajusteG
+      ? `<div class="fm-ajuste"><div><div class="fw-semibold fm-num">${p.ajusteG.valor > 0 ? "+" : "−"} ${moeda(Math.abs(p.ajusteG.valor))}</div><div class="fm-painel-sub">${esc(p.ajusteG.motivo)}</div></div>` +
+        '<button type="button" class="btn btn-sm btn-link text-danger" data-acao="remover-ajuste-g" aria-label="Remover ajuste de pacotes grandes">Remover</button></div>'
+      : "";
+    qs("#btnAjustarG").classList.toggle("d-none", !!p.ajusteG);
+    if (p.ajusteG) qs("#painel-g-form").classList.add("d-none");
+  }
+
+  function aplicarAjusteG() {
+    const p = state.painel;
+    const tipo = qs("#g-ajuste-tipo").value;
+    const valor = centavos(qs("#g-ajuste-valor").value);
+    const motivo = (qs("#g-ajuste-motivo").value || "").trim();
+    const erro = qs("#g-ajuste-erro");
+    let msg = "";
+    if (!(valor > 0)) msg = "Informe um valor maior que zero.";
+    else if (!motivo) msg = "Informe o motivo do ajuste.";
+    erro.textContent = msg;
+    erro.classList.toggle("d-none", !msg);
+    if (msg) return;
+    p.ajusteG = { valor: tipo === "ADICAO" ? valor : -valor, motivo };
+    qs("#g-ajuste-valor").value = "";
+    qs("#g-ajuste-motivo").value = "";
+    qs("#btnAjustarG").setAttribute("aria-expanded", "false");
+    atualizarPainel();
   }
 
   function atualizarPainel() {
@@ -663,10 +707,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     qs("#painel-sub").textContent = opts.base ? `${opts.base} · ${periodoTexto(opts.ini, opts.fim)}` : "—";
     qs("#btnPainelSalvar").textContent = opts.modo === "reajustar" ? "Salvar reajuste" : "Gerar fechamento";
     qs("#painel-total-label").textContent = opts.modo === "reajustar" ? "Novo valor" : "Total a receber";
-    ["#ajuste-valor", "#ajuste-motivo", "#g-valor-unit", "#g-motivo"].forEach((s) => {
+    ["#ajuste-valor", "#ajuste-motivo", "#g-ajuste-valor", "#g-ajuste-motivo"].forEach((s) => {
       const el = qs(s);
       if (el) el.value = "";
     });
+    qs("#g-ajuste-erro").classList.add("d-none");
+    qs("#painel-g-form").classList.add("d-none");
+    qs("#btnAjustarG").setAttribute("aria-expanded", "false");
     qs("#ajuste-erro").classList.add("d-none");
     qs("#painel-dias").classList.add("d-none");
     qs("#btnConferirDias").setAttribute("aria-expanded", "false");
@@ -685,6 +732,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           pendentes: (calc.calendario?.dias_pendentes || []).map((d) => d.data),
           itensOriginais: null,
           cnpj: calc.seller_info?.cnpj || "",
+          valorGAuto: num(calc.valor_g),
+          gCategorias: calc.g_por_categoria || [],
+          ajusteG: null,
+          avisoG: "",
         });
       } else {
         const fech = await api(`${API_FECH}/${encodeURIComponent(opts.idFech)}`);
@@ -704,7 +755,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         const itens = (fech.itens || []).map(normalizarItem);
         const adicoes = decomporAjustes("ADICAO", fech.valor_adicao, fech.motivo_adicao);
         const descontos = decomporAjustes("SUBTRACAO", fech.valor_subtracao, fech.motivo_subtracao);
-        const g = totaisG(itens);
+        const gCategorias = fech.g_por_categoria || [];
+        let ajusteG = null;
+        let avisoG = "";
+        if (adicoes.g && adicoes.g.ajuste) ajusteG = { valor: adicoes.g.valor, motivo: adicoes.g.motivo || "Ajuste de pacotes grandes" };
+        else if (adicoes.g) avisoG = `Antes o valor dos pacotes grandes era informado à mão (${moeda(adicoes.g.valor)}). Agora ele é calculado pelas categorias.`;
+        if (descontos.g) ajusteG = { valor: -descontos.g.valor, motivo: descontos.g.motivo || "Ajuste de pacotes grandes" };
+        if (adicoes.legadoG) avisoG = "Um ajuste anterior já inclui o valor dos pacotes grandes. Como agora ele é calculado pelas categorias, remova ou corrija esse ajuste para não cobrar duas vezes.";
         Object.assign(p, {
           idFech: fech.id_fechamento,
           base: fech.base,
@@ -715,16 +772,16 @@ document.addEventListener("DOMContentLoaded", async () => {
           itensOriginais: Object.fromEntries(itens.map((it) => [it.data, { ...it }])),
           itensAtuais: calc ? (calc.itens || []).map(normalizarItem) : null,
           ajustes: [...adicoes.manuais, ...descontos.manuais].map((a) => ({ tipo: a.tipo, valor: a.valor, motivo: a.motivo })),
-          legadoG: !!adicoes.legadoG,
+          valorGAuto: gCategorias.reduce((s, cat) => s + num(cat.valor), 0),
+          gCategorias,
+          ajusteG,
+          avisoG,
+          calcAtual: calc,
           valorAnterior: num(fech.valor_final),
           divergente: !!fech.divergencia_valor,
           valorRecalculado: fech.valor_final_recalculado,
           cnpj: fech.seller_info?.cnpj || "",
         });
-        if (adicoes.g && g.total > 0) {
-          qs("#g-valor-unit").value = String(centavos(adicoes.g.valor / g.total));
-          qs("#g-motivo").value = adicoes.g.motivo || "";
-        }
         if (p.divergente && p.itensAtuais) {
           qs("#painel-divergencia").classList.remove("d-none");
           qs("#painel-divergencia-texto").textContent = `Valor gerado ${moeda(p.valorAnterior)} · com as coletas atuais ${moeda(p.valorRecalculado)}`;
@@ -751,6 +808,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       const sig = JSON.parse(p.assinaturaInicial);
       if (JSON.stringify(p.itens) === JSON.stringify(sig[0])) {
         p.itens = (calc.itens || []).map(normalizarItem);
+        p.valorGAuto = num(calc.valor_g);
+        p.gCategorias = calc.g_por_categoria || [];
         sig[0] = p.itens;
         p.assinaturaInicial = JSON.stringify(sig);
       }
@@ -842,13 +901,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const p = state.painel;
     const adicoes = p.ajustes.filter((a) => a.tipo === "ADICAO");
     const descontos = p.ajustes.filter((a) => a.tipo !== "ADICAO");
-    const motivoG = (qs("#g-motivo")?.value || "").trim() || "Adicional por pacote grande";
     const somaManual = (lista) => centavos(lista.reduce((s, a) => s + num(a.valor), 0));
     return {
       adicoesManuais: adicoes,
-      motivoG,
-      valorAdicao: centavos(somaManual(adicoes) + c.valorG),
-      valorSubtracao: somaManual(descontos),
+      valorAdicao: centavos(somaManual(adicoes) + Math.max(c.ajusteG, 0)),
+      valorSubtracao: centavos(somaManual(descontos) + Math.max(-c.ajusteG, 0)),
       motivoAdicaoManual: adicoes.map((a) => a.motivo).join(" | "),
       motivoSubtracao: descontos.map((a) => a.motivo).join(" | "),
     };
@@ -906,16 +963,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       let idFech = p.idFech;
       if (p.modo === "reajustar") {
-        const rotuloG = c.valorG > 0 ? `[Pacotes G] Motivo: ${aj.motivoG}; Valor: R$ ${c.valorG.toFixed(2)}` : "";
+        const rotuloG = c.ajusteG ? `[Ajuste G] Motivo: ${p.ajusteG.motivo}; Valor: R$ ${Math.abs(c.ajusteG).toFixed(2)}` : "";
         await api(`${API_FECH}/${encodeURIComponent(p.idFech)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             itens,
             valor_adicao: aj.valorAdicao,
-            motivo_adicao: [aj.motivoAdicaoManual, rotuloG].filter(Boolean).join(" | "),
+            motivo_adicao: [aj.motivoAdicaoManual, c.ajusteG > 0 ? rotuloG : ""].filter(Boolean).join(" | "),
             valor_subtracao: aj.valorSubtracao,
-            motivo_subtracao: aj.motivoSubtracao,
+            motivo_subtracao: [aj.motivoSubtracao, c.ajusteG < 0 ? rotuloG : ""].filter(Boolean).join(" | "),
           }),
         });
       } else {
@@ -931,8 +988,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             motivo_adicao: aj.motivoAdicaoManual || null,
             valor_subtracao: aj.valorSubtracao,
             motivo_subtracao: aj.motivoSubtracao || null,
-            ajuste_g_valor: c.valorG > 0 ? c.valorG : 0,
-            ajuste_g_motivo: c.valorG > 0 ? aj.motivoG : null,
+            ajuste_g_valor: c.ajusteG || 0,
+            ajuste_g_motivo: c.ajusteG ? p.ajusteG.motivo : null,
           }),
         });
         idFech = criado.id_fechamento;
@@ -985,12 +1042,74 @@ document.addEventListener("DOMContentLoaded", async () => {
     shopee: qs("#modalColetaManualShopee"),
     ml: qs("#modalColetaManualMl"),
     avulso: qs("#modalColetaManualAvulso"),
-    gS: qs("#inputColetaGshopee"),
-    gM: qs("#inputColetaGml"),
-    gA: qs("#inputColetaGavulso"),
+    g: qs("#coletaGCategorias"),
+    gErro: qs("#coletaGErro"),
     salvar: qs("#modalColetaManualSalvar"),
   };
   let aposSalvarColeta = null;
+  let categoriasGCache = null;
+
+  async function carregarCategoriasG() {
+    if (categoriasGCache) return categoriasGCache;
+    const lista = await api(`${API_URL}/entregadores/precos/categorias-g?incluir_inativas=true`);
+    categoriasGCache = (Array.isArray(lista) ? lista : []).sort(
+      (a, b) => (b.ativo ? 1 : 0) - (a.ativo ? 1 : 0) || (num(a.ordem) - num(b.ordem)) || a.id - b.id
+    );
+    return categoriasGCache;
+  }
+
+  const SERVICOS_G = [
+    { chave: "shopee", rotulo: "Shopee" },
+    { chave: "ml", rotulo: "ML / Flex" },
+    { chave: "avulso", rotulo: "Avulso" },
+  ];
+
+  function gDaColeta(coleta, padraoId) {
+    if (coleta?.g_categorias && typeof coleta.g_categorias === "object") return coleta.g_categorias;
+    const gS = num(coleta?.g_shopee);
+    const gM = num(coleta?.g_ml);
+    let gA = num(coleta?.g_avulso);
+    if (coleta && gS + gM + gA === 0) gA = num(coleta.pacotes_g);
+    return gS + gM + gA > 0 && padraoId ? { [padraoId]: { shopee: gS, ml: gM, avulso: gA } } : {};
+  }
+
+  function renderGColeta(categorias, atual) {
+    const usadas = new Set(Object.keys(atual || {}).filter((id) => SERVICOS_G.some((s) => num(atual[id]?.[s.chave]) > 0)));
+    const visiveis = categorias.filter((c) => c.ativo !== false || usadas.has(String(c.id)));
+    mc.gErro.classList.add("d-none");
+    if (!visiveis.length) {
+      mc.g.innerHTML = '<p class="small text-muted mb-0">Nenhuma categoria de pacote grande ativa. Cadastre em Cadastros › Preços de Entrega.</p>';
+      return;
+    }
+    mc.g.innerHTML =
+      '<div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th scope="col">Tamanho</th>' +
+      SERVICOS_G.map((s) => `<th scope="col" class="text-end">${s.rotulo}</th>`).join("") +
+      "</tr></thead><tbody>" +
+      visiveis
+        .map(
+          (c) =>
+            `<tr><th scope="row" class="small">${esc(c.nome)}${c.ativo === false ? ' <span class="text-muted fw-normal">(desativada)</span>' : ""}</th>` +
+            SERVICOS_G.map((s) => {
+              const v = num(atual?.[c.id]?.[s.chave]);
+              return `<td><input type="number" min="0" inputmode="numeric" class="form-control form-control-sm text-end" data-g-cat="${esc(c.id)}" data-g-servico="${s.chave}" value="${v || ""}" placeholder="0" aria-label="${esc(c.nome)} ${s.rotulo}"></td>`;
+            }).join("") +
+            "</tr>"
+        )
+        .join("") +
+      "</tbody></table></div>";
+  }
+
+  function lerGColeta() {
+    const mapa = {};
+    mc.g.querySelectorAll("input[data-g-cat]").forEach((el) => {
+      const qtd = Math.max(0, parseInt(el.value, 10) || 0);
+      if (!qtd) return;
+      const id = el.dataset.gCat;
+      mapa[id] = mapa[id] || { categoria_g_id: Number(id), shopee: 0, ml: 0, avulso: 0 };
+      mapa[id][el.dataset.gServico] += qtd;
+    });
+    return Object.values(mapa);
+  }
 
   async function abrirColetaManual({ data, base, coleta }) {
     if (!modal) return;
@@ -1011,13 +1130,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     mc.shopee.value = String(num(coleta?.shopee));
     mc.ml.value = String(num(coleta?.mercado_livre));
     mc.avulso.value = String(num(coleta?.avulso));
-    let gS = num(coleta?.g_shopee);
-    const gM = num(coleta?.g_ml);
-    let gA = num(coleta?.g_avulso);
-    if (coleta && gS + gM + gA === 0) gA = num(coleta.pacotes_g);
-    mc.gS.value = String(gS);
-    mc.gM.value = String(gM);
-    mc.gA.value = String(gA);
+    try {
+      const categorias = await carregarCategoriasG();
+      const padrao = categorias.find((c) => c.ativo !== false);
+      renderGColeta(categorias, gDaColeta(coleta, padrao?.id));
+    } catch (err) {
+      mc.g.innerHTML = '<p class="small text-danger mb-0">Não foi possível carregar os tamanhos de pacote.</p>';
+    }
     mc.data.disabled = !!coleta || !!data;
     mc.base.disabled = !!coleta || !!base;
     qs("#modalColetaManualLabel").textContent = coleta ? `Corrigir coleta de ${dmy(data)}` : "Coleta manual";
@@ -1052,14 +1171,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     const base = (mc.base.value || "").trim();
     const data = mc.data.value;
     const inteiro = (el) => Math.max(0, parseInt(el.value, 10) || 0);
-    const g = { g_shopee: inteiro(mc.gS), g_ml: inteiro(mc.gM), g_avulso: inteiro(mc.gA) };
+    const gCategorias = lerGColeta();
     const corpo = {
       shopee: inteiro(mc.shopee),
       mercado_livre: inteiro(mc.ml),
       avulso: inteiro(mc.avulso),
-      pacotes_g: g.g_shopee + g.g_ml + g.g_avulso,
-      ...g,
     };
+    const somaG = (s) => gCategorias.reduce((t, c) => t + c[s], 0);
+    const excedido = [
+      ["Shopee", somaG("shopee"), corpo.shopee],
+      ["Mercado Livre", somaG("ml"), corpo.mercado_livre],
+      ["Avulso", somaG("avulso"), corpo.avulso],
+    ].find(([, g, total]) => g > total);
+    if (excedido) {
+      mc.gErro.textContent = `${excedido[0]}: ${excedido[1]} pacotes grandes, mas só ${excedido[2]} no total.`;
+      mc.gErro.classList.remove("d-none");
+      return;
+    }
+    if (mc.g.querySelector("input[data-g-cat]")) corpo.g_categorias = gCategorias;
     if (!base || !data) {
       Swal.fire({ icon: "warning", title: "Campos obrigatórios", text: `Informe a data e a ${TERMO_BASE.toLowerCase()}.`, confirmButtonColor: COR_PRIMARIA });
       return;
@@ -1108,6 +1237,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
   mc.salvar?.addEventListener("click", salvarColetaManual);
+  mc.g?.addEventListener("input", () => mc.gErro.classList.add("d-none"));
 
   document.querySelectorAll("#fm-cards .fm-card").forEach((card) => {
     card.addEventListener("click", () => {
@@ -1150,6 +1280,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!btn) return;
     const acao = btn.dataset.acao;
     if (acao === "remover-ajuste") removerAjuste(Number(btn.dataset.i));
+    else if (acao === "remover-ajuste-g") {
+      state.painel.ajusteG = null;
+      atualizarPainel();
+    }
     else if (acao === "justificar") justificarDia(btn.dataset.data);
     else if (acao === "lancar") {
       aposSalvarColeta = async () => {
@@ -1180,13 +1314,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         `<tr><td>Total</td>${CAMPOS_QTDE.map((c) => `<td class="text-end fm-num">${soma(c)}</td>`).join("")}<td class="text-end fm-num">${soma("pacotes_g")}</td></tr>`;
       qs("#painel-dias-legenda").classList.toggle("d-none", !painelEl.querySelector(".fm-celula-alterada"));
       atualizarPainel();
-    } else if (el.id === "g-valor-unit" || el.id === "g-motivo" || el.id === "ajuste-valor" || el.id === "ajuste-motivo") {
-      if (el.id.startsWith("ajuste")) qs("#ajuste-erro").classList.add("d-none");
+    } else if (el.id === "ajuste-valor" || el.id === "ajuste-motivo") {
+      qs("#ajuste-erro").classList.add("d-none");
+      atualizarPainel();
+    } else if (el.id === "g-ajuste-valor" || el.id === "g-ajuste-motivo") {
+      qs("#g-ajuste-erro").classList.add("d-none");
       atualizarPainel();
     }
   });
 
   qs("#btnAdicionarAjuste")?.addEventListener("click", adicionarAjuste);
+  qs("#btnAplicarAjusteG")?.addEventListener("click", aplicarAjusteG);
+  qs("#btnAjustarG")?.addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    const aberto = btn.getAttribute("aria-expanded") !== "true";
+    btn.setAttribute("aria-expanded", String(aberto));
+    qs("#painel-g-form").classList.toggle("d-none", !aberto);
+    if (aberto) qs("#g-ajuste-valor").focus();
+  });
   qs("#btnPainelSalvar")?.addEventListener("click", salvarPainel);
   qs("#btnConferirDias")?.addEventListener("click", (e) => {
     const btn = e.currentTarget;
@@ -1198,6 +1343,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const p = state.painel;
     if (!p || !p.itensAtuais) return;
     p.itens = p.itensAtuais.map((it) => ({ ...it }));
+    if (p.calcAtual) {
+      p.valorGAuto = num(p.calcAtual.valor_g);
+      p.gCategorias = p.calcAtual.g_por_categoria || [];
+    }
     qs("#painel-divergencia").classList.add("d-none");
     qs("#painel-dias").classList.remove("d-none");
     qs("#btnConferirDias").setAttribute("aria-expanded", "true");
