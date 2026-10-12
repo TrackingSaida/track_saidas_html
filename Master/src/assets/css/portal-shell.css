@@ -982,3 +982,159 @@ a.portal-kpi--acao:focus-visible {
   color: #b91c1c;
   text-decoration: underline;
 }
+
+/* Topo: marca (celular) e perfil */
+.portal-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  text-decoration: none;
+  color: var(--ps-deep);
+}
+
+.portal-header-brand img {
+  height: 26px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.portal-header-loja {
+  font-weight: 700;
+  font-size: 0.92rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ps-profile-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--ps-border);
+  background: var(--ps-card);
+  padding: 0.25rem 0.5rem 0.25rem 0.3rem;
+  border-radius: 999px;
+  color: var(--ps-text);
+}
+
+.ps-profile-btn:hover,
+.ps-profile-btn:focus-visible,
+.ps-profile-btn[aria-expanded="true"] {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.ps-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--ps-deep);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.02em;
+}
+
+.ps-profile-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.ps-profile-menu {
+  min-width: 220px;
+  padding: 0.35rem 0;
+}
+
+.ps-profile-head {
+  padding: 0.5rem 1rem 0.35rem;
+}
+
+.ps-profile-loja {
+  font-weight: 700;
+  color: var(--ps-deep);
+}
+
+.ps-profile-op {
+  font-size: 0.75rem;
+  color: var(--ps-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ps-profile-sair {
+  color: #b91c1c;
+}
+
+.ps-profile-sair:hover,
+.ps-profile-sair:focus-visible {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+@media (max-width: 991.98px) {
+  .portal-header {
+    padding: 0.6rem 0.9rem;
+  }
+
+  .portal-header-brand {
+    flex: 1;
+  }
+
+  .portal-header-search {
+    order: 10;
+    flex-basis: 100%;
+    max-width: none;
+  }
+}
+
+/* Por canal de venda */
+.ps-canal-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.ps-canal-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+}
+
+.ps-canal-num {
+  font-weight: 700;
+  color: var(--ps-deep);
+}
+
+.ps-canal-num .text-muted {
+  font-weight: 500;
+  font-size: 0.8rem;
+}
+
+.ps-canal-barra {
+  height: 6px;
+  border-radius: 999px;
+  background: #eef2f6;
+  overflow: hidden;
+}
+
+.ps-canal-barra span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ps-tech);
+}

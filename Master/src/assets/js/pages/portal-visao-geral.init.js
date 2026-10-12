@@ -116,6 +116,10 @@
     recentesVazio.classList.add("d-none");
     items.forEach(function (it) {
       var tr = document.createElement("tr");
+      tr.className = "portal-pedido-row";
+      tr.tabIndex = 0;
+      tr.setAttribute("data-href", "portal-pedido.html?id=" + encodeURIComponent(it.id_saida));
+      tr.setAttribute("aria-label", "Abrir pedido " + (it.codigo || ""));
       var quando = it.atualizado_em || it.updated_at || it.created_at;
       tr.innerHTML =
         '<td class="c-codigo"><strong>' +
@@ -137,13 +141,22 @@
         esc(fmt(quando)) +
         '</span><span class="d-md-none small text-muted">' +
         esc(PS.formatRelative(quando)) +
-        "</span></td>" +
-        '<td class="c-acoes text-end"><a class="btn btn-sm btn-soft-primary" href="portal-pedido.html?id=' +
-        encodeURIComponent(it.id_saida) +
-        '">Ver</a></td>';
+        "</span></td>";
       tbody.appendChild(tr);
     });
   }
+
+  function abrirRecente(ev) {
+    var row = ev.target.closest("tr.portal-pedido-row");
+    if (row) location.href = row.getAttribute("data-href");
+  }
+
+  tbody.addEventListener("click", abrirRecente);
+  tbody.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Enter" && ev.key !== " ") return;
+    ev.preventDefault();
+    abrirRecente(ev);
+  });
 
   function renderCanais(canais) {
     listaCanais.innerHTML = "";
@@ -156,17 +169,32 @@
       return;
     }
     canalVazio.classList.add("d-none");
-    comTotal.forEach(function (c) {
-      var li = document.createElement("li");
-      li.className = "list-group-item d-flex justify-content-between align-items-center px-0";
-      li.innerHTML =
-        "<span>" +
-        esc(c.canal_label || c.canal || "—") +
-        '</span><span class="badge bg-primary-subtle text-primary">' +
-        esc(c.total) +
-        "</span>";
-      listaCanais.appendChild(li);
-    });
+    var soma = comTotal.reduce(function (acc, c) {
+      return acc + Number(c.total || 0);
+    }, 0);
+    comTotal
+      .slice()
+      .sort(function (a, b) {
+        return Number(b.total || 0) - Number(a.total || 0);
+      })
+      .forEach(function (c) {
+        var total = Number(c.total || 0);
+        var pct = soma ? Math.round((total / soma) * 100) : 0;
+        var li = document.createElement("li");
+        li.className = "ps-canal-item";
+        li.innerHTML =
+          '<div class="ps-canal-linha"><span>' +
+          esc(c.canal_label || c.canal || "—") +
+          '</span><span class="ps-canal-num">' +
+          esc(total) +
+          ' <span class="text-muted">· ' +
+          pct +
+          "%</span></span></div>" +
+          '<div class="ps-canal-barra" aria-hidden="true"><span style="width:' +
+          pct +
+          '%"></span></div>';
+        listaCanais.appendChild(li);
+      });
   }
 
   async function load() {

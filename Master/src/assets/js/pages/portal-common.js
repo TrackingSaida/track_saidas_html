@@ -422,6 +422,9 @@
       if (active) a.setAttribute("aria-current", "page");
       else a.removeAttribute("aria-current");
     });
+    document.querySelectorAll("[data-hide-on]").forEach(function (el) {
+      el.classList.toggle("d-none", el.getAttribute("data-hide-on") === key);
+    });
     // legado (navbar antiga)
     document.querySelectorAll("nav a.btn[href]").forEach(function (a) {
       var href = (a.getAttribute("href") || "").toLowerCase();
@@ -472,6 +475,13 @@
       node.textContent = src.textContent;
       node.classList.toggle("d-none", src.classList.contains("d-none"));
     });
+    var avatar = document.getElementById("portalAvatar");
+    if (avatar) {
+      var partes = String(seller).trim().split(/\s+/).filter(Boolean);
+      avatar.textContent =
+        ((partes[0] || "").charAt(0) + (partes.length > 1 ? partes[partes.length - 1].charAt(0) : "")).toUpperCase() ||
+        "—";
+    }
   }
 
   function todayISO() {
