@@ -19,9 +19,6 @@
       <a href="portal-emitir.html" data-nav="emitir">
         <i class="ri-qr-code-line" aria-hidden="true"></i> Emitir etiqueta
       </a>
-      <a href="portal-etiquetas.html" data-nav="etiquetas">
-        <i class="ri-price-tag-3-line" aria-hidden="true"></i> Etiquetas
-      </a>
     </nav>
   </aside>
 
@@ -49,9 +46,6 @@
         <a href="portal-emitir.html" data-nav="emitir" data-bs-dismiss="offcanvas">
           <i class="ri-qr-code-line" aria-hidden="true"></i> Emitir etiqueta
         </a>
-        <a href="portal-etiquetas.html" data-nav="etiquetas" data-bs-dismiss="offcanvas">
-          <i class="ri-price-tag-3-line" aria-hidden="true"></i> Etiquetas
-        </a>
       </nav>
     </div>
   </div>
@@ -68,6 +62,10 @@
       >
         <i class="ri-menu-line" aria-hidden="true"></i>
       </button>
+      <a class="portal-header-brand d-lg-none" href="portal-visao-geral.html">
+        <img src="assets/images/logo_rotevo.png" alt="ROTEVO">
+        <span class="portal-header-loja" data-mirror="portalSellerNome">Carregando…</span>
+      </a>
       <form class="portal-header-search" id="portalBuscaForm" action="portal-pedidos.html" method="get" role="search">
         <div class="input-group">
           <span class="input-group-text bg-light border-end-0"><i class="ri-search-line" aria-hidden="true"></i></span>
@@ -82,9 +80,25 @@
         </div>
       </form>
       <div class="portal-header-actions">
-        <a class="btn btn-success" href="portal-emitir.html">
-          <i class="ri-add-line me-1" aria-hidden="true"></i> Nova etiqueta
+        <a class="btn ps-btn-primary" href="portal-emitir.html" data-hide-on="emitir" aria-label="Nova etiqueta">
+          <i class="ri-add-line" aria-hidden="true"></i><span class="d-none d-sm-inline ms-1">Nova etiqueta</span>
         </a>
-        <button type="button" class="btn btn-outline-danger" id="btnSair">Sair</button>
+        <div class="dropdown">
+          <button type="button" class="btn ps-profile-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Menu da conta">
+            <span class="ps-avatar" id="portalAvatar" aria-hidden="true">—</span>
+            <span class="d-none d-xl-inline"><span class="ps-profile-name" data-mirror="portalSellerNome">Carregando…</span></span>
+            <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
+          </button>
+          <div class="dropdown-menu dropdown-menu-end ps-profile-menu">
+            <div class="ps-profile-head">
+              <p class="ps-profile-loja mb-0" data-mirror="portalSellerNome">Carregando…</p>
+              <p class="ps-profile-op mb-0" data-mirror="portalTransportadora">—</p>
+            </div>
+            <div class="dropdown-divider"></div>
+            <button type="button" class="dropdown-item ps-profile-sair" id="btnSair">
+              <i class="ri-logout-box-r-line me-2" aria-hidden="true"></i>Sair
+            </button>
+          </div>
+        </div>
       </div>
     </header>

@@ -276,6 +276,11 @@
       var to = dataFimEl ? dataFimEl.value : hoje.end;
       var ownerSel = document.getElementById("admin-owner-filter");
       var subBase = ownerSel && ownerSel.value ? ownerSel.value : "";
+      var linkCobranca = document.getElementById("admin-link-cobranca");
+      if (linkCobranca && from && to) {
+        linkCobranca.href = "tracking-cobranca-owners.html?" +
+          new URLSearchParams({ data_inicio: from, data_fim: to }).toString();
+      }
       showLoading(true);
       try {
         var data = await loadDashboard(from, to, subBase);

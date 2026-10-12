@@ -4,6 +4,7 @@
   @@include("partials/head-css.html")
   <!-- SweetAlert2 CSS (garante que está presente) -->
   <link rel="stylesheet" href="assets/libs/sweetalert2/sweetalert2.min.css">
+  <link rel="stylesheet" href="assets/css/registros.css?v=1">
 </head>
 
 <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
@@ -33,6 +34,9 @@
                   <div class="registros-edit-wrap">
                     <button id="btn-edit-selected" class="btn btn-primary d-none" disabled type="button">
                       <i class="ri-edit-line me-1"></i><span id="btn-edit-selected-text">Editar selecionados (0)</span>
+                    </button>
+                    <button id="btn-tamanho-selected" class="btn btn-outline-secondary d-none" type="button" aria-haspopup="menu">
+                      <i class="ri-box-3-line me-1"></i>Definir tamanho
                     </button>
                   </div>
                 </div>
@@ -223,14 +227,37 @@
                           </div>
                         </div>
                       </div>
-                      <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="flt-somente-g">
-                        <label class="form-check-label small" for="flt-somente-g">Somente pacotes G (Grande)</label>
+                      <div class="mb-3">
+                        <label class="form-label small" for="flt-tamanho">Tamanho</label>
+                        <select id="flt-tamanho" class="form-select form-select-sm">
+                          <option value="">Todos</option>
+                          <option value="g">Só pacotes grandes</option>
+                        </select>
                       </div>
                       <div class="d-flex gap-2">
                         <button type="button" id="btnFiltroAplicar" class="btn btn-primary flex-grow-1">Aplicar</button>
                         <button type="button" id="btnFiltroLimpar" class="btn btn-outline-secondary flex-grow-1">Limpar</button>
                         <button type="button" id="btnFiltroCancelar" class="btn btn-outline-secondary">Cancelar</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="dropdown">
+                    <button class="btn btn-outline-secondary" id="btnColunas" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                      <i class="ri-layout-column-line me-1"></i> Colunas
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end p-3 reg-colunas-menu" aria-labelledby="btnColunas">
+                      <p class="small text-muted mb-2">Mostrar na tabela</p>
+                      <div class="form-check form-switch">
+                        <input class="form-check-input reg-coluna-toggle" type="checkbox" id="col-responsavel" value="responsavel" checked>
+                        <label class="form-check-label small" for="col-responsavel">Responsável</label>
+                      </div>
+                      <div class="form-check form-switch">
+                        <input class="form-check-input reg-coluna-toggle" type="checkbox" id="col-base" value="base" checked>
+                        <label class="form-check-label small" for="col-base" data-owner-term="base">Base</label>
+                      </div>
+                      <div class="form-check form-switch mb-0">
+                        <input class="form-check-input reg-coluna-toggle" type="checkbox" id="col-entrada" value="entrada" checked>
+                        <label class="form-check-label small" for="col-entrada">Entrada</label>
                       </div>
                     </div>
                   </div>
@@ -359,10 +386,7 @@
             .table-helper-text { font-size: 13px; color: #6c757d; margin-bottom: 10px; }
             .clickable-row { cursor: pointer; transition: background 0.15s ease; }
             .clickable-row:hover { background-color: #f5f7fb; }
-            .expand-icon i { transition: transform 0.2s ease; }
-            .clickable-row.open .expand-icon i { transform: rotate(90deg); }
-            .registro-g-grande { background-color: rgba(255, 193, 7, 0.12) !important; }
-            .registro-g-grande:hover { background-color: rgba(255, 193, 7, 0.18) !important; }
+            .clickable-row.open { background-color: #eef2fb; }
           </style>
 
           <!-- Tabela -->
@@ -377,25 +401,20 @@
                   </div>
                 </div>
               <div class="table-responsive table-card">
-                <table class="table align-middle table-nowrap">
+                <table id="reg-table" class="table align-middle reg-table">
                   <thead class="table-active">
                     <tr>
-                      <th style="width:40px;"></th>
-                      <th style="width:36px"><input id="chk-all" type="checkbox" class="form-check-input" /></th>
-                      <th style="min-width:180px;">Código</th>
-                      <th style="min-width:120px;">Serviço</th>
-                      <th style="min-width:120px;">Status</th>
-                      <th style="min-width:160px;">Última ação</th>
-                      <th style="min-width:150px;">Motoboy</th>
-                      <th style="min-width:160px;">Horário da ação</th>
-                      <th class="d-none d-xl-table-cell" style="min-width:170px;">Entrada no sistema</th>
-                      <th class="d-none d-xl-table-cell" style="min-width:110px;">Executado por</th>
-                      <th class="d-none d-xl-table-cell" style="min-width:110px;" data-owner-term="base">Base</th>
-                      <th class="text-center" style="width:50px" title="Pacote G (Grande)">G</th>
+                      <th class="reg-col-chk"><input id="chk-all" type="checkbox" class="form-check-input" aria-label="Selecionar todos" /></th>
+                      <th class="reg-col-pacote">Pacote</th>
+                      <th class="reg-col-situacao">Situação</th>
+                      <th class="reg-col-responsavel" data-col="responsavel">Responsável</th>
+                      <th class="reg-col-base" data-col="base" data-owner-term="base">Base</th>
+                      <th class="reg-col-entrada" data-col="entrada">Entrada</th>
+                      <th class="reg-col-acoes"><span class="visually-hidden">Ações</span></th>
                     </tr>
                   </thead>
                   <tbody id="reg-rows">
-                    <tr><td colspan="12" class="text-center text-muted py-4">Carregando...</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-4">Carregando...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -465,6 +484,8 @@
 
         </div><!-- /.container-fluid -->
       </div><!-- /.page-content -->
+
+      <div id="reg-tamanho-menu" class="dropdown-menu reg-tamanho-menu" role="menu" aria-label="Tamanho do pacote"></div>
 
       <!-- Modal Editar (singular) -->
 <div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
@@ -957,7 +978,11 @@
             </div>
             <div class="form-check">
               <input class="form-check-input export-col-item" type="checkbox" id="export-col-g" value="is_grande" checked>
-              <label class="form-check-label" for="export-col-g">G</label>
+              <label class="form-check-label" for="export-col-g">Pacote grande</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input export-col-item" type="checkbox" id="export-col-categoria-g" value="categoria_g_nome" checked>
+              <label class="form-check-label" for="export-col-categoria-g">Categoria G</label>
             </div>
           </div>
         </div>
@@ -992,8 +1017,8 @@
 
   <!-- Sequência original dos scripts (mantida) -->
 <script src="assets/js/components/date-picker-dashboard.js?v=2.0"></script>
-  <script src="assets/js/pages/tracking-api-leitura-registros.init.js" defer></script>
-  <script src="assets/js/pages/tracking-registros.init.js?v=1.4" defer></script>
+  <script src="assets/js/pages/tracking-api-leitura-registros.init.js?v=1.1" defer></script>
+  <script src="assets/js/pages/tracking-registros.init.js?v=1.5" defer></script>
   <script src="assets/js/app.js"></script>
 </body>
 </html>

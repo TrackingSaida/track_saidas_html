@@ -228,7 +228,7 @@ function normalizeNomeKey(nome){
     servicoToggles: qsa("#flt-servico-toggle .filtro-toggle-item"),
     statusToggles: qsa("#flt-status-toggle .filtro-toggle-item"),
     acaoToggles: qsa("#flt-acao-toggle .filtro-toggle-item"),
-    somenteG: qs("#flt-somente-g"),
+    tamanho: qs("#flt-tamanho"),
     localizar: qs("#flt-localizar"),
     sort: qs("#flt-sort"),
     pageSize: qs("#flt-pageSize")
@@ -428,7 +428,7 @@ function augmentEntregadoresFromRows(rows){
   const servicosSelecionados = (f.servicoToggles || []).filter(el => el.checked).map(el => el.value);
   const statusSelecionados = (f.statusToggles || []).filter(el => el.checked).map(el => el.value);
   const acoesSelecionadas = (f.acaoToggles || []).filter(el => el.checked).map(el => el.value);
-  const somenteG    = !!f.somenteG?.checked;
+  const tamanho     = f.tamanho?.value || "";
   const localizar   = (f.localizar?.value || "").trim();
   const sort        = f.sort?.value || "-ts";
 
@@ -461,8 +461,10 @@ function augmentEntregadoresFromRows(rows){
     delete params.localizar;
   }
 
-  if (somenteG) {
+  if (tamanho === "g") {
     params.somente_g = true;
+  } else if (tamanho) {
+    params.categoria_g_id = Number(tamanho);
   }
 
   // Digitação no Localizar não restringe período, para fragmento achar pedido antigo.
@@ -556,6 +558,8 @@ function augmentEntregadoresFromRows(rows){
       id,
       tsEntradaFmt,
       tsAcaoFmt,
+      tsEntradaCurto: fmtCurto(tsEntrada),
+      tsAcaoCurto: fmtCurto(tsAcao),
       username,
       executado_por: executadoPor,
       seller,
@@ -788,14 +792,95 @@ function augmentEntregadoresFromRows(rows){
     } catch (_) { return false; }
   }
 
+  function apiBaseUrl(){
+    var api = (window.TRACK_API_URL || "").replace(/\/+$/, "");
+    if (!api.endsWith("/api")) api += "/api";
+    return api;
+  }
+
+  function fmtCurto(ts){
+    if (!ts) return "";
+    var d = (ts instanceof Date) ? ts : new Date(ts);
+    if (isNaN(d.getTime())) return "";
+    var pad = function(v){ return String(v).padStart(2, "0"); };
+    var hora = pad(d.getHours()) + ":" + pad(d.getMinutes());
+    var hoje = new Date();
+    if (d.toDateString() === hoje.toDateString()) return "hoje " + hora;
+    var data = pad(d.getDate()) + "/" + pad(d.getMonth() + 1);
+    if (d.getFullYear() !== hoje.getFullYear()) data += "/" + String(d.getFullYear()).slice(-2);
+    return data + " " + hora;
+  }
+
+  function mesmaPessoa(a, b){
+    var na = String(a || "").trim().toLowerCase();
+    var nb = String(b || "").trim().toLowerCase();
+    return !!na && na === nb;
+  }
+
+  function attr(v){
+    return escapeHtml(String(v == null ? "" : v));
+  }
+
+  // =====================================================================
+  // Categorias de pacote grande (G)
+  // =====================================================================
+  var CATEGORIAS_G = [];
+
+  function garantirOpcaoTamanho(id, nome){
+    if (!f.tamanho || !id) return;
+    var existe = Array.prototype.some.call(f.tamanho.options, function(o){ return o.value === String(id); });
+    if (existe) return;
+    var opt = document.createElement("option");
+    opt.value = String(id);
+    opt.textContent = "Só " + (nome || ("categoria " + id));
+    f.tamanho.appendChild(opt);
+  }
+
+  function preencherFiltroTamanho(){
+    if (!f.tamanho) return;
+    var atual = f.tamanho.value;
+    f.tamanho.innerHTML =
+      '<option value="">Todos</option>' +
+      '<option value="g">Só pacotes grandes</option>' +
+      CATEGORIAS_G.map(function(c){
+        return '<option value="' + attr(c.id) + '">Só ' + escapeHtml(c.nome) + "</option>";
+      }).join("");
+    if (atual && !Array.prototype.some.call(f.tamanho.options, function(o){ return o.value === atual; })) {
+      garantirOpcaoTamanho(atual, "");
+    }
+    f.tamanho.value = atual;
+  }
+
+  function carregarCategoriasG(){
+    return fetch(apiBaseUrl() + "/entregadores/precos/categorias-g", { credentials: "include" })
+      .then(function(r){ return r.ok ? r.json() : []; })
+      .then(function(list){
+        CATEGORIAS_G = (Array.isArray(list) ? list : [])
+          .filter(function(c){ return c && c.ativo !== false; })
+          .sort(function(a, b){ return (Number(a.ordem) || 0) - (Number(b.ordem) || 0) || a.id - b.id; });
+        preencherFiltroTamanho();
+      })
+      .catch(function(){ CATEGORIAS_G = []; });
+  }
+
+  function chipTamanho(r, clicavel){
+    if (!r.is_grande) return "";
+    var nome = r.categoria_g_nome || "G";
+    if (clicavel) {
+      return '<button type="button" class="reg-g-chip" data-tamanho="' + attr(getRowId(r)) + '" title="Pacote grande ' + attr(nome) + ' — alterar tamanho" aria-haspopup="menu">' + escapeHtml(nome) + "</button>";
+    }
+    return '<span class="reg-g-chip" title="Pacote grande ' + attr(nome) + '">' + escapeHtml(nome) + "</span>";
+  }
+
   function renderTable(rows){
     if (!tblBody) return;
     if (!rows?.length){
       tblBody.innerHTML =
-        '<tr><td colspan="12" class="text-muted text-center py-4">Sem registros.</td></tr>';
+        '<tr><td colspan="7" class="text-muted text-center py-4">Sem registros.</td></tr>';
       return;
     }
 
+    var canG = canEditG();
     tblBody.innerHTML = rows
       .map(r => {
         var rid = getRowId(r);
@@ -803,56 +888,240 @@ function augmentEntregadoresFromRows(rows){
         var rowClass = "registro-row clickable-row" + (isCancelado ? " table-danger-subtle bg-danger-subtle" : "");
         var statusBadgeClass = "status-badge " + getStatusClass(r.status);
         var servicoBadgeClass = "servico-badge " + getServicoClass(r.servico);
-        var isGrande = !!(r.is_grande);
-        var canG = canEditG();
-        var gCell = canG
-          ? '<button type="button" class="btn btn-sm btn-toggle-g ' + (isGrande ? "btn-warning" : "btn-outline-secondary") + '" data-id="' + rid + '" data-g="' + (isGrande ? "1" : "0") + '" title="' + (isGrande ? "Pacote G (Grande) — clique para desmarcar" : "Marcar como G (Grande)") + '">' + (isGrande ? "<strong>G</strong>" : "—") + "</button>"
-          : (isGrande ? '<span class="badge bg-warning text-dark" title="Pacote G (Grande)">G</span>' : "—");
-        if (isGrande) rowClass += " registro-g-grande";
+        var acaoLabel = getActionBadgeConfig(r.acao).label;
+        var acaoTexto = [acaoLabel === "Sem ação" ? "" : acaoLabel, r.tsAcaoCurto].filter(Boolean).join(" · ");
+        var executor = String(r.executado_por || "").trim();
+        var porOutro = executor && executor !== "—" && !mesmaPessoa(executor, r.entregador)
+          ? '<span class="reg-sub">por ' + escapeHtml(executor) + "</span>"
+          : "";
+        var etiqueta = '<button type="button" class="reg-acao" title="Gerar etiqueta" aria-label="Gerar etiqueta" data-etiqueta="' + attr(r.codigo_interno || r.codigo) + '" data-id-saida="' + attr(rid) + '" data-servico="' + attr(r.servico) + '"><i class="ri-printer-line"></i></button>';
+        var podeTamanho = canG && String(r.status || "").toLowerCase() !== "entregue";
+        var tamanho = podeTamanho
+          ? '<button type="button" class="reg-acao" title="Tamanho do pacote" aria-label="Tamanho do pacote" aria-haspopup="menu" data-tamanho="' + attr(rid) + '"><i class="ri-box-3-line"></i></button>'
+          : "";
         return `
-          <tr data-id="${rid}" class="${rowClass}">
-            <td class="expand-icon"><i class="ri-arrow-right-s-line"></i></td>
-            <td><input type="checkbox" class="rowchk form-check-input" /></td>
-            <td><span class="d-inline-flex align-items-center gap-1">${r.codigo_exibicao || r.codigo || "-"} <button type="button" class="btn btn-link btn-sm p-0 text-primary" title="Gerar etiqueta" data-etiqueta="${(r.codigo_interno || r.codigo || "").replace(/"/g, "&quot;")}" data-id-saida="${rid || ""}" data-servico="${(r.servico || "").replace(/"/g, "&quot;")}"><i class="ri-printer-line"></i></button></span></td>
-            <td><span class="${servicoBadgeClass}">${r.servico || "-"}</span></td>
-            <td><span class="${statusBadgeClass}">${r.status || "-"}</span></td>
-            <td>${renderActionBadge(r.acao)}</td>
-            <td>${formatPersonNameOrDash(r.entregador)}</td>
-            <td>${r.tsAcaoFmt || ""}</td>
-            <td class="d-none d-xl-table-cell">${r.tsEntradaFmt || ""}</td>
-            <td class="d-none d-xl-table-cell">${r.executado_por || "—"}</td>
-            <td class="d-none d-xl-table-cell text-muted">${r.seller || "-"}</td>
-            <td class="text-center">${gCell}</td>
+          <tr data-id="${attr(rid)}" class="${rowClass}">
+            <td class="reg-col-chk"><input type="checkbox" class="rowchk form-check-input" aria-label="Selecionar ${attr(r.codigo_exibicao || r.codigo)}" /></td>
+            <td class="reg-col-pacote">
+              <span class="reg-codigo">${escapeHtml(r.codigo_exibicao || r.codigo || "-")}</span>
+              <div class="reg-linha2"><span class="${servicoBadgeClass}">${escapeHtml(r.servico || "-")}</span>${chipTamanho(r, podeTamanho)}</div>
+            </td>
+            <td class="reg-col-situacao">
+              <span class="${statusBadgeClass}">${escapeHtml(r.status || "-")}</span>
+              ${acaoTexto ? '<span class="reg-sub">' + escapeHtml(acaoTexto) + "</span>" : ""}
+            </td>
+            <td class="reg-col-responsavel" data-col="responsavel">
+              <span class="reg-pessoa">${escapeHtml(formatPersonNameOrDash(r.entregador))}</span>
+              ${porOutro}
+            </td>
+            <td class="reg-col-base reg-base" data-col="base">${escapeHtml(r.seller || "-")}</td>
+            <td class="reg-col-entrada" data-col="entrada" title="${attr(r.tsEntradaFmt)}">${escapeHtml(r.tsEntradaCurto || "-")}</td>
+            <td class="reg-col-acoes">${etiqueta}${tamanho}</td>
           </tr>`;
       })
       .join("");
+  }
 
-    qsa(".btn-toggle-g").forEach(function(btn){
-      btn.addEventListener("click", function(e){
-        e.stopPropagation();
-        var id = btn.getAttribute("data-id");
-        var current = btn.getAttribute("data-g") === "1";
-        if (!id) return;
-        var apiUrl = (window.TRACK_API_URL || "").replace(/\/+$/, "");
-        if (!apiUrl.endsWith("/api")) apiUrl += "/api";
-        btn.disabled = true;
-        fetch(apiUrl + "/saidas/" + id, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ is_grande: !current })
-        }).then(function(res){
-          if (res.ok) {
-            var row = state.rows.find(function(r){ return String(getRowId(r)) === String(id); });
-            if (row) row.is_grande = !current;
-            renderTable(state.rows);
-          } else {
-            return res.json().then(function(err){ notify(err?.detail || "Erro ao atualizar G.", "error"); });
-          }
-        }).catch(function(){ notify("Erro de rede.", "error"); }).finally(function(){ btn.disabled = false; });
+  // =====================================================================
+  // Menu de tamanho (linha e lote)
+  // =====================================================================
+  var menuTamanho = qs("#reg-tamanho-menu");
+  var menuTamanhoIds = [];
+  var menuTamanhoAnchor = null;
+
+  function itemTamanho(valor, nome, descricao, marcado){
+    return '<button type="button" class="dropdown-item' + (marcado ? " active" : "") + '" role="menuitemradio" aria-checked="' + (marcado ? "true" : "false") + '" data-categoria="' + attr(valor) + '">' +
+      '<span class="reg-tamanho-check">' + (marcado ? '<i class="ri-check-line"></i>' : "") + "</span>" +
+      "<span>" + escapeHtml(nome) + (descricao ? "<small>" + escapeHtml(descricao) + "</small>" : "") + "</span>" +
+    "</button>";
+  }
+
+  function fecharMenuTamanho(restaurarFoco){
+    if (!menuTamanho || !menuTamanho.classList.contains("show")) return;
+    menuTamanho.classList.remove("show");
+    menuTamanhoIds = [];
+    if (restaurarFoco === true && menuTamanhoAnchor && document.contains(menuTamanhoAnchor)) menuTamanhoAnchor.focus();
+    menuTamanhoAnchor = null;
+  }
+
+  function abrirMenuTamanho(anchor, ids, atualConhecido){
+    if (!menuTamanho || !ids.length) return;
+    if (!CATEGORIAS_G.length) {
+      notify("Nenhuma categoria de pacote grande ativa. Cadastre em Cadastros > Preços de Entrega.", "info");
+      return;
+    }
+    menuTamanhoIds = ids.slice();
+    menuTamanhoAnchor = anchor;
+    var atual = atualConhecido != null ? atualConhecido : null;
+    if (atual == null && ids.length === 1) {
+      var row = state.rows.find(function(r){ return String(getRowId(r)) === String(ids[0]); });
+      atual = row && row.is_grande ? String(row.categoria_g_id || "") : "";
+    }
+    var titulo = ids.length > 1 ? "Tamanho de " + ids.length + " pacotes" : "Tamanho do pacote";
+    menuTamanho.innerHTML =
+      '<div class="reg-tamanho-titulo">' + escapeHtml(titulo) + "</div>" +
+      itemTamanho("", "Normal", "Sem adicional de pacote grande", atual === "") +
+      CATEGORIAS_G.map(function(c){
+        return itemTamanho(c.id, c.nome, c.descricao, atual === String(c.id));
+      }).join("");
+    menuTamanho.classList.add("show");
+
+    var rect = anchor.getBoundingClientRect();
+    var mw = menuTamanho.offsetWidth;
+    var mh = menuTamanho.offsetHeight;
+    var left = Math.max(8, Math.min(rect.right - mw, window.innerWidth - mw - 8));
+    var top = rect.bottom + 4;
+    if (top + mh > window.innerHeight - 8) top = Math.max(8, rect.top - mh - 4);
+    menuTamanho.style.left = left + "px";
+    menuTamanho.style.top = top + "px";
+    var foco = menuTamanho.querySelector(".dropdown-item.active") || menuTamanho.querySelector(".dropdown-item");
+    if (foco) foco.focus();
+  }
+
+  function patchTamanho(id, categoriaId){
+    return fetch(apiBaseUrl() + "/saidas/" + encodeURIComponent(id), {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categoria_g_id: categoriaId })
+    }).then(function(res){
+      if (res.ok) return { id: id, ok: true };
+      return res.json().catch(function(){ return null; }).then(function(payload){
+        var detalhe = payload && payload.detail;
+        var msg;
+        if (res.status === 403) {
+          msg = "Você não tem permissão para alterar o tamanho.";
+        } else if (detalhe && detalhe.code === "STATUS_FINALIZADO") {
+          msg = String(detalhe.status_atual || "").toLowerCase() === "cancelado"
+            ? "Pacotes cancelados não podem mudar de tamanho."
+            : "Pacotes entregues não podem mudar de tamanho.";
+        } else {
+          msg = parseApiDetailMessage(payload, "Não foi possível alterar o tamanho.");
+        }
+        return { id: id, ok: false, erro: msg };
       });
+    }).catch(function(){
+      return { id: id, ok: false, erro: "Sem conexão. Tente novamente." };
     });
   }
+
+  async function aplicarTamanho(ids, valor){
+    var categoriaId = valor ? Number(valor) : null;
+    var categoria = CATEGORIAS_G.find(function(c){ return String(c.id) === String(valor); }) || null;
+    var resultados = [];
+    var fila = ids.slice();
+    async function worker(){
+      while (fila.length) {
+        resultados.push(await patchTamanho(fila.shift(), categoriaId));
+      }
+    }
+    await Promise.all([worker(), worker(), worker(), worker()]);
+
+    var oks = resultados.filter(function(r){ return r.ok; });
+    var falhas = resultados.filter(function(r){ return !r.ok; });
+    oks.forEach(function(res){
+      var row = state.rows.find(function(r){ return String(getRowId(r)) === String(res.id); });
+      if (!row) return;
+      row.is_grande = !!categoria;
+      row.categoria_g_id = categoria ? categoria.id : null;
+      row.categoria_g_nome = categoria ? categoria.nome : null;
+    });
+    if (oks.length) bustListCache();
+    renderTable(state.rows);
+    if (chkAll) chkAll.checked = false;
+    updateEditButtonState();
+
+    if (ids.length === 1) {
+      if (falhas.length) notify(falhas[0].erro, "error");
+      return oks.length > 0;
+    }
+    if (!falhas.length) {
+      notify(oks.length + " pacotes marcados como " + (categoria ? categoria.nome : "Normal") + ".", "success");
+    } else {
+      notify(oks.length + " de " + ids.length + " pacotes alterados. " + falhas[0].erro, oks.length ? "warning" : "error");
+    }
+    return oks.length > 0;
+  }
+
+  if (menuTamanho) {
+    menuTamanho.addEventListener("click", function(e){
+      var item = e.target.closest("[data-categoria]");
+      if (!item) return;
+      var ids = menuTamanhoIds.slice();
+      var valor = item.getAttribute("data-categoria");
+      fecharMenuTamanho();
+      aplicarTamanho(ids, valor).then(function(ok){
+        if (ok && ids.length === 1 && detailPanel && detailPanel.classList.contains("open")) {
+          openDetailPanel(ids[0]);
+        }
+      });
+    });
+    menuTamanho.addEventListener("keydown", function(e){
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      var itens = qsa("#reg-tamanho-menu .dropdown-item");
+      var i = itens.indexOf(document.activeElement);
+      var prox = e.key === "ArrowDown" ? i + 1 : i - 1;
+      if (itens[(prox + itens.length) % itens.length]) itens[(prox + itens.length) % itens.length].focus();
+      e.preventDefault();
+    });
+    document.addEventListener("click", function(e){
+      if (!menuTamanho.classList.contains("show")) return;
+      if (menuTamanho.contains(e.target) || (menuTamanhoAnchor && menuTamanhoAnchor.contains(e.target))) return;
+      fecharMenuTamanho();
+    });
+    document.addEventListener("keydown", function(e){
+      if (e.key === "Escape") fecharMenuTamanho(true);
+    });
+    window.addEventListener("resize", function(){ fecharMenuTamanho(); });
+    window.addEventListener("scroll", function(e){
+      if (menuTamanho.contains(e.target)) return;
+      fecharMenuTamanho();
+    }, true);
+  }
+
+  var btnTamanhoSelecionados = qs("#btn-tamanho-selected");
+  if (btnTamanhoSelecionados) {
+    btnTamanhoSelecionados.addEventListener("click", function(e){
+      e.stopPropagation();
+      if (menuTamanho && menuTamanho.classList.contains("show")) { fecharMenuTamanho(); return; }
+      abrirMenuTamanho(btnTamanhoSelecionados, getSelectedIds());
+    });
+  }
+
+  // =====================================================================
+  // Colunas visíveis (preferência do navegador)
+  // =====================================================================
+  var COLUNAS_KEY = "registros.colunas.ocultas.v1";
+  var COLUNAS_OPCIONAIS = ["responsavel", "base", "entrada"];
+
+  function lerColunasOcultas(){
+    try {
+      var v = JSON.parse(localStorage.getItem(COLUNAS_KEY) || "[]");
+      return Array.isArray(v) ? v.filter(function(c){ return COLUNAS_OPCIONAIS.indexOf(c) >= 0; }) : [];
+    } catch (_) { return []; }
+  }
+
+  function aplicarColunas(){
+    var ocultas = lerColunasOcultas();
+    var tabela = qs("#reg-table");
+    COLUNAS_OPCIONAIS.forEach(function(c){
+      if (tabela) tabela.classList.toggle("reg-oculta-" + c, ocultas.indexOf(c) >= 0);
+      var chk = qs("#col-" + c);
+      if (chk) chk.checked = ocultas.indexOf(c) < 0;
+    });
+  }
+
+  qsa(".reg-coluna-toggle").forEach(function(chk){
+    chk.addEventListener("change", function(){
+      var ocultas = COLUNAS_OPCIONAIS.filter(function(c){
+        var el = qs("#col-" + c);
+        return el && !el.checked;
+      });
+      try { localStorage.setItem(COLUNAS_KEY, JSON.stringify(ocultas)); } catch (_) {}
+      aplicarColunas();
+    });
+  });
+  aplicarColunas();
 
   // =====================================================================
   // PAGINAÇÃO
@@ -966,7 +1235,7 @@ function setupPagerEvents() {
     if (f.localizar) f.localizar.disabled = !!show;
     if (fltBase) fltBase.disabled = !!show;
     syncEntregadorDisabled();
-    if (f.somenteG) f.somenteG.disabled = !!show;
+    if (f.tamanho) f.tamanho.disabled = !!show;
     (f.servicoToggles || []).forEach(function(el){ el.disabled = !!show; });
     (f.statusToggles || []).forEach(function(el){ el.disabled = !!show; });
     (f.acaoToggles || []).forEach(function(el){ el.disabled = !!show; });
@@ -1053,6 +1322,8 @@ function setupPagerEvents() {
     var textEl = document.getElementById("btn-edit-selected-text");
     if (textEl) textEl.textContent = "Editar selecionados (" + n + ")";
     btnEdit.classList.toggle("d-none", n === 0);
+    var btnTam = document.getElementById("btn-tamanho-selected");
+    if (btnTam) btnTam.classList.toggle("d-none", n === 0 || !canEditG());
   }
 
   if (tblBody){
@@ -1072,7 +1343,18 @@ function setupPagerEvents() {
         escolherGeracaoEtiqueta({ codigo: codigo, id_saida: idSaida, servico: servico });
         return;
       }
-      if (e.target.closest(".rowchk")) return;
+      var btnTamanho = e.target.closest("[data-tamanho]");
+      if (btnTamanho) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (menuTamanho && menuTamanho.classList.contains("show") && menuTamanhoAnchor === btnTamanho) {
+          fecharMenuTamanho();
+          return;
+        }
+        abrirMenuTamanho(btnTamanho, [btnTamanho.getAttribute("data-tamanho")]);
+        return;
+      }
+      if (e.target.closest(".reg-col-chk")) return;
       var tr = e.target.closest("tr[data-id]");
       if (tr) {
         var id = tr.getAttribute("data-id");
@@ -1773,6 +2055,33 @@ function setupPagerEvents() {
           "</div>";
       }
 
+      var podeAlterarTamanho = canEditG() && !statusJaEntregue && !statusJaCancelado;
+      var tamanhoBlock = "";
+      if (saida.is_grande || podeAlterarTamanho) {
+        var tamanhoNome = saida.is_grande ? (saida.categoria_g_nome || "G") : "";
+        var tamanhoQuem = "";
+        if (saida.categoria_g_atualizado_em) {
+          tamanhoQuem = "Alterado" +
+            (saida.categoria_g_atualizado_por ? " por " + String(saida.categoria_g_atualizado_por).trim() : "") +
+            " em " + fmtDt(saida.categoria_g_atualizado_em);
+        }
+        tamanhoBlock =
+          '<div class="pedido-section">' +
+            '<p class="section-title">Tamanho</p>' +
+            '<div class="pedido-tamanho">' +
+              '<div class="pedido-tamanho-info">' +
+                (tamanhoNome
+                  ? '<span class="reg-g-chip">' + escapeHtml(tamanhoNome) + "</span> Pacote grande"
+                  : "Normal") +
+                (tamanhoQuem ? '<span class="reg-sub">' + escapeHtml(tamanhoQuem) + "</span>" : "") +
+              "</div>" +
+              (podeAlterarTamanho
+                ? '<button type="button" class="btn btn-sm btn-outline-secondary" id="btn-alterar-tamanho" aria-haspopup="menu"><i class="ri-box-3-line me-1"></i>Alterar tamanho</button>'
+                : "") +
+            "</div>" +
+          "</div>";
+      }
+
       var entregaMeta = [
         { label: "Entregador", value: entregador || "—" },
         { label: dataLabel, value: dataEntrega || "—" }
@@ -1803,6 +2112,7 @@ function setupPagerEvents() {
             (relativoTxt ? '<span class="small text-muted">' + escapeHtml(relativoTxt) + "</span>" : "") +
           "</div>" +
           acoesHtml +
+          tamanhoBlock +
           destinoBlock +
           entregaBlock +
           avulsoHtml +
@@ -1828,6 +2138,14 @@ function setupPagerEvents() {
           var ok = await liberarNovaTentativa(idSaida);
           btnLiberar.disabled = false;
           if (ok) openDetailPanel(idSaida);
+        });
+      }
+      var btnAlterarTamanho = document.getElementById("btn-alterar-tamanho");
+      if (btnAlterarTamanho) {
+        btnAlterarTamanho.addEventListener("click", function(e) {
+          e.stopPropagation();
+          if (menuTamanho && menuTamanho.classList.contains("show")) { fecharMenuTamanho(); return; }
+          abrirMenuTamanho(btnAlterarTamanho, [String(idSaida)], saida.is_grande ? String(saida.categoria_g_id || "") : "");
         });
       }
       var btnCancelar = document.getElementById("btn-cancelar-pedido");
@@ -2984,7 +3302,7 @@ function setupPagerEvents() {
     if (ativosServico > 0) n++;
     if (ativosStatus > 0) n++;
     if (ativosAcao > 0) n++;
-    if (f.somenteG?.checked) n++;
+    if (f.tamanho?.value) n++;
     if (n > 0) {
       filtrosContadorEl.textContent = String(n);
       filtrosContadorEl.classList.remove("d-none");
@@ -3017,7 +3335,7 @@ function setupPagerEvents() {
       if (fltBase) fltBase.value = "";
       if (f.entregador) f.entregador.value = "";
       limparFiltrosSelecao();
-      if (f.somenteG) f.somenteG.checked = false;
+      if (f.tamanho) f.tamanho.value = "";
       if (datePickerInstance && datePickerInstance.applyPreset) {
         datePickerInstance.applyPreset("ultimos15");
         const r = datePickerInstance.getResolvedRange();
@@ -3042,6 +3360,7 @@ function setupPagerEvents() {
         atualizarContadorFiltros();
       });
     });
+    if (f.tamanho) f.tamanho.addEventListener("change", atualizarContadorFiltros);
   }
 
   function limparFiltrosSelecao(){
@@ -3251,8 +3570,13 @@ function setupPagerEvents() {
     }
 
     var somenteGUrl = params.get("somente_g");
-    if ((somenteGUrl === "1" || somenteGUrl === "true") && f.somenteG) {
-      f.somenteG.checked = true;
+    var categoriaGUrl = (params.get("categoria_g_id") || "").trim();
+    if (f.tamanho && /^\d+$/.test(categoriaGUrl)) {
+      garantirOpcaoTamanho(categoriaGUrl, params.get("categoria_g_nome") || "");
+      f.tamanho.value = categoriaGUrl;
+      applied = true;
+    } else if ((somenteGUrl === "1" || somenteGUrl === "true") && f.tamanho) {
+      f.tamanho.value = "g";
       applied = true;
     }
 
@@ -3297,6 +3621,7 @@ function setupPagerEvents() {
 
   applyQueryFiltersFromUrl();
   refresh(false);
+  carregarCategoriasG();
   updateEditButtonState();
   if (typeof atualizarContadorFiltros === "function") atualizarContadorFiltros();
   setupModoSelecao();

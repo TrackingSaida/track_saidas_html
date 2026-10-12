@@ -1,52 +1,131 @@
 /* ======================================================
-   Fechamento de Motoboys — com Fechamento e PDF
-   GET /api/entregadores/resumo
-   POST/PATCH /api/entregadores/fechamentos
+   Fechamento de Motoboys
+   GET   /api/entregadores/resumo?agrupar=executor  (uma linha por motoboy)
+   GET   /api/entregadores/fechamentos/calcular
+   POST  /api/entregadores/fechamentos       (individual)
+   POST  /api/entregadores/fechamentos/lote  (todos os pendentes)
+   PATCH /api/entregadores/fechamentos/{id}  (reajuste)
    ====================================================== */
 
 document.addEventListener("DOMContentLoaded", async () => {
   "use strict";
 
-  var _base = window.getTrackApiUrl();
-  const API_URL = _base;
-  const API_RESUMO = _base + "/entregadores/resumo";
-  const API_ENTREGADORES = _base + "/entregadores";
-  const API_FECHAMENTOS = _base + "/entregadores/fechamentos";
+  const API_URL = window.getTrackApiUrl();
+  const API_RESUMO = API_URL + "/entregadores/resumo";
+  const API_ENTREGADORES = API_URL + "/entregadores";
+  const API_FECHAMENTOS = API_URL + "/entregadores/fechamentos";
+  const COR_PRIMARIA = "#0B1F3A";
 
   const qs = (s) => document.querySelector(s);
+  const esc = (v) =>
+    String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const moeda = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v) || 0);
+  const num = (v) => Number(v) || 0;
+  const centavos = (v) => Math.round(num(v) * 100) / 100;
 
-  function normalizeNomeKey(nome) {
-    return String(nome || "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLowerCase();
-  }
-
-  /** value do select de executores: "e_123" (entregador) ou "m_456" (motoboy) */
-  function parseExecutorVal(val) {
-    if (!val || typeof val !== "string") return { tipo: null, id: 0 };
-    const v = val.trim();
-    if (v.startsWith("e_")) return { tipo: "e", id: parseInt(v.slice(2), 10) || 0 };
-    if (v.startsWith("m_")) return { tipo: "m", id: parseInt(v.slice(2), 10) || 0 };
-    return { tipo: null, id: 0 };
-  }
-
-  const formatarMoeda = (v) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v) || 0);
-
-  function fmtDMY(ymd) {
-    if (!ymd) return "";
+  function dmy(ymd) {
+    if (!ymd) return "—";
     const [y, m, d] = String(ymd).split("-");
-    return d && m && y ? `${d}/${m}/${y}` : ymd;
+    return d && m && y ? `${d}/${m}/${y}` : String(ymd);
   }
 
-  function updatePeriodLabel(from, to) {
-    const label = document.getElementById("entregadores-resumo-period-label");
-    if (!label) return;
-    if (from && to) label.textContent = fmtDMY(from) + " — " + fmtDMY(to);
-    else label.textContent = "Período";
+  function periodoTexto(ini, fim) {
+    if (!ini || !fim) return "—";
+    const [, mi, di] = String(ini).split("-");
+    return `${di}/${mi} a ${dmy(fim)}`;
+  }
+
+  function hojeYmd() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+
+  const periodoAberto = (fim) => !fim || fim >= hojeYmd();
+  const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+
+  function mensagemErro(data, status) {
+    const d = data && data.detail;
+    if (typeof d === "string") return d;
+    if (d && typeof d === "object" && !Array.isArray(d) && d.message) return d.message;
+    if (Array.isArray(d) && d.length) {
+      return d.map((i) => (typeof i === "string" ? i : i && i.msg) || "").filter(Boolean).join(" | ");
+    }
+    return `Não foi possível concluir (erro ${status}).`;
+  }
+
+  const TEMPO_LIMITE_CONSULTA_MS = 90000;
+
+  async function api(url, options) {
+    const opts = { credentials: "include", ...(options || {}) };
+    const consulta = !opts.method || opts.method.toUpperCase() === "GET";
+    if (consulta && !opts.signal && typeof AbortSignal !== "undefined" && AbortSignal.timeout) {
+      opts.signal = AbortSignal.timeout(TEMPO_LIMITE_CONSULTA_MS);
+    }
+    let res;
+    try {
+      res = await fetch(url, opts);
+    } catch (e) {
+      if (e && (e.name === "TimeoutError" || e.name === "AbortError")) {
+        throw new Error("A consulta demorou mais que o esperado. Tente novamente em instantes.");
+      }
+      throw new Error("Não foi possível falar com o servidor. Verifique a conexão e tente novamente.");
+    }
+    if (res.status === 401) {
+      window.location.href = "auth-signin-tracking-v2.html";
+      throw new Error("Sessão expirada.");
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(
+        res.status === 403 ? "Seu perfil não tem acesso ao fechamento de motoboys." : mensagemErro(data, res.status)
+      );
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  }
+
+  function avisoErro(titulo, err) {
+    const texto = (err && err.message) || "Tente novamente.";
+    if (window.Swal) Swal.fire({ icon: "error", title: titulo, text: texto, confirmButtonColor: COR_PRIMARIA });
+    else alert(titulo + ": " + texto);
+  }
+
+  const STATUS_LABEL = { PENDENTE: "Pendente", GERADO: "Gerado", REAJUSTADO: "Reajustado", PAGO: "Pago" };
+
+  function statusHtml(r) {
+    const st = String(r.fechamento_status || "PENDENTE").toUpperCase();
+    let html = `<span class="fm-status fm-status--${esc(st.toLowerCase())}">${esc(STATUS_LABEL[st] || st)}</span>`;
+    if (st === "PENDENTE" && r.parcial) {
+      html += ` <span class="fm-chip fm-chip--info" title="${esc(plural(r.dias_pendentes || 0, "dia sem fechamento", "dias sem fechamento"))}">Parte já fechada</span>`;
+    }
+    if (r.pode_reajustar) html += ' <span class="fm-chip fm-chip--revisao">Precisa revisão</span>';
+    if (r.alerta_pos_pago) html += ' <span class="fm-chip fm-chip--info" title="O valor mudou depois do pagamento">Mudou após pagar</span>';
+    const semConf = num(r.dias_sem_conferencia);
+    if (semConf > 0) {
+      const titulo = `${semConf} de ${plural(num(r.dias_com_entrega), "dia com entrega", "dias com entrega")} sem conferência de saída`;
+      html += ` <span class="fm-chip fm-chip--revisao" title="${esc(titulo)}">${esc(plural(semConf, "dia sem conferência", "dias sem conferência"))}</span>`;
+    }
+    return html;
+  }
+
+  const CONFERENCIA_LABEL = { conferida: "Conferido", pendente: "Não conferido", reconferir: "Reconferir" };
+
+  function conferenciaHtml(d) {
+    const st = String(d.conferencia_status || "").toLowerCase();
+    if (!CONFERENCIA_LABEL[st]) return "";
+    return `<span class="fm-status fm-conf--${esc(st)}">${esc(d.conferencia_label || CONFERENCIA_LABEL[st])}</span>`;
+  }
+
+  function diasSemConferencia(row) {
+    return (row?.dias || []).filter((d) => d && (d.conferencia_status === "pendente" || d.conferencia_status === "reconferir"));
+  }
+
+  function resumoConferencia(row) {
+    const sem = diasSemConferencia(row);
+    const total = (row?.dias || []).filter((d) => d && d.conferencia_status).length;
+    return { sem, total, texto: `${sem.length} de ${plural(total, "dia com entrega", "dias com entrega")} sem conferência de saída` };
   }
 
   const state = {
@@ -55,25 +134,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     total: 0,
     totalPages: 0,
     items: [],
-    entregadorLabel: "Todos",
-    modoEdicao: false,
-    divergenciaValorBase: false,
-    valorBaseRecalculado: null,
-    ajustesFechamento: [], // { tipo: 'ADIÇÃO'|'SUBTRAÇÃO', valor: number, motivo: string }
-    fechModal: {
-      entregadorNome: "",
-      periodoInicio: "",
-      periodoFim: "",
-      valorBase: 0,
-      g_por_servico: { shopee: 0, ml: 0, avulso: 0 },
-      g_total: 0,
-      conferencia_habilitada: false,
-      conferencia_por_dia: [],
-      avulso_valor: 0,
-    },
-    contextoFechamento: null, // { status, id_fechamento, periodo_inicio, periodo_fim, entregador_nome } quando um único entregador
-    entregadoresParaReajuste: [], // quando status GERADO sem entregador no filtro: lista de { entregador_id, entregador_nome, id_fechamento, periodo_inicio, periodo_fim }
-    modalFechamentoFecharConfirmado: false, // true ao fechar por Salvar com sucesso; evita "Descartar alterações?" nesse caso
+    totais: {},
+    conferenciaHabilitada: false,
+    expandidos: new Set(),
+    gerandoLote: false,
+    painel: null,
+    salvando: false,
+    fecharPainelConfirmado: false,
   };
 
   const fltDataInicio = qs("#flt-data-inicio");
@@ -82,101 +149,166 @@ document.addEventListener("DOMContentLoaded", async () => {
   const fltStatus = qs("#flt-status");
   const fltBase = qs("#flt-base");
   const tbody = qs("#tbody-resumo");
-  const pagerFirst = qs("#pager-first");
-  const pagerPrev = qs("#pager-prev");
-  const pagerNext = qs("#pager-next");
-  const pagerLast = qs("#pager-last");
-  const pagerInfo = qs("#pager-info");
-  const pagerSummary = qs("#pager-summary");
+  const msgEl = qs("#resumoMsg");
+  const painelEl = qs("#painelRevisao");
+  const painel = painelEl && typeof bootstrap !== "undefined" ? bootstrap.Offcanvas.getOrCreateInstance(painelEl) : null;
 
-  const STATUS_TOOLTIPS = {
-    PENDENTE: "Sem fechamento para o período",
-    GERADO: "Fechamento gerado",
-    REAJUSTADO: "Fechamento reajustado",
-    PAGO: "Pagamento confirmado",
-  };
-
-  function formatarCodigoFechamento(r) {
-    const idFech = Number(r?.id_fechamento || 0);
-    if (!idFech) return "";
-    const periodoRaw = String(r?.data || "");
-    const [y, m] = periodoRaw.split("-");
-    const ym = y && m ? `${y}${m}` : "000000";
-    const entTag = String(r?.entregador_nome || "MOTOBOY")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-zA-Z0-9]+/g, "")
-      .toUpperCase()
-      .slice(0, 12) || "MOTOBOY";
-    return `FEC-${ym}-${entTag}-${String(idFech).padStart(6, "0")}`;
+  function parseExecutorVal(val) {
+    const v = String(val || "").trim();
+    if (v.startsWith("e_")) return { tipo: "e", id: parseInt(v.slice(2), 10) || 0 };
+    if (v.startsWith("m_")) return { tipo: "m", id: parseInt(v.slice(2), 10) || 0 };
+    return { tipo: null, id: 0 };
   }
 
-  function formatarCodigoFechamentoDetalhe(idFech, periodoFim, periodoInicio, entNome) {
-    const id = Number(idFech || 0);
-    if (!id) return "—";
-    const periodo = String(periodoFim || periodoInicio || "");
-    const [y, m] = periodo.split("-");
-    const ym = y && m ? `${y}${m}` : "000000";
-    const entTag = String(entNome || "MOTOBOY")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-zA-Z0-9]+/g, "")
-      .toUpperCase()
-      .slice(0, 12) || "MOTOBOY";
-    return `FEC-${ym}-${entTag}-${String(id).padStart(6, "0")}`;
+  function periodoFiltro() {
+    return { ini: fltDataInicio?.value || "", fim: fltDataFim?.value || "" };
   }
 
-  const PLACEHOLDER_MOTIVO = {
-    ADIÇÃO: "Ex: Coletas realizadas (50 x R$ 2,00)",
-    SUBTRAÇÃO: "Ex: Adiantamento pago",
-  };
+  function updatePeriodLabel(from, to) {
+    const label = qs("#entregadores-resumo-period-label");
+    if (label) label.textContent = from && to ? `${dmy(from)} — ${dmy(to)}` : "Período";
+  }
 
-  function celulaFechamento(r) {
-    const st = (r.fechamento_status || "PENDENTE").toUpperCase();
-    const idFech = r.id_fechamento || "";
-    const codigoFech = formatarCodigoFechamento(r);
-    let html = "";
+  // ====== Tabela por motoboy ======
+  function colunas() {
+    return document.querySelectorAll("#tbl-resumo thead th").length || 9;
+  }
+
+  function linhaMensagem(texto, classe) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="${colunas()}" class="text-center py-4 ${classe || "text-muted"}">${esc(texto)}</td></tr>`;
+  }
+
+  function chaveLinha(r) {
+    return `${r.executor_tipo}_${r.executor_id}`;
+  }
+
+  function acoesHtml(r) {
+    const st = String(r.fechamento_status || "PENDENTE").toUpperCase();
+    const k = esc(chaveLinha(r));
+    const pdf = r.id_fechamento
+      ? `<button type="button" class="btn btn-sm btn-link text-secondary px-1" data-acao="pdf" data-id="${esc(r.id_fechamento)}" title="Baixar PDF" aria-label="Baixar PDF de ${esc(r.nome)}"><i class="ri-file-pdf-line fs-5"></i></button>`
+      : "";
     if (st === "PENDENTE") {
-      html = '<span class="badge bg-warning-subtle text-warning" title="' + (STATUS_TOOLTIPS.PENDENTE || "Pendente") + '">🟡 PENDENTE</span>';
-    } else if (st === "GERADO") {
-      html = '<span class="badge bg-success-subtle text-success" title="' + (STATUS_TOOLTIPS.GERADO || "Gerado") + (codigoFech ? " · " + codigoFech : "") + '">🟢 GERADO</span>';
-      if (idFech) {
-        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF · ' + (codigoFech || "") + '" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
-      }
-    } else if (st === "PAGO") {
-      html = '<span class="badge bg-primary-subtle text-primary" title="' + (STATUS_TOOLTIPS.PAGO || "Pago") + (codigoFech ? " · " + codigoFech : "") + '">Pago</span>';
-      if (idFech) {
-        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF · ' + (codigoFech || "") + '" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
-      }
-      if (r.alerta_pos_pago) {
-        html += ' <span class="badge bg-secondary-subtle text-secondary" title="Valor base mudou após o pagamento">Alerta</span>';
-      }
-    } else {
-      html = '<span class="badge bg-info-subtle text-info" title="' + (STATUS_TOOLTIPS.REAJUSTADO || "Reajustado") + (codigoFech ? " · " + codigoFech : "") + '">🔵 REAJUSTADO</span>';
-      if (idFech) {
-        html += ' <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-pdf-fechamento" title="Gerar PDF · ' + (codigoFech || "") + '" data-id-fech="' + idFech + '"><i class="ri-file-pdf-line text-danger"></i></button>';
-      }
+      const { fim } = periodoFiltro();
+      let motivo = "";
+      if (periodoAberto(fim)) motivo = "Período ainda em aberto: escolha um período que termine antes de hoje.";
+      else if (r.parcial) motivo = "Parte do período já tem fechamento. Ajuste o período para os dias pendentes.";
+      const btn = `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="gerar" data-k="${k}"${motivo ? " disabled" : ""}>Revisar e gerar</button>`;
+      return motivo ? `<span class="d-inline-block" tabindex="0" title="${esc(motivo)}">${btn}</span>` : btn;
     }
-    if (r.pode_reajustar) {
-      html += ' <span class="badge bg-warning text-dark" title="Valor base divergente — gere o reajuste">Gerar reajuste</span>';
-    }
-    return html;
+    if (st === "PAGO") return pdf;
+    const classe = r.pode_reajustar ? "btn-fm-primary" : "btn-outline-secondary";
+    return `<button type="button" class="btn btn-sm ${classe}" data-acao="reajustar" data-id="${esc(r.id_fechamento)}">Reajustar</button>${pdf}`;
   }
 
-  function updateCards(data) {
-    if (!data) return;
-    const cardFlex = qs("#card-flex");
-    const cardShopee = qs("#card-shopee");
-    const cardAvulso = qs("#card-avulso");
-    const cardTotalEntregas = qs("#card-total-entregas");
-    const cardTotalCancelado = qs("#card-total-cancelado");
-    const cardValor = qs("#card-valor");
-    if (cardFlex) cardFlex.textContent = String(data.sumFlex ?? 0);
-    if (cardShopee) cardShopee.textContent = String(data.sumShopee ?? 0);
-    if (cardAvulso) cardAvulso.textContent = String(data.sumAvulso ?? 0);
-    if (cardTotalEntregas) cardTotalEntregas.textContent = String(data.sumTotalEntregas ?? 0);
-    if (cardTotalCancelado) cardTotalCancelado.textContent = String(data.sumTotalCancelado ?? 0);
-    if (cardValor) cardValor.textContent = formatarMoeda(data.sumValor);
+  function diasHtml(r) {
+    const dias = Array.isArray(r.dias) ? r.dias : [];
+    if (!dias.length) return '<div class="fm-sub py-1">Sem entregas no período; só diárias de coleta.</div>';
+    const comConf = state.conferenciaHabilitada;
+    const linhas = dias
+      .map((d) => {
+        const st = String(d.fechamento_status || "PENDENTE").toUpperCase();
+        return (
+          "<tr>" +
+          `<td>${esc(dmy(d.data))}</td>` +
+          `<td class="text-end fm-num">${num(d.flex?.qtde)}</td>` +
+          `<td class="text-end fm-num">${num(d.shopee?.qtde)}</td>` +
+          `<td class="text-end fm-num">${num(d.avulso?.qtde)}</td>` +
+          `<td class="text-end fm-num">${num(d.g_total)}</td>` +
+          `<td class="text-end fm-num">${num(d.total_cancelado)}</td>` +
+          `<td class="text-end fm-num">${moeda(d.valor_feitos)}</td>` +
+          (comConf ? `<td>${conferenciaHtml(d)}</td>` : "") +
+          `<td><span class="fm-status fm-status--${esc(st.toLowerCase())}">${esc(STATUS_LABEL[st] || st)}</span></td>` +
+          "</tr>"
+        );
+      })
+      .join("");
+    return (
+      '<table class="table table-sm"><thead><tr>' +
+      '<th>Dia</th><th class="text-end">Mercado Livre</th><th class="text-end">Shopee</th><th class="text-end">Avulso</th>' +
+      '<th class="text-end">Pacotes G</th><th class="text-end">Cancelados</th><th class="text-end">Valor</th>' +
+      (comConf ? "<th>Conferência</th>" : "") +
+      "<th>Situação</th>" +
+      `</tr></thead><tbody>${linhas}</tbody></table>`
+    );
+  }
+
+  function renderTabela() {
+    if (!tbody) return;
+    const items = state.items;
+    if (!items.length) {
+      const filtrado = (fltStatus?.value || "").trim() || parseExecutorVal(fltEntregador?.value).id > 0;
+      linhaMensagem(filtrado ? "Nenhum motoboy encontrado com esses filtros." : "Nenhum motoboy com movimento neste período.");
+      return;
+    }
+    tbody.innerHTML = items
+      .map((r) => {
+        const k = chaveLinha(r);
+        const aberto = state.expandidos.has(k);
+        const st = String(r.fechamento_status || "PENDENTE").toUpperCase();
+        const valor = st === "PENDENTE" ? r.valor_base : r.valor_final;
+        const subValor =
+          r.pode_reajustar && r.valor_base_atual != null
+            ? `<div class="fm-sub fm-num">valor atual ${moeda(num(r.valor_base_atual) + num(r.valor_final) - num(r.valor_base_fechado))}</div>`
+            : "";
+        const { ini, fim } = periodoFiltro();
+        const subNome =
+          r.periodo_inicio && (r.periodo_inicio !== ini || r.periodo_fim !== fim)
+            ? `<div class="fm-sub">Fechamento de ${esc(periodoTexto(r.periodo_inicio, r.periodo_fim))}</div>`
+            : "";
+        const idDias = `fm-dias-${esc(k)}`;
+        return (
+          `<tr class="${r.pode_reajustar ? "fm-linha--revisao" : ""}">` +
+          `<td><button type="button" class="fm-expandir" data-acao="expandir" data-k="${esc(k)}" aria-expanded="${aberto}" aria-controls="${idDias}" aria-label="Ver dias de ${esc(r.nome)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
+          `<td><div class="fw-semibold">${esc(r.nome)}</div>${subNome}</td>` +
+          `<td class="text-end fm-num">${num(r.total_feitos)}</td>` +
+          `<td class="text-end fm-num">${num(r.total_cancelado)}</td>` +
+          `<td class="text-end fm-num">${num(r.g_total)}</td>` +
+          `<td class="text-end fm-num">${r.qtd_dias_coleta ? esc(plural(r.qtd_dias_coleta, "dia", "dias")) : "—"}</td>` +
+          `<td class="text-end"><div class="fw-semibold fm-num">${moeda(valor)}</div>${subValor}</td>` +
+          `<td>${statusHtml(r)}</td>` +
+          `<td class="text-end text-nowrap">${acoesHtml(r)}</td>` +
+          "</tr>" +
+          `<tr class="fm-dias${aberto ? "" : " d-none"}" id="${idDias}"><td colspan="${colunas()}">${diasHtml(r)}</td></tr>`
+        );
+      })
+      .join("");
+  }
+
+  function renderCards() {
+    const t = state.totais || {};
+    const set = (id, txt) => {
+      const el = qs(id);
+      if (el) el.textContent = txt;
+    };
+    set("#card-pendentes-valor", moeda(t.pendentes_valor));
+    set("#card-pendentes-qtd", plural(num(t.pendentes_qtd), "motoboy", "motoboys"));
+    set("#card-gerados-valor", moeda(t.gerados_valor));
+    set("#card-gerados-qtd", plural(num(t.gerados_qtd), "motoboy", "motoboys"));
+    set("#card-pagos-valor", moeda(t.pagos_valor));
+    set("#card-pagos-qtd", plural(num(t.pagos_qtd), "motoboy", "motoboys"));
+    set("#card-revisao-qtd", String(num(t.revisao_qtd)));
+    const filtro = (fltStatus?.value || "").trim().toUpperCase();
+    document.querySelectorAll("#fm-cards .fm-card").forEach((c) => {
+      c.setAttribute("aria-pressed", String(c.dataset.status === filtro));
+    });
+  }
+
+  function atualizarBtnGerarTodos() {
+    const btn = qs("#btnGerarTodos");
+    const wrap = qs("#wrapBtnGerarTodos");
+    const label = qs("#btnGerarTodosLabel");
+    if (!btn || !wrap) return;
+    const n = num(state.totais?.pendentes_qtd);
+    const { fim } = periodoFiltro();
+    let motivo = "";
+    if (periodoAberto(fim)) motivo = "Período ainda em aberto: escolha um período que termine antes de hoje.";
+    else if ((fltBase?.value || "").trim() || parseExecutorVal(fltEntregador?.value).id > 0)
+      motivo = "Limpe os filtros de base e motoboy para gerar todos de uma vez.";
+    else if (n === 0) motivo = "Nenhum motoboy pendente neste período.";
+    if (label) label.textContent = n > 0 ? `Gerar todos os pendentes (${n})` : "Gerar todos os pendentes";
+    btn.disabled = !!motivo || state.gerandoLote;
+    wrap.title = motivo;
   }
 
   function updatePager() {
@@ -185,1134 +317,721 @@ document.addEventListener("DOMContentLoaded", async () => {
     const page = state.page;
     const start = total === 0 ? 0 : (page - 1) * state.pageSize + 1;
     const end = Math.min(total, page * state.pageSize);
-    if (pagerInfo) pagerInfo.textContent = `Exibindo ${start} a ${end} de ${total} registros`;
-    if (pagerSummary) pagerSummary.textContent = `Página ${page} de ${totalPages}`;
-    if (pagerFirst) pagerFirst.disabled = page <= 1;
-    if (pagerPrev) pagerPrev.disabled = page <= 1;
-    if (pagerNext) pagerNext.disabled = page >= totalPages;
-    if (pagerLast) pagerLast.disabled = page >= totalPages;
+    const info = qs("#pager-info");
+    const summary = qs("#pager-summary");
+    if (info) info.textContent = `Exibindo ${start} a ${end} de ${plural(total, "motoboy", "motoboys")}`;
+    if (summary) summary.textContent = `Página ${page} de ${totalPages}`;
+    qs("#pager-first").disabled = page <= 1;
+    qs("#pager-prev").disabled = page <= 1;
+    qs("#pager-next").disabled = page >= totalPages;
+    qs("#pager-last").disabled = page >= totalPages;
   }
 
-  function formatarPeriodo(ini, fim) {
-    if (!ini || !fim) return "—";
-    const [yi, mi, di] = String(ini).split("-");
-    const [yf, mf, df] = String(fim).split("-");
-    return `${di}/${mi} a ${df}/${mf}/${yf}`;
-  }
-
-  function atualizarTotaisModal() {
-    const base = state.fechModal.valorBase || 0;
-    let totalAjustes = 0;
-    state.ajustesFechamento.forEach((a) => {
-      if (a.tipo === "ADIÇÃO") totalAjustes += Number(a.valor) || 0;
-      else totalAjustes -= Number(a.valor) || 0;
-    });
-    const totalPagar = base + totalAjustes;
-
-    qs("#fech-total-base").textContent = formatarMoeda(base);
-    const elAjustes = qs("#fech-total-ajustes");
-    if (elAjustes) {
-      elAjustes.textContent = formatarMoeda(totalAjustes);
-      elAjustes.className = totalAjustes < 0 ? "text-danger" : "";
+  function paramsResumo(extra) {
+    const { ini, fim } = periodoFiltro();
+    const params = new URLSearchParams({ agrupar: "executor", data_inicio: ini, data_fim: fim, page: state.page, pageSize: state.pageSize });
+    const executor = parseExecutorVal(fltEntregador?.value);
+    if (executor.tipo && executor.id > 0) {
+      params.set("executor_tipo", executor.tipo);
+      params.set("executor_id", String(executor.id));
     }
-    qs("#fech-total-pagar").textContent = formatarMoeda(totalPagar);
-    const g = state.fechModal.g_por_servico || { shopee: 0, ml: 0, avulso: 0 };
-    const gTotal = state.fechModal.g_total ?? 0;
-    const elG = qs("#fech-g-resumo");
-    if (elG) elG.textContent = `Pacotes G: Shopee ${g.shopee ?? 0}, ML ${g.ml ?? 0}, Avulso ${g.avulso ?? 0} · Total G: ${gTotal}`;
+    const status = (fltStatus?.value || "").trim();
+    if (status) params.set("fechamento_status", status);
+    const base = (fltBase?.value || "").trim();
+    if (base) params.set("base", base);
+    Object.entries(extra || {}).forEach(([k, v]) => params.set(k, v));
+    return params;
   }
 
-  function temAlteracoesPendentesFechamento() {
-    if (state.ajustesFechamento.length > 0) return true;
-    const valor = parseFloat(qs("#fech-ajuste-valor")?.value || 0) || 0;
-    const motivo = (qs("#fech-ajuste-motivo")?.value || "").trim();
-    const qtdeAvulso = parseInt(qs("#fech-avulso-qtde")?.value || "0", 10) || 0;
-    return valor > 0 || motivo.length > 0 || qtdeAvulso > 0;
-  }
-
-  function qtdeAvulsoInformada() {
-    const raw = String(qs("#fech-avulso-qtde")?.value || "").trim();
-    if (!raw) return 0;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n > 0 ? n : 0;
-  }
-
-  function arredondarDinheiro(v) {
-    return Math.round((Number(v) || 0) * 100) / 100;
-  }
-
-  function montarMotivoAvulso(qtde, unitario) {
-    return "Avulsos (" + qtde + " x " + formatarMoeda(unitario) + ")";
-  }
-
-  function atualizarPreviewAvulso() {
-    const unitario = arredondarDinheiro(state.fechModal.avulso_valor);
-    const qtde = qtdeAvulsoInformada();
-    const total = arredondarDinheiro(qtde * unitario);
-    const elUnit = qs("#fech-avulso-unitario");
-    const elTotal = qs("#fech-avulso-total");
-    const elPreview = qs("#fech-avulso-preview");
-    const elMsg = qs("#fech-avulso-msg");
-    const btn = qs("#btnAdicionarAvulso");
-    if (elUnit) elUnit.textContent = formatarMoeda(unitario);
-    if (elTotal) elTotal.textContent = formatarMoeda(total);
-    if (elPreview) {
-      elPreview.textContent = qtde > 0 && unitario > 0
-        ? montarMotivoAvulso(qtde, unitario) + " = " + formatarMoeda(total)
-        : "";
+  async function carregarResumo() {
+    const { ini, fim } = periodoFiltro();
+    if (!ini || !fim) {
+      linhaMensagem("Selecione um período.");
+      return;
     }
-    if (elMsg) {
-      if (unitario <= 0) {
-        elMsg.textContent = "Não há preço de avulso configurado para este motoboy.";
-        elMsg.classList.remove("d-none");
-      } else {
-        elMsg.textContent = "";
-        elMsg.classList.add("d-none");
-      }
-    }
-    if (btn) btn.disabled = !(qtde > 0 && unitario > 0 && total > 0);
-  }
-
-  function aplicarPrecoAvulso(valor) {
-    const n = arredondarDinheiro(valor);
-    state.fechModal.avulso_valor = n > 0 ? n : 0;
-    atualizarPreviewAvulso();
-  }
-
-  async function carregarPrecoAvulsoFallback(executorTipo, executorId) {
+    if (msgEl) msgEl.innerHTML = "";
+    linhaMensagem("Carregando…");
     try {
-      const [resGlobal, resIndiv] = await Promise.all([
-        fetch(`${API_ENTREGADORES}/precos/global`, { credentials: "include" }),
-        fetch(`${API_ENTREGADORES}/precos/individuais`, { credentials: "include" }),
-      ]);
-      let unitario = 0;
-      if (resGlobal.ok) {
-        const globalData = await resGlobal.json();
-        unitario = Number(globalData?.avulso_valor || 0);
-      }
-      if (resIndiv.ok) {
-        const indivData = await resIndiv.json();
-        const items = Array.isArray(indivData?.items) ? indivData.items : [];
-        const match = items.find((it) => {
-          if (executorTipo === "m") return Number(it.motoboy_id) === Number(executorId);
-          if (executorTipo === "e") return Number(it.entregador_id) === Number(executorId);
-          return false;
-        });
-        if (match && match.avulso_valor != null && match.avulso_valor !== "") {
-          unitario = Number(match.avulso_valor);
-        }
-      }
-      aplicarPrecoAvulso(unitario);
+      const data = await api(`${API_RESUMO}?${paramsResumo()}`);
+      state.items = Array.isArray(data.items) ? data.items : [];
+      state.totais = data.totais || {};
+      state.conferenciaHabilitada = !!data.conferencia_habilitada;
+      state.total = num(data.totalItems);
+      state.totalPages = num(data.totalPages);
     } catch (err) {
-      console.error("Erro ao carregar preço de avulso:", err);
-      aplicarPrecoAvulso(0);
-    }
-  }
-
-  function adicionarAvulsoAjuste() {
-    const unitario = arredondarDinheiro(state.fechModal.avulso_valor);
-    const qtde = qtdeAvulsoInformada();
-    const total = arredondarDinheiro(qtde * unitario);
-    if (!(qtde > 0 && unitario > 0 && total > 0)) return;
-    state.ajustesFechamento.push({
-      tipo: "ADIÇÃO",
-      valor: total,
-      motivo: montarMotivoAvulso(qtde, unitario),
-    });
-    const inp = qs("#fech-avulso-qtde");
-    if (inp) inp.value = "";
-    atualizarPreviewAvulso();
-    renderListaAjustes();
-  }
-
-  function renderListaAjustes() {
-    const list = qs("#fech-lista-ajustes");
-    if (!list) return;
-    const withIdx = state.ajustesFechamento.map((a, idx) => ({ ...a, _idx: idx }));
-    const ordenado = withIdx.slice().sort((a, b) => {
-      if (a.tipo !== b.tipo) return a.tipo === "ADIÇÃO" ? -1 : 1;
-      return a._idx - b._idx;
-    });
-    list.innerHTML = ordenado
-      .map(
-        (a) =>
-          '<div class="d-flex align-items-center justify-content-between py-2 px-2 mb-1 rounded ' +
-          (a.tipo === "ADIÇÃO" ? "bg-success bg-opacity-10" : "bg-danger bg-opacity-10") + '">' +
-          '<span class="small">' +
-          (a.tipo === "ADIÇÃO" ? "+" : "-") +
-          formatarMoeda(a.valor) +
-          " — " +
-          (a.motivo || "—") +
-          "</span>" +
-          '<button type="button" class="btn btn-link btn-sm text-danger p-0 btn-remover-ajuste" data-idx="' +
-          a._idx +
-          '"><i class="ri-delete-bin-line"></i></button>' +
-          "</div>"
-      )
-      .join("");
-    list.querySelectorAll(".btn-remover-ajuste").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const idx = parseInt(btn.dataset.idx, 10);
-        state.ajustesFechamento.splice(idx, 1);
-        renderListaAjustes();
-        atualizarTotaisModal();
-      });
-    });
-    atualizarTotaisModal();
-  }
-
-  function atualizarPlaceholderMotivo() {
-    const tipo = qs("#fech-ajuste-tipo")?.value || "ADIÇÃO";
-    const inp = qs("#fech-ajuste-motivo");
-    if (inp) inp.placeholder = PLACEHOLDER_MOTIVO[tipo] || PLACEHOLDER_MOTIVO.ADIÇÃO;
-  }
-
-  function atualizarBtnGerarFechamento() {
-    const btn = qs("#btnGerarFechamento");
-    const wrap = qs("#wrapBtnGerarFechamento");
-    if (!btn || !wrap) return;
-    const dataInicio = fltDataInicio?.value || "";
-    const dataFim = fltDataFim?.value || "";
-    const temPeriodo = !!(dataInicio && dataFim);
-    const ctx = state.contextoFechamento;
-    const listaReajuste = state.entregadoresParaReajuste || [];
-    const statusFiltro = (fltStatus?.value || "").trim().toUpperCase();
-    // Reajustar quando filtro GERADO ou REAJUSTADO e há fechamento(s) no contexto
-    const podeReajustarSóStatus =
-      (statusFiltro === "GERADO" || statusFiltro === "REAJUSTADO") &&
-      (ctx?.id_fechamento || listaReajuste.length > 0);
-    const status = podeReajustarSóStatus ? "GERADO" : "PENDENTE";
-
-    if (!temPeriodo && !podeReajustarSóStatus) {
-      btn.disabled = true;
-      btn.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
-      wrap.title = "Selecione um período para gerar ou reajustar o fechamento.";
-    } else if (statusFiltro === "PAGO") {
-      btn.disabled = true;
-      btn.innerHTML = '<i class="ri-checkbox-circle-line me-1"></i> Pago';
-      wrap.title = "Fechamentos pagos não podem ser reajustados.";
-    } else if (status === "GERADO") {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="ri-edit-line me-1"></i> Reajustar';
-      wrap.title = listaReajuste.length > 1 ? "Reajustar fechamento: selecione o motoboy na lista." : "Reajustar fechamento do período selecionado.";
-    } else {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
-      wrap.title = "Gerar fechamento para o período selecionado (o motoboy será escolhido em seguida).";
-    }
-    wrap.setAttribute("data-bs-original-title", wrap.title);
-  }
-
-  async function executarAcaoFechamento(acao) {
-    const ctx = state.contextoFechamento;
-    const listaReajuste = state.entregadoresParaReajuste || [];
-    const periodoInicio = fltDataInicio?.value || "";
-    const periodoFim = fltDataFim?.value || "";
-    const executor = parseExecutorVal(fltEntregador?.value || "");
-    const entNome = fltEntregador?.options[fltEntregador.selectedIndex]?.text || "";
-
-    if (acao === "reajustar") {
-      if (listaReajuste.length > 1) {
-        const opcoes = listaReajuste.map((u) => ({ key: (u.executorTipo || "e") + "_" + (u.executorId || u.entregador_id), nome: u.entregador_nome, ...u }));
-        const inputOptions = {};
-        opcoes.forEach((o) => { inputOptions[o.key] = o.nome; });
-        const { value: selecionado } = await window.Swal.fire({
-          title: "Selecione o motoboy",
-          html: "Há mais de um motoboy com fechamento elegível. Escolha qual deseja reajustar.",
-          showCancelButton: true,
-          cancelButtonText: "Cancelar",
-          confirmButtonText: "Reajustar",
-          input: "select",
-          inputOptions,
-          inputPlaceholder: "Selecione o motoboy",
-          inputValidator: (v) => (!v ? "Selecione um motoboy" : null),
-        });
-        if (selecionado) {
-          const u = opcoes.find((o) => o.key === selecionado);
-          if (u?.id_fechamento) abrirModalFechamento(true, u.id_fechamento, u.executorTipo || "e", u.executorId != null ? u.executorId : u.entregador_id, u.periodo_inicio, u.periodo_fim, u.entregador_nome);
-        }
-      } else if (ctx?.id_fechamento) {
-        const tipo = ctx.executorTipo || executor.tipo || "e";
-        const id = ctx.executorId != null ? ctx.executorId : (executor.id > 0 ? executor.id : 0);
-        const nome = ctx.entregador_nome || entNome;
-        abrirModalFechamento(true, ctx.id_fechamento, tipo, id, ctx.periodo_inicio, ctx.periodo_fim, nome);
-      }
+      console.error("Fechamento de Motoboys — carregarResumo:", err);
+      state.items = [];
+      state.totais = {};
+      state.total = 0;
+      state.totalPages = 0;
+      linhaMensagem(err.message || "Não foi possível carregar.", "text-danger");
+      renderCards();
+      updatePager();
+      atualizarBtnGerarTodos();
       return;
     }
-    if (acao === "gerar") {
-      let pInicio = periodoInicio || "";
-      let pFim = periodoFim || "";
-      if (!pInicio || !pFim) {
-        const r = datePickerInstance?.getResolvedRange?.();
-        if (r?.start && r?.end) {
-          if (fltDataInicio) fltDataInicio.value = r.start;
-          if (fltDataFim) fltDataFim.value = r.end;
-          pInicio = r.start;
-          pFim = r.end;
-        }
-      }
-      if (!pInicio || !pFim) {
-        if (window.Swal) Swal.fire({ icon: "warning", title: "Período obrigatório", text: "Selecione o período (data início e fim) antes de gerar o fechamento." });
-        return;
-      }
-      // Se nenhum motoboy estiver selecionado no filtro, abre seleção modal (SweetAlert)
-      if (!executor.tipo || executor.id <= 0) {
-        try {
-          const res = await fetch(`${API_ENTREGADORES}/executores?status=ativo`, { credentials: "include" });
-          if (!res.ok) throw new Error("Erro ao carregar entregadores.");
-          const list = await res.json();
-          const arr = Array.isArray(list) ? list : [];
-          if (!arr.length) {
-            if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: "Nenhum motoboy disponível para gerar fechamento." });
-            return;
-          }
-          const inputOptions = {};
-          arr.forEach((e) => {
-            const key = e.id_entregador != null ? "e_" + e.id_entregador : (e.id_motoboy != null ? "m_" + e.id_motoboy : "");
-            if (!key) return;
-            const nome = (e.nome || key).replace(/</g, "&lt;").replace(/"/g, "&quot;");
-            inputOptions[key] = nome;
-          });
-          const { value: selecionado } = await window.Swal.fire({
-            title: "Selecione o motoboy",
-            html: "Nenhum motoboy foi selecionado no filtro. Escolha qual deseja gerar o fechamento.",
-            showCancelButton: true,
-            cancelButtonText: "Cancelar",
-            confirmButtonText: "Gerar fechamento",
-            input: "select",
-            inputOptions,
-            inputPlaceholder: "Selecione o motoboy",
-            inputValidator: (v) => (!v ? "Selecione um motoboy" : null),
-          });
-          if (!selecionado) return;
-          const escolhido = parseExecutorVal(selecionado);
-          if (!escolhido.tipo || escolhido.id <= 0) return;
-          const nomeEscolhido = inputOptions[selecionado] || "Executor";
-          abrirModalFechamento(false, null, escolhido.tipo, escolhido.id, pInicio, pFim, nomeEscolhido);
-        } catch (err) {
-          console.error("Erro ao selecionar entregador para fechamento:", err);
-          if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao carregar entregadores para seleção." });
-        }
-        return;
-      }
-      abrirModalFechamento(false, null, executor.tipo, executor.id, pInicio, pFim, entNome);
-    }
+    renderTabela();
+    renderCards();
+    updatePager();
+    atualizarBtnGerarTodos();
+    atualizarContadorFiltros();
   }
 
-  function renderTable(items) {
-    if (!tbody) return;
-    if (!items || !items.length) {
-      const colCount = document.querySelector("#tbl-resumo thead tr")?.querySelectorAll("th")?.length || 8;
-      tbody.innerHTML = `<tr><td colspan="${colCount}" class="text-center text-muted py-4"><i class="ri-inbox-line fs-1 d-block mb-2"></i>Nenhum registro encontrado para período ou filtro selecionado.</td></tr>`;
-      return;
-    }
-    const formatarData = (ymd) => {
-      if (!ymd) return "—";
-      const [y, m, d] = String(ymd).split("-");
-      return d && m && y ? `${d}/${m}/${y}` : ymd;
-    };
-
-    tbody.innerHTML = items
-      .map((r) => {
-        const flexQtde = r.flex?.qtde ?? 0;
-        const shopeeQtde = r.shopee?.qtde ?? 0;
-        const avulsoQtde = r.avulso?.qtde ?? 0;
-        const gTotal = r.g_total ?? 0;
-        const totalEntregas = r.total_feitos ?? (flexQtde + shopeeQtde + avulsoQtde);
-        const totalCancelado = r.total_cancelado ?? 0;
-        const valorFeitos = r.valor_feitos != null ? formatarMoeda(r.valor_feitos) : "—";
-        const valorCancelados = r.valor_cancelados != null ? formatarMoeda(r.valor_cancelados) : "—";
-        const valorTotal = r.valor_total != null ? formatarMoeda(r.valor_total) : (r.total_dia != null ? formatarMoeda(r.total_dia) : "—");
-        const celFech = celulaFechamento(r);
-        const rowClass = r.pode_reajustar ? "table-warning" : r.alerta_pos_pago ? "table-secondary" : "";
-
-        return (
-          "<tr class=\"" + rowClass + "\">" +
-          "<td class=\"text-nowrap\">" + formatarData(r.data) + "</td>" +
-          "<td>" + (r.entregador_nome || "—") + "</td>" +
-          '<td class="text-center">' + flexQtde + "</td>" +
-          '<td class="text-center">' + shopeeQtde + "</td>" +
-          '<td class="text-center">' + avulsoQtde + "</td>" +
-          '<td class="text-center">' + gTotal + "</td>" +
-          '<td class="text-center">' + totalEntregas + "</td>" +
-          '<td class="text-center">' + totalCancelado + "</td>" +
-          '<td class="text-end">' + valorFeitos + "</td>" +
-          '<td class="text-end text-danger">' + valorCancelados + "</td>" +
-          '<td class="text-end">' + valorTotal + "</td>" +
-          '<td class="text-center">' + celFech + "</td>" +
-          "</tr>"
-        );
-      })
-      .join("");
-
-    tbody.querySelectorAll(".btn-pdf-fechamento").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const idFech = parseInt(btn.dataset.idFech, 10);
-        if (window.TrackSaidasFechamentoPdf?.gerar) window.TrackSaidasFechamentoPdf.gerar(idFech);
-      });
-    });
+  // ====== Gerar todos os pendentes ======
+  function listaHtml(itens, comMotivo) {
+    if (!itens.length) return "";
+    return (
+      '<div class="text-start border rounded mt-2" style="max-height:220px;overflow:auto">' +
+      '<table class="table table-sm mb-0"><tbody>' +
+      itens
+        .map(
+          (i) =>
+            `<tr><td>${esc(i.nome)}${comMotivo && i.motivo ? `<div class="small text-muted">${esc(i.motivo)}</div>` : ""}</td>` +
+            `<td class="text-end fm-num">${i.valor != null ? moeda(i.valor) : ""}</td></tr>`
+        )
+        .join("") +
+      "</tbody></table></div>"
+    );
   }
 
-  function formatarDataYmd(ymd) {
-    if (!ymd) return "—";
-    const [y, m, d] = String(ymd).split("-");
-    return d && m && y ? `${d}/${m}/${y}` : String(ymd);
-  }
-
-  function renderConferenciaBox(lista, habilitada) {
-    const box = qs("#fech-conferencia-box");
-    const tbodyConf = qs("#fech-conferencia-tbody");
-    if (!box || !tbodyConf) return;
-    const rows = Array.isArray(lista) ? lista : [];
-    if (!habilitada) {
-      box.classList.add("d-none");
-      tbodyConf.innerHTML = "";
-      return;
-    }
-    box.classList.remove("d-none");
-    if (!rows.length) {
-      tbodyConf.innerHTML = '<tr><td colspan="2" class="text-muted small">Sem dias com conferência no período.</td></tr>';
-      return;
-    }
-    tbodyConf.innerHTML = rows
-      .map((r) => {
-        const dataBr = formatarDataYmd(r.data);
-        const label = r.label || (r.status === "conferida" ? "Conferido" : "Não conferido");
-        const cls = r.status === "conferida" ? "text-success" : "text-danger";
-        return `<tr><td class="text-nowrap">${dataBr}</td><td class="${cls} fw-semibold">${label}</td></tr>`;
-      })
-      .join("");
-  }
-
-  async function abrirModalFechamento(modoEdicao, idFech, executorTipo, executorId, periodoInicio, periodoFim, entNome) {
-    state.modoEdicao = !!modoEdicao;
-    state.divergenciaValorBase = false;
-    state.valorBaseRecalculado = null;
-    state.ajustesFechamento = [];
-    let precoAvulsoCarregado = false;
-    aplicarPrecoAvulso(0);
-    const inpAvulsoQtde = qs("#fech-avulso-qtde");
-    if (inpAvulsoQtde) inpAvulsoQtde.value = "";
-
-    const titleEl = qs("#modalFechamentoLabel");
-    const btnModal = qs("#btnGerarFechamentoModal");
-    if (state.modoEdicao) {
-      if (titleEl) titleEl.innerHTML = '<i class="ri-user-line me-2"></i>Reajustar Fechamento de Entregador';
-      if (btnModal) btnModal.innerHTML = '<i class="ri-save-line me-1"></i> Salvar Reajuste';
-    } else {
-      if (titleEl) titleEl.innerHTML = '<i class="ri-user-line me-2"></i>Gerar Fechamento de Entregador';
-      if (btnModal) btnModal.innerHTML = '<i class="ri-file-add-line me-1"></i> Gerar Fechamento';
-    }
-
-    qs("#fech-id").value = idFech || "";
-    if (executorTipo === "e") {
-      qs("#fech-entregador-id").value = executorId || "";
-      if (qs("#fech-motoboy-id")) qs("#fech-motoboy-id").value = "";
-    } else {
-      qs("#fech-entregador-id").value = "";
-      if (qs("#fech-motoboy-id")) qs("#fech-motoboy-id").value = executorId || "";
-    }
-    qs("#fech-periodo-inicio").value = periodoInicio || "";
-    qs("#fech-periodo-fim").value = periodoFim || "";
-    qs("#fech-entregador-nome").textContent = entNome || fltEntregador?.options[fltEntregador.selectedIndex]?.text || "—";
-    qs("#fech-periodo-display").textContent = formatarPeriodo(periodoInicio, periodoFim);
-    const codigoEl = qs("#fech-codigo");
-    if (codigoEl) codigoEl.textContent = formatarCodigoFechamentoDetalhe(idFech, periodoFim, periodoInicio, entNome);
-
-    const alertDiverg = qs("#fechamentoAlertaDivergencia");
-    if (alertDiverg) alertDiverg.classList.add("d-none");
-    state.fechModal.conferencia_habilitada = false;
-    state.fechModal.conferencia_por_dia = [];
-    renderConferenciaBox([], false);
-
-    if (state.modoEdicao && idFech) {
-      try {
-        const res = await fetch(`${API_FECHAMENTOS}/${idFech}`, { credentials: "include" });
-        if (!res.ok) throw new Error(res.statusText);
-        const data = await res.json();
-        state.fechModal.valorBase = Number(data.valor_base || 0);
-        qs("#fech-valor-base").value = formatarMoeda(data.valor_base);
-        if (data.avulso_valor != null && data.avulso_valor !== "") {
-          aplicarPrecoAvulso(data.avulso_valor);
-          precoAvulsoCarregado = true;
-        }
-        if ((data.valor_adicao || 0) > 0) state.ajustesFechamento.push({ tipo: "ADIÇÃO", valor: data.valor_adicao, motivo: data.motivo_adicao || "" });
-        if ((data.valor_subtracao || 0) > 0) state.ajustesFechamento.push({ tipo: "SUBTRAÇÃO", valor: data.valor_subtracao, motivo: data.motivo_subtracao || "" });
-        if (data.divergencia_valor_base && data.valor_base_recalculado != null) {
-          state.divergenciaValorBase = true;
-          if (alertDiverg) alertDiverg.classList.add("d-none");
-          const valorAntigo = Number(data.valor_base || 0);
-          const valorNovo = Number(data.valor_base_recalculado || 0);
-          const atualizar = window.Swal ? (await Swal.fire({
-            icon: "warning",
-            title: "Valor base alterado",
-            html: "O valor base deste fechamento foi alterado.<br><br><strong>Valor anterior:</strong> " + formatarMoeda(valorAntigo) + "<br><strong>Novo valor:</strong> " + formatarMoeda(valorNovo) + "<br><br>Deseja atualizar?",
-            showCancelButton: true,
-            confirmButtonText: "Atualizar",
-            cancelButtonText: "Manter valor antigo",
-            confirmButtonColor: "#0d6efd",
-          })).isConfirmed : confirm("Deseja atualizar o valor base para " + formatarMoeda(valorNovo) + "?");
-          if (atualizar) {
-            state.fechModal.valorBase = valorNovo;
-            qs("#fech-valor-base").value = formatarMoeda(valorNovo);
-            if (qs("#fech-atualizar-base")) qs("#fech-atualizar-base").checked = true;
-          } else {
-            if (qs("#fech-atualizar-base")) qs("#fech-atualizar-base").checked = false;
-          }
-        }
-      } catch (err) {
-        console.error(err);
-        if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Erro ao carregar fechamento." });
-        else alert("Erro ao carregar fechamento.");
-        return;
-      }
-    } else {
-      state.fechModal.valorBase = 0;
-      const calcParams = new URLSearchParams({ periodo_inicio: periodoInicio, periodo_fim: periodoFim });
-      if (executorTipo === "e" && executorId) calcParams.append("entregador_id", executorId);
-      if (executorTipo === "m" && executorId) calcParams.append("motoboy_id", executorId);
-      try {
-        const res = await fetch(`${API_FECHAMENTOS}/calcular?${calcParams}`, { credentials: "include" });
-        let calculoComFallback = false;
-        if (res.ok) {
-          const data = await res.json();
-          state.fechModal.valorBase = Number(data.valor_base || 0);
-          qs("#fech-valor-base").value = formatarMoeda(data.valor_base);
-          if (data.avulso_valor != null && data.avulso_valor !== "") {
-            aplicarPrecoAvulso(data.avulso_valor);
-            precoAvulsoCarregado = true;
-          }
-          state.fechModal.g_por_servico = data.g_por_servico || { shopee: 0, ml: 0, avulso: 0 };
-          state.fechModal.g_total = data.g_total ?? 0;
-          state.fechModal.conferencia_habilitada = !!data.conferencia_habilitada;
-          state.fechModal.conferencia_por_dia = Array.isArray(data.conferencia_por_dia)
-            ? data.conferencia_por_dia
-            : [];
-          renderConferenciaBox(state.fechModal.conferencia_por_dia, state.fechModal.conferencia_habilitada);
-        } else {
-          let mensagem = "Erro ao calcular fechamento.";
-          try {
-            const errJson = await res.json().catch(() => null);
-            const detail = errJson?.detail;
-            if (typeof detail === "string") {
-              mensagem = detail;
-              if (mensagem.includes("entregador_id") && mensagem.includes("motoboy_id"))
-                mensagem = "Selecione um motoboy para calcular o fechamento.";
-            } else if (Array.isArray(detail) && detail.length > 0) {
-              const first = detail[0];
-              if (typeof first === "string") mensagem = first;
-              else if (first && typeof first.msg === "string") {
-                const msg = (first.msg || "").toLowerCase();
-                if (msg === "field required" || msg.includes("value_error.missing"))
-                  mensagem = "Informe o período (data início e fim) e o motoboy para calcular o fechamento.";
-                else if (msg.includes("entregador_id") || msg.includes("motoboy_id"))
-                  mensagem = "Selecione um motoboy para calcular o fechamento.";
-                else mensagem = first.msg;
-              }
-            } else if (detail && typeof detail === "object") {
-              if (typeof detail.message === "string") mensagem = detail.message;
-              else mensagem = JSON.stringify(detail);
-            }
-          } catch (_) {}
-          state.fechModal.g_por_servico = { shopee: 0, ml: 0, avulso: 0 };
-          state.fechModal.g_total = 0;
-          const resumoParams = new URLSearchParams({ data_inicio: periodoInicio, data_fim: periodoFim, pageSize: 500 });
-          if (executorTipo === "e" && executorId) resumoParams.append("entregador_id", executorId);
-          if (executorTipo === "m" && executorId) resumoParams.append("motoboy_id", executorId);
-          const resumoRes = await fetch(`${API_RESUMO}?${resumoParams}`, { credentials: "include" });
-          if (resumoRes.ok) {
-            const resumoData = await resumoRes.json();
-            const itens = Array.isArray(resumoData.items) ? resumoData.items : [];
-            const valorBase = itens.reduce((s, r) => s + (Number(r.valor_total ?? r.total_dia) || 0), 0);
-            state.fechModal.valorBase = valorBase;
-            qs("#fech-valor-base").value = formatarMoeda(valorBase);
-            calculoComFallback = true;
-          } else {
-            qs("#fech-valor-base").value = formatarMoeda(0);
-          }
-          if (!calculoComFallback) {
-            const titulo = typeof mensagem === "string" && mensagem.toLowerCase().includes("período ainda em aberto")
-              ? "Período inválido para fechamento"
-              : "Não foi possível calcular o fechamento";
-            if (window.Swal) Swal.fire({ icon: "warning", title: titulo, text: mensagem });
-            else alert(mensagem);
-          }
-        }
-      } catch (err) {
-        const resumoParams = new URLSearchParams({ data_inicio: periodoInicio, data_fim: periodoFim, pageSize: 500 });
-        if (executorTipo === "e" && executorId) resumoParams.append("entregador_id", executorId);
-        if (executorTipo === "m" && executorId) resumoParams.append("motoboy_id", executorId);
-        try {
-          const resumoRes = await fetch(`${API_RESUMO}?${resumoParams}`, { credentials: "include" });
-          if (resumoRes.ok) {
-            const resumoData = await resumoRes.json();
-            const itens = Array.isArray(resumoData.items) ? resumoData.items : [];
-            const valorBase = itens.reduce((s, r) => s + (Number(r.valor_total ?? r.total_dia) || 0), 0);
-            state.fechModal.valorBase = valorBase;
-            qs("#fech-valor-base").value = formatarMoeda(valorBase);
-          } else {
-            qs("#fech-valor-base").value = formatarMoeda(0);
-          }
-        } catch (e) {
-          qs("#fech-valor-base").value = formatarMoeda(0);
-        }
-      }
-    }
-
-    qs("#fech-ajuste-valor").value = 0;
-    qs("#fech-ajuste-motivo").value = "";
-    if (!precoAvulsoCarregado) {
-      await carregarPrecoAvulsoFallback(executorTipo, executorId);
-    } else {
-      atualizarPreviewAvulso();
-    }
-    atualizarPlaceholderMotivo();
-    renderListaAjustes();
-    atualizarTotaisModal();
-    state.modalFechamentoFecharConfirmado = false;
-    const modal = new bootstrap.Modal(qs("#modalFechamento"));
-    modal.show();
-  }
-
-  const modalFechamentoEl = qs("#modalFechamento");
-  if (modalFechamentoEl) {
-    modalFechamentoEl.addEventListener("hide.bs.modal", async (e) => {
-      if (state.modalFechamentoFecharConfirmado) return;
-      if (!temAlteracoesPendentesFechamento()) return;
-      e.preventDefault();
-      const confirmado = window.Swal
-        ? (await Swal.fire({ icon: "question", title: "Descartar alterações?", text: "Deseja descartar as alterações?", showCancelButton: true, confirmButtonText: "Sim, descartar", cancelButtonText: "Cancelar", confirmButtonColor: "#dc3545" })).isConfirmed
-        : confirm("Deseja descartar as alterações?");
-      if (!confirmado) return;
-      state.modalFechamentoFecharConfirmado = true;
-      bootstrap.Modal.getInstance(modalFechamentoEl)?.hide();
-    });
-    modalFechamentoEl.addEventListener("hidden.bs.modal", () => {
-      state.modalFechamentoFecharConfirmado = false;
-    });
-  }
-
-  async function salvarEGerarFechamento() {
-    const idFech = qs("#fech-id")?.value?.trim();
-    const entIdE = parseInt(qs("#fech-entregador-id")?.value, 10);
-    const entIdM = parseInt(qs("#fech-motoboy-id")?.value, 10);
-    const periodoInicio = qs("#fech-periodo-inicio")?.value?.trim();
-    const periodoFim = qs("#fech-periodo-fim")?.value?.trim();
-    const entNome = qs("#fech-entregador-nome")?.textContent || "";
-
-    let valorAdicao = 0;
-    let motivoAdicao = "";
-    let valorSubtracao = 0;
-    let motivoSubtracao = "";
-    state.ajustesFechamento.forEach((a) => {
-      if (a.tipo === "ADIÇÃO") {
-        valorAdicao += Number(a.valor) || 0;
-        if (a.motivo) motivoAdicao += (motivoAdicao ? " | " : "") + a.motivo;
-      } else {
-        valorSubtracao += Number(a.valor) || 0;
-        if (a.motivo) motivoSubtracao += (motivoSubtracao ? " | " : "") + a.motivo;
-      }
-    });
-
-    if (!state.modoEdicao && !idFech && state.fechModal.conferencia_habilitada) {
-      const naoConferidos = (state.fechModal.conferencia_por_dia || []).filter(
-        (d) => d && d.status !== "conferida"
-      );
-      if (naoConferidos.length > 0) {
-        const datas = naoConferidos
-          .map((d) => formatarDataYmd(d.data))
-          .filter(Boolean)
-          .join(", ");
-        if (window.Swal) {
-          const conf = await Swal.fire({
-            icon: "warning",
-            title: "Há dia(s) sem conferência de saída",
-            html:
-              `<p class="mb-2">Dias não conferidos: <strong>${datas || "—"}</strong></p>` +
-              `<p class="mb-0">Deseja continuar e gerar o fechamento mesmo assim?</p>`,
-            showCancelButton: true,
-            confirmButtonText: "Gerar mesmo assim",
-            cancelButtonText: "Cancelar",
-            confirmButtonColor: "#0d6efd",
-          });
-          if (!conf.isConfirmed) return;
-        } else {
-          const ok = confirm(
-            "Há dia(s) sem conferência de saída (" +
-              (datas || "—") +
-              "). Deseja gerar o fechamento mesmo assim?"
-          );
-          if (!ok) return;
-        }
-      }
-    }
-
-    if (!state.modoEdicao && !idFech && (state.fechModal.g_total || 0) > 0 && state.ajustesFechamento.length === 0) {
-      if (window.Swal) {
-        try {
-          const paramsG = new URLSearchParams();
-          if (periodoInicio) paramsG.append("de", periodoInicio);
-          if (periodoFim) paramsG.append("ate", periodoFim);
-          paramsG.append("somente_g", "true");
-          paramsG.append("limit", "5000");
-          // Filtro por executores: entregador ou motoboy
-          if (entIdE > 0) paramsG.append("entregador_id", String(entIdE));
-          if (entIdM > 0) paramsG.append("motoboy_id", String(entIdM));
-          const apiSaidas = API_URL + "/saidas/listar";
-          const resG = await fetch(apiSaidas + "?" + paramsG.toString(), { credentials: "include" });
-          const jsonG = await resG.json().catch(() => ({}));
-          const itensG = Array.isArray(jsonG.items) ? jsonG.items : (Array.isArray(jsonG) ? jsonG : []);
-          const linhas = itensG
-            .map((p) => {
-              const dt = p.timestamp ? new Date(p.timestamp) : null;
-              const dataBr = dt ? dt.toISOString().slice(0, 10).split("-").reverse().join("/") : "-";
-              const cod = p.codigo || "-";
-              const serv = p.servico || "-";
-              return `<tr><td>${dataBr}</td><td>${cod}</td><td>${serv}</td></tr>`;
-            })
-            .join("");
-          const tabelaHtml = `
-            <div class="mt-2 mb-2 text-start" style="max-height:260px;overflow:auto;">
-              <table class="table table-sm table-bordered mb-0">
-                <thead class="table-light">
-                  <tr><th>Data do registro</th><th>Código</th><th>Serviço</th></tr>
-                </thead>
-                <tbody>
-                  ${linhas || "<tr><td colspan='3' class='text-center text-muted'>Nenhum pacote G encontrado.</td></tr>"}
-                </tbody>
-              </table>
-            </div>`;
-          const result = await Swal.fire({
-            icon: "warning",
-            title: "Pacotes G sem ajuste",
-            html:
-              `<p class="mb-2">Há pacotes marcados como G (Grande) neste período para este executor e nenhum ajuste foi informado.</p>` +
-              `<p class="mb-1"><strong>Lista de pacotes G:</strong></p>` +
-              tabelaHtml +
-              `<p class="mt-3 mb-0">Deseja gerar o fechamento mesmo assim?</p>`,
-            showCancelButton: true,
-            confirmButtonText: "Gerar sem ajustar",
-            cancelButtonText: "Voltar ao preview",
-            width: 900,
-          });
-          if (!result.isConfirmed) return;
-        } catch (e) {
-          console.error("Falha ao buscar pacotes G para alerta de motoboy:", e);
-          const confirmadoFallback = await Swal.fire({
-            icon: "question",
-            title: "Gerar fechamento sem ajuste para pacotes G?",
-            text: "Existem pacotes G (Grande) no período e nenhum ajuste foi informado. Deseja realmente gerar o fechamento sem lançar ajuste para os pacotes G?",
-            showCancelButton: true,
-            confirmButtonText: "Sim, gerar",
-            cancelButtonText: "Cancelar",
-            confirmButtonColor: "#0d6efd",
-          });
-          if (!confirmadoFallback.isConfirmed) return;
-        }
-      } else {
-        const confirmado = confirm("Existem pacotes G no período sem ajuste. Deseja gerar mesmo assim?");
-        if (!confirmado) return;
-      }
-    }
-
-    const btnSalvar = qs("#btnGerarFechamentoModal");
-    if (btnSalvar) btnSalvar.disabled = true;
-
+  async function gerarTodosPendentes() {
+    if (state.gerandoLote || !window.Swal) return;
+    const { ini, fim } = periodoFiltro();
+    let pendentes = [];
     try {
-      let fechSalvo = null;
-      if (state.modoEdicao && idFech) {
-        const body = { valor_adicao: valorAdicao, motivo_adicao: motivoAdicao || null, valor_subtracao: valorSubtracao, motivo_subtracao: motivoSubtracao || null };
-        if (state.divergenciaValorBase && qs("#fech-atualizar-base")?.checked) body.atualizar_valor_base = true;
-        const res = await fetch(`${API_FECHAMENTOS}/${idFech}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), credentials: "include" });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
-        fechSalvo = await res.json();
-      } else {
-        const temEntregador = entIdE > 0;
-        const temMotoboy = entIdM > 0;
-        if (!periodoInicio || !periodoFim || (!temEntregador && !temMotoboy)) {
-          if (window.Swal) Swal.fire({ icon: "warning", title: "Atenção", text: "Informe período e entregador/motoboy." });
-          else alert("Informe período e entregador/motoboy.");
+      const data = await api(
+        `${API_RESUMO}?${new URLSearchParams({ agrupar: "executor", data_inicio: ini, data_fim: fim, fechamento_status: "PENDENTE", page: 1, pageSize: 500 })}`
+      );
+      pendentes = Array.isArray(data.items) ? data.items : [];
+    } catch (err) {
+      avisoErro("Não foi possível listar os pendentes", err);
+      return;
+    }
+    const geraveis = pendentes.filter((r) => !r.parcial);
+    const parciais = pendentes.filter((r) => r.parcial);
+    if (!geraveis.length) {
+      Swal.fire({ icon: "info", title: "Nada para gerar", text: "Nenhum motoboy pendente pode ser gerado de uma vez neste período.", confirmButtonColor: COR_PRIMARIA });
+      return;
+    }
+    const total = geraveis.reduce((s, r) => s + num(r.valor_base), 0);
+    const conf = await Swal.fire({
+      icon: "question",
+      title: `Gerar ${plural(geraveis.length, "fechamento", "fechamentos")}?`,
+      html:
+        `<p class="mb-1">Período ${esc(periodoTexto(ini, fim))} · total <strong class="fm-num">${moeda(total)}</strong></p>` +
+        '<p class="small text-muted mb-0">Os fechamentos saem sem ajustes. Ajustes podem ser feitos depois, em Reajustar.</p>' +
+        listaHtml(geraveis.map((r) => ({ nome: r.nome, valor: r.valor_base }))) +
+        (parciais.length
+          ? `<p class="small text-muted mt-2 mb-0">${esc(plural(parciais.length, "motoboy fica", "motoboys ficam"))} de fora porque parte do período já tem fechamento.</p>`
+          : ""),
+      showCancelButton: true,
+      confirmButtonText: `Gerar ${plural(geraveis.length, "fechamento", "fechamentos")}`,
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: COR_PRIMARIA,
+      focusCancel: true,
+    });
+    if (!conf.isConfirmed) return;
+
+    state.gerandoLote = true;
+    atualizarBtnGerarTodos();
+    Swal.fire({ title: "Gerando fechamentos…", text: "Isso pode levar alguns segundos.", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+      const res = await api(`${API_FECHAMENTOS}/lote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ periodo_inicio: ini, periodo_fim: fim, chave_idempotencia: `${ini}_${fim}_${Date.now()}` }),
+      });
+      const chave = (i) => `${i.executor_tipo}:${i.executor_id}`;
+      const confirmados = new Set(geraveis.map(chave));
+      const daLista = (arr) => (arr || []).filter((i) => confirmados.has(chave(i)));
+      const criados = res.criados || [];
+      const erros = daLista(res.erros).map((e) => ({ nome: e.nome, motivo: e.motivo }));
+      const existentes = daLista(res.ja_existentes);
+      const semValor = daLista(res.sem_valor);
+      let html = `<p class="mb-1"><strong>${esc(plural(criados.length, "fechamento gerado", "fechamentos gerados"))}</strong> · total <strong class="fm-num">${moeda(res.total_gerado)}</strong></p>`;
+      if (existentes.length) html += `<p class="small text-muted mb-1">${esc(plural(existentes.length, "motoboy já tinha", "motoboys já tinham"))} fechamento neste período.</p>`;
+      if (semValor.length) html += `<p class="small text-muted mb-1">${esc(plural(semValor.length, "motoboy sem valor", "motoboys sem valor"))} a pagar, não gerado.</p>`;
+      if (erros.length) html += `<p class="small text-danger mb-0 mt-2">Não gerados (${erros.length}):</p>${listaHtml(erros, true)}`;
+      await Swal.fire({ icon: erros.length ? "warning" : "success", title: "Geração concluída", html, confirmButtonColor: COR_PRIMARIA });
+    } catch (err) {
+      Swal.close();
+      avisoErro("Não foi possível gerar os fechamentos", err);
+    } finally {
+      state.gerandoLote = false;
+      await carregarResumo();
+    }
+  }
+
+  // ====== Gerar individual (escolher motoboy) ======
+  let executoresCache = [];
+
+  async function gerarIndividual() {
+    const { ini, fim } = periodoFiltro();
+    if (periodoAberto(fim)) {
+      if (window.Swal) Swal.fire({ icon: "info", title: "Período em aberto", text: "Escolha um período que termine antes de hoje para gerar o fechamento.", confirmButtonColor: COR_PRIMARIA });
+      return;
+    }
+    const executor = parseExecutorVal(fltEntregador?.value);
+    if (executor.id > 0) {
+      const nome = fltEntregador.options[fltEntregador.selectedIndex]?.text || "";
+      abrirPainel({ modo: "gerar", tipo: executor.tipo, id: executor.id, nome, ini, fim });
+      return;
+    }
+    if (!executoresCache.length || !window.Swal) return;
+    const inputOptions = {};
+    executoresCache.forEach((e) => {
+      inputOptions[e.key] = e.nome;
+    });
+    const { value } = await Swal.fire({
+      title: "Escolha o motoboy",
+      input: "select",
+      inputOptions,
+      inputPlaceholder: "Selecione",
+      showCancelButton: true,
+      confirmButtonText: "Revisar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: COR_PRIMARIA,
+      inputValidator: (v) => (!v ? "Selecione um motoboy" : null),
+    });
+    if (!value) return;
+    const escolhido = parseExecutorVal(value);
+    abrirPainel({ modo: "gerar", tipo: escolhido.tipo, id: escolhido.id, nome: inputOptions[value], ini, fim });
+  }
+
+  // ====== Painel de revisão (gerar e reajustar) ======
+  async function carregarLinha(tipo, id, ini, fim) {
+    const params = new URLSearchParams({ agrupar: "executor", data_inicio: ini, data_fim: fim, executor_tipo: tipo, executor_id: String(id), page: 1, pageSize: 5 });
+    const data = await api(`${API_RESUMO}?${params}`);
+    return (data.items || []).find((r) => r.executor_tipo === tipo && Number(r.executor_id) === Number(id)) || null;
+  }
+
+  function precoUnit(row, servico) {
+    const dia = (row?.dias || []).find((d) => d[servico] && d[servico].valor_unit != null);
+    return dia ? num(dia[servico].valor_unit) : 0;
+  }
+
+  function baseDoPainel() {
+    const p = state.painel;
+    if (!p) return 0;
+    if (p.modo === "reajustar") {
+      return usaValorAtual() ? num(p.valorBaseAtual) : num(p.valorBaseFechado);
+    }
+    return num(p.valorBase);
+  }
+
+  function totalAjustes() {
+    return (state.painel?.ajustes || []).reduce((s, a) => s + (a.tipo === "ADICAO" ? num(a.valor) : -num(a.valor)), 0);
+  }
+
+  function assinaturaAjustes() {
+    return JSON.stringify(state.painel.ajustes);
+  }
+
+  function usaValorAtual() {
+    const p = state.painel;
+    return !!(p && p.divergente && qs("#painel-atualizar-base")?.checked);
+  }
+
+  function painelAlterado() {
+    const p = state.painel;
+    if (!p || !p.pronto) return false;
+    const digitando = (qs("#ajuste-valor")?.value || "").trim() || (qs("#ajuste-motivo")?.value || "").trim();
+    return assinaturaAjustes() !== p.assinaturaInicial || !!digitando;
+  }
+
+  function renderComposicao() {
+    const p = state.painel;
+    const row = p.row;
+    const linhas = [];
+    let soma = 0;
+    const add = (rotulo, detalhe, valor) => {
+      soma += num(valor);
+      linhas.push(`<tr><td>${esc(rotulo)}${detalhe ? ` <span class="fm-detalhe">${esc(detalhe)}</span>` : ""}</td><td class="fm-num">${moeda(valor)}</td></tr>`);
+    };
+    if (row) {
+      [["shopee", "Shopee"], ["flex", "Mercado Livre"], ["avulso", "Avulso"]].forEach(([k, rotulo]) => {
+        const qtd = num(row[`qtde_${k}`]);
+        if (!qtd) return;
+        const unit = precoUnit(row, k);
+        add(rotulo, `${qtd} × ${moeda(unit)}`, qtd * unit);
+      });
+      if (num(row.valor_g) > 0) add("Adicional Pacote G", plural(num(row.g_total), "pacote", "pacotes"), row.valor_g);
+      if (num(row.total_cancelado) > 0) add("Cancelados", `${plural(num(row.total_cancelado), "pacote", "pacotes")}, não pagos`, 0);
+    }
+    if (p.qtdColetas > 0) add("Diárias de coleta", plural(p.qtdColetas, "dia", "dias"), p.valorColetas);
+    const diferenca = centavos(baseDoPainel() - soma);
+    if (p.modo === "reajustar" && Math.abs(diferenca) >= 0.01) {
+      add(usaValorAtual() ? "Mudanças desde a geração" : "Diferença para o valor gerado", "", diferenca);
+    }
+    if (!linhas.length) linhas.push('<tr><td colspan="2" class="fm-detalhe">Sem entregas nem coletas no período.</td></tr>');
+    linhas.push(`<tr class="fm-linha-total"><td>Valor base</td><td class="fm-num">${moeda(baseDoPainel())}</td></tr>`);
+    qs("#painel-composicao").innerHTML = linhas.join("");
+
+    const gInfo = qs("#painel-g-info");
+    if (gInfo) {
+      gInfo.textContent =
+        p.gTotal > 0 && !(num(row?.valor_g) > 0)
+          ? `${plural(p.gTotal, "pacote G", "pacotes G")} no período. O adicional de Pacote G está desligado nesta base; lance um ajuste se precisar.`
+          : "";
+    }
+  }
+
+  function renderAjustes() {
+    const p = state.painel;
+    const lista = qs("#painel-ajustes");
+    if (!lista) return;
+    lista.innerHTML = p.ajustes.length
+      ? p.ajustes
+          .map(
+            (a, idx) =>
+              `<div class="fm-ajuste"><span><span class="fm-num fw-semibold ${a.tipo === "ADICAO" ? "" : "text-danger"}">${a.tipo === "ADICAO" ? "+" : "−"} ${moeda(a.valor)}</span> · ${esc(a.motivo)}</span>` +
+              `<button type="button" class="btn btn-link btn-sm text-danger p-0" data-remover="${idx}" aria-label="Remover ajuste"><i class="ri-delete-bin-line"></i></button></div>`
+          )
+          .join("")
+      : '<div class="fm-painel-sub">Nenhum ajuste.</div>';
+    renderTotais();
+  }
+
+  function renderTotais() {
+    const p = state.painel;
+    if (!p) return;
+    const base = baseDoPainel();
+    const ajustes = totalAjustes();
+    const total = centavos(base + ajustes);
+    qs("#painel-total-base").textContent = moeda(base);
+    const elAj = qs("#painel-total-ajustes");
+    elAj.textContent = (ajustes < 0 ? "− " : "") + moeda(Math.abs(ajustes));
+    qs("#painel-total").textContent = moeda(total);
+    const negativo = total < 0;
+    qs("#painel-total-wrap").classList.toggle("fm-total--negativo", negativo);
+    qs("#painel-total-erro").classList.toggle("d-none", !negativo);
+    renderComposicao();
+
+    const btn = qs("#btnPainelSalvar");
+    const semMudanca = p.modo === "reajustar" && assinaturaAjustes() === p.assinaturaInicial && !usaValorAtual();
+    btn.disabled = !p.pronto || negativo || state.salvando || semMudanca;
+    btn.textContent = state.salvando ? "Salvando…" : p.modo === "reajustar" ? (semMudanca ? "Sem alterações" : "Salvar reajuste") : "Gerar fechamento";
+  }
+
+  function renderAvulso() {
+    const p = state.painel;
+    const unit = num(p.avulsoUnit);
+    const qtd = parseInt(qs("#avulso-qtde")?.value || "0", 10) || 0;
+    const prev = qs("#avulso-preview");
+    if (prev) prev.textContent = unit > 0 ? `× ${moeda(unit)}${qtd > 0 ? " = " + moeda(qtd * unit) : ""}` : "Sem preço de avulso configurado";
+    qs("#btnAdicionarAvulso").disabled = !(unit > 0 && qtd > 0);
+  }
+
+  async function abrirPainel(opts) {
+    if (!painel) return;
+    state.painel = {
+      modo: opts.modo,
+      tipo: opts.tipo,
+      id: opts.id,
+      nome: opts.nome || "",
+      ini: opts.ini,
+      fim: opts.fim,
+      idFech: opts.idFech || null,
+      voltarAPagar: !!opts.voltarAPagar,
+      valorBase: 0,
+      valorBaseFechado: 0,
+      valorBaseAtual: 0,
+      divergente: false,
+      ajustes: [],
+      assinaturaInicial: "",
+      avulsoUnit: 0,
+      qtdColetas: 0,
+      valorColetas: 0,
+      gTotal: 0,
+      row: null,
+      conferencia: null,
+      pronto: false,
+    };
+    state.fecharPainelConfirmado = false;
+    qs("#painelRevisaoTitulo").textContent = opts.modo === "reajustar" ? "Reajustar fechamento" : "Revisar e gerar fechamento";
+    qs("#painel-sub").textContent = opts.nome ? `${opts.nome} · ${periodoTexto(opts.ini, opts.fim)}` : "—";
+    qs("#painel-carregando").classList.remove("d-none");
+    qs("#painel-carregando").textContent = "Carregando…";
+    qs("#painel-conteudo").classList.add("d-none");
+    ["#ajuste-valor", "#ajuste-motivo", "#avulso-qtde"].forEach((s) => {
+      const el = qs(s);
+      if (el) el.value = "";
+    });
+    qs("#ajuste-erro").classList.add("d-none");
+    qs("#painel-atualizar-base").checked = true;
+    qs("#btnPainelSalvar").disabled = true;
+    painel.show();
+
+    const p = state.painel;
+    try {
+      if (p.modo === "reajustar") {
+        const f = await api(`${API_FECHAMENTOS}/${p.idFech}`);
+        if (state.painel !== p) return;
+        p.tipo = f.id_motoboy != null ? "m" : "e";
+        p.id = f.id_motoboy != null ? f.id_motoboy : f.id_entregador;
+        p.ini = f.periodo_inicio;
+        p.fim = f.periodo_fim;
+        p.nome = f.nome_exibicao || f.username_entregador || p.nome;
+        p.valorBaseFechado = num(f.valor_base);
+        p.divergente = !!f.divergencia_valor_base && f.valor_base_recalculado != null;
+        p.valorBaseAtual = p.divergente ? num(f.valor_base_recalculado) : num(f.valor_base);
+        p.avulsoUnit = num(f.avulso_valor);
+        p.qtdColetas = num(f.qtd_dias_coleta);
+        p.valorColetas = num(f.valor_coletas);
+        if (num(f.valor_adicao) > 0) p.ajustes.push({ tipo: "ADICAO", valor: centavos(f.valor_adicao), motivo: f.motivo_adicao || "Adição" });
+        if (num(f.valor_subtracao) > 0) p.ajustes.push({ tipo: "SUBTRACAO", valor: centavos(f.valor_subtracao), motivo: f.motivo_subtracao || "Desconto" });
+        qs("#painel-sub").textContent = `${p.nome} · ${periodoTexto(p.ini, p.fim)}`;
+        if (String(f.status || "").toUpperCase() === "PAGO") {
+          qs("#painel-carregando").textContent = "Este fechamento já foi pago e não pode ser reajustado.";
           return;
         }
-        const body = {
-          periodo_inicio: periodoInicio,
-          periodo_fim: periodoFim,
-          valor_adicao: valorAdicao,
-          motivo_adicao: motivoAdicao || null,
-          valor_subtracao: valorSubtracao,
-          motivo_subtracao: motivoSubtracao || null,
-        };
-        if (temEntregador) body.id_entregador = entIdE;
-        else body.id_motoboy = entIdM;
-        const res = await fetch(API_FECHAMENTOS, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), credentials: "include" });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(typeof err === "object" && err.detail ? (err.detail.message || err.detail) : res.statusText);
+        p.row = await carregarLinha(p.tipo, p.id, p.ini, p.fim);
+        if (p.divergente && p.row) {
+          p.qtdColetas = num(p.row.qtd_dias_coleta);
+          p.valorColetas = num(p.row.valor_coletas);
         }
-        fechSalvo = await res.json();
-      }
-
-      state.modalFechamentoFecharConfirmado = true;
-      bootstrap.Modal.getInstance(qs("#modalFechamento"))?.hide();
-      await carregarResumo();
-
-      if (window.Swal) {
-        if (state.modoEdicao) Swal.fire({ icon: "success", title: "Reajuste salvo", text: "O reajuste foi salvo com sucesso." });
-        else Swal.fire({ icon: "success", title: "Fechamento gerado", text: "Fechamento gerado com sucesso." });
-      }
-
-      const idNovo = fechSalvo?.id_fechamento;
-      if (idNovo && window.TrackSaidasFechamentoPdf?.gerar) {
-        const entLabel = qs("#fech-entregador-nome")?.textContent || fltEntregador?.options[fltEntregador.selectedIndex]?.text || entNome;
-        window.TrackSaidasFechamentoPdf.gerar(idNovo, entLabel, periodoInicio, periodoFim);
+        p.gTotal = num(p.row?.g_total);
+      } else {
+        const params = new URLSearchParams({ periodo_inicio: p.ini, periodo_fim: p.fim });
+        params.set(p.tipo === "m" ? "motoboy_id" : "entregador_id", String(p.id));
+        const [calc, row] = await Promise.all([api(`${API_FECHAMENTOS}/calcular?${params}`), carregarLinha(p.tipo, p.id, p.ini, p.fim)]);
+        if (state.painel !== p) return;
+        p.valorBase = num(calc.valor_base);
+        p.avulsoUnit = num(calc.avulso_valor);
+        p.qtdColetas = num(calc.qtd_dias_coleta);
+        p.valorColetas = num(calc.valor_coletas);
+        p.gTotal = num(calc.g_total);
+        p.row = row;
       }
     } catch (err) {
-      console.error(err);
-      if (window.Swal) Swal.fire({ icon: "error", title: "Erro ao salvar", text: err.message || "Falha ao salvar. Tente novamente." });
-      else alert("Erro: " + (err.message || "Falha ao salvar."));
-    } finally {
-      if (btnSalvar) btnSalvar.disabled = false;
+      if (state.painel !== p) return;
+      qs("#painel-carregando").textContent = err.message || "Não foi possível carregar.";
+      return;
+    }
+    if (state.painel !== p) return;
+
+    const div = qs("#painel-divergencia");
+    div.classList.toggle("d-none", !p.divergente);
+    if (p.divergente) {
+      qs("#painel-divergencia-texto").textContent = `Valor atual: ${moeda(p.valorBaseAtual)} (antes ${moeda(p.valorBaseFechado)})`;
+    }
+    p.conferencia = resumoConferencia(p.row);
+    qs("#painel-conferencia").classList.toggle("d-none", !p.conferencia.sem.length);
+    qs("#painel-conferencia-titulo").textContent = p.conferencia.texto;
+    qs("#painel-conferencia-dias").innerHTML = p.conferencia.sem
+      .map((d) => {
+        const [, m, dd] = String(d.data).split("-");
+        const reconferir = d.conferencia_status === "reconferir";
+        return `<span class="fm-chip ${reconferir ? "fm-chip--reconferir" : "fm-chip--revisao"}">${esc(`${dd}/${m}`)}${reconferir ? " · Reconferir" : ""}</span>`;
+      })
+      .join(" ");
+
+    p.pronto = true;
+    p.assinaturaInicial = assinaturaAjustes();
+    qs("#painel-carregando").classList.add("d-none");
+    qs("#painel-conteudo").classList.remove("d-none");
+    renderAvulso();
+    renderAjustes();
+  }
+
+  function adicionarAjuste() {
+    const p = state.painel;
+    if (!p || !p.pronto) return;
+    const erro = qs("#ajuste-erro");
+    const valor = centavos(parseFloat(String(qs("#ajuste-valor")?.value || "").replace(",", ".")));
+    const motivo = (qs("#ajuste-motivo")?.value || "").trim();
+    let msg = "";
+    if (!(valor > 0)) msg = "Informe um valor maior que zero.";
+    else if (motivo.length < 3) msg = "Informe o motivo do ajuste.";
+    erro.textContent = msg;
+    erro.classList.toggle("d-none", !msg);
+    if (msg) return;
+    p.ajustes.push({ tipo: qs("#ajuste-tipo")?.value === "SUBTRACAO" ? "SUBTRACAO" : "ADICAO", valor, motivo });
+    qs("#ajuste-valor").value = "";
+    qs("#ajuste-motivo").value = "";
+    renderAjustes();
+  }
+
+  function adicionarAvulso() {
+    const p = state.painel;
+    const unit = num(p?.avulsoUnit);
+    const qtd = parseInt(qs("#avulso-qtde")?.value || "0", 10) || 0;
+    if (!(unit > 0 && qtd > 0)) return;
+    p.ajustes.push({ tipo: "ADICAO", valor: centavos(qtd * unit), motivo: `Avulsos (${qtd} × ${moeda(unit)})` });
+    qs("#avulso-qtde").value = "";
+    renderAvulso();
+    renderAjustes();
+  }
+
+  function corpoAjustes() {
+    const p = state.painel;
+    const juntar = (tipo) => p.ajustes.filter((a) => a.tipo === tipo);
+    const soma = (lista) => centavos(lista.reduce((s, a) => s + num(a.valor), 0));
+    const motivos = (lista) => lista.map((a) => a.motivo).join(" | ") || null;
+    const ad = juntar("ADICAO");
+    const sub = juntar("SUBTRACAO");
+    return { valor_adicao: soma(ad), motivo_adicao: motivos(ad), valor_subtracao: soma(sub), motivo_subtracao: motivos(sub) };
+  }
+
+  async function salvarPainel() {
+    const p = state.painel;
+    if (!p || !p.pronto || state.salvando) return;
+    if (centavos(baseDoPainel() + totalAjustes()) < 0) return;
+    const semConf = p.conferencia ? p.conferencia.sem : [];
+    if (p.modo === "gerar" && semConf.length && window.Swal) {
+      const ok = await Swal.fire({
+        icon: "warning",
+        title: "Há dias sem conferência de saída",
+        text: `${p.conferencia.texto}: ${semConf.map((d) => dmy(d.data)).join(", ")}. Gerar mesmo assim?`,
+        showCancelButton: true,
+        confirmButtonText: "Gerar mesmo assim",
+        cancelButtonText: "Voltar",
+        confirmButtonColor: COR_PRIMARIA,
+      });
+      if (!ok.isConfirmed) return;
+    }
+    state.salvando = true;
+    renderTotais();
+    let salvo = null;
+    try {
+      if (p.modo === "reajustar") {
+        const body = corpoAjustes();
+        if (usaValorAtual()) body.atualizar_valor_base = true;
+        salvo = await api(`${API_FECHAMENTOS}/${p.idFech}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      } else {
+        const body = { periodo_inicio: p.ini, periodo_fim: p.fim, ...corpoAjustes() };
+        if (p.tipo === "m") body.id_motoboy = p.id;
+        else body.id_entregador = p.id;
+        salvo = await api(API_FECHAMENTOS, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      }
+    } catch (err) {
+      state.salvando = false;
+      renderTotais();
+      avisoErro(p.modo === "reajustar" ? "Não foi possível salvar o reajuste" : "Não foi possível gerar o fechamento", err);
+      return;
+    }
+    state.salvando = false;
+    state.fecharPainelConfirmado = true;
+    painel.hide();
+    carregarResumo();
+    if (!window.Swal) return;
+    const titulo = p.modo === "reajustar" ? "Reajuste salvo" : "Fechamento gerado";
+    const r = await Swal.fire({
+      icon: "success",
+      title: titulo,
+      html: `${esc(p.nome)} · <strong class="fm-num">${moeda(salvo?.valor_final)}</strong>`,
+      showDenyButton: !!salvo?.id_fechamento,
+      denyButtonText: "Baixar PDF",
+      showCancelButton: p.voltarAPagar,
+      cancelButtonText: "Voltar para A Pagar",
+      confirmButtonText: "Fechar",
+      confirmButtonColor: COR_PRIMARIA,
+      denyButtonColor: "#475569",
+    });
+    if (r.isDenied && salvo?.id_fechamento && window.TrackSaidasFechamentoPdf?.gerar) {
+      window.TrackSaidasFechamentoPdf.gerar(salvo.id_fechamento, p.nome);
+    } else if (r.dismiss === Swal.DismissReason.cancel && p.voltarAPagar) {
+      window.location.href = "tracking-entregadores-a-pagar.html";
     }
   }
 
-  qs("#fech-ajuste-tipo")?.addEventListener("change", atualizarPlaceholderMotivo);
-  qs("#fech-avulso-qtde")?.addEventListener("input", atualizarPreviewAvulso);
-  qs("#fech-avulso-qtde")?.addEventListener("keydown", (ev) => {
+  if (painelEl) {
+    painelEl.addEventListener("hide.bs.offcanvas", async (ev) => {
+      if (state.fecharPainelConfirmado || !painelAlterado() || !window.Swal) return;
+      ev.preventDefault();
+      const r = await Swal.fire({
+        icon: "question",
+        title: "Descartar alterações?",
+        showCancelButton: true,
+        confirmButtonText: "Descartar",
+        cancelButtonText: "Continuar editando",
+        confirmButtonColor: "#B91C1C",
+      });
+      if (!r.isConfirmed) return;
+      state.fecharPainelConfirmado = true;
+      painel.hide();
+    });
+    painelEl.addEventListener("hidden.bs.offcanvas", () => {
+      state.painel = null;
+      state.salvando = false;
+    });
+  }
+
+  qs("#btnAdicionarAjuste")?.addEventListener("click", adicionarAjuste);
+  qs("#ajuste-motivo")?.addEventListener("keydown", (ev) => {
     if (ev.key === "Enter") {
       ev.preventDefault();
-      adicionarAvulsoAjuste();
+      adicionarAjuste();
     }
   });
-  qs("#btnAdicionarAvulso")?.addEventListener("click", adicionarAvulsoAjuste);
-  qs("#btnAdicionarAjuste")?.addEventListener("click", () => {
-    const tipo = qs("#fech-ajuste-tipo")?.value || "ADIÇÃO";
-    const valor = Math.abs(parseFloat(qs("#fech-ajuste-valor")?.value || 0) || 0);
-    const motivo = (qs("#fech-ajuste-motivo")?.value || "").trim();
-    if (valor <= 0) return;
-    state.ajustesFechamento.push({ tipo, valor, motivo });
-    qs("#fech-ajuste-valor").value = 0;
-    qs("#fech-ajuste-motivo").value = "";
-    renderListaAjustes();
+  qs("#ajuste-tipo")?.addEventListener("change", () => {
+    const inp = qs("#ajuste-motivo");
+    if (inp) inp.placeholder = qs("#ajuste-tipo").value === "SUBTRACAO" ? "Ex.: Adiantamento pago" : "Ex.: Coletas extras";
   });
-  qs("#btnGerarFechamentoModal")?.addEventListener("click", salvarEGerarFechamento);
+  qs("#avulso-qtde")?.addEventListener("input", renderAvulso);
+  qs("#btnAdicionarAvulso")?.addEventListener("click", adicionarAvulso);
+  qs("#painel-atualizar-base")?.addEventListener("change", renderTotais);
+  qs("#painel-ajustes")?.addEventListener("click", (ev) => {
+    const btn = ev.target.closest("[data-remover]");
+    if (!btn || !state.painel) return;
+    state.painel.ajustes.splice(parseInt(btn.dataset.remover, 10), 1);
+    renderAjustes();
+  });
+  qs("#btnPainelSalvar")?.addEventListener("click", salvarPainel);
 
+  // ====== Eventos da tabela ======
+  tbody?.addEventListener("click", (ev) => {
+    const btn = ev.target.closest("[data-acao]");
+    if (!btn || btn.disabled) return;
+    const acao = btn.dataset.acao;
+    if (acao === "expandir") {
+      const k = btn.dataset.k;
+      const aberto = !state.expandidos.has(k);
+      if (aberto) state.expandidos.add(k);
+      else state.expandidos.delete(k);
+      btn.setAttribute("aria-expanded", String(aberto));
+      document.getElementById(btn.getAttribute("aria-controls"))?.classList.toggle("d-none", !aberto);
+    } else if (acao === "pdf") {
+      const id = Number(btn.dataset.id);
+      if (id && window.TrackSaidasFechamentoPdf?.gerar) window.TrackSaidasFechamentoPdf.gerar(id);
+    } else if (acao === "gerar") {
+      const r = state.items.find((i) => chaveLinha(i) === btn.dataset.k);
+      const { ini, fim } = periodoFiltro();
+      if (r) abrirPainel({ modo: "gerar", tipo: r.executor_tipo, id: r.executor_id, nome: r.nome, ini, fim });
+    } else if (acao === "reajustar") {
+      const id = Number(btn.dataset.id);
+      const r = state.items.find((i) => Number(i.id_fechamento) === id);
+      if (id) abrirPainel({ modo: "reajustar", idFech: id, nome: r?.nome, ini: r?.periodo_inicio, fim: r?.periodo_fim });
+    }
+  });
+
+  document.querySelectorAll("#fm-cards .fm-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      if (!fltStatus) return;
+      fltStatus.value = fltStatus.value === card.dataset.status ? "" : card.dataset.status;
+      state.page = 1;
+      carregarResumo();
+    });
+  });
+
+  qs("#btnGerarTodos")?.addEventListener("click", gerarTodosPendentes);
+  qs("#btnGerarIndividual")?.addEventListener("click", gerarIndividual);
+
+  // ====== Filtros ======
   async function carregarExecutores() {
     if (!fltEntregador) return;
     try {
-      const res = await fetch(`${API_ENTREGADORES}/executores?status=ativo`, { credentials: "include" });
-      if (!res.ok) return;
-      const list = await res.json();
-      const arr = (Array.isArray(list) ? list : []).map((e) => {
-        const nomeRaw = e?.nome || e?.executor_key || "";
-        return {
-          ...e,
-          nome: (typeof window.formatPersonName === "function")
-            ? window.formatPersonName(nomeRaw)
-            : nomeRaw,
-        };
-      }).sort((a, b) => {
-        const cmp = (typeof window.comparePersonNames === "function")
-          ? window.comparePersonNames(a?.nome, b?.nome)
-          : String(a?.nome || "").localeCompare(String(b?.nome || ""), "pt-BR", { sensitivity: "base" });
-        if (cmp !== 0) return cmp;
-        return String(a?.executor_key || "").localeCompare(String(b?.executor_key || ""), "pt-BR", { sensitivity: "base" });
+      const list = await api(`${API_ENTREGADORES}/executores?status=ativo`);
+      const fmt = (n) => (typeof window.formatPersonName === "function" ? window.formatPersonName(n) : n);
+      const chaveNome = (n) =>
+        typeof window.personNameKey === "function"
+          ? window.personNameKey(n)
+          : String(n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+      const porNome = new Map();
+      (Array.isArray(list) ? list : []).forEach((e) => {
+        const nome = fmt(e?.nome || e?.executor_key || "");
+        const key = e.executor_key || (e.id_motoboy != null ? "m_" + e.id_motoboy : "e_" + e.id_entregador);
+        const k = chaveNome(nome);
+        if (!k) return;
+        const atual = porNome.get(k);
+        // Mesmo nome como entregador antigo e motoboy: fica o motoboy.
+        if (!atual || (e.id_motoboy != null && atual.tipo !== "m")) porNome.set(k, { key, nome, tipo: e.id_motoboy != null ? "m" : "e" });
       });
-
-      // Remove duplicidades visuais de nome no filtro:
-      // - mantém apenas uma opção por nome normalizado
-      // - se houver duplicata entre entregador e motoboy, prioriza motoboy
-      const byNome = new Map();
-      arr.forEach((e) => {
-        const nomeKey = (typeof window.personNameKey === "function")
-          ? window.personNameKey(e?.nome || e?.executor_key)
-          : normalizeNomeKey(e?.nome || e?.executor_key);
-        if (!nomeKey) return;
-        const current = byNome.get(nomeKey);
-        const incomingIsMotoboy = e?.id_motoboy != null;
-        const currentIsMotoboy = current?.id_motoboy != null;
-        if (!current || (incomingIsMotoboy && !currentIsMotoboy)) {
-          byNome.set(nomeKey, e);
-        }
-      });
-
-      const executoresUnicos = Array.from(byNome.values());
-      const opts = executoresUnicos.map((e) => {
-        const val = e.executor_key || (e.id_motoboy != null ? "m_" + e.id_motoboy : "e_" + e.id_entregador);
-        const nome = (e.nome || val).replace(/</g, "&lt;").replace(/"/g, "&quot;");
-        return `<option value="${val}">${nome}</option>`;
-      });
-      fltEntregador.innerHTML = '<option value="">(Todos)</option>' + opts.join("");
+      executoresCache = Array.from(porNome.values()).sort((a, b) =>
+        typeof window.comparePersonNames === "function" ? window.comparePersonNames(a.nome, b.nome) : a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })
+      );
+      fltEntregador.innerHTML = '<option value="">Todos</option>' + executoresCache.map((e) => `<option value="${esc(e.key)}">${esc(e.nome)}</option>`).join("");
     } catch (err) {
-      console.error("Erro ao carregar executores:", err);
+      console.error("Erro ao carregar motoboys:", err);
     }
   }
 
   async function carregarBases() {
     if (!fltBase) return;
     try {
-      const res = await fetch(`${API_URL}/base/`, { credentials: "include" });
-      if (!res.ok) return;
-      const raw = await res.json();
-      const bases = Array.isArray(raw) ? raw : (raw?.items || raw?.data || []);
-      const nomes = Array.from(new Set(
-        bases.map((b) => String((b && (b.base || b.nome)) || (typeof b === "string" ? b : "")).trim()).filter(Boolean)
-      )).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
-      const escapar = (v) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
-      fltBase.innerHTML = '<option value="">(Todas)</option>' +
-        nomes.map((n) => `<option value="${escapar(n)}">${escapar(n)}</option>`).join("");
+      const raw = await api(`${API_URL}/base/`);
+      const bases = Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
+      const nomes = Array.from(
+        new Set(bases.map((b) => String((b && (b.base || b.nome)) || (typeof b === "string" ? b : "")).trim()).filter(Boolean))
+      ).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+      fltBase.innerHTML = '<option value="">Todas</option>' + nomes.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
     } catch (err) {
       console.error("Erro ao carregar bases:", err);
     }
   }
 
-  async function carregarResumo() {
-    const msgEl = qs("#resumoMsg");
-    if (msgEl) msgEl.innerHTML = "<div class=\"text-muted\">Carregando...</div>";
-    if (tbody) tbody.innerHTML = "";
+  const btnFiltrosIcon = qs("#btnFiltrosIcon");
+  const filtrosContador = qs("#filtrosContador");
 
-    const dataInicio = fltDataInicio?.value || "";
-    const dataFim = fltDataFim?.value || "";
-    const executorVal = fltEntregador?.value || "";
-    const executor = parseExecutorVal(executorVal);
-
-    const params = new URLSearchParams({ page: state.page, pageSize: state.pageSize });
-    if (dataInicio) params.append("data_inicio", dataInicio);
-    if (dataFim) params.append("data_fim", dataFim);
-    if (executor.tipo && executor.id > 0) {
-      params.append("executor_tipo", executor.tipo);
-      params.append("executor_id", String(executor.id));
-    }
-    // Compatibilidade com backends que ainda não suportam executor_tipo/executor_id.
-    if (executor.tipo === "e" && executor.id > 0) params.append("entregador_id", executor.id);
-    if (executor.tipo === "m" && executor.id > 0) params.append("motoboy_id", executor.id);
-    const statusFiltro = fltStatus?.value?.trim() || "";
-    if (statusFiltro) params.append("fechamento_status", statusFiltro);
-    const baseFiltro = (fltBase?.value || "").trim();
-    if (baseFiltro) params.append("base", baseFiltro);
-
-    try {
-      if (!API_URL) {
-        throw new Error("URL da API não configurada. Verifique TRACK_API_URL.");
-      }
-      const res = await fetch(`${API_RESUMO}?${params.toString()}`, { credentials: "include" });
-      if (!res.ok) {
-        const contentType = res.headers.get("content-type") || "";
-        let detail = res.statusText;
-        if (contentType.includes("application/json")) {
-          try {
-            const errBody = await res.json();
-            detail = (errBody && (errBody.detail || errBody.message)) || detail;
-          } catch (_) { /* ignore */ }
-        }
-        throw new Error(detail || `Erro ${res.status}`);
-      }
-      const data = await res.json();
-
-      state.total = Number(data.totalItems ?? 0);
-      state.totalPages = Number(data.totalPages ?? 1);
-      state.items = Array.isArray(data.items) ? data.items : [];
-
-      const label = executorVal ? (fltEntregador.options[fltEntregador.selectedIndex]?.text || "Executor") : "Todos";
-      state.entregadorLabel = label;
-
-      state.entregadoresParaReajuste = [];
-      const temExecutor = executor.tipo && executor.id > 0;
-      if (temExecutor && state.items.length > 0) {
-        const primeiro = state.items.find((i) =>
-          (executor.tipo === "e" && String(i.entregador_id) === String(executor.id)) ||
-          (executor.tipo === "m" && String(i.motoboy_id) === String(executor.id))
-        ) || state.items[0];
-        state.contextoFechamento = {
-          status: (primeiro.fechamento_status || "PENDENTE").toUpperCase(),
-          id_fechamento: primeiro.id_fechamento || null,
-          periodo_inicio: primeiro.periodo_inicio || dataInicio,
-          periodo_fim: primeiro.periodo_fim || dataFim,
-          entregador_nome: primeiro.entregador_nome || label,
-          executorTipo: executor.tipo,
-          executorId: executor.tipo === "e" ? primeiro.entregador_id : primeiro.motoboy_id,
-        };
-      } else if (!temExecutor && (statusFiltro === "GERADO" || statusFiltro === "REAJUSTADO") && state.items.length > 0) {
-        const seen = new Set();
-        const lista = [];
-        state.items.forEach((i) => {
-          const tipo = i.motoboy_id != null ? "m" : "e";
-          const id = i.motoboy_id != null ? i.motoboy_id : i.entregador_id;
-          const key = tipo + "_" + id;
-          if (id != null && !seen.has(key)) {
-            seen.add(key);
-            lista.push({
-              executorTipo: tipo,
-              executorId: id,
-              entregador_id: i.entregador_id,
-              motoboy_id: i.motoboy_id,
-              entregador_nome: i.entregador_nome || "—",
-              id_fechamento: i.id_fechamento || null,
-              periodo_inicio: i.periodo_inicio || dataInicio,
-              periodo_fim: i.periodo_fim || dataFim,
-            });
-          }
-        });
-        state.entregadoresParaReajuste = lista.filter((e) => e.id_fechamento != null);
-        if (lista.length === 1 && state.entregadoresParaReajuste.length === 1) {
-          const u = state.entregadoresParaReajuste[0];
-          state.contextoFechamento = {
-            status: statusFiltro,
-            id_fechamento: u.id_fechamento,
-            periodo_inicio: u.periodo_inicio,
-            periodo_fim: u.periodo_fim,
-            entregador_nome: u.entregador_nome,
-            executorTipo: u.executorTipo,
-            executorId: u.executorId,
-          };
-          state.entregadoresParaReajuste = [];
-        } else {
-          state.contextoFechamento = state.entregadoresParaReajuste.length > 0
-            ? { status: statusFiltro, id_fechamento: null, periodo_inicio: dataInicio, periodo_fim: dataFim, entregador_nome: "" }
-            : null;
-        }
-      } else {
-        state.contextoFechamento = temExecutor && dataInicio && dataFim ? { status: "PENDENTE", id_fechamento: null, periodo_inicio: dataInicio, periodo_fim: dataFim, entregador_nome: label } : null;
-      }
-
-      updateCards(data);
-      renderTable(state.items);
-      updatePager();
-      atualizarBtnGerarFechamento();
-      atualizarContadorFiltros();
-      if (msgEl) msgEl.innerHTML = "";
-    } catch (err) {
-      console.error("Fechamento de Motoboys — carregarResumo:", err);
-      const msgTexto = err && err.message ? err.message : "Erro ao carregar resumo. Verifique o login e a conexão.";
-      if (msgEl) msgEl.innerHTML = "<div class=\"text-danger\">" + (msgTexto.replace(/</g, "&lt;").replace(/>/g, "&gt;")) + "</div>";
-      updateCards({ sumFlex: 0, sumShopee: 0, sumAvulso: 0, sumTotalEntregas: 0, sumValor: 0 });
-      state.total = 0;
-      state.totalPages = 0;
-      state.items = [];
-      state.contextoFechamento = null;
-      if (tbody) renderTable([]);
-      updatePager();
-      atualizarBtnGerarFechamento();
-      atualizarContadorFiltros();
-    }
+  function atualizarContadorFiltros() {
+    if (!filtrosContador) return;
+    let n = 0;
+    if (parseExecutorVal(fltEntregador?.value).id > 0) n++;
+    if ((fltStatus?.value || "").trim()) n++;
+    if ((fltBase?.value || "").trim()) n++;
+    filtrosContador.textContent = String(n);
+    filtrosContador.classList.toggle("d-none", n === 0);
   }
 
-  // ====== Date Picker ======
-  let datePickerInstance = null;
-  const periodBtn = document.getElementById("entregadores-resumo-period-btn");
+  function fecharDropdownFiltros() {
+    if (typeof bootstrap !== "undefined" && btnFiltrosIcon) bootstrap.Dropdown.getInstance(btnFiltrosIcon)?.hide();
+  }
+
+  qs("#btnFiltroAplicar")?.addEventListener("click", () => {
+    state.page = 1;
+    fecharDropdownFiltros();
+    carregarResumo();
+  });
+
+  qs("#btnFiltroLimpar")?.addEventListener("click", () => {
+    if (fltEntregador) fltEntregador.value = "";
+    if (fltStatus) fltStatus.value = "";
+    if (fltBase) fltBase.value = "";
+    state.page = 1;
+    fecharDropdownFiltros();
+    carregarResumo();
+  });
+
+  qs("#pager-first")?.addEventListener("click", () => { state.page = 1; carregarResumo(); });
+  qs("#pager-prev")?.addEventListener("click", () => { if (state.page > 1) { state.page--; carregarResumo(); } });
+  qs("#pager-next")?.addEventListener("click", () => { if (state.page < state.totalPages) { state.page++; carregarResumo(); } });
+  qs("#pager-last")?.addEventListener("click", () => { state.page = Math.max(1, state.totalPages); carregarResumo(); });
+
+  // ====== Período ======
+  const periodBtn = qs("#entregadores-resumo-period-btn");
   if (typeof window.initDatePickerDashboard === "function") {
-    datePickerInstance = window.initDatePickerDashboard({
+    const dp = window.initDatePickerDashboard({
       containerId: "entregadores-resumo-date-picker-container",
       prefix: "entregadores-resumo-dp",
       defaultPreset: "quinzena-ant",
-      onApply: function (start, end) {
+      onApply(start, end) {
         if (fltDataInicio) fltDataInicio.value = start;
         if (fltDataFim) fltDataFim.value = end;
         updatePeriodLabel(start, end);
-        if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
-          const d = bootstrap.Dropdown.getInstance(periodBtn);
-          if (d) d.hide();
-        }
+        if (typeof bootstrap !== "undefined" && periodBtn) bootstrap.Dropdown.getInstance(periodBtn)?.hide();
         state.page = 1;
-        atualizarBtnGerarFechamento();
+        state.expandidos.clear();
         carregarResumo();
       },
-      onCancel: function () {
-        if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && periodBtn) {
-          const d = bootstrap.Dropdown.getInstance(periodBtn);
-          if (d) d.hide();
-        }
-      }
+      onCancel() {
+        if (typeof bootstrap !== "undefined" && periodBtn) bootstrap.Dropdown.getInstance(periodBtn)?.hide();
+      },
     });
-    if (datePickerInstance && datePickerInstance.applyPreset) {
-      datePickerInstance.applyPreset("quinzena-ant");
-    }
-    const r = datePickerInstance ? datePickerInstance.getResolvedRange() : { start: "", end: "" };
+    if (dp && dp.applyPreset) dp.applyPreset("quinzena-ant");
+    const r = dp ? dp.getResolvedRange() : { start: "", end: "" };
     if (fltDataInicio) fltDataInicio.value = r.start;
     if (fltDataFim) fltDataFim.value = r.end;
     updatePeriodLabel(r.start, r.end);
   }
 
-  const btnFiltrosIcon = document.getElementById("btnFiltrosIcon");
-  const filtrosContador = document.getElementById("filtrosContador");
-
-  function atualizarContadorFiltros() {
-    if (!filtrosContador) return;
-    let n = 0;
-    if (parseExecutorVal(fltEntregador?.value || "").id > 0) n++;
-    if ((fltStatus?.value || "").trim()) n++;
-    if ((fltBase?.value || "").trim()) n++;
-    if (n > 0) {
-      filtrosContador.textContent = String(n);
-      filtrosContador.classList.remove("d-none");
-    } else {
-      filtrosContador.classList.add("d-none");
-    }
-  }
-
-  function fecharDropdownFiltros() {
-    if (typeof bootstrap !== "undefined" && bootstrap.Dropdown && btnFiltrosIcon) {
-      const d = bootstrap.Dropdown.getInstance(btnFiltrosIcon);
-      if (d) d.hide();
-    }
-  }
-
-  qs("#btnFiltroAplicar")?.addEventListener("click", () => {
-    state.page = 1;
-    carregarResumo();
-    atualizarContadorFiltros();
-    fecharDropdownFiltros();
-  });
-
-  qs("#btnGerarFechamento")?.addEventListener("click", async () => {
-    const statusFiltro = (fltStatus?.value || "").trim().toUpperCase();
-    const ctx = state.contextoFechamento;
-    const listaReajuste = state.entregadoresParaReajuste || [];
-    const podeReajustar =
-      (statusFiltro === "GERADO" || statusFiltro === "REAJUSTADO") &&
-      (ctx?.id_fechamento || listaReajuste.length > 0);
-    const acao = podeReajustar ? "reajustar" : "gerar";
-    await executarAcaoFechamento(acao);
-  });
-
-  [fltDataInicio, fltDataFim, fltEntregador, fltStatus].forEach((el) => {
-    el?.addEventListener("change", atualizarBtnGerarFechamento);
-    el?.addEventListener("input", atualizarBtnGerarFechamento);
-  });
-
-  qs("#btnFiltroLimpar")?.addEventListener("click", () => {
-    if (datePickerInstance && datePickerInstance.applyPreset) {
-      datePickerInstance.applyPreset("quinzena-ant");
-      const r = datePickerInstance.getResolvedRange();
-      if (fltDataInicio) fltDataInicio.value = r.start;
-      if (fltDataFim) fltDataFim.value = r.end;
-      updatePeriodLabel(r.start, r.end);
-    } else {
-      if (fltDataInicio) fltDataInicio.value = "";
-      if (fltDataFim) fltDataFim.value = "";
-    }
-    if (fltEntregador) fltEntregador.value = "";
-    if (fltStatus) fltStatus.value = "";
-    if (fltBase) fltBase.value = "";
-    state.page = 1;
-    state.entregadorLabel = "Todos";
-    state.contextoFechamento = null;
-    atualizarBtnGerarFechamento();
-    carregarResumo();
-    atualizarContadorFiltros();
-    fecharDropdownFiltros();
-  });
-
-  qs("#btnFiltroCancelar")?.addEventListener("click", () => {
-    fecharDropdownFiltros();
-  });
-
-  pagerFirst?.addEventListener("click", () => { state.page = 1; carregarResumo(); });
-  pagerPrev?.addEventListener("click", () => { if (state.page > 1) { state.page--; carregarResumo(); } });
-  pagerNext?.addEventListener("click", () => { if (state.page < state.totalPages) { state.page++; carregarResumo(); } });
-  pagerLast?.addEventListener("click", () => { state.page = state.totalPages; carregarResumo(); });
-
   await Promise.all([carregarExecutores(), carregarBases()]);
-  state.entregadorLabel = "Todos";
-  atualizarBtnGerarFechamento();
   await carregarResumo();
+
+  const url = new URL(window.location.href);
+  const revisar = Number(url.searchParams.get("revisar"));
+  if (revisar > 0) {
+    url.searchParams.delete("revisar");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    abrirPainel({ modo: "reajustar", idFech: revisar, voltarAPagar: true });
+  }
 });

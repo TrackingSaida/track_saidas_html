@@ -59,6 +59,7 @@
       q.set("acao", params.acao);
     }
     if (params?.somente_g)  q.set("somente_g", "true");
+    if (params?.categoria_g_id) q.set("categoria_g_id", String(params.categoria_g_id));
     if (params?.localizar)  q.set("localizar", params.localizar);
     if (params?.codigo)     q.set("codigo", params.codigo);
     if (params?.codigo_exato) q.set("codigo_exato", "true");

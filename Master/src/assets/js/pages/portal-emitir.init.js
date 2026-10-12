@@ -23,8 +23,9 @@
   function setStep(n) {
     step = n;
     document.getElementById("stepDestinatario").classList.toggle("d-none", n !== 1);
-    document.getElementById("stepPacote").classList.toggle("d-none", n !== 2);
-    document.getElementById("stepRevisao").classList.toggle("d-none", n !== 3);
+    document.getElementById("stepRevisao").classList.toggle("d-none", n !== 2);
+    document.getElementById("tipPreenchimento")?.classList.toggle("d-none", n !== 1);
+    document.querySelector(".ps-req-note")?.classList.toggle("d-none", n !== 1);
     document.querySelectorAll("#wizardSteps .ps-step").forEach(function (el) {
       var s = Number(el.getAttribute("data-step"));
       el.classList.toggle("is-active", s === n);
@@ -206,7 +207,7 @@
       } catch (ex) {
         if (digits(destCep && destCep.value) !== cep) return;
         lookupOk = false;
-        lookupMsg = (ex && ex.message) || "CEP não encontrado.";
+        lookupMsg = PS.friendlyError(ex, "CEP não encontrado.");
       }
       if (digits(destCep && destCep.value) !== cep) return;
       var cobData = await checkCobertura(cep);
@@ -244,7 +245,7 @@
         filled ? "Endereço preenchido." : "CEP encontrado, mas sem rua cadastrada. Complete o endereço."
       );
     } catch (ex) {
-      showHint("hintCepRem", false, (ex && ex.message) || "CEP não encontrado.");
+      showHint("hintCepRem", false, PS.friendlyError(ex, "CEP não encontrado."));
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -456,35 +457,13 @@
     return "";
   }
 
-  document.getElementById("btnStep1Next")?.addEventListener("click", async function () {
-    var dest = collectDest();
-    var err = validateDest(dest);
-    if (err) {
-      showHint("hintCep", false, err);
-      return;
-    }
-    var cob = await checkCobertura(dest.cep);
-    if (cob && !cob.coberto) return;
-    if (cepCoberto === false) return;
-    setStep(2);
-  });
-
-  document.getElementById("btnStep2Back")?.addEventListener("click", function () {
-    setStep(1);
-  });
-  document.getElementById("btnStep2Next")?.addEventListener("click", function () {
+  function montarRevisao() {
     var dest = collectDest();
     var pac = collectPacote();
     var referencia = collectReferencia();
-    var rem = document.getElementById("remetenteResumo").textContent;
     var telFmt = dest.telefone ? PS.maskPhone(dest.telefone) : "—";
+    var temPacote = pac.peso_kg != null || pac.dimensoes || pac.pedido_loja || pac.observacao;
     var html =
-      '<section class="ps-revisao-block">' +
-      "<h3>Remetente</h3>" +
-      "<p>" +
-      PS.escapeHtml(rem) +
-      "</p>" +
-      "</section>" +
       '<section class="ps-revisao-block">' +
       "<h3>Destinatário</h3>" +
       '<p class="ps-revisao-name">' +
@@ -507,22 +486,45 @@
         : "") +
       (referencia ? "<p>Referência: " + PS.escapeHtml(referencia) + "</p>" : "") +
       "</section>" +
-      '<section class="ps-revisao-block">' +
-      "<h3>Pacote</h3>" +
-      "<p>" +
-      (pac.peso_kg != null ? PS.escapeHtml(String(pac.peso_kg)) + " kg" : "Peso não informado") +
-      (pac.dimensoes ? " · " + PS.escapeHtml(pac.dimensoes) : "") +
-      "</p>" +
-      (pac.pedido_loja
-        ? "<p>Pedido do site: " + PS.escapeHtml(pac.pedido_loja) + "</p>"
-        : "") +
-      (pac.observacao ? "<p>Obs.: " + PS.escapeHtml(pac.observacao) + "</p>" : "") +
-      "</section>";
+      (temPacote
+        ? '<section class="ps-revisao-block">' +
+          "<h3>Pacote</h3>" +
+          (pac.peso_kg != null || pac.dimensoes
+            ? "<p>" +
+              [
+                pac.peso_kg != null ? PS.escapeHtml(String(pac.peso_kg).replace(".", ",")) + " kg" : "",
+                pac.dimensoes ? PS.escapeHtml(pac.dimensoes) : "",
+              ]
+                .filter(Boolean)
+                .join(" · ") +
+              "</p>"
+            : "") +
+          (pac.pedido_loja
+            ? "<p>Pedido do site: " + PS.escapeHtml(pac.pedido_loja) + "</p>"
+            : "") +
+          (pac.observacao ? "<p>Obs.: " + PS.escapeHtml(pac.observacao) + "</p>" : "") +
+          "</section>"
+        : "");
     document.getElementById("revisaoResumo").innerHTML = html;
-    setStep(3);
-  });
-  document.getElementById("btnStep3Back")?.addEventListener("click", function () {
+  }
+
+  document.getElementById("btnStep1Next")?.addEventListener("click", async function () {
+    var dest = collectDest();
+    var err = validateDest(dest);
+    if (err) {
+      showHint("hintCep", false, err);
+      return;
+    }
+    var cob = await checkCobertura(dest.cep);
+    if (cob && !cob.coberto) return;
+    if (cepCoberto === false) return;
+    montarRevisao();
+    document.getElementById("emitirMsg").textContent = "";
     setStep(2);
+  });
+
+  document.getElementById("btnRevisaoVoltar")?.addEventListener("click", function () {
+    setStep(1);
   });
 
   document.getElementById("btnEmitir")?.addEventListener("click", async function () {
@@ -596,6 +598,10 @@
         acomp.href = "portal-pedidos.html?q=" + encodeURIComponent(codigo);
       }
       msg.textContent = "";
+    } catch (ex) {
+      if (!(ex && ex.status === 401)) {
+        msg.textContent = PS.friendlyError(ex, "Não foi possível gerar a etiqueta.");
+      }
     } finally {
       emitting = false;
       btn.disabled = false;
@@ -604,27 +610,31 @@
     }
   });
 
+  var CAMPOS_FORM = [
+    "destNome",
+    "destCep",
+    "destRua",
+    "destNumero",
+    "destBairro",
+    "destCidade",
+    "destTelefone",
+    "destComplemento",
+    "destReferencia",
+    "pacotePeso",
+    "pacoteDimensoes",
+    "pacoteObs",
+    "pacotePedidoLoja",
+  ];
+
   function limparFormularioEmitir() {
-    [
-      "destNome",
-      "destCep",
-      "destRua",
-      "destNumero",
-      "destBairro",
-      "destCidade",
-      "destTelefone",
-      "destComplemento",
-      "destReferencia",
-      "pacotePeso",
-      "pacoteDimensoes",
-      "pacoteObs",
-      "pacotePedidoLoja",
-    ].forEach(function (id) {
+    CAMPOS_FORM.forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.value = "";
     });
     var ufEl = document.getElementById("destUf");
     if (ufEl) ufEl.value = "";
+    var pacoteDetalhes = document.getElementById("pacoteDetalhes");
+    if (pacoteDetalhes) pacoteDetalhes.open = false;
     cepCoberto = null;
     lastDestCepLookup = "";
     coberturaInfo = null;
@@ -647,8 +657,23 @@
     limparFormularioEmitir();
   });
 
+  function formularioPreenchido() {
+    return CAMPOS_FORM.some(function (id) {
+      var el = document.getElementById(id);
+      return el && String(el.value || "").trim() !== "";
+    }) || !!(document.getElementById("destUf") || {}).value;
+  }
+
   document.querySelectorAll(".btn-limpar-emitir").forEach(function (btn) {
-    btn.addEventListener("click", function () {
+    btn.addEventListener("click", async function () {
+      if (formularioPreenchido()) {
+        var ok = await PS.confirmar({
+          titulo: "Limpar formulário",
+          texto: "Apagar os dados preenchidos?",
+          ok: "Apagar",
+        });
+        if (!ok) return;
+      }
       limparFormularioEmitir();
     });
   });

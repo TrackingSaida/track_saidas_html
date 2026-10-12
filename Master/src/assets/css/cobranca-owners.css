@@ -1,0 +1,305 @@
+/* Financeiro → Cobrança de Owners. Escopo só deste módulo (.cob). */
+.cob {
+  --cob-text: #0F172A;
+  --cob-strong: #0B1F3A;
+  --cob-muted: #64748B;
+  --cob-border: #E2E8F0;
+  --cob-soft: #F8FAFC;
+  color: var(--cob-text);
+}
+
+.cob .cob-surface {
+  background: #fff;
+  border: 1px solid var(--cob-border);
+  border-radius: 8px;
+}
+
+.cob .cob-lede {
+  color: var(--cob-muted);
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.cob .cob-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cob .cob-total {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--cob-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.cob .cob-label {
+  font-size: 0.75rem;
+  color: var(--cob-muted);
+  margin-bottom: 0.15rem;
+}
+
+.cob .cob-side-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--cob-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Faixa de composição: uma linha, sem cards */
+.cob .cob-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--cob-border);
+  font-size: 0.8125rem;
+  color: var(--cob-muted);
+}
+
+.cob .cob-strip strong {
+  color: var(--cob-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Abas de status com contagem */
+.cob .cob-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--cob-border);
+}
+
+.cob .cob-tab {
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 0.5rem 0.75rem;
+  color: var(--cob-muted);
+  font-weight: 500;
+  font-size: 0.875rem;
+  margin-bottom: -1px;
+}
+
+.cob .cob-tab:hover { color: var(--cob-text); }
+
+.cob .cob-tab.active {
+  color: var(--cob-strong);
+  border-bottom-color: var(--cob-strong);
+}
+
+.cob .cob-tab .cob-count {
+  display: inline-block;
+  min-width: 1.5rem;
+  margin-left: 0.25rem;
+  padding: 0 0.35rem;
+  border-radius: 4px;
+  background: var(--cob-soft);
+  border: 1px solid var(--cob-border);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--cob-text);
+}
+
+/* Tabela densa, sem sombra */
+.cob .cob-table {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.cob .cob-table thead th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--cob-muted);
+  text-transform: none;
+  background: #fff;
+  border-bottom: 1px solid var(--cob-border);
+  white-space: nowrap;
+}
+
+.cob .cob-table td {
+  border-color: var(--cob-border);
+  vertical-align: middle;
+}
+
+.cob .cob-table .text-end { font-variant-numeric: tabular-nums; }
+
+.cob .cob-table-wrap {
+  overflow-x: auto;
+}
+
+@media (max-width: 767.98px) {
+  .cob .cob-table th:first-child,
+  .cob .cob-table td:first-child {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 1;
+  }
+  .cob .cob-total { font-size: 1.5rem; }
+}
+
+/* Etiquetas de status: texto sempre presente, cor só reforça */
+.cob .cob-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid var(--cob-border);
+  background: var(--cob-soft);
+  color: var(--cob-text);
+  white-space: nowrap;
+}
+
+.cob .cob-tag--conferido { border-color: #BFDBFE; background: #EFF6FF; color: #1E3A8A; }
+.cob .cob-tag--fechado { border-color: #CBD5E1; background: #F1F5F9; color: var(--cob-strong); }
+.cob .cob-tag--informado { border-color: #CBD5E1; background: #fff; color: var(--cob-strong); }
+.cob .cob-tag--bloqueio { border-color: #FECACA; background: #FEF2F2; color: #991B1B; }
+.cob .cob-tag--atencao { border-color: #FDE68A; background: #FFFBEB; color: #92400E; }
+
+/* Composição em linhas de razão */
+.cob .cob-ledger {
+  width: 100%;
+  font-size: 0.875rem;
+}
+
+.cob .cob-ledger td {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--cob-border);
+}
+
+.cob .cob-ledger td.text-end { font-variant-numeric: tabular-nums; }
+.cob .cob-ledger tr.cob-ledger-sub td { color: var(--cob-muted); }
+.cob .cob-ledger tr.cob-ledger-total td {
+  border-bottom: 0;
+  border-top: 2px solid var(--cob-strong);
+  font-weight: 700;
+  color: var(--cob-strong);
+  padding-top: 0.6rem;
+}
+
+/* Chips de filtro */
+.cob .cob-chip {
+  border: 1px solid var(--cob-border);
+  background: #fff;
+  color: var(--cob-text);
+  border-radius: 8px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8125rem;
+}
+
+.cob .cob-chip.active {
+  border-color: var(--cob-strong);
+  background: var(--cob-strong);
+  color: #fff;
+}
+
+/* Bloqueio acima da ação */
+.cob .cob-block {
+  border: 1px solid #FECACA;
+  background: #FEF2F2;
+  color: #991B1B;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+/* Esqueleto de carregamento */
+.cob .cob-skel {
+  display: inline-block;
+  height: 0.9em;
+  min-width: 4rem;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #EEF2F6 0%, #F8FAFC 50%, #EEF2F6 100%);
+  background-size: 200% 100%;
+  animation: cob-skel 1.2s ease-in-out infinite;
+}
+
+.cob .cob-skel--total { height: 1.75rem; min-width: 10rem; }
+
+@keyframes cob-skel {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cob .cob-skel { animation: none; }
+}
+
+.cob .cob-link {
+  color: var(--cob-strong);
+  font-weight: 500;
+}
+
+.cob .cob-muted { color: var(--cob-muted); }
+
+/* Situação dos pacotes cobrados: barra empilhada + legenda */
+.cob {
+  --cob-sit-entregue: #0F766E;
+  --cob-sit-em_entrega: #2563EB;
+  --cob-sit-na_base: #D97706;
+  --cob-sit-manual: #94A3B8;
+}
+
+.cob .cob-sit-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--cob-soft);
+}
+
+.cob .cob-sit-bar span { display: block; height: 100%; }
+
+.cob .cob-sit-legenda {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.5rem 1.5rem;
+  font-size: 0.875rem;
+}
+
+.cob .cob-sit-legenda li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--cob-border);
+}
+
+.cob .cob-sit-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  margin-right: 0.4rem;
+  flex: none;
+}
+
+.cob [data-sit="entregue"] { background: var(--cob-sit-entregue); }
+.cob [data-sit="em_entrega"] { background: var(--cob-sit-em_entrega); }
+.cob [data-sit="na_base"] { background: var(--cob-sit-na_base); }
+.cob [data-sit="manual"] { background: var(--cob-sit-manual); }
+
+/* Opções segmentadas do ajuste */
+.cob .cob-opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+/* Dados do cadastro (somente leitura) */
+.cob .cob-dados {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 0.35rem 0.75rem;
+}
+
+.cob .cob-dados dt { font-weight: 400; color: var(--cob-muted); }
+.cob .cob-dados dd { margin: 0; overflow-wrap: anywhere; }

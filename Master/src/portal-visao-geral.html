@@ -3,7 +3,8 @@
 <head>
   @@include("partials/title-meta.html", {"title": "Visão geral"})
   @@include("partials/head-css.html")
-  <link href="assets/css/portal-shell.css?v=1" rel="stylesheet">
+  <link href="assets/libs/flatpickr/flatpickr.min.css" rel="stylesheet">
+  <link href="assets/css/portal-shell.css?v=7" rel="stylesheet">
 </head>
 <body>
   @@include("partials/portal-shell.html")
@@ -29,12 +30,13 @@
             <label class="form-label small mb-0" for="filtroAte">Até</label>
             <input type="date" class="form-control form-control-sm" id="filtroAte">
           </div>
-          <button type="button" class="btn btn-sm btn-primary" id="btnAplicarPeriodo">Aplicar</button>
+          <button type="button" class="btn btn-sm ps-btn-primary" id="btnAplicarPeriodo">Aplicar</button>
         </div>
       </div>
     </div>
 
     <div id="dashLoading" class="portal-kpi-grid" aria-hidden="true">
+      <div class="ps-skeleton ps-skeleton-kpi"></div>
       <div class="ps-skeleton ps-skeleton-kpi"></div>
       <div class="ps-skeleton ps-skeleton-kpi"></div>
       <div class="ps-skeleton ps-skeleton-kpi"></div>
@@ -72,14 +74,13 @@
                 Nenhum pedido neste período.
               </div>
               <div class="table-responsive">
-                <table class="table align-middle mb-0">
+                <table class="table align-middle mb-0 ps-table">
                   <thead>
                     <tr>
                       <th>Código</th>
                       <th>Destinatário</th>
                       <th>Status</th>
                       <th>Atualização</th>
-                      <th></th>
                     </tr>
                   </thead>
                   <tbody id="tbodyRecentes"></tbody>
@@ -93,7 +94,7 @@
             <div class="card-header fw-semibold">Por canal de venda</div>
             <div class="card-body" id="porCanalBox">
               <div class="ps-empty py-3 d-none" id="canalVazio">Sem dados no período.</div>
-              <ul class="list-group list-group-flush" id="listaCanais"></ul>
+              <ul class="ps-canal-lista" id="listaCanais"></ul>
             </div>
           </div>
         </div>
@@ -105,7 +106,8 @@
 
 <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/plugins.js"></script>
-<script src="assets/js/pages/portal-common.js"></script>
-<script src="assets/js/pages/portal-visao-geral.init.js"></script>
+<script src="assets/libs/flatpickr/l10n/pt.js"></script>
+<script src="assets/js/pages/portal-common.js?v=8"></script>
+<script src="assets/js/pages/portal-visao-geral.init.js?v=7"></script>
 </body>
 </html>

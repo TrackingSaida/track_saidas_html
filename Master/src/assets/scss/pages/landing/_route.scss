@@ -1,0 +1,140 @@
+// Percurso do pacote — rota em traço de tinta desenhada com a rolagem.
+// Sem script (ou com movimento reduzido) a rota aparece completa e todas as paradas acesas.
+
+.layout-wrapper.landing.rv-landing {
+  .rv-route {
+    border-top: 1px solid $rv-rule;
+    padding: 2.25rem 0 2.75rem;
+    background:
+      linear-gradient($rv-paper, rgba($rv-paper, 0) 30%, rgba($rv-paper, 0) 70%, $rv-paper),
+      repeating-linear-gradient(0deg, transparent 0 55px, rgba($rv-ink, 0.06) 55px 56px),
+      repeating-linear-gradient(90deg, transparent 0 55px, rgba($rv-ink, 0.06) 55px 56px),
+      $rv-paper;
+  }
+
+  .rv-route__head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    font-family: $rv-font-body;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $rv-ink-muted;
+    margin-bottom: 0.5rem;
+
+    strong {
+      color: $rv-ink;
+      font-weight: 600;
+    }
+  }
+
+  .rv-route__code {
+    font-family: $rv-font-mono;
+    color: $rv-ink;
+    font-weight: 600;
+  }
+
+  .rv-route__svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .rv-route__svg--narrow {
+    display: none;
+    max-width: 340px;
+    margin: 1rem auto 0.5rem;
+  }
+
+  @media (max-width: 767.98px) {
+    .rv-route__svg--wide {
+      display: none;
+    }
+
+    .rv-route__svg--narrow {
+      display: block;
+    }
+  }
+
+  .rv-route__ghost,
+  .rv-route__line {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .rv-route__ghost {
+    stroke: $rv-rule;
+    stroke-width: 2;
+    stroke-dasharray: 6 6;
+  }
+
+  .rv-route__line {
+    stroke: $rv-blue;
+    stroke-width: 3;
+  }
+
+  .rv-route__dot {
+    fill: $rv-scan;
+    stroke: $rv-scan-ink;
+    stroke-width: 2.5;
+    transition: fill 0.2s ease;
+  }
+
+  .rv-route__ring {
+    fill: none;
+    stroke: $rv-scan;
+    stroke-width: 3;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .rv-route__label {
+    font-family: $rv-font-body;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    fill: $rv-ink;
+  }
+
+  .rv-route__parcel {
+    rect {
+      fill: #fff;
+      stroke: $rv-ink;
+      stroke-width: 2.5;
+    }
+
+    path {
+      fill: none;
+      stroke: $rv-ink;
+      stroke-width: 2;
+    }
+  }
+
+  // Estado controlado pelo script
+  .rv-route.is-armed {
+    .rv-route__pin:not(.is-on) {
+      .rv-route__dot {
+        fill: #fff;
+      }
+
+      .rv-route__label {
+        fill: $rv-ink-muted;
+      }
+    }
+
+    .rv-route__pin.is-on .rv-route__ring {
+      animation: rv-route-beep 0.5s ease-out;
+    }
+  }
+
+  @keyframes rv-route-beep {
+    0% { opacity: 0.9; transform: scale(1); }
+    100% { opacity: 0; transform: scale(2.4); }
+  }
+}

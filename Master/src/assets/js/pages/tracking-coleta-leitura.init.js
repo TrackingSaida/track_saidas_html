@@ -1,7 +1,7 @@
 /* =================== Config =================== */
 (function checkIgnorarColeta() {
   const modoColeta = window.__USER__?.modo_operacao || window.MODO_OPERACAO || "codigo";
-  if (window.IGNORAR_COLETA === true || localStorage.getItem("ignorar_coleta") === "1" || !["codigo", "ambos"].includes(modoColeta)) {
+  if (window.IGNORAR_COLETA === true || localStorage.getItem("ignorar_coleta") === "1" || !["codigo", "coleta_manual", "ambos"].includes(modoColeta)) {
     window.location.replace("dashboard-saidas.html");
     return;
   }
@@ -1303,17 +1303,72 @@ document.addEventListener("DOMContentLoaded", async () => {
     toast(`Modo outra data ativo: ${dataOp}. Escaneie ou digite os códigos.`, true);
   }
 
-  async function abrirModalManualRetroativo({ dataOp, baseId, baseNome, acrescentar }) {
+  async function carregarCategoriasG() {
+    try {
+      const r = await fetch(`${getBaseUrl()}/entregadores/precos/categorias-g`, {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+      if (!r.ok) return [];
+      const lista = await r.json();
+      return (Array.isArray(lista) ? lista : [])
+        .filter((c) => c && c.ativo !== false)
+        .sort((a, b) => (Number(a.ordem) || 0) - (Number(b.ordem) || 0) || a.id - b.id);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function htmlCategoriasG(categorias) {
+    if (!categorias.length) return "";
+    const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const campo = (c, servico, rotulo) =>
+      `<td><input type="number" min="0" inputmode="numeric" class="form-control form-control-sm ret-g-qtd" data-cat="${esc(c.id)}" data-servico="${servico}" aria-label="${esc(c.nome)} ${rotulo}" placeholder="0" /></td>`;
+    return `
+      <details class="ret-g mt-2">
+        <summary class="fw-semibold small">Pacotes grandes (opcional)</summary>
+        <p class="text-muted small mt-2 mb-2">Quantos dos pacotes acima são grandes, por tamanho.</p>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead><tr><th scope="col">Tamanho</th><th scope="col">Shopee</th><th scope="col">ML / Flex</th><th scope="col">Avulso</th></tr></thead>
+            <tbody>
+              ${categorias.map((c) => `
+                <tr>
+                  <th scope="row" class="small">${esc(c.nome)}${c.descricao ? `<div class="text-muted fw-normal">${esc(c.descricao)}</div>` : ""}</th>
+                  ${campo(c, "shopee", "Shopee")}${campo(c, "ml", "Mercado Livre")}${campo(c, "avulso", "Avulso")}
+                </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      </details>`;
+  }
+
+  function lerCategoriasG() {
+    const mapa = {};
+    document.querySelectorAll(".ret-g-qtd").forEach((el) => {
+      const qtd = parseInt(String(el.value || "0"), 10) || 0;
+      if (qtd < 0) throw new Error("Quantidades não podem ser negativas.");
+      if (!qtd) return;
+      const cid = el.getAttribute("data-cat");
+      mapa[cid] = mapa[cid] || { categoria_g_id: Number(cid), shopee: 0, ml: 0, avulso: 0 };
+      mapa[cid][el.getAttribute("data-servico")] += qtd;
+    });
+    return Object.values(mapa);
+  }
+
+  async function abrirModalQuantidades({ dataOp, baseId, baseNome, acrescentar }) {
     if (typeof Swal === "undefined") {
       toast("Não foi possível abrir o formulário manual.", false);
       return;
     }
+    const categoriasG = await carregarCategoriasG();
+    const ehHoje = dataOp === hojeBR();
     const titulo = acrescentar
       ? `Acrescentar quantidades — ${baseNome}`
       : `Informar quantidades — ${baseNome}`;
     const hint = acrescentar
       ? "<p class=\"text-muted small mb-2\">Informe apenas a quantidade a <strong>somar</strong> ao que já está lançado nesta data.</p>"
-      : "<p class=\"text-muted small mb-2\">Informe as quantidades desta coleta na data selecionada.</p>";
+      : `<p class="text-muted small mb-2">Informe as quantidades desta coleta ${ehHoje ? "de hoje" : "na data selecionada"}.</p>`;
     const modal = await Swal.fire({
       title: titulo,
       html: `
@@ -1325,6 +1380,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <input id="ret-ml" type="number" min="0" class="form-control mb-2" value="0" />
           <label class="form-label mb-1">Avulso</label>
           <input id="ret-avulso" type="number" min="0" class="form-control mb-2" value="0" />
+          ${htmlCategoriasG(categoriasG)}
         </div>
       `,
       showCancelButton: true,
@@ -1343,7 +1399,24 @@ document.addEventListener("DOMContentLoaded", async () => {
           Swal.showValidationMessage("Informe ao menos uma quantidade.");
           return null;
         }
-        return { shopee, mercado_livre, avulso };
+        let g_categorias;
+        try {
+          g_categorias = lerCategoriasG();
+        } catch (err) {
+          Swal.showValidationMessage(err.message);
+          return null;
+        }
+        const somaG = (s) => g_categorias.reduce((t, c) => t + c[s], 0);
+        const excedido = [
+          ["Shopee", somaG("shopee"), shopee],
+          ["Mercado Livre", somaG("ml"), mercado_livre],
+          ["Avulso", somaG("avulso"), avulso],
+        ].find(([, g, total]) => g > total);
+        if (excedido) {
+          Swal.showValidationMessage(`${excedido[0]}: ${excedido[1]} pacotes grandes, mas só ${excedido[2]} no total.`);
+          return null;
+        }
+        return { shopee, mercado_livre, avulso, g_categorias };
       },
     });
     if (!modal.isConfirmed || !modal.value) return;
@@ -1357,6 +1430,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       acrescentar: !!acrescentar,
       origem_cliente: "web",
     };
+    if (modal.value.g_categorias.length) {
+      body.g_categorias = modal.value.g_categorias;
+      body.pacotes_g = modal.value.g_categorias.reduce((t, c) => t + c.shopee + c.ml + c.avulso, 0);
+    }
     try {
       const r = await fetch(`${getBaseUrl()}/coletas/operacionais/manual`, {
         method: "POST",
@@ -1367,6 +1444,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       let data = null;
       try { data = await r.json(); } catch (_) {}
       if (!r.ok) {
+        if (r.status === 409) {
+          await Swal.fire({
+            icon: "info",
+            title: "Coleta já lançada",
+            text: "Você já lançou as quantidades desta base nesta data. Para corrigir, edite o lançamento em Consultar Coletas.",
+            confirmButtonText: "Entendi",
+          });
+          return;
+        }
         const detail = data?.detail;
         const msg = (typeof detail === "string")
           ? detail
@@ -1374,20 +1460,88 @@ document.addEventListener("DOMContentLoaded", async () => {
         toast(msg, false);
         return;
       }
-      toast(acrescentar ? "Quantidades acrescentadas." : "Coleta manual registrada.", true);
-      DATA_OPERACAO = dataOp;
+      toast(acrescentar ? "Quantidades acrescentadas." : "Coleta registrada.", true);
       BASE_ATUAL = baseNome;
-      atualizarBannerRetroativo();
+      if (ehHoje) {
+        await recarregarSeletorBasesHoje();
+      } else {
+        DATA_OPERACAO = dataOp;
+        atualizarBannerRetroativo();
+      }
       await atualizarResumoBaseSelecionada(baseNome);
     } catch (err) {
       toast(err?.message || "Erro ao lançar coleta manual.", false);
     }
   }
 
+  let CONFIG_COLETA = null;
+
+  function modoColetaAtual() {
+    return CONFIG_COLETA?.modo_operacao || window.__USER__?.modo_operacao || window.MODO_OPERACAO || "codigo";
+  }
+
+  function coletaPermiteLeitura() {
+    if (CONFIG_COLETA && typeof CONFIG_COLETA.permite_leitura === "boolean") return CONFIG_COLETA.permite_leitura;
+    return ["codigo", "ambos"].includes(modoColetaAtual());
+  }
+
+  function coletaPermiteManual() {
+    if (CONFIG_COLETA && typeof CONFIG_COLETA.permite_manual === "boolean") return CONFIG_COLETA.permite_manual;
+    return ["coleta_manual", "ambos"].includes(modoColetaAtual());
+  }
+
+  function aplicarModoColetaNaTela() {
+    const leitura = coletaPermiteLeitura();
+    const manual = coletaPermiteManual();
+    qs("#btnInformarQuantidades")?.classList.toggle("d-none", !manual);
+    ["#colCodigoLeitura", "#btnRegistrar", "#btnIrParaLote", "#btnLancarAvulso", "#btnModoMonitor"].forEach((sel) => {
+      const el = qs(sel);
+      if (el && !leitura) el.classList.add("d-none");
+    });
+  }
+
+  async function carregarConfigColeta() {
+    aplicarModoColetaNaTela();
+    try {
+      const r = await fetch(`${getBaseUrl()}/coletas/operacionais/config`, {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+      if (r.ok) CONFIG_COLETA = await r.json();
+    } catch (_) {}
+    aplicarModoColetaNaTela();
+  }
+
+  carregarConfigColeta();
+
+  qs("#btnInformarQuantidades")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    if (!BASE_ATUAL) {
+      toast(
+        typeof window.ownerTerm === "function"
+          ? window.ownerTerm("selecione_base_antes_registrar")
+          : "Selecione a base antes de informar as quantidades.",
+        false
+      );
+      return;
+    }
+    const item = itemSeletorPorNome(BASE_ATUAL);
+    const baseId = item && item.id_base != null ? Number(item.id_base) : null;
+    if (!baseId) {
+      toast("Não foi possível identificar a base selecionada.", false);
+      return;
+    }
+    await abrirModalQuantidades({
+      dataOp: dataOperacaoAtual(),
+      baseId,
+      baseNome: BASE_ATUAL,
+      acrescentar: isModoRetroativo() && Number(TOTAIS_BASE_DIA?.total) > 0,
+    });
+  });
+
   async function escolherModoRetroativo({ dataOp, baseId, baseNome, totalExistente }) {
-    const modo = window.__USER__?.modo_operacao || window.MODO_OPERACAO || "codigo";
-    const permiteLeitura = ["codigo", "ambos"].includes(modo);
-    const permiteManual = ["coleta_manual", "ambos"].includes(modo);
+    const permiteLeitura = coletaPermiteLeitura();
+    const permiteManual = coletaPermiteManual();
     const acrescentar = totalExistente > 0;
 
     if (permiteLeitura && !permiteManual) {
@@ -1395,7 +1549,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
     if (!permiteLeitura && permiteManual) {
-      await abrirModalManualRetroativo({ dataOp, baseId, baseNome, acrescentar });
+      await abrirModalQuantidades({ dataOp, baseId, baseNome, acrescentar });
       return;
     }
 
@@ -1413,7 +1567,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (escolha.isConfirmed) {
       await ativarModoRetroativoLeitura(dataOp, baseNome, baseId);
     } else if (escolha.isDenied) {
-      await abrirModalManualRetroativo({ dataOp, baseId, baseNome, acrescentar });
+      await abrirModalQuantidades({ dataOp, baseId, baseNome, acrescentar });
     }
   }
 

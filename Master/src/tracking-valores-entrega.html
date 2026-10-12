@@ -1,8 +1,10 @@
 <!doctype html>
 <html lang="pt-br" data-layout="vertical" data-topbar="dark" data-sidebar="dark" data-sidebar-size="lg">
   <head>
-    @@include("partials/title-meta.html", {"title": "Valores de Entrega"})
+    @@include("partials/title-meta.html", {"title": "Preços de Entrega"})
     @@include("partials/head-css.html")
+    <link href="assets/css/fechamento-motoboys.css?v=4" rel="stylesheet" type="text/css" />
+    <link href="assets/css/precos-entrega.css?v=1" rel="stylesheet" type="text/css" />
   </head>
   <body>
 <div id="layout-wrapper">
@@ -12,111 +14,118 @@
         <div class="page-content">
           <div class="container-fluid">
 
-            @@include("partials/page-title.html", {"pagetitle": "Configurações", "title": "Valores de Entrega", "withSubtitle": false, "ownerTerm": ""})
+            @@include("partials/page-title.html", {"pagetitle": "Cadastros", "title": "Preços de Entrega", "withSubtitle": false, "ownerTerm": ""})
 
-            <!-- Card principal -->
-            <div class="card">
-              <div class="card-header d-flex align-items-center justify-content-between ent-toolbar">
-                <div class="d-flex gap-2 ent-actions">
-                  <button class="btn btn-primary" id="btnAddExcecao">
-                    <i class="ri-add-line align-bottom me-1"></i> Adicionar Exceção
-                  </button>
-                  <button class="btn btn-soft-primary" id="btnHeaderEdit" disabled>
-                    <i class="ri-edit-2-line align-bottom me-1"></i> Editar
-                  </button>
-                  <button class="btn btn-soft-danger" id="btnHeaderDel" disabled>
-                    <i class="ri-delete-bin-6-line align-bottom me-1"></i> Excluir
-                  </button>
-                </div>
-                <div class="d-flex align-items-center gap-2 ent-filters">
-                  <div class="search-box w-100">
-                    <input type="text" id="search" class="form-control" placeholder="Buscar por nome do entregador...">
-                    <i class="ri-search-line search-icon"></i>
+            <div class="fm pe">
+              <!-- Preço padrão -->
+              <section class="card pe-bloco" aria-labelledby="peTituloPadrao">
+                <div class="card-body">
+                  <div class="pe-bloco-topo">
+                    <div>
+                      <h5 class="pe-bloco-titulo" id="peTituloPadrao">Preço padrão</h5>
+                      <p class="fm-sub mb-0">Valor pago ao motoboy por pacote. Vale para todos, exceto quem tem preço próprio.</p>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnEditarGlobal">
+                      <i class="ri-edit-2-line me-1"></i> Editar
+                    </button>
+                  </div>
+                  <div class="pe-precos" id="pePrecosPadrao">
+                    <div class="pe-preco"><span class="pe-preco-rotulo">Shopee</span><span class="pe-preco-valor fm-num" id="globalShopeeVal">—</span></div>
+                    <div class="pe-preco"><span class="pe-preco-rotulo">Flex</span><span class="pe-preco-valor fm-num" id="globalMlVal">—</span></div>
+                    <div class="pe-preco"><span class="pe-preco-rotulo">Avulso</span><span class="pe-preco-valor fm-num" id="globalAvulsoVal">—</span></div>
+                    <div class="pe-preco coleta-preco d-none">
+                      <span class="pe-preco-rotulo">Diária de coleta</span>
+                      <span class="pe-preco-valor fm-num" id="globalColetaVal">—</span>
+                      <span class="pe-preco-nota">por dia com coleta</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              <div class="card-body">
-                <!-- Bloco: Grid Valores Globais (estado persistido) -->
-                <div class="card border mb-3">
-                  <div class="card-header bg-light fw-semibold">Valores Globais por Serviço</div>
-                  <div class="card-body py-3">
-                    <div class="table-responsive">
-                      <table class="table table-sm align-middle mb-0">
-                        <thead class="table-light">
-                          <tr>
-                            <th>Shopee</th>
-                            <th>Flex</th>
-                            <th>Avulso</th>
-                            <th class="coleta-preco d-none">Diária de coleta</th>
-                          </tr>
-                        </thead>
-                        <tbody id="tbody-global">
-                          <tr>
-                            <td id="globalShopeeVal" class="text-muted">—</td>
-                            <td id="globalMlVal" class="text-muted">—</td>
-                            <td id="globalAvulsoVal" class="text-muted">—</td>
-                            <td id="globalColetaVal" class="text-muted coleta-preco d-none">—</td>
-                          </tr>
-                        </tbody>
-                      </table>
+              <!-- Pacotes grandes -->
+              <section class="card pe-bloco" aria-labelledby="peTituloG">
+                <div class="card-body">
+                  <div class="pe-bloco-topo">
+                    <div>
+                      <h5 class="pe-bloco-titulo" id="peTituloG">Pacotes grandes</h5>
+                      <p class="fm-sub mb-0">Categorias usadas para marcar pacotes G. Cada uma define quanto o motoboy recebe a mais e quanto a base paga a mais.</p>
                     </div>
-                    <div class="mt-2">
-                      <button type="button" class="btn btn-soft-primary btn-sm" id="btnEditarGlobal">
-                        <i class="ri-edit-2-line align-bottom me-1"></i> Editar Valores Globais
+                    <button type="button" class="btn btn-fm-primary btn-sm" id="btnNovaCategoria">
+                      <i class="ri-add-line me-1"></i> Nova categoria
+                    </button>
+                  </div>
+
+                  <div class="pe-adicional">
+                    <div class="form-check form-switch mb-0">
+                      <input class="form-check-input" type="checkbox" role="switch" id="chkAdicionalG">
+                      <label class="form-check-label fw-semibold" for="chkAdicionalG">Pagar adicional ao motoboy por pacote grande</label>
+                    </div>
+                    <span class="fm-sub" id="adicionalGTexto">Desligado: o motoboy recebe só o preço do serviço, mesmo em pacote G.</span>
+                  </div>
+
+                  <div class="table-responsive">
+                    <table class="table align-middle mb-0 fm-tabela pe-tabela" id="tblCategorias">
+                      <thead>
+                        <tr>
+                          <th scope="col">Categoria</th>
+                          <th scope="col">Motoboy recebe</th>
+                          <th scope="col">Base paga</th>
+                          <th scope="col" class="text-end">Pacotes</th>
+                          <th scope="col"><span class="visually-hidden">Ações</span></th>
+                        </tr>
+                      </thead>
+                      <tbody id="tbodyCategorias">
+                        <tr><td colspan="5" class="text-muted py-4 text-center">Carregando categorias…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="form-check mt-2 mb-0">
+                    <input class="form-check-input" type="checkbox" id="chkMostrarInativas">
+                    <label class="form-check-label fm-sub" for="chkMostrarInativas">Mostrar categorias desativadas</label>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Exceções por motoboy -->
+              <section class="card pe-bloco" aria-labelledby="peTituloExcecoes">
+                <div class="card-body">
+                  <div class="pe-bloco-topo">
+                    <div>
+                      <h5 class="pe-bloco-titulo" id="peTituloExcecoes">Preço por motoboy</h5>
+                      <p class="fm-sub mb-0">Só para quem recebe diferente do padrão. Campos sem valor seguem o preço padrão.</p>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                      <div class="fm-busca">
+                        <i class="ri-search-line" aria-hidden="true"></i>
+                        <input type="search" id="search" class="form-control form-control-sm" placeholder="Buscar motoboy" aria-label="Buscar motoboy">
+                      </div>
+                      <button type="button" class="btn btn-outline-secondary btn-sm" id="btnAddExcecao">
+                        <i class="ri-add-line me-1"></i> Adicionar motoboy
                       </button>
                     </div>
                   </div>
-                </div>
 
-                <!-- Abas -->
-                <ul class="nav nav-tabs nav-tabs-custom nav-success nav-justified mb-3" role="tablist">
-                  <li class="nav-item">
-                    <a class="nav-link active" data-bs-toggle="tab" href="#tabExcecoes" role="tab">Exceções</a>
-                  </li>
-                  <li class="nav-item">
-                    <a class="nav-link" data-bs-toggle="tab" href="#tabAjuda" role="tab">Ajuda</a>
-                  </li>
-                </ul>
-
-                <div class="tab-content">
-                  <!-- Aba Exceções -->
-                  <div class="tab-pane fade show active" id="tabExcecoes" role="tabpanel">
-                    <div class="table-responsive table-card">
-                      <table class="table align-middle table-nowrap" id="tbl-excecoes">
-                        <thead class="table-light">
-                          <tr>
-                            <th style="width:56px;">Sel.</th>
-                            <th>Entregador</th>
-                            <th>Shopee</th>
-                            <th>Flex</th>
-                            <th>Avulso</th>
-                            <th class="coleta-preco d-none">Diária de coleta</th>
-                          </tr>
-                        </thead>
-                        <tbody id="tbody-excecoes"></tbody>
-                      </table>
-                      <div id="emptyExcecoes" class="text-center text-muted py-4 d-none">
-                        <lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop"
-                          colors="primary:#121331,secondary:#08a88a" style="width:60px;height:60px"></lord-icon>
-                        <div class="mt-2">Nenhuma exceção cadastrada.</div>
-                      </div>
-                    </div>
+                  <div class="table-responsive">
+                    <table class="table align-middle mb-0 fm-tabela pe-tabela" id="tbl-excecoes">
+                      <thead>
+                        <tr>
+                          <th scope="col">Motoboy</th>
+                          <th scope="col" class="text-end">Shopee</th>
+                          <th scope="col" class="text-end">Flex</th>
+                          <th scope="col" class="text-end">Avulso</th>
+                          <th scope="col" class="text-end coleta-preco d-none">Diária de coleta</th>
+                          <th scope="col"><span class="visually-hidden">Ações</span></th>
+                        </tr>
+                      </thead>
+                      <tbody id="tbody-excecoes"></tbody>
+                    </table>
                   </div>
-
-                  <!-- Aba Ajuda -->
-                  <div class="tab-pane fade" id="tabAjuda" role="tabpanel">
-                    <div class="alert alert-info mb-0">
-                      <h6 class="alert-heading">Como funciona</h6>
-                      <ul class="mb-0">
-                        <li><strong>Valores globais</strong> são aplicados a todos os entregadores.</li>
-                        <li><strong>Exceções</strong> substituem os valores globais apenas para o entregador selecionado.</li>
-                        <li>Campos vazios nas exceções herdam o valor global.</li>
-                      </ul>
-                    </div>
+                  <div id="emptyExcecoes" class="pe-vazio d-none">
+                    <i class="ri-user-settings-line" aria-hidden="true"></i>
+                    <span id="emptyExcecoesTexto">Nenhum motoboy com preço próprio. Todos recebem o preço padrão.</span>
                   </div>
                 </div>
-              </div>
+              </section>
             </div>
 
           </div>
@@ -128,133 +137,187 @@
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
 
-    <!-- Modal: Editar Valores Globais -->
-    <div class="modal fade" id="oc-global" tabindex="-1" aria-labelledby="ocGlobalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <!-- Modal: Preço padrão -->
+    <div class="modal fade fm" id="oc-global" tabindex="-1" aria-labelledby="ocGlobalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="ocGlobalLabel">Editar Valores Globais</h5>
+            <h5 class="modal-title" id="ocGlobalLabel">Editar preço padrão</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
           </div>
           <form id="formGlobal" novalidate>
             <div class="modal-body">
-              <div class="card mb-0">
-                <div class="card-header bg-light fw-semibold">Valores Globais por Serviço</div>
-                <div class="card-body">
-                  <div class="mb-3">
-                    <label for="editGlobalShopee" class="form-label">Shopee</label>
-                    <input type="text" id="editGlobalShopee" class="form-control moeda" placeholder="R$ 0,00">
-                  </div>
-                  <div class="mb-3">
-                    <label for="editGlobalMl" class="form-label">Flex</label>
-                    <input type="text" id="editGlobalMl" class="form-control moeda" placeholder="R$ 0,00">
-                  </div>
-                  <div class="mb-3">
-                    <label for="editGlobalAvulso" class="form-label">Avulso</label>
-                    <input type="text" id="editGlobalAvulso" class="form-control moeda" placeholder="R$ 0,00">
-                  </div>
-                  <div class="mb-3 coleta-preco d-none">
-                    <label for="editGlobalColeta" class="form-label">Diária de coleta</label>
-                    <input type="text" id="editGlobalColeta" class="form-control moeda" placeholder="R$ 0,00">
-                    <div class="form-text">Pago uma vez por motoboy em cada dia com coleta válida.</div>
-                  </div>
-                  <div class="form-check form-switch mt-2">
-                    <input class="form-check-input" type="checkbox" id="editGlobalPacoteGAdicional">
-                    <label class="form-check-label" for="editGlobalPacoteGAdicional">
-                      Aplicar adicional para Pacotes Grandes (G)
-                    </label>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-link text-muted p-0 ms-2 align-baseline"
-                      id="helpPacoteGAdicional"
-                      data-bs-toggle="tooltip"
-                      data-bs-placement="top"
-                      title="Quando ativado, cada pedido marcado como Pacote G soma um adicional igual ao valor do serviço no fechamento do motoboy. O cálculo prioriza o preço de exceção do motoboy; se não houver exceção, usa o preço global do serviço."
-                      aria-label="Informações sobre adicional de Pacote G"
-                    >
-                      <i class="ri-information-line"></i>
-                    </button>
-                    <div class="form-text mt-1">
-                      Pacote G adiciona +1x o valor do serviço (exceção do motoboy &gt; preço global).
-                    </div>
-                  </div>
+              <p class="fm-sub">Valor pago ao motoboy por pacote entregue.</p>
+              <div class="row g-3">
+                <div class="col-sm-4">
+                  <label for="editGlobalShopee" class="form-label">Shopee</label>
+                  <input type="text" id="editGlobalShopee" class="form-control moeda" inputmode="numeric" placeholder="R$ 0,00">
+                </div>
+                <div class="col-sm-4">
+                  <label for="editGlobalMl" class="form-label">Flex</label>
+                  <input type="text" id="editGlobalMl" class="form-control moeda" inputmode="numeric" placeholder="R$ 0,00">
+                </div>
+                <div class="col-sm-4">
+                  <label for="editGlobalAvulso" class="form-label">Avulso</label>
+                  <input type="text" id="editGlobalAvulso" class="form-control moeda" inputmode="numeric" placeholder="R$ 0,00">
+                </div>
+                <div class="col-12 coleta-preco d-none">
+                  <label for="editGlobalColeta" class="form-label">Diária de coleta</label>
+                  <input type="text" id="editGlobalColeta" class="form-control moeda" inputmode="numeric" placeholder="R$ 0,00">
+                  <div class="form-text">Pago uma vez por motoboy em cada dia com coleta válida.</div>
                 </div>
               </div>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
-              <button type="submit" class="btn btn-primary">Salvar</button>
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-fm-primary" id="btnSalvarGlobal">Salvar</button>
             </div>
           </form>
         </div>
       </div>
     </div>
 
-    <!-- Modal: Adicionar/Editar Exceção -->
-    <div class="modal fade" id="oc-excecao" tabindex="-1" aria-labelledby="ocExcecaoLabel" aria-hidden="true">
+    <!-- Modal: Categoria de pacote grande -->
+    <div class="modal fade fm" id="ocCategoria" tabindex="-1" aria-labelledby="ocCategoriaLabel" aria-hidden="true">
       <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="ocExcecaoLabel">Adicionar Exceção</h5>
+            <h5 class="modal-title" id="ocCategoriaLabel">Nova categoria</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
           </div>
-          <form id="formExcecao" class="needs-validation" novalidate>
+          <form id="formCategoria" novalidate>
             <div class="modal-body">
-              <input type="hidden" id="excecaoEntregadorId" />
-              <div class="card mb-0">
-                <div class="card-header bg-light fw-semibold">Valores por Serviço</div>
-                <div class="card-body">
-                  <div class="mb-3" id="groupSelectEntregador">
-                    <label for="selectMotoboy" class="form-label">Motoboy</label>
-                    <select id="selectMotoboy" class="form-select"></select>
-                  </div>
-                  <div class="mb-3 d-none" id="groupNomeEntregador">
-                    <label class="form-label">Motoboy</label>
-                    <p class="form-control-plaintext fw-medium" id="nomeEntregadorEdit"></p>
-                  </div>
-                  <p class="text-muted small mb-3">Campo vazio utiliza o valor global.</p>
+              <input type="hidden" id="catId">
+              <div class="pe-cat-grid">
+                <div class="pe-cat-form">
                   <div class="row g-3">
-                    <div class="col-12">
-                      <label for="excecaoShopee" class="form-label">Shopee</label>
-                      <input type="text" id="excecaoShopee" class="form-control moeda" placeholder="R$ 0,00">
+                    <div class="col-sm-4">
+                      <label for="catNome" class="form-label">Nome <span class="text-danger" aria-hidden="true">*</span></label>
+                      <input type="text" id="catNome" class="form-control text-uppercase" maxlength="12" placeholder="G2" required autocomplete="off">
+                      <div class="invalid-feedback" id="catNomeErro">Informe o nome.</div>
                     </div>
-                    <div class="col-12">
-                      <label for="excecaoMl" class="form-label">Flex</label>
-                      <input type="text" id="excecaoMl" class="form-control moeda" placeholder="R$ 0,00">
-                    </div>
-                    <div class="col-12">
-                      <label for="excecaoAvulso" class="form-label">Avulso</label>
-                      <input type="text" id="excecaoAvulso" class="form-control moeda" placeholder="R$ 0,00">
-                    </div>
-                    <div class="col-12 coleta-preco d-none">
-                      <label for="excecaoColeta" class="form-label">Diária de coleta</label>
-                      <input type="text" id="excecaoColeta" class="form-control moeda" placeholder="R$ 0,00">
+                    <div class="col-sm-8">
+                      <label for="catDescricao" class="form-label">Descrição <span class="fm-sub">(opcional)</span></label>
+                      <input type="text" id="catDescricao" class="form-control" maxlength="80" placeholder="Ex.: Caixa até 60 cm">
                     </div>
                   </div>
+
+                  <fieldset class="pe-regra">
+                    <legend class="pe-regra-titulo">Motoboy recebe a mais</legend>
+                    <div class="btn-group btn-group-sm pe-segmento" role="group" aria-label="Como calcular o valor do motoboy">
+                      <input type="radio" class="btn-check" name="catMotoboyModo" id="catMotoboyMult" value="multiplicador" checked>
+                      <label class="btn btn-outline-secondary" for="catMotoboyMult">Vezes o serviço</label>
+                      <input type="radio" class="btn-check" name="catMotoboyModo" id="catMotoboyFixo" value="valor_fixo">
+                      <label class="btn btn-outline-secondary" for="catMotoboyFixo">Valor fixo</label>
+                    </div>
+                    <div class="pe-regra-campo">
+                      <input type="text" id="catMotoboyValor" class="form-control" inputmode="decimal" aria-label="Valor do motoboy">
+                      <span class="fm-sub" id="catMotoboyAjuda">Ex.: 1 = mais um serviço; 0,5 = metade do serviço.</span>
+                    </div>
+                  </fieldset>
+
+                  <fieldset class="pe-regra">
+                    <legend class="pe-regra-titulo">Base paga a mais</legend>
+                    <div class="btn-group btn-group-sm pe-segmento" role="group" aria-label="Como calcular o valor cobrado da base">
+                      <input type="radio" class="btn-check" name="catBaseModo" id="catBaseMult" value="multiplicador">
+                      <label class="btn btn-outline-secondary" for="catBaseMult">Vezes o serviço</label>
+                      <input type="radio" class="btn-check" name="catBaseModo" id="catBaseFixo" value="valor_fixo" checked>
+                      <label class="btn btn-outline-secondary" for="catBaseFixo">Valor fixo</label>
+                    </div>
+                    <div class="pe-regra-campo">
+                      <input type="text" id="catBaseValor" class="form-control" inputmode="decimal" aria-label="Valor cobrado da base">
+                      <span class="fm-sub" id="catBaseAjuda">Deixe R$ 0,00 para não cobrar a mais da base.</span>
+                    </div>
+                  </fieldset>
                 </div>
+
+                <aside class="pe-previa" aria-live="polite" aria-labelledby="pePreviaTitulo">
+                  <div class="pe-previa-titulo" id="pePreviaTitulo">Prévia por pacote</div>
+                  <table class="pe-previa-tabela">
+                    <thead>
+                      <tr><th scope="col">Serviço</th><th scope="col">Motoboy recebe</th></tr>
+                    </thead>
+                    <tbody id="pePreviaMotoboy"></tbody>
+                  </table>
+                  <p class="pe-previa-nota" id="pePreviaAdicionalOff"></p>
+                  <div class="pe-previa-base">
+                    <span class="pe-previa-rotulo">Base paga a mais</span>
+                    <span class="pe-previa-valor" id="pePreviaBase">—</span>
+                  </div>
+                </aside>
               </div>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
-              <button type="submit" class="btn btn-primary" id="btnSalvarExcecao">Salvar</button>
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-fm-primary" id="btnSalvarCategoria">Salvar categoria</button>
             </div>
           </form>
         </div>
       </div>
     </div>
 
-    <!-- Modal de exclusão -->
-    <div class="modal fade" id="modalDelete" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
+    <!-- Modal: Preço por motoboy -->
+    <div class="modal fade fm" id="oc-excecao" tabindex="-1" aria-labelledby="ocExcecaoLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-          <div class="modal-body text-center p-4">
-            <lord-icon src="https://cdn.lordicon.com/gsqxdxog.json" trigger="loop"
-              colors="primary:#f7b84b,secondary:#f06548" style="width:80px;height:80px"></lord-icon>
-            <h5 class="mt-3">Excluir exceção?</h5>
-            <p class="text-muted mb-4">O motoboy voltará a usar os valores globais.</p>
-            <div class="hstack gap-2 justify-content-center">
+          <div class="modal-header">
+            <h5 class="modal-title" id="ocExcecaoLabel">Preço do motoboy</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <form id="formExcecao" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="excecaoEntregadorId" />
+              <div class="mb-3" id="groupSelectEntregador">
+                <label for="selectMotoboy" class="form-label">Motoboy <span class="text-danger" aria-hidden="true">*</span></label>
+                <select id="selectMotoboy" class="form-select"></select>
+              </div>
+              <div class="mb-3 d-none" id="groupNomeEntregador">
+                <span class="form-label d-block">Motoboy</span>
+                <p class="fw-semibold mb-0" id="nomeEntregadorEdit"></p>
+              </div>
+              <p class="fm-sub">Preencha só o que for diferente. Campo vazio segue o preço padrão.</p>
+              <div class="pe-excecao-campos">
+                <div class="pe-excecao-campo" data-campo="shopee_valor">
+                  <label for="excecaoShopee" class="form-label">Shopee</label>
+                  <input type="text" id="excecaoShopee" class="form-control moeda" inputmode="numeric">
+                  <button type="button" class="btn btn-link btn-sm pe-usar-padrao" data-limpar="#excecaoShopee">Usar padrão</button>
+                </div>
+                <div class="pe-excecao-campo" data-campo="ml_valor">
+                  <label for="excecaoMl" class="form-label">Flex</label>
+                  <input type="text" id="excecaoMl" class="form-control moeda" inputmode="numeric">
+                  <button type="button" class="btn btn-link btn-sm pe-usar-padrao" data-limpar="#excecaoMl">Usar padrão</button>
+                </div>
+                <div class="pe-excecao-campo" data-campo="avulso_valor">
+                  <label for="excecaoAvulso" class="form-label">Avulso</label>
+                  <input type="text" id="excecaoAvulso" class="form-control moeda" inputmode="numeric">
+                  <button type="button" class="btn btn-link btn-sm pe-usar-padrao" data-limpar="#excecaoAvulso">Usar padrão</button>
+                </div>
+                <div class="pe-excecao-campo coleta-preco d-none" data-campo="coleta_valor">
+                  <label for="excecaoColeta" class="form-label">Diária de coleta</label>
+                  <input type="text" id="excecaoColeta" class="form-control moeda" inputmode="numeric">
+                  <button type="button" class="btn btn-link btn-sm pe-usar-padrao" data-limpar="#excecaoColeta">Usar padrão</button>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
               <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
-              <button type="button" class="btn btn-danger" id="btnConfirmDelete">Excluir</button>
+              <button type="submit" class="btn btn-fm-primary" id="btnSalvarExcecao">Salvar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: remover preço do motoboy -->
+    <div class="modal fade" id="modalDelete" tabindex="-1" aria-labelledby="modalDeleteTitulo" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-body p-4">
+            <h5 class="mb-2" id="modalDeleteTitulo">Remover preço próprio?</h5>
+            <p class="text-muted mb-4" id="modalDeleteTexto">O motoboy volta a receber o preço padrão.</p>
+            <div class="hstack gap-2 justify-content-end">
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+              <button type="button" class="btn btn-danger" id="btnConfirmDelete">Remover</button>
             </div>
           </div>
         </div>
@@ -267,13 +330,14 @@
         const el = ev.target;
         if (!el.classList.contains("moeda")) return;
         let v = el.value.replace(/\D/g, "");
-        v = (parseInt(v || "0", 10) / 100).toFixed(2) + "";
+        if (!v) { el.value = ""; return; }
+        v = (parseInt(v, 10) / 100).toFixed(2) + "";
         v = v.replace(".", ",");
         el.value = "R$ " + v.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
       });
     </script>
 
-    <script src="assets/js/pages/tracking-valores-entrega.init.js?v=2"></script>
+    <script src="assets/js/pages/tracking-valores-entrega.init.js?v=5"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>

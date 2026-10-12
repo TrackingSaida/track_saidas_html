@@ -1,7 +1,8 @@
 /* ======================================================
    TrackSaídas — Contabilidade / Financeiro
    GET /api/contabilidade/resumo?data_inicio=&data_fim=
-   Despesas confirmadas + pendentes (alinhado ao Fechamento de Motoboys).
+   Balanço por status: a receber (coletas) e a pagar (motoboys),
+   cada lado em Pendente, Gerado e Recebido/Pago.
    ====================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -25,6 +26,27 @@ document.addEventListener("DOMContentLoaded", () => {
   const formatarPct = (v) =>
     new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Number(v) || 0) + "%";
 
+  const formatarInt = (v) => Number(v || 0).toLocaleString("pt-BR");
+
+  const num = (v) => Number(v) || 0;
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function termo(chave, padrao) {
+    return typeof window.ownerTerm === "function" ? window.ownerTerm(chave) : padrao;
+  }
+
+  function plural(qtd, singular, pluralTxt) {
+    return `${formatarInt(qtd)} ${Number(qtd) === 1 ? singular : pluralTxt}`;
+  }
+
   function mensagemErroPorStatus(status) {
     if (status === 401 || status === 403) {
       return "Sessão expirada ou acesso não autorizado. Faça login novamente.";
@@ -35,22 +57,16 @@ document.addEventListener("DOMContentLoaded", () => {
     return "Não foi possível obter os dados. Tente novamente.";
   }
 
-  function mensagemErroAmigavel(err) {
-    if (!err || !err.message) {
-      return "Não foi possível obter os dados para este período. Tente outro período ou novamente mais tarde.";
-    }
-    if (err.message.indexOf("Sessão expirada") !== -1) return err.message;
-    if (err.message.indexOf("Faça login") !== -1) return err.message;
-    if (err.message.indexOf("Rota de contabilidade") !== -1) return err.message;
-    if (err.message.indexOf("carregar dados") !== -1) return err.message;
-    return "Não foi possível obter os dados. Tente novamente.";
-  }
-
   const fltDataInicio = qs("#flt-data-inicio");
   const fltDataFim = qs("#flt-data-fim");
   const resumoMsg = qs("#resumoMsg");
   const avisoFechamentos = qs("#avisoFechamentos");
   const avisoFechamentosTexto = qs("#avisoFechamentosTexto");
+  const btnEmitir = qs("#btnEmitirRelatorio");
+  const pagina = qs(".contab-page");
+
+  let ultimoResumo = null;
+  let requisicaoAtual = 0;
 
   function fmtDMY(d) {
     const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -58,18 +74,22 @@ document.addEventListener("DOMContentLoaded", () => {
     return dd + "/" + mm + "/" + d.getFullYear();
   }
 
+  function isoParaBr(iso) {
+    if (!iso || iso.length < 10) return "";
+    return iso.substr(8, 2) + "/" + iso.substr(5, 2) + "/" + iso.substr(0, 4);
+  }
+
   function updatePeriodLabel(from, to) {
     const label = qs("#contabilidade-period-label");
-    if (!label) return;
+    let txt = "Quinzena atual";
     const fromD = from ? new Date(from + "T12:00:00") : null;
     const toD = to ? new Date(to + "T12:00:00") : null;
     if (from === to && fromD) {
-      label.textContent = fmtDMY(fromD);
+      txt = fmtDMY(fromD);
     } else if (from && to && fromD && toD) {
-      label.textContent = fmtDMY(fromD) + " — " + fmtDMY(toD);
-    } else {
-      label.textContent = "Quinzena atual";
+      txt = fmtDMY(fromD) + " — " + fmtDMY(toD);
     }
+    if (label) label.textContent = txt;
   }
 
   let datePickerInstance = null;
@@ -121,250 +141,430 @@ document.addEventListener("DOMContentLoaded", () => {
     updatePeriodLabel(inicio, fim);
   }
 
-  function renderComparacao(comp) {
-    if (!comp) return;
-    const variacaoPct = (v) => {
-      if (v == null) return "";
-      const n = Number(v);
-      const s = n >= 0 ? ">" : "<";
-      return s + " " + formatarPct(Math.abs(n)) + " vs período anterior";
-    };
-    const elRec = qs("#card-receita-variacao");
-    const elDesp = qs("#card-despesas-variacao");
-    const elLucro = qs("#card-lucro-variacao");
-    const elMargem = qs("#card-margem-variacao");
-    if (elRec) elRec.textContent = variacaoPct(comp.variacao_receita_pct);
-    if (elDesp) elDesp.textContent = variacaoPct(comp.variacao_despesa_pct);
-    if (elLucro) elLucro.textContent = variacaoPct(comp.variacao_lucro_pct);
-    if (elMargem && comp.variacao_margem_pp != null) {
-      const v = Number(comp.variacao_margem_pp);
-      elMargem.textContent = (v >= 0 ? "+" : "") + v.toFixed(1).replace(".", ",") + " pp vs período anterior";
+  /* ---------------- Mensagens e estados ---------------- */
+
+  function mostrarMensagem(tipo, icone, texto) {
+    if (!resumoMsg) return;
+    resumoMsg.innerHTML = texto
+      ? `<div class="alert alert-${tipo} mb-0"><i class="${icone} me-2" aria-hidden="true"></i>${esc(texto)}</div>`
+      : "";
+  }
+
+  function mostrarCarregando(texto) {
+    if (!resumoMsg) return;
+    resumoMsg.innerHTML = `<div class="alert alert-light border text-body d-flex align-items-center gap-2 mb-0">
+        <span class="spinner-border spinner-border-sm text-primary flex-shrink-0" aria-hidden="true"></span>
+        <span>${esc(texto)}</span>
+      </div>`;
+  }
+
+  const esqueleto = (largura) => `<span class="placeholder rounded" style="width:${largura}"></span>`;
+
+  function linhasEsqueleto(colunas, linhas) {
+    const linha = `<tr class="placeholder-glow">${Array.from({ length: colunas }, (_, i) =>
+      `<td${i ? ' class="text-end"' : ""}>${esqueleto(i ? "4.5rem" : "7rem")}</td>`).join("")}</tr>`;
+    return linha.repeat(linhas);
+  }
+
+  function renderEsqueletos() {
+    ["#contab-previsto", "#contab-realizado"].forEach((id) => {
+      const el = qs(id);
+      if (!el) return;
+      el.classList.remove("contab-negative");
+      el.innerHTML = `<span class="placeholder-glow d-block">${esqueleto("9rem")}</span>`;
+    });
+    ["#contab-previsto-variacao", "#contab-realizado-variacao", "#contab-previsto-margem"].forEach((id) => {
+      const el = qs(id);
+      if (el) el.innerHTML = "";
+    });
+    ["#card-ticket", "#card-custo", "#card-lucro-pacote", "#card-taxa"].forEach((id) => {
+      const el = qs(id);
+      if (el) el.innerHTML = `<span class="placeholder-glow d-block">${esqueleto("5rem")}</span>`;
+    });
+    const set = (id, html) => { const el = qs(id); if (el) el.innerHTML = html; };
+    set("#contab-grade", linhasEsqueleto(5, 3));
+    set("#container-servicos", linhasEsqueleto(8, 3));
+    set("#lista-rentabilidade-base", linhasEsqueleto(5, 3));
+    set("#lista-despesas-entregador", linhasEsqueleto(4, 3));
+  }
+
+  let avisoDemora = null;
+
+  function setCarregando(ativo) {
+    if (pagina) pagina.setAttribute("aria-busy", ativo ? "true" : "false");
+    if (btnEmitir) btnEmitir.disabled = ativo || !ultimoResumo;
+    clearTimeout(avisoDemora);
+    if (ativo) {
+      renderEsqueletos();
+      mostrarCarregando("Carregando o balanço do período…");
+      avisoDemora = setTimeout(() => {
+        mostrarCarregando("Calculando o balanço do período. Em períodos com muitas saídas isso pode levar alguns segundos…");
+      }, 8000);
     }
+  }
+
+  /* ---------------- Resultados ---------------- */
+
+  function textoVariacao(res, prevIni, prevFim) {
+    if (!res || res.anterior == null) return "";
+    const periodoAnt = prevIni && prevFim ? `${isoParaBr(prevIni).slice(0, 5)} a ${isoParaBr(prevFim).slice(0, 5)}` : "período anterior";
+    const atual = num(res.valor);
+    const anterior = num(res.anterior);
+    const diferenca = atual - anterior;
+    const referencia = `<span class="text-muted"> vs ${esc(periodoAnt)} <span class="text-nowrap">(${esc(formatarMoeda(anterior))})</span></span>`;
+    if (Math.abs(diferenca) < 0.005) {
+      return `<span class="text-muted fw-medium">Sem variação</span>${referencia}`;
+    }
+    const subiu = diferenca > 0;
+    const icone = subiu ? "ri-arrow-up-line" : "ri-arrow-down-line";
+    const cls = subiu ? "text-success" : "text-danger";
+    // % entre lucro e prejuízo não tem leitura contábil; só mostra quando o sinal se mantém.
+    const mesmoSinal = res.variacao_pct != null && anterior !== 0 && Math.sign(atual) === Math.sign(anterior);
+    const pct = mesmoSinal ? ` (${subiu ? "+" : "−"}${esc(formatarPct(Math.abs(num(res.variacao_pct))))})` : "";
+    return `<span class="${cls} fw-medium"><i class="${icone} align-middle" aria-hidden="true"></i> ${esc(formatarMoeda(Math.abs(diferenca)))} ${subiu ? "a mais" : "a menos"}${pct}</span>${referencia}`;
+  }
+
+  function renderResultado(idValor, idVariacao, res, bal) {
+    const el = qs(idValor);
+    const valor = num(res && res.valor);
+    if (el) {
+      el.textContent = formatarMoeda(valor);
+      el.classList.toggle("contab-negative", valor < 0);
+    }
+    const elVar = qs(idVariacao);
+    if (elVar) elVar.innerHTML = textoVariacao(res, bal && bal.periodo_anterior_inicio, bal && bal.periodo_anterior_fim);
+  }
+
+  /* ---------------- Balanço por status (grade) ---------------- */
+
+  const FAIXAS = ["pendente", "gerado", "baixado"];
+  const UNIDADES = {
+    pacotes: ["pacote", "pacotes"],
+    saidas: ["saída", "saídas"],
+    fechamentos: ["fechamento", "fechamentos"],
+  };
+
+  function celulaValor(valor, nota, destaque) {
+    const negativo = num(valor) < 0 ? " contab-negative" : "";
+    return `<td class="text-end${destaque ? " contab-grade-destaque" : ""}">
+        <span class="contab-grade-valor${negativo}">${esc(formatarMoeda(valor))}</span>
+        ${nota ? `<span class="contab-grade-nota">${esc(nota)}</span>` : ""}
+      </td>`;
+  }
+
+  function rotuloGrade(icone, titulo) {
+    return `<span class="contab-grade-titulo"><i class="${icone} contab-grade-icone" aria-hidden="true"></i>${titulo}</span>`;
+  }
+
+  function linhaLado(icone, titulo, subtitulo, href, link, lado) {
+    const celulas = FAIXAS.map((f) => {
+      const faixa = lado[f] || { valor: 0, quantidade: 0, unidade: "fechamentos" };
+      const u = UNIDADES[faixa.unidade] || UNIDADES.fechamentos;
+      return celulaValor(faixa.valor, plural(faixa.quantidade, u[0], u[1]));
+    }).join("");
+    return `<tr>
+        <th scope="row" class="contab-grade-rotulo">
+          ${rotuloGrade(icone, titulo)}
+          <span class="contab-grade-nota text-start">${subtitulo} · <a href="${href}" class="text-decoration-none">${link} <i class="ri-arrow-right-line align-middle" aria-hidden="true"></i></a></span>
+        </th>
+        ${celulas}
+        ${celulaValor(lado.total, "", true)}
+      </tr>`;
+  }
+
+  function renderGrade(bal) {
+    const el = qs("#contab-grade");
+    if (!el) return;
+    if (!bal) {
+      el.innerHTML = linhaVazia(5, "Balanço indisponível para este período.");
+      return;
+    }
+    const r = bal.receber;
+    const p = bal.pagar;
+    const saldo = (f) => num(r[f] && r[f].valor) - num(p[f] && p[f].valor);
+    el.innerHTML = [
+      linhaLado("ri-arrow-down-circle-line", "A receber", "Coletas", "tracking-bases-a-receber.html", "Ver recebimentos", r),
+      linhaLado("ri-arrow-up-circle-line", "A pagar", "Motoboys", "tracking-entregadores-a-pagar.html", "Ver pagamentos", p),
+      `<tr class="contab-grade-saldo">
+        <th scope="row" class="contab-grade-rotulo">
+          ${rotuloGrade("ri-scales-3-line", "Saldo")}
+          <span class="contab-grade-nota text-start">A receber − a pagar</span>
+        </th>
+        ${celulaValor(saldo("pendente"), "ainda sem fechamento")}
+        ${celulaValor(saldo("gerado"), "em aberto")}
+        ${celulaValor(bal.realizado.valor, "= realizado", true)}
+        ${celulaValor(bal.previsto.valor, "= previsto", true)}
+      </tr>`,
+    ].join("");
+  }
+
+  function renderAviso(bal) {
+    if (!avisoFechamentos || !avisoFechamentosTexto) return;
+    const pendReceber = bal ? num(bal.receber.pendente.valor) : 0;
+    const pendPagar = bal ? num(bal.pagar.pendente.valor) : 0;
+    const qtdReceber = bal ? num(bal.receber.pendente.quantidade) : 0;
+    const qtdPagar = bal ? num(bal.pagar.pendente.quantidade) : 0;
+    if (!bal || (qtdReceber === 0 && qtdPagar === 0 && pendReceber === 0 && pendPagar === 0)) {
+      avisoFechamentos.classList.add("d-none");
+      avisoFechamentosTexto.innerHTML = "";
+      return;
+    }
+    const partes = [];
+    if (qtdReceber > 0 || pendReceber !== 0) {
+      partes.push(`${esc(formatarMoeda(pendReceber))} a receber (<a href="tracking-coletas-resumo.html" class="alert-link">${esc(termo("fechamento_base", "Fechamento de Bases"))}</a>)`);
+    }
+    if (qtdPagar > 0 || pendPagar !== 0) {
+      partes.push(`${esc(formatarMoeda(pendPagar))} a pagar (<a href="tracking-entregadores-resumo.html" class="alert-link">Fechamento de Motoboys</a>)`);
+    }
+    avisoFechamentosTexto.innerHTML =
+      `<strong>Parte do balanço ainda é estimativa.</strong> Sem fechamento no período: ${partes.join(" e ")}. ` +
+      "Esses valores já entram no resultado previsto e passam a ser oficiais quando o fechamento for gerado.";
+    avisoFechamentos.classList.remove("d-none");
+  }
+
+  /* ---------------- Operação ---------------- */
+
+  function renderIndicadores(data) {
+    const ind = data.indicadores || {};
+    const previsto = data.balanco ? num(data.balanco.previsto.valor) : num(data.lucro_liquido);
+    const totalColetas = num(ind.total_coletas);
+    const set = (id, txt) => { const el = qs(id); if (el) el.textContent = txt; };
+    set("#card-ticket", formatarMoeda(ind.ticket_medio_coleta));
+    set("#card-ticket-hint", `${formatarMoeda(data.receita_bruta)} ÷ ${plural(totalColetas, "pacote", "pacotes")}`);
+    set("#card-custo", formatarMoeda(ind.custo_medio_saida));
+    set("#card-custo-hint", `${formatarMoeda(data.despesas_totais)} ÷ ${plural(ind.total_saidas, "saída", "saídas")}`);
+    set("#card-lucro-pacote", formatarMoeda(totalColetas ? previsto / totalColetas : 0));
+    set("#card-taxa", formatarPct(ind.taxa_conversao));
+  }
+
+  const SERVICOS = { shopee: "Shopee", mercado_livre: "Mercado Livre", avulso: "Avulso" };
+
+  function barraParticipacao(pct) {
+    const largura = Math.max(0, Math.min(100, pct));
+    return `<div class="d-flex align-items-center gap-2">
+        <div class="progress flex-grow-1 contab-share" aria-hidden="true"><div class="progress-bar bg-primary" style="width:${largura.toFixed(2)}%"></div></div>
+        <span class="small text-muted contab-share-pct">${esc(formatarPct(pct))}</span>
+      </div>`;
+  }
+
+  function linhaVazia(colspan, texto) {
+    return `<tr><td colspan="${colspan}" class="text-center text-muted small py-3">${esc(texto)}</td></tr>`;
+  }
+
+  function renderServicos(data) {
+    const el = qs("#container-servicos");
+    if (!el) return;
+    const servicos = (data.analise_por_servico || []).filter((s) => num(s.coletas) || num(s.saidas) || num(s.receita) || num(s.despesa));
+    if (!servicos.length) {
+      el.innerHTML = linhaVazia(8, "Nenhuma coleta ou saída no período.");
+      return;
+    }
+    const receitaTotal = num(data.receita_bruta);
+    el.innerHTML = servicos.map((s) => {
+      const pct = receitaTotal ? num(s.receita) / receitaTotal * 100 : 0;
+      return `<tr>
+          <th scope="row" class="fw-medium">${esc(SERVICOS[s.servico] || s.servico)}</th>
+          <td class="text-end">${esc(formatarInt(s.coletas))}</td>
+          <td class="text-end">${esc(formatarMoeda(s.receita))}</td>
+          <td class="text-end">${esc(formatarInt(s.saidas))}</td>
+          <td class="text-end">${esc(formatarMoeda(s.despesa))}</td>
+          <td class="text-end fw-medium${num(s.lucro) < 0 ? " contab-negative" : ""}">${esc(formatarMoeda(s.lucro))}</td>
+          <td class="text-end">${esc(formatarPct(s.margem))}</td>
+          <td class="contab-col-share">${barraParticipacao(pct)}</td>
+        </tr>`;
+    }).join("");
+  }
+
+  function renderBases(data) {
+    const el = qs("#lista-rentabilidade-base");
+    if (!el) return;
+    const lista = data.rentabilidade_por_base || [];
+    if (!lista.length) {
+      el.innerHTML = linhaVazia(5, termo("nenhuma_base_periodo", "Nenhuma base no período."));
+      return;
+    }
+    el.innerHTML = lista.map((r) => `<tr>
+        <th scope="row" class="fw-medium text-truncate contab-col-nome">${esc(r.base)}</th>
+        <td class="text-end">${esc(formatarMoeda(r.receita))}</td>
+        <td class="text-end">${esc(formatarMoeda(r.despesa))}</td>
+        <td class="text-end fw-medium${num(r.lucro) < 0 ? " contab-negative" : ""}">${esc(formatarMoeda(r.lucro))}</td>
+        <td class="text-end">${esc(formatarPct(r.margem))}</td>
+      </tr>`).join("");
+  }
+
+  function renderEntregadores(data) {
+    const el = qs("#lista-despesas-entregador");
+    if (!el) return;
+    const lista = data.distribuicao_despesas || [];
+    if (!lista.length) {
+      el.innerHTML = linhaVazia(4, "Nenhum custo com motoboys no período.");
+      return;
+    }
+    el.innerHTML = lista.map((d) => `<tr>
+        <th scope="row" class="fw-medium text-truncate contab-col-nome">${esc(d.nome)}</th>
+        <td class="text-end">${esc(formatarInt(d.saidas))}</td>
+        <td class="text-end">${esc(formatarMoeda(d.despesa))}</td>
+        <td class="contab-col-share">${barraParticipacao(num(d.percentual))}</td>
+      </tr>`).join("");
+  }
+
+  /* ---------------- Carga ---------------- */
+
+  function semDados(data) {
+    const ind = data.indicadores || {};
+    const bal = data.balanco;
+    return num(ind.total_coletas) === 0 && num(ind.total_saidas) === 0 &&
+      num(data.receita_bruta) === 0 && num(data.despesas_totais) === 0 &&
+      (!bal || (num(bal.receber.total) === 0 && num(bal.pagar.total) === 0));
+  }
+
+  function renderTudo(data) {
+    const bal = data.balanco || null;
+    renderResultado("#contab-previsto", "#contab-previsto-variacao", bal && bal.previsto, bal);
+    renderResultado("#contab-realizado", "#contab-realizado-variacao", bal && bal.realizado, bal);
+    const elMargem = qs("#contab-previsto-margem");
+    if (elMargem) {
+      const totalReceber = bal ? num(bal.receber.total) : 0;
+      elMargem.textContent = totalReceber > 0 ? `Margem ${formatarPct(num(bal.previsto.valor) / totalReceber * 100)}` : "";
+    }
+    renderGrade(bal);
+    renderAviso(bal);
+    renderIndicadores(data);
+    renderServicos(data);
+    renderBases(data);
+    renderEntregadores(data);
   }
 
   async function carregarResumo() {
     const dataInicio = fltDataInicio?.value || "";
     const dataFim = fltDataFim?.value || "";
     if (!dataInicio || !dataFim) {
-      try { if (resumoMsg) resumoMsg.innerHTML = "<div class=\"text-warning\">Informe o período (data início e data fim).</div>"; } catch (_) {}
+      mostrarMensagem("warning", "ri-error-warning-line", "Informe o período (data início e data fim).");
       return;
     }
-    try { if (resumoMsg) resumoMsg.innerHTML = "<div class=\"text-muted\">Carregando...</div>"; } catch (_) {}
+    const minhaRequisicao = ++requisicaoAtual;
+    ultimoResumo = null;
+    setCarregando(true);
+    let compararDepois = false;
     try {
-      const res = await fetch(`${API_RESUMO}?data_inicio=${dataInicio}&data_fim=${dataFim}`, { credentials: "include" });
+      const params = new URLSearchParams({ data_inicio: dataInicio, data_fim: dataFim, comparar_anterior: "false" });
+      const res = await fetch(`${API_RESUMO}?${params.toString()}`, { credentials: "include" });
+      if (minhaRequisicao !== requisicaoAtual) return;
       if (!res.ok) {
-        const msg = mensagemErroPorStatus(res.status);
-        try { if (resumoMsg) resumoMsg.innerHTML = "<div class=\"alert alert-warning mb-0\"><i class=\"ri-error-warning-line me-2\"></i>" + msg + "</div>"; } catch (_) {}
+        mostrarMensagem("warning", "ri-error-warning-line", mensagemErroPorStatus(res.status));
         return;
       }
       const data = await res.json();
+      if (minhaRequisicao !== requisicaoAtual) return;
 
-      try {
-        const elRec = qs("#card-receita");
-        if (elRec) elRec.textContent = formatarMoeda(data.receita_bruta);
-        const elRecDet = qs("#card-receita-detalhe");
-        if (elRecDet) elRecDet.textContent = `${Number(data.indicadores?.total_coletas ?? 0).toLocaleString("pt-BR")} coletas`;
-      } catch (_) {}
-      try {
-        const elDesp = qs("#card-despesas");
-        if (elDesp) elDesp.textContent = formatarMoeda(data.despesas_totais);
-        const elDespDet = qs("#card-despesas-detalhe");
-        if (elDespDet) {
-          const conf = Number(data.despesas_confirmadas ?? 0);
-          const pend = Number(data.despesas_pendentes ?? 0);
-          elDespDet.textContent = `Confirmadas: ${formatarMoeda(conf)} · Pendentes: ${formatarMoeda(pend)}`;
-          const elDespAviso = qs("#card-despesas-aviso");
-          if (elDespAviso) {
-            if (pend > 0) {
-              elDespAviso.classList.remove("d-none");
-            } else {
-              elDespAviso.classList.add("d-none");
-            }
-          }
-        }
-      } catch (_) {}
-      try {
-        const elLucro = qs("#card-lucro");
-        if (elLucro) elLucro.textContent = formatarMoeda(data.lucro_liquido);
-        const elMargem = qs("#card-margem");
-        if (elMargem) elMargem.textContent = formatarPct(data.margem_liquida);
-      } catch (_) {}
-      try {
-        const ind = data.indicadores || {};
-        const elTicket = qs("#card-ticket");
-        if (elTicket) elTicket.textContent = formatarMoeda(ind.ticket_medio_coleta);
-        const elCusto = qs("#card-custo");
-        if (elCusto) elCusto.textContent = formatarMoeda(ind.custo_medio_saida);
-        const elLucroPacote = qs("#card-lucro-pacote");
-        if (elLucroPacote) elLucroPacote.textContent = formatarMoeda(ind.lucro_por_pacote);
-        const elTaxa = qs("#card-taxa");
-        if (elTaxa) elTaxa.textContent = formatarPct(ind.taxa_conversao);
-      } catch (_) {}
+      renderTudo(data);
 
-      try { renderComparacao(data.comparacao_periodo_anterior); } catch (_) {}
-
-      const servicos = data.analise_por_servico || [];
-      const labels = { shopee: "Shopee", mercado_livre: "Mercado Livre", avulso: "Avulso" };
-      const cores = { shopee: "warning", mercado_livre: "info", avulso: "primary" };
-      try {
-      const containerServicos = qs("#container-servicos");
-      if (containerServicos) {
-        containerServicos.innerHTML = servicos
-          .map(
-            (s) => `
-          <div class="col-md-4">
-            <div class="card h-100 border-0 shadow-sm">
-              <div class="card-body">
-                <h6 class="text-${cores[s.servico] || "secondary"} mb-3">${labels[s.servico] || s.servico}</h6>
-                <div class="small text-muted mb-1">Coletas: <strong>${Number(s.coletas).toLocaleString("pt-BR")} un</strong></div>
-                <div class="small text-muted mb-1">Receita: <strong>${formatarMoeda(s.receita)}</strong></div>
-                <div class="small text-muted mb-1">Saídas: <strong>${Number(s.saidas).toLocaleString("pt-BR")} un</strong></div>
-                <div class="small text-muted mb-1">Despesa: <strong>${formatarMoeda(s.despesa)}</strong></div>
-                <div class="text-success fw-bold mt-2">Lucro Líquido: ${formatarMoeda(s.lucro)}</div>
-                <span class="badge bg-${cores[s.servico] || "secondary"}-subtle text-${cores[s.servico] || "secondary"} mt-1">Margem: ${formatarPct(s.margem)}</span>
-              </div>
-            </div>
-          </div>`
-          )
-          .join("");
+      if (semDados(data)) {
+        mostrarMensagem("info", "ri-information-line", "Nenhuma coleta, saída ou fechamento neste período.");
+      } else if (!data.balanco) {
+        mostrarMensagem("warning", "ri-error-warning-line", "O balanço por status ainda não está disponível no servidor. Os demais números foram carregados.");
+        ultimoResumo = null;
+        return;
+      } else {
+        mostrarMensagem("", "", "");
       }
-      } catch (_) {}
-
-      try {
-      const receitaTotal = Number(data.receita_bruta) || 1;
-      const barrasParticipacao = qs("#barras-participacao");
-      if (barrasParticipacao) {
-        barrasParticipacao.innerHTML = servicos
-          .map((s) => {
-            const pct = receitaTotal ? (Number(s.receita) / receitaTotal * 100) : 0;
-            return `
-          <div class="mb-2">
-            <div class="d-flex justify-content-between small mb-1">
-              <span>${labels[s.servico] || s.servico}</span>
-              <span>${formatarPct(pct)}</span>
-            </div>
-            <div class="progress" style="height: 8px;">
-              <div class="progress-bar bg-primary" role="progressbar" style="width: ${pct}%"></div>
-            </div>
-          </div>`;
-          })
-          .join("");
-      }
-      } catch (_) {}
-
-      try {
-      const rentabilidade = data.rentabilidade_por_base || [];
-      const listaRent = qs("#lista-rentabilidade-base");
-      if (listaRent) {
-        listaRent.innerHTML =
-          rentabilidade.length === 0
-            ? "<p class=\"text-muted small mb-0\">" + (typeof window.ownerTerm === "function" ? window.ownerTerm("nenhuma_base_periodo") : "Nenhuma base no período.") + "</p>"
-            : rentabilidade
-                .map(
-                  (r, i) => `
-          <div class="d-flex align-items-center justify-content-between py-2 border-bottom border-light">
-            <div class="d-flex align-items-center gap-2">
-              <span class="rounded-circle bg-success bg-opacity-25 text-success fw-bold d-inline-flex align-items-center justify-content-center" style="width:28px;height:28px;font-size:12px">${i + 1}</span>
-              <div>
-                <div class="fw-semibold">${r.base}</div>
-                <div class="small text-muted">Receita: ${formatarMoeda(r.receita)} · Despesa: ${formatarMoeda(r.despesa)}</div>
-              </div>
-            </div>
-            <div class="text-end">
-              <div class="text-success fw-bold">${formatarMoeda(r.lucro)}</div>
-              <span class="badge bg-success-subtle text-success">Margem: ${formatarPct(r.margem)}</span>
-            </div>
-          </div>`
-                )
-                .join("");
-      }
-      } catch (_) {}
-
-      try {
-      const distDespesas = data.distribuicao_despesas || [];
-      const listaDesp = qs("#lista-despesas-entregador");
-      if (listaDesp) {
-        const totalDesp = Number(data.despesas_totais) || 1;
-        listaDesp.innerHTML =
-          distDespesas.length === 0
-            ? "<p class=\"text-muted small mb-0\">Nenhuma despesa no período.</p>"
-            : distDespesas
-                .map(
-                  (d) => `
-          <div class="d-flex align-items-center justify-content-between py-2 border-bottom border-light">
-            <div>
-              <div class="fw-semibold">${d.nome}</div>
-              <div class="small text-muted">${Number(d.saidas).toLocaleString("pt-BR")} saídas</div>
-            </div>
-            <div class="text-end">
-              <div class="text-danger fw-bold">${formatarMoeda(d.despesa)}</div>
-              <span class="small text-muted">${formatarPct(d.percentual)}</span>
-            </div>
-            <div class="flex-grow-1 ms-2" style="max-width:120px">
-              <div class="progress" style="height: 6px;">
-                <div class="progress-bar bg-primary" style="width: ${Number(d.percentual)}%"></div>
-              </div>
-            </div>
-          </div>`
-                )
-                .join("");
-      }
-      } catch (_) {}
-
-      try {
-      const dre = data.dre || [];
-      const containerDre = qs("#container-dre");
-      if (containerDre) {
-        containerDre.innerHTML = dre
-          .map((linha) => {
-            const isLucro = linha.label.indexOf("LUCRO") !== -1;
-            const isDespesa = linha.label.indexOf("DESPESAS") !== -1;
-            const cor = isLucro ? "text-success" : isDespesa ? "text-danger" : "text-success";
-            const detalhes = (linha.detalhes || []).map((d) => `<div class="small text-muted ms-3">${d}</div>`).join("");
-            return `
-          <div class="mb-3">
-            <div class="fw-semibold">${linha.label}</div>
-            ${linha.valor != null ? `<div class="fs-5 fw-bold ${cor}">${formatarMoeda(linha.valor)}</div>` : ""}
-            ${detalhes}
-          </div>`;
-          })
-          .join("");
-      }
-      } catch (_) {}
-
-      try {
-      if (data.aviso_pendentes && avisoFechamentos && avisoFechamentosTexto) {
-        avisoFechamentos.classList.remove("d-none");
-        avisoFechamentosTexto.textContent = "Há saídas no período sem fechamento GERADO/REAJUSTADO/PAGO. Essas saídas já entram como \"Despesas pendentes\" e são consideradas no total, no lucro e na margem. Para convertê-las em despesas confirmadas, gere o fechamento na página Fechamento de Motoboys.";
-      } else if (avisoFechamentos) {
-        avisoFechamentos.classList.add("d-none");
-      }
-
-      const totalColetas = Number(data.indicadores?.total_coletas ?? 0);
-      const totalSaidas = Number(data.indicadores?.total_saidas ?? 0);
-      const receita = Number(data.receita_bruta ?? 0);
-      const despesa = Number(data.despesas_totais ?? 0);
-      const semDados = totalColetas === 0 && totalSaidas === 0 && receita === 0 && despesa === 0;
-      if (resumoMsg) {
-        if (semDados) {
-          resumoMsg.innerHTML = "<div class=\"alert alert-info mb-0\"><i class=\"ri-information-line me-2\"></i>Para este período não há informações (coletas ou fechamentos gerados/reajustados).</div>";
-        } else {
-          resumoMsg.innerHTML = "";
-        }
-      }
-      } catch (_) {}
+      ultimoResumo = semDados(data) ? null : { data: data, inicio: dataInicio, fim: dataFim };
+      compararDepois = !!ultimoResumo && data.balanco.previsto.anterior == null;
     } catch (err) {
-      try {
-        const msg = mensagemErroAmigavel(err);
-        if (resumoMsg) resumoMsg.innerHTML = "<div class=\"alert alert-warning mb-0\"><i class=\"ri-error-warning-line me-2\"></i>" + String(msg) + "</div>";
-      } catch (_) {}
+      if (minhaRequisicao !== requisicaoAtual) return;
+      try { console.error("[Contabilidade]", err); } catch (_) {}
+      mostrarMensagem("warning", "ri-error-warning-line", "Não foi possível obter os dados. Tente novamente.");
+    } finally {
+      if (minhaRequisicao === requisicaoAtual) setCarregando(false);
+    }
+    if (compararDepois && minhaRequisicao === requisicaoAtual) {
+      carregarComparacao(minhaRequisicao, dataInicio, dataFim);
     }
   }
 
-  carregarResumo().catch(function () {
+  /* ---------------- Comparação com o período anterior (segundo plano) ---------------- */
+
+  function isoUtc(d) {
+    return d.toISOString().slice(0, 10);
+  }
+
+  function periodoAnterior(inicio, fim) {
+    const ini = new Date(inicio + "T00:00:00Z");
+    const dias = Math.round((new Date(fim + "T00:00:00Z") - ini) / 86400000) + 1;
+    const prevFim = new Date(ini.getTime() - 86400000);
+    const prevIni = new Date(prevFim.getTime() - (dias - 1) * 86400000);
+    return { inicio: isoUtc(prevIni), fim: isoUtc(prevFim) };
+  }
+
+  function variacaoPct(atual, anterior) {
+    if (!anterior) return null;
+    return Math.round((atual - anterior) / Math.abs(anterior) * 10000) / 100;
+  }
+
+  function mostrarComparando(ativo) {
+    ["#contab-previsto-variacao", "#contab-realizado-variacao"].forEach((id) => {
+      const el = qs(id);
+      if (!el) return;
+      el.innerHTML = ativo
+        ? '<span class="text-muted"><span class="spinner-border spinner-border-sm me-1 contab-spinner-xs" aria-hidden="true"></span>Comparando com o período anterior…</span>'
+        : "";
+    });
+  }
+
+  async function carregarComparacao(minhaRequisicao, dataInicio, dataFim) {
+    const prev = periodoAnterior(dataInicio, dataFim);
+    if (prev.inicio < "2000-01-01") return;
+    mostrarComparando(true);
     try {
-      if (resumoMsg) resumoMsg.innerHTML = "<div class=\"alert alert-warning mb-0\"><i class=\"ri-error-warning-line me-2\"></i>Erro ao carregar dados. Tente novamente.</div>";
-    } catch (_) {}
-  });
+      const params = new URLSearchParams({ data_inicio: prev.inicio, data_fim: prev.fim, comparar_anterior: "false" });
+      const res = await fetch(`${API_RESUMO}?${params.toString()}`, { credentials: "include" });
+      if (minhaRequisicao !== requisicaoAtual) return;
+      const anterior = res.ok ? await res.json() : null;
+      if (minhaRequisicao !== requisicaoAtual) return;
+      const atual = ultimoResumo && ultimoResumo.data.balanco;
+      if (!atual || !anterior || !anterior.balanco) {
+        mostrarComparando(false);
+        return;
+      }
+      ["previsto", "realizado"].forEach((chave) => {
+        const valorAnterior = num(anterior.balanco[chave].valor);
+        atual[chave].anterior = valorAnterior;
+        atual[chave].variacao_pct = variacaoPct(num(atual[chave].valor), valorAnterior);
+      });
+      atual.periodo_anterior_inicio = prev.inicio;
+      atual.periodo_anterior_fim = prev.fim;
+      renderResultado("#contab-previsto", "#contab-previsto-variacao", atual.previsto, atual);
+      renderResultado("#contab-realizado", "#contab-realizado-variacao", atual.realizado, atual);
+    } catch (err) {
+      if (minhaRequisicao !== requisicaoAtual) return;
+      try { console.error("[Contabilidade] comparação", err); } catch (_) {}
+      mostrarComparando(false);
+    }
+  }
+
+  if (btnEmitir) {
+    btnEmitir.addEventListener("click", async () => {
+      if (!ultimoResumo) return;
+      if (typeof window.gerarRelatorioContabil !== "function" || !window.jspdf) {
+        if (window.Swal) Swal.fire({ icon: "error", title: "Relatório indisponível", text: "Não foi possível carregar o gerador de PDF. Recarregue a página e tente novamente." });
+        return;
+      }
+      btnEmitir.disabled = true;
+      try {
+        window.gerarRelatorioContabil(ultimoResumo.data, {
+          inicio: ultimoResumo.inicio,
+          fim: ultimoResumo.fim,
+          termoBase: termo("base", "Base"),
+        });
+      } catch (e) {
+        try { console.error("[Contabilidade] PDF", e); } catch (_) {}
+        if (window.Swal) Swal.fire({ icon: "error", title: "Erro ao gerar relatório", text: "Tente novamente." });
+      } finally {
+        btnEmitir.disabled = !ultimoResumo;
+      }
+    });
+  }
+
+  carregarResumo();
   } // initContabilidade
 });

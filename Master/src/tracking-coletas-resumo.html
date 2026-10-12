@@ -3,527 +3,304 @@
   <head>
     @@include("partials/title-meta.html", {"title":"Fechamento de Bases"})
     @@include("partials/head-css.html")
-    <style>
-      .fech-campo-inalterado { background-color: #e9ecef !important; color: #6c757d; }
-      /* Cards estilo fechamento motoboy — fundos pálidos, borda fina, título cinza */
-      .coletas-resumo-layout .coletas-resumo-summary-card {
-        border-radius: 12px;
-        border: 1px solid;
-      }
-      .coletas-resumo-layout .coletas-resumo-summary-label {
-        display: block;
-        font-size: 0.8125rem;
-        font-weight: 500;
-        color: #495057 !important;
-      }
-      .coletas-resumo-layout .coletas-resumo-summary-num {
-        font-size: 1.5rem;
-        font-weight: 700;
-        line-height: 1.2;
-      }
-      .coletas-resumo-layout .coletas-resumo-summary-card.card-shopee {
-        background-color: rgba(238, 77, 45, 0.14);
-        border-color: rgba(238, 100, 60, 0.55);
-      }
-      .coletas-resumo-layout .coletas-resumo-summary-card.card-shopee .coletas-resumo-summary-num {
-        color: #ee4d2d;
-      }
-      .coletas-resumo-layout .coletas-resumo-summary-card.card-ml {
-        background-color: rgba(255, 230, 0, 0.22);
-        border-color: rgba(220, 180, 50, 0.55);
-      }
-      .coletas-resumo-layout .coletas-resumo-summary-card.card-ml .coletas-resumo-summary-num {
-        color: #c9a227;
-      }
-      .coletas-resumo-layout .coletas-resumo-summary-card.card-avulso {
-        background-color: rgba(13, 110, 253, 0.12);
-        border-color: rgba(13, 110, 253, 0.45);
-      }
-      .coletas-resumo-layout .coletas-resumo-summary-card.card-avulso .coletas-resumo-summary-num {
-        color: #0d6efd;
-      }
-      .coletas-resumo-layout .coletas-resumo-summary-card.card-cancelados {
-        background-color: rgba(220, 53, 69, 0.12);
-        border-color: rgba(220, 53, 69, 0.5);
-      }
-      .coletas-resumo-layout .coletas-resumo-summary-card.card-cancelados .coletas-resumo-summary-num {
-        color: #dc3545;
-      }
-      .coletas-resumo-layout .coletas-resumo-summary-card.card-total {
-        background-color: rgba(108, 117, 125, 0.15);
-        border-color: rgba(108, 117, 125, 0.4);
-      }
-      .coletas-resumo-layout .coletas-resumo-summary-card.card-total .coletas-resumo-summary-num {
-        color: #2d3277;
-      }
-      .coletas-resumo-layout .coletas-resumo-summary-card.card-valor-total {
-        background-color: rgba(25, 135, 84, 0.12);
-        border-color: rgba(25, 135, 84, 0.45);
-      }
-      .coletas-resumo-layout .coletas-resumo-summary-card.card-valor-total .coletas-resumo-summary-num {
-        color: #198754;
-      }
-      /* Tabela e KPIs ocupam a largura útil do card (evita bloco “puxado” à esquerda) */
-      .coletas-resumo-layout {
-        margin-left: 0;
-        margin-right: 0;
-      }
-      .coletas-resumo-table-wrap {
-        width: 100%;
-      }
-      #coletas-resumo-table {
-        width: 100% !important;
-        min-width: 100%;
-      }
-      #coletas-resumo-table th,
-      #coletas-resumo-table td {
-        vertical-align: middle;
-      }
-    </style>
+    <link href="assets/css/fechamento-motoboys.css?v=4" rel="stylesheet" type="text/css" />
   </head>
 
   <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
-
     <div id="layout-wrapper">
-
-      <!-- ========== Topbar + Sidebar ========== -->
       @@include("partials/menu.html")
 
-      <!-- ============================================================== -->
-      <!-- Start right Content here -->
-      <!-- ============================================================== -->
       <div class="main-content">
         <div class="page-content">
           <div class="container-fluid">
 
-            <!-- Título da página -->
             @@include("partials/page-title.html", {"pagetitle": "Financeiro / Coletas", "title": "Fechamento de Bases", "withSubtitle": true, "ownerTerm": "fechamento_base"})
 
-            <!-- ======================== CONTEÚDO PRINCIPAL ======================== -->
-            <div class="row">
+            <div class="row fm">
               <div class="col-12">
                 <div class="card">
-
-
                   <div class="card-body">
-                    <!-- Ações à esquerda, Data e Filtros à direita (topo) -->
-                    <div class="row g-3 align-items-center mb-4">
-                      <div class="col-md-auto d-flex gap-2 flex-wrap">
-                        <div class="d-none" id="wrapBtnColetaManual">
-                          <button type="button" id="btnColetaManual" class="btn btn-success">
-                            <i class="ri-add-line me-1"></i> Coleta Manual
-                          </button>
-                        </div>
-                        <div id="wrapBtnGerarFechamento" title="Preencha o período" data-bs-toggle="tooltip" data-bs-placement="top">
-                          <button type="button" id="btnGerarFechamento" class="btn btn-success" disabled>
-                            <i class="ri-file-add-line me-1"></i> Gerar Fechamento
-                          </button>
-                        </div>
-                        <a href="tracking-bases-a-receber.html" class="btn btn-outline-secondary">
-                          <i class="ri-money-dollar-circle-line me-1"></i> A Receber
-                        </a>
-                      </div>
-                      <div class="col-md-auto ms-auto d-flex gap-2 flex-wrap align-items-center">
-                        <div class="dropdown">
-                            <button class="btn btn-soft-primary dropdown-toggle d-flex align-items-center gap-2" type="button" id="coletas-resumo-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                              <i class="bx bx-calendar"></i>
-                              <span id="coletas-resumo-period-label" class="text-truncate">Quinzena anterior</span>
-                            </button>
-                            <div class="dropdown-menu dropdown-menu-end p-0 period-panel" id="coletas-resumo-period-panel">
-                              <input type="hidden" id="flt-from" />
-                              <input type="hidden" id="flt-to" />
-                              <div id="coletas-resumo-date-picker-container"></div>
-                            </div>
+                    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                      <span id="wrapBtnGerarTodos" class="d-inline-block" tabindex="0">
+                        <button type="button" id="btnGerarTodos" class="btn btn-fm-primary" disabled>
+                          <i class="ri-stack-line me-1"></i> <span id="btnGerarTodosLabel">Gerar todos os pendentes</span>
+                        </button>
+                      </span>
+                      <button type="button" id="btnColetaManual" class="btn btn-outline-secondary d-none">
+                        <i class="ri-add-line me-1"></i> Coleta manual
+                      </button>
+                      <a href="tracking-bases-a-receber.html" class="btn btn-outline-secondary">
+                        <i class="ri-money-dollar-circle-line me-1"></i> A Receber
+                      </a>
+                      <div class="ms-auto d-flex gap-2 flex-wrap align-items-center">
+                        <div class="fm-busca">
+                          <i class="ri-search-line" aria-hidden="true"></i>
+                          <input type="search" id="flt-busca" class="form-control" placeholder="Buscar base" aria-label="Buscar base" autocomplete="off">
                         </div>
                         <div class="dropdown">
-                            <button class="btn btn-outline-secondary position-relative" id="btnFiltrosIcon" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                              <i class="ri-filter-3-line me-1"></i> Filtros
-                              <span id="filtrosContador" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary d-none">0</span>
-                            </button>
-                            <div class="dropdown-menu dropdown-menu-end p-3 filter-menu">
-                              <div class="mb-2">
-                                <label class="form-label small" data-owner-term="base">Base</label>
-                                <select id="flt-base" class="form-select form-select-sm">
-                                  <option value="">(Todas)</option>
-                                </select>
-                              </div>
-                              <div class="mb-3">
-                                <label class="form-label small">Situação</label>
-                                <select id="flt-status" class="form-select form-select-sm">
-                                  <option value="">(Todos)</option>
-                                  <option value="PENDENTE">PENDENTE</option>
-                                  <option value="GERADO">GERADO</option>
-                                  <option value="REAJUSTADO">REAJUSTADO</option>
-                                  <option value="RECEBIDO">RECEBIDO</option>
-                                </select>
-                              </div>
-                              <div class="d-flex gap-2">
-                                <button type="button" id="btnFiltroAplicar" class="btn btn-primary flex-grow-1">Aplicar</button>
-                                <button type="button" id="btnFiltroLimpar" class="btn btn-outline-secondary flex-grow-1">Limpar</button>
-                                <button type="button" id="btnFiltroCancelar" class="btn btn-outline-secondary">Cancelar</button>
-                              </div>
-                            </div>
+                          <button class="btn btn-soft-primary dropdown-toggle d-flex align-items-center gap-2" type="button" id="coletas-resumo-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                            <i class="bx bx-calendar"></i>
+                            <span id="coletas-resumo-period-label" class="text-truncate">Quinzena anterior</span>
+                          </button>
+                          <div class="dropdown-menu dropdown-menu-end p-0 period-panel" id="coletas-resumo-period-panel">
+                            <input type="hidden" id="flt-from" />
+                            <input type="hidden" id="flt-to" />
+                            <div id="coletas-resumo-date-picker-container"></div>
                           </div>
                         </div>
                       </div>
-                    <div id="resumoMsg" class="mb-3"></div>
-                    <div class="row row-cols-2 row-cols-md-3 row-cols-xl-6 g-3 mb-4 coletas-resumo-layout">
-                      <div class="col">
-                        <div class="coletas-resumo-summary-card card-shopee p-3 text-center rounded-3 h-100">
-                          <span class="coletas-resumo-summary-label">Shopee</span>
-                          <div class="coletas-resumo-summary-num" id="sum-shopee">0</div>
-                        </div>
-                      </div>
-                      <div class="col">
-                        <div class="coletas-resumo-summary-card card-ml p-3 text-center rounded-3 h-100">
-                          <span class="coletas-resumo-summary-label">Mercado Livre</span>
-                          <div class="coletas-resumo-summary-num" id="sum-ml">0</div>
-                        </div>
-                      </div>
-                      <div class="col">
-                        <div class="coletas-resumo-summary-card card-avulso p-3 text-center rounded-3 h-100">
-                          <span class="coletas-resumo-summary-label">Avulso</span>
-                          <div class="coletas-resumo-summary-num" id="sum-avulso">0</div>
-                        </div>
-                      </div>
-                      <div class="col">
-                        <div class="coletas-resumo-summary-card card-cancelados p-3 text-center rounded-3 h-100">
-                          <span class="coletas-resumo-summary-label">Cancelados</span>
-                          <div class="coletas-resumo-summary-num" id="sum-cancelados">0</div>
-                        </div>
-                      </div>
-                      <div class="col">
-                        <div class="coletas-resumo-summary-card card-total p-3 text-center rounded-3 h-100">
-                          <span class="coletas-resumo-summary-label">Total Coletas</span>
-                          <div class="coletas-resumo-summary-num" id="sum-total">0</div>
-                        </div>
-                      </div>
-                      <div class="col">
-                        <div class="coletas-resumo-summary-card card-valor-total p-3 text-center rounded-3 h-100">
-                          <span class="coletas-resumo-summary-label">Valor Total (R$)</span>
-                          <div class="coletas-resumo-summary-num" id="sum-total-valor">R$ 0,00</div>
-                        </div>
-                      </div>
                     </div>
 
-                    <!-- Tabela -->
-                    <div class="table-responsive table-card coletas-resumo-table-wrap">
-                      <table id="coletas-resumo-table" class="table table-striped align-middle table-hover table-nowrap mb-0 w-100">
+                    <div id="resumoMsg" class="mb-3" role="status" aria-live="polite"></div>
+
+                    <div class="fm-cards mb-3" id="fm-cards">
+                      <button type="button" class="fm-card fm-card--pendente" data-filtro="PENDENTE" aria-pressed="false">
+                        <span class="fm-card-label">Pendentes</span>
+                        <span class="fm-card-valor fm-num" id="card-pendentes-valor">R$ 0,00</span>
+                        <span class="fm-card-qtd" id="card-pendentes-qtd">0 bases</span>
+                      </button>
+                      <button type="button" class="fm-card fm-card--gerado" data-filtro="A_RECEBER" aria-pressed="false">
+                        <span class="fm-card-label">Gerados, a receber</span>
+                        <span class="fm-card-valor fm-num" id="card-areceber-valor">R$ 0,00</span>
+                        <span class="fm-card-qtd" id="card-areceber-qtd">0 bases</span>
+                      </button>
+                      <button type="button" class="fm-card fm-card--pago" data-filtro="RECEBIDO" aria-pressed="false">
+                        <span class="fm-card-label">Recebidos</span>
+                        <span class="fm-card-valor fm-num" id="card-recebidos-valor">R$ 0,00</span>
+                        <span class="fm-card-qtd" id="card-recebidos-qtd">0 bases</span>
+                      </button>
+                      <button type="button" class="fm-card fm-card--revisao" data-filtro="REVISAO" aria-pressed="false">
+                        <span class="fm-card-label">Precisam revisão</span>
+                        <span class="fm-card-valor fm-num" id="card-revisao-qtd">0</span>
+                        <span class="fm-card-qtd">coletas mudaram depois de gerar</span>
+                      </button>
+                    </div>
+
+                    <div class="table-responsive">
+                      <table class="table align-middle mb-0 fm-tabela" id="tbl-bases">
                         <thead class="table-light">
                           <tr>
-                            <th>Data</th>
-                            <th>Cliente</th>
-                            <th>Usuário</th>
-                            <th class="text-center">Shopee</th>
-                            <th class="text-center">Mercado Livre</th>
-                            <th class="text-center">Avulso</th>
-                            <th class="text-center">G</th>
-                            <th class="text-center text-danger">Cancelados</th>
-                            <th class="text-center">Valor Total</th>
-                            <th class="text-center">Situação</th>
-                            <th id="th-acoes" class="text-center d-none">Ações</th>
+                            <th style="width: 2.5rem"><span class="visually-hidden">Detalhar dias</span></th>
+                            <th data-owner-term="base">Base</th>
+                            <th class="text-end">Coletas</th>
+                            <th class="text-end">Pacotes G</th>
+                            <th class="text-end">Cancelados</th>
+                            <th class="text-end">Valor</th>
+                            <th>Situação</th>
+                            <th class="text-end">Ações</th>
                           </tr>
                         </thead>
-                        <tbody></tbody>
+                        <tbody id="tbody-bases"></tbody>
                       </table>
                     </div>
-
-                    <!-- PAGINAÇÃO -->
-                    <div class="d-flex justify-content-between align-items-center mt-3">
-                      <div id="pager-info" class="text-muted small">
-                        Exibindo 0 a 0 de 0 registros
-                      </div>
-                      <div class="btn-group">
-                        <button id="pager-first" class="btn btn-soft-secondary" title="Primeira">⏮</button>
-                        <button id="pager-prev" class="btn btn-soft-secondary" title="Anterior">◀</button>
-                        <span id="pager-summary" class="px-3 d-flex align-items-center small text-muted">Página 1 de 1</span>
-                        <button id="pager-next" class="btn btn-soft-secondary" title="Próxima">▶</button>
-                        <button id="pager-last" class="btn btn-soft-secondary" title="Última">⏭</button>
-                      </div>
-                    </div>
-
                   </div>
-
                 </div>
               </div>
             </div>
 
-          </div> <!-- container-fluid -->
-        </div> <!-- page-content -->
-
-        <!-- Rodapé -->
-        @@include("partials/footer.html")
-
-      </div> <!-- main-content -->
-    </div> <!-- layout-wrapper -->
-
-    <div class="vertical-overlay"></div>
-
-    <!-- Modal Step 1: Selecionar Base (quando base não está filtrada) -->
-    <div class="modal fade" id="modalSelecionarBaseFechamento" tabindex="-1" aria-labelledby="modalSelecionarBaseFechamentoLabel" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="modalSelecionarBaseFechamentoLabel">
-              <i class="ri-building-line me-2"></i><span data-owner-term="passo1_selecionar_base">Passo 1 — Selecionar Base</span>
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-          </div>
-          <div class="modal-body">
-            <p class="text-muted small mb-3" data-owner-term="selecione_a_base_fechamento">Selecione a base para gerar o fechamento.</p>
-            <div class="mb-0">
-              <label class="form-label" data-owner-term="base">Base</label>
-              <select id="modalSelecionarBaseFechamentoSelect" class="form-select">
-                <option value="">Selecione...</option>
-              </select>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="button" id="btnContinuarSelecionarBase" class="btn btn-primary">
-              <i class="ri-arrow-right-line me-1"></i> Continuar
-            </button>
           </div>
         </div>
+        @@include("partials/footer.html")
       </div>
     </div>
 
-    <!-- Modal Fechamento de Bases -->
-    <div class="modal fade" id="modalFechamentoBases" tabindex="-1" aria-labelledby="modalFechamentoBasesLabel" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-xl">
-        <div class="modal-content">
-          <div class="modal-header align-items-start">
-            <div>
-              <h5 class="modal-title" id="modalFechamentoBasesLabel">
-                <i class="ri-building-line me-2"></i><span data-owner-term="gerar_fechamento_base">Gerar Fechamento</span>
-              </h5>
-              <div class="fech-contexto small text-muted mt-1">
-                <span id="fech-base-display" class="fw-semibold text-body">—</span>
-                <span aria-hidden="true">·</span>
-                <span id="fech-periodo-display">—</span>
-              </div>
+    <!-- Painel lateral: revisar antes de gerar ou reajustar -->
+    <div class="offcanvas offcanvas-end fm-painel fm-painel--largo" tabindex="-1" id="painelBase" aria-labelledby="painelBaseTitulo">
+      <div class="offcanvas-header border-bottom">
+        <div>
+          <h5 class="offcanvas-title mb-0" id="painelBaseTitulo">Revisar fechamento</h5>
+          <div class="fm-painel-sub" id="painel-sub">—</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
+      </div>
+      <div class="offcanvas-body">
+        <div id="painel-carregando" class="text-muted small py-4 text-center">Carregando…</div>
+        <div id="painel-conteudo" class="d-none fm-secoes">
+          <div class="fm-secao d-none" id="painel-pendencias">
+            <div class="fm-aviso fm-aviso--revisao">
+              <div class="fw-semibold mb-1">Dias de coleta sem lançamento</div>
+              <div class="mb-2">Resolva cada dia antes de gerar: lance a quantidade coletada ou justifique (feriado, sem coleta).</div>
+              <div id="painel-pendencias-lista"></div>
             </div>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
           </div>
-          <div class="modal-body">
-            <p class="text-muted small mb-3">Ajuste as quantidades por dia e serviço. As quantidades canceladas serão subtraídas do valor final.<span id="fech-legenda-alterado" class="d-none"> Células em destaque foram alteradas.</span></p>
-            <input type="hidden" id="fech-id" name="id_fechamento">
-            <input type="hidden" id="fech-base" name="base">
-            <input type="hidden" id="fech-periodo-inicio">
-            <input type="hidden" id="fech-periodo-fim">
 
-            <div class="table-responsive mb-3">
-              <table class="table table-sm table-bordered align-middle mb-0" id="tbl-fechamento-itens">
-                <thead class="table-light">
-                  <tr>
-                    <th>Data</th>
-                    <th class="text-center">Shopee</th>
-                    <th class="text-center">Mercado Livre</th>
-                    <th class="text-center">Avulso</th>
-                    <th class="text-center fech-col-g" title="Pacotes Grandes">G</th>
-                    <th class="text-center">Cancel. Shopee</th>
-                    <th class="text-center">Cancel. ML</th>
-                    <th class="text-center">Cancel. Avulso</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-fechamento-itens"></tbody>
-                <tfoot class="table-light fw-semibold" id="tfoot-fechamento-itens"></tfoot>
-              </table>
+          <div class="fm-secao d-none" id="painel-divergencia">
+            <div class="fm-aviso fm-aviso--revisao">
+              <div class="fw-semibold mb-1">As coletas mudaram depois que o fechamento foi gerado</div>
+              <div class="fm-num mb-2" id="painel-divergencia-texto"></div>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnUsarAtuais">Usar as quantidades atuais</button>
             </div>
+          </div>
 
-            <div class="mb-3">
-              <label class="form-label form-label-modal fw-semibold">Ajustes Manuais</label>
-              <div id="fech-lista-ajustes-base" class="mb-2"></div>
-              <div class="row g-2 align-items-end fechamento-ajuste-row">
-                <div class="col-md-2">
-                  <label class="form-label form-label-modal small">Tipo</label>
-                  <select id="fech-ajuste-tipo-base" class="form-select form-select-sm">
-                    <option value="ADIÇÃO">+ Adição</option>
-                    <option value="SUBTRAÇÃO">- Subtração</option>
-                  </select>
-                </div>
-                <div class="col-md-2">
-                  <label class="form-label form-label-modal small">Valor (R$)</label>
-                  <input type="number" id="fech-ajuste-valor-base" class="form-control form-control-sm" step="0.01" min="0" value="0" placeholder="0,00">
-                </div>
-                <div class="col-md-5">
-                  <label class="form-label form-label-modal small" for="fech-ajuste-motivo-base">Justificativa <span class="text-danger" aria-hidden="true">*</span></label>
-                  <input type="text" id="fech-ajuste-motivo-base" class="form-control form-control-sm" placeholder="Ex: Diferença de frete combinada" required aria-required="true">
-                </div>
-                <div class="col-md-2 d-flex flex-column">
-                  <label class="form-label form-label-modal small invisible" aria-hidden="true">Ação</label>
-                  <button type="button" id="btnAdicionarAjusteBase" class="btn btn-primary btn-sm w-100">
-                    <i class="ri-add-line me-1"></i> Adicionar Ajuste
-                  </button>
-                </div>
+          <div class="fm-secao">
+            <div class="fm-secao-titulo">Composição do valor</div>
+            <table class="fm-composicao">
+              <tbody id="painel-composicao"></tbody>
+            </table>
+          </div>
+
+          <div class="fm-secao">
+            <button type="button" class="fm-secao-toggle" id="btnConferirDias" aria-expanded="false" aria-controls="painel-dias">
+              <i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+              <span>Conferir dias</span>
+              <span class="fm-painel-sub ms-1" id="painel-dias-resumo"></span>
+            </button>
+            <div id="painel-dias" class="d-none mt-2">
+              <p class="fm-painel-sub mb-2">Corrija as quantidades se algo não bate. <span id="painel-dias-legenda" class="d-none">Células destacadas foram alteradas.</span></p>
+              <div class="table-responsive">
+                <table class="table table-sm fm-grade mb-0">
+                  <thead>
+                    <tr>
+                      <th>Dia</th>
+                      <th class="text-end">Shopee</th>
+                      <th class="text-end">Mercado Livre</th>
+                      <th class="text-end">Avulso</th>
+                      <th class="text-end" title="Cancelados Shopee">Canc. Shopee</th>
+                      <th class="text-end" title="Cancelados Mercado Livre">Canc. ML</th>
+                      <th class="text-end" title="Cancelados Avulso">Canc. Avulso</th>
+                      <th class="text-end" title="Pacotes grandes">G</th>
+                    </tr>
+                  </thead>
+                  <tbody id="painel-dias-tbody"></tbody>
+                  <tfoot id="painel-dias-tfoot"></tfoot>
+                </table>
               </div>
+              <div id="painel-dias-erro" class="small text-warning-emphasis mt-1 d-none" role="status">Há dias com mais cancelados do que coletados (células em vermelho). Confira antes de gerar.</div>
             </div>
+          </div>
 
-            <div class="mb-3 card border fechamento-ajuste-g-card" id="fech-ajuste-g-container">
-              <div class="card-body">
-                <label class="form-label form-label-modal fw-semibold">Ajuste para Pacotes Grandes (G)</label>
-                <p class="small text-muted mb-2">O ajuste de Pacotes G será convertido automaticamente em ajuste financeiro no fechamento.</p>
-                <div id="fech-ajuste-g-msg-zero" class="small text-muted mb-2 d-none">Não existem Pacotes G neste período.</div>
-                <div id="fech-ajuste-g-campos">
-                  <div class="mb-2">
-                    <span class="form-label-modal small fw-semibold">Quantidade total de Pacotes G:</span>
-                    <span id="fech-ajuste-g-total-num" class="ms-1">0</span>
-                  </div>
-                  <div id="fech-g-origem" class="fech-g-origem mb-3" aria-live="polite"></div>
-                  <div class="row g-2 mb-2">
-                    <div class="col-md-3">
-                      <label class="form-label form-label-modal small">Valor por pacote (R$)</label>
-                      <input type="number" id="fech-ajuste-g-valor-unit" class="form-control form-control-sm text-end" step="0.01" min="0" value="0" placeholder="0,00" />
-                    </div>
-                    <div class="col-md-9">
-                      <label class="form-label form-label-modal small">Motivo do ajuste</label>
-                      <input type="text" id="fech-ajuste-g-motivo" class="form-control form-control-sm" placeholder="Ex: Adicional por pacote grande" />
-                    </div>
-                  </div>
-                  <div id="fech-ajuste-g-preview" class="small mb-2 text-secondary"></div>
-                  <div id="fech-ajuste-g-aplicado" class="small mb-2 text-success d-none"></div>
-                  <button type="button" id="btnAplicarAjusteG" class="btn btn-outline-primary btn-sm">
-                    <i class="ri-add-circle-line me-1"></i> Aplicar Ajuste de Pacotes G
-                  </button>
-                </div>
-                <div id="fech-g-resumo-base" class="small text-muted mt-2">G Shopee: 0 · G ML: 0 · G Avulso: 0 · Total G: 0</div>
+          <div class="fm-secao d-none" id="painel-g">
+            <div class="fm-secao-titulo">Pacotes grandes</div>
+            <div class="fm-painel-sub mb-2" id="painel-g-info"></div>
+            <table class="fm-composicao mb-2">
+              <tbody id="painel-g-categorias"></tbody>
+            </table>
+            <div id="painel-g-aviso" class="small text-warning-emphasis mb-2 d-none" role="status"></div>
+            <div id="painel-g-ajuste"></div>
+            <button type="button" class="btn btn-link btn-sm px-0" id="btnAjustarG" aria-expanded="false" aria-controls="painel-g-form">Ajustar valor dos pacotes grandes</button>
+            <div id="painel-g-form" class="row g-2 d-none">
+              <div class="col-5">
+                <label class="form-label small mb-1" for="g-ajuste-tipo">Tipo</label>
+                <select id="g-ajuste-tipo" class="form-select form-select-sm">
+                  <option value="ADICAO">Adicional (+)</option>
+                  <option value="SUBTRACAO">Desconto (−)</option>
+                </select>
+              </div>
+              <div class="col-7">
+                <label class="form-label small mb-1" for="g-ajuste-valor">Valor (R$) <span class="text-danger">*</span></label>
+                <input type="number" id="g-ajuste-valor" class="form-control form-control-sm" step="0.01" min="0.01" inputmode="decimal" placeholder="0,00">
+              </div>
+              <div class="col-12">
+                <label class="form-label small mb-1" for="g-ajuste-motivo">Motivo <span class="text-danger">*</span></label>
+                <input type="text" id="g-ajuste-motivo" class="form-control form-control-sm" maxlength="120" placeholder="Ex.: 2 pacotes eram G3, não G2">
+              </div>
+              <div class="col-12">
+                <div id="g-ajuste-erro" class="small text-danger d-none" role="alert"></div>
+                <button type="button" id="btnAplicarAjusteG" class="btn btn-outline-secondary btn-sm mt-1">Aplicar ajuste</button>
               </div>
             </div>
           </div>
-          <div class="modal-footer fech-footer d-block">
-            <div class="fech-resumo-footer d-flex flex-wrap align-items-end gap-3 gap-md-4 mb-2" id="fech-resumo-financeiro-card" aria-live="polite">
-              <div class="fech-metric">
-                <span class="fech-metric-label">Valor bruto</span>
-                <strong id="fech-valor-bruto">R$ 0,00</strong>
+
+          <div class="fm-secao">
+            <div class="fm-secao-titulo">Ajustes</div>
+            <div id="painel-ajustes" class="mb-2"></div>
+            <div class="row g-2">
+              <div class="col-5">
+                <label class="form-label small mb-1" for="ajuste-tipo">Tipo</label>
+                <select id="ajuste-tipo" class="form-select form-select-sm">
+                  <option value="ADICAO">Adicional (+)</option>
+                  <option value="SUBTRACAO">Desconto (−)</option>
+                </select>
               </div>
-              <div class="fech-metric">
-                <span class="fech-metric-label">Cancelados</span>
-                <strong id="fech-valor-cancelados">R$ 0,00</strong>
+              <div class="col-7">
+                <label class="form-label small mb-1" for="ajuste-valor">Valor (R$) <span class="text-danger">*</span></label>
+                <input type="number" id="ajuste-valor" class="form-control form-control-sm" step="0.01" min="0.01" inputmode="decimal" placeholder="0,00">
               </div>
-              <div class="fech-metric">
-                <span class="fech-metric-label">Ajustes</span>
-                <strong id="fech-total-ajustes-base">R$ 0,00</strong>
+              <div class="col-12">
+                <label class="form-label small mb-1" for="ajuste-motivo">Motivo <span class="text-danger">*</span></label>
+                <input type="text" id="ajuste-motivo" class="form-control form-control-sm" maxlength="200" placeholder="Ex.: Diferença de frete combinada">
               </div>
-              <div class="fech-metric ms-md-auto d-none" id="fech-metric-anterior">
-                <span class="fech-metric-label">Valor anterior</span>
-                <strong id="fech-valor-anterior">R$ 0,00</strong>
+              <div class="col-12">
+                <div id="ajuste-erro" class="small text-danger d-none" role="alert"></div>
+                <button type="button" id="btnAdicionarAjuste" class="btn btn-outline-secondary btn-sm mt-1">
+                  <i class="ri-add-line me-1"></i> Adicionar ajuste
+                </button>
               </div>
-              <div class="fech-metric fech-metric-total" id="fech-metric-total">
-                <span class="fech-metric-label" id="fech-total-label-text">Total a receber</span>
-                <strong id="fech-total-receber" class="fechamento-total-valor">R$ 0,00</strong>
-              </div>
-              <div class="fech-metric d-none" id="fech-metric-diferenca">
-                <span class="fech-metric-label">Diferença</span>
-                <strong id="fech-valor-diferenca">R$ 0,00</strong>
-              </div>
-            </div>
-            <div class="d-flex flex-wrap align-items-center gap-2">
-              <p id="fech-microtexto" class="fechamento-microtexto small text-muted mb-0 me-auto">Após gerar o fechamento, os valores ficam registrados e podem ser reajustados editando as quantidades.</p>
-              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
-              <button type="button" id="btnGerarFechamentoModal" class="btn btn-primary">
-                <i class="ri-file-add-line me-1"></i> Gerar Fechamento
-              </button>
             </div>
           </div>
+        </div>
+      </div>
+      <div class="offcanvas-footer fm-painel-rodape">
+        <div class="fm-painel-totais">
+          <div class="d-none fm-painel-sub fm-num" id="painel-anterior"></div>
+          <div class="fm-total" id="painel-total-wrap">
+            <span id="painel-total-label">Total a receber</span>
+            <span class="fm-num" id="painel-total">R$ 0,00</span>
+          </div>
+          <div id="painel-total-erro" class="small text-danger d-none" role="alert"></div>
+        </div>
+        <div class="d-flex gap-2 justify-content-end">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
+          <button type="button" id="btnPainelSalvar" class="btn btn-fm-primary" disabled>Gerar fechamento</button>
         </div>
       </div>
     </div>
 
     <!-- Modal Coleta Manual -->
     <div class="modal fade" id="modalColetaManual" tabindex="-1" aria-labelledby="modalColetaManualLabel" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-scrollable">
-        <div class="modal-content">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content fm-painel">
           <div class="modal-header">
-            <h5 class="modal-title" id="modalColetaManualLabel">Coleta Manual</h5>
+            <h5 class="modal-title" id="modalColetaManualLabel">Coleta manual</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
           </div>
           <div class="modal-body">
             <input type="hidden" id="modalColetaManualId" value="" />
-            <div class="mb-3">
-              <label class="form-label">Data</label>
-              <input type="date" id="modalColetaManualData" class="form-control" />
-            </div>
-            <div class="mb-3">
-              <label class="form-label" data-owner-term="base">Base</label>
-              <select id="modalColetaManualBase" class="form-select"></select>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Shopee</label>
-              <input type="number" id="modalColetaManualShopee" class="form-control" min="0" value="0" />
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Mercado Livre</label>
-              <input type="number" id="modalColetaManualMl" class="form-control" min="0" value="0" />
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Avulso</label>
-              <input type="number" id="modalColetaManualAvulso" class="form-control" min="0" value="0" />
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Pacotes G (Grande)</label>
-              <p class="small text-muted mb-2">Marque por serviço e ajuste a quantidade. Ao marcar, o contador inicia em 1, mas pode ser alterado para valores maiores.</p>
-              <div class="row g-2 align-items-center mb-2">
-                <div class="col-auto">
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="chkColetaGshopee" />
-                    <label class="form-check-label" for="chkColetaGshopee">Shopee</label>
-                  </div>
-                </div>
-                <div class="col">
-                  <input type="number" id="inputColetaGshopee" class="form-control form-control-sm" min="1" value="1" disabled />
-                </div>
+            <div class="row g-3">
+              <div class="col-sm-5">
+                <label class="form-label" for="modalColetaManualData">Data</label>
+                <input type="date" id="modalColetaManualData" class="form-control" />
               </div>
-              <div class="row g-2 align-items-center mb-2">
-                <div class="col-auto">
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="chkColetaGml" />
-                    <label class="form-check-label" for="chkColetaGml">Mercado Livre</label>
-                  </div>
-                </div>
-                <div class="col">
-                  <input type="number" id="inputColetaGml" class="form-control form-control-sm" min="1" value="1" disabled />
-                </div>
+              <div class="col-sm-7">
+                <label class="form-label" for="modalColetaManualBase" data-owner-term="base">Base</label>
+                <select id="modalColetaManualBase" class="form-select"></select>
               </div>
-              <div class="row g-2 align-items-center">
-                <div class="col-auto">
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="chkColetaGavulso" />
-                    <label class="form-check-label" for="chkColetaGavulso">Avulso</label>
-                  </div>
-                </div>
-                <div class="col">
-                  <input type="number" id="inputColetaGavulso" class="form-control form-control-sm" min="1" value="1" disabled />
-                </div>
+              <div class="col-4">
+                <label class="form-label" for="modalColetaManualShopee">Shopee</label>
+                <input type="number" id="modalColetaManualShopee" class="form-control" min="0" value="0" inputmode="numeric" />
               </div>
-              <input type="hidden" id="modalColetaManualPacotesG" value="0" />
+              <div class="col-4">
+                <label class="form-label" for="modalColetaManualMl">Mercado Livre</label>
+                <input type="number" id="modalColetaManualMl" class="form-control" min="0" value="0" inputmode="numeric" />
+              </div>
+              <div class="col-4">
+                <label class="form-label" for="modalColetaManualAvulso">Avulso</label>
+                <input type="number" id="modalColetaManualAvulso" class="form-control" min="0" value="0" inputmode="numeric" />
+              </div>
+              <div class="col-12">
+                <div class="form-label mb-1">Pacotes grandes</div>
+                <p class="small text-muted mb-2">Quantos dos pacotes acima são grandes, por tamanho. Deixe em branco se não houve.</p>
+                <div id="coletaGCategorias"></div>
+                <div id="coletaGErro" class="small text-danger mt-1 d-none" role="alert"></div>
+              </div>
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="button" class="btn btn-primary" id="modalColetaManualSalvar">Salvar</button>
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-fm-primary" id="modalColetaManualSalvar">Salvar</button>
           </div>
         </div>
       </div>
     </div>
 
+    <div class="vertical-overlay"></div>
     @@include("partials/vendor-scripts.html")
-
-    <!-- SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.min.js"></script>
     <script src="assets/js/components/date-picker-dashboard.js?v=2.0"></script>
-
-<!-- Script da página -->
- <script src="assets/js/pages/tracking-coletas-relatorio.js" defer></script>
-
-<script src="assets/js/pages/tracking-coletas-resumo.init.js" defer></script>
-
-<!-- Script base do app -->
-<script src="assets/js/app.js"></script>
-
-
-
+    <script src="assets/js/pages/tracking-coletas-relatorio.js"></script>
+    <script src="assets/js/pages/tracking-bases-fechamento.init.js?v=5"></script>
+    <script src="assets/js/app.js"></script>
   </body>
 </html>

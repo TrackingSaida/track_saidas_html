@@ -1,0 +1,436 @@
+@@include("partials/main.html")
+
+<head>
+  @@include("partials/title-meta.html", {"title": "Cobrança do Owner"})
+  @@include("partials/head-css.html")
+  <link href="assets/css/cobranca-owners.css?v=2" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+  <div id="layout-wrapper">
+    @@include("partials/menu.html")
+
+    <div class="main-content">
+      <div class="page-content">
+        <div class="container-fluid cob">
+
+          @@include("partials/page-title.html", {"pagetitle": "Financeiro", "title": "Cobrança do Owner", "withSubtitle": false, "ownerTerm": ""})
+
+          <div id="cobd-acesso-negado" class="alert alert-warning d-none" role="alert">
+            <h5 class="alert-heading">Acesso restrito</h5>
+            <p class="mb-0">A Cobrança de Owners está disponível apenas para o perfil root.</p>
+          </div>
+
+          <div id="cobd-erro" class="alert alert-danger d-none" role="alert">
+            <div class="d-flex align-items-center justify-content-between gap-2">
+              <span id="cobd-erro-msg">Não foi possível carregar a cobrança.</span>
+              <button type="button" id="cobd-erro-retry" class="btn btn-sm btn-outline-danger">Tentar de novo</button>
+            </div>
+          </div>
+
+          <div id="cobd-content" class="d-none">
+            <a id="cobd-voltar" href="tracking-cobranca-owners.html" class="cob-link small d-inline-flex align-items-center gap-1 mb-2">
+              <i class="ri-arrow-left-line" aria-hidden="true"></i>Cobrança de Owners
+            </a>
+
+            <!-- Cabeçalho -->
+            <section class="cob-surface p-3 mb-3">
+              <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+                <div>
+                  <h4 class="mb-1" id="cobd-nome"><span class="cob-skel" style="min-width: 12rem;"></span></h4>
+                  <div class="d-flex flex-wrap align-items-center gap-2 small cob-muted" id="cobd-meta">
+                    <span class="cob-skel"></span>
+                  </div>
+                </div>
+                <div class="text-end">
+                  <div class="cob-label">Total do período</div>
+                  <div class="cob-total" id="cobd-total"><span class="cob-skel cob-skel--total"></span></div>
+                  <div class="cob-label mt-1" id="cobd-fonte">&nbsp;</div>
+                </div>
+              </div>
+            </section>
+
+            <div class="row g-3 mb-3">
+              <!-- Composição -->
+              <div class="col-lg-7">
+                <section class="cob-surface p-3 h-100">
+                  <h5 class="fs-15 mb-1">Como o valor foi calculado</h5>
+                  <p class="cob-lede mb-2" id="cobd-explicacao"></p>
+                  <table class="cob-ledger" aria-describedby="cobd-composicao-nota">
+                    <tbody id="cobd-composicao"></tbody>
+                  </table>
+                  <p class="cob-muted small mt-2 mb-0" id="cobd-composicao-nota">
+                    Cancelado só aparece como dedução se entrou no bruto. Duplicidade não entra na conta.
+                  </p>
+                  <div id="cobd-ajustes-wrap" class="d-none mt-3">
+                    <div class="cob-label">Ajustes aplicados neste valor</div>
+                    <ul class="list-unstyled small mb-0" id="cobd-ajustes"></ul>
+                  </div>
+                </section>
+              </div>
+
+              <!-- Ação -->
+              <div class="col-lg-5">
+                <section class="cob-surface p-3 h-100 d-flex flex-column gap-3" aria-live="polite">
+                  <div id="cobd-bloqueios" class="d-flex flex-column gap-2"></div>
+                  <div id="cobd-acoes" class="d-flex flex-wrap gap-2"></div>
+                  <p id="cobd-acao-nota" class="cob-muted small mb-0"></p>
+                  <details id="cobd-avisos-wrap" class="d-none">
+                    <summary class="small fw-medium">Avisos (<span id="cobd-avisos-count">0</span>)</summary>
+                    <ul class="small mt-2 mb-0 ps-3" id="cobd-avisos"></ul>
+                  </details>
+                  <div class="mt-auto pt-2 border-top">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="offcanvas" data-bs-target="#cobd-painel" aria-controls="cobd-painel">
+                      <i class="ri-settings-3-line me-1" aria-hidden="true"></i>Configuração comercial
+                    </button>
+                  </div>
+                </section>
+              </div>
+            </div>
+
+            <!-- Situação dos pacotes cobrados -->
+            <section class="cob-surface p-3 mb-3" id="cobd-situacao-wrap" aria-labelledby="cobd-situacao-titulo">
+              <div class="d-flex flex-wrap align-items-baseline justify-content-between gap-2 mb-2">
+                <h5 class="fs-15 mb-0" id="cobd-situacao-titulo">O que aconteceu com os pacotes cobrados</h5>
+                <span class="cob-muted small" id="cobd-situacao-total"></span>
+              </div>
+              <div class="cob-sit-bar mb-2" id="cobd-situacao-bar" aria-hidden="true"></div>
+              <ul class="cob-sit-legenda list-unstyled mb-2" id="cobd-situacao"></ul>
+              <p class="cob-muted small mb-0">
+                O pacote é cobrado quando entra na operação (coleta ou recebimento), mesmo que ainda não tenha saído para entrega.
+                A situação mostra onde cada pacote está hoje.
+              </p>
+            </section>
+
+            <!-- Itens -->
+            <section class="cob-surface mb-3">
+              <div class="p-3 pb-2 d-flex flex-wrap align-items-end justify-content-between gap-2">
+                <div>
+                  <h5 class="fs-15 mb-0">Itens</h5>
+                  <div class="cob-muted small" id="cobd-itens-fonte"></div>
+                </div>
+                <div>
+                  <label for="cobd-busca" class="visually-hidden">Buscar código</label>
+                  <input type="search" id="cobd-busca" class="form-control form-control-sm" placeholder="Buscar código" maxlength="80" style="min-width: 200px;" />
+                </div>
+              </div>
+              <div class="px-3 pb-2 d-flex flex-wrap gap-2" id="cobd-chips" role="group" aria-label="Filtrar itens">
+                <button type="button" class="cob-chip active" data-filtro="">Todos</button>
+                <button type="button" class="cob-chip" data-filtro="faturavel">Faturáveis</button>
+                <button type="button" class="cob-chip" data-filtro="cancelado">Cancelados</button>
+                <button type="button" class="cob-chip" data-filtro="manual">Coleta manual</button>
+                <button type="button" class="cob-chip" data-filtro="duplicado">Duplicidade</button>
+                <button type="button" class="cob-chip" data-filtro="reconciliado">Reconciliados</button>
+                <button type="button" class="cob-chip" data-filtro="desconsiderado">Desconsiderados</button>
+              </div>
+              <div class="cob-table-wrap">
+                <table class="table cob-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Código ou lançamento</th>
+                      <th scope="col">Data</th>
+                      <th scope="col">Origem</th>
+                      <th scope="col">Serviço</th>
+                      <th scope="col">Base</th>
+                      <th scope="col" class="text-end">Qtd.</th>
+                      <th scope="col">Situação</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cobd-itens"></tbody>
+                </table>
+              </div>
+              <div id="cobd-itens-vazio" class="text-center cob-muted py-3 d-none">Nenhum item com este filtro.</div>
+              <div class="d-flex align-items-center justify-content-between px-3 py-2 border-top small">
+                <span class="cob-muted" id="cobd-itens-info"></span>
+                <div class="btn-group btn-group-sm">
+                  <button type="button" class="btn btn-outline-secondary" id="cobd-prev" aria-label="Página anterior"><i class="ri-arrow-left-s-line"></i></button>
+                  <button type="button" class="btn btn-outline-secondary" id="cobd-next" aria-label="Próxima página"><i class="ri-arrow-right-s-line"></i></button>
+                </div>
+              </div>
+            </section>
+
+            <!-- Versões e histórico -->
+            <section class="row g-3 mb-3">
+              <div class="col-lg-6" id="cobd-versoes-wrap">
+                <div class="cob-surface p-3 h-100">
+                  <h5 class="fs-15 mb-2">Versões deste período</h5>
+                  <div id="cobd-versoes" class="small"></div>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="cob-surface p-3 h-100">
+                  <h5 class="fs-15 mb-2">Histórico</h5>
+                  <ul class="list-unstyled small mb-0" id="cobd-historico"></ul>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- Painel lateral: configuração comercial, ajustes e decisões -->
+          <div class="offcanvas offcanvas-end" tabindex="-1" id="cobd-painel" aria-labelledby="cobd-painel-titulo" style="width: min(460px, 100%);">
+            <div class="offcanvas-header border-bottom">
+              <h2 class="offcanvas-title h5 mb-0" id="cobd-painel-titulo">Configuração comercial</h2>
+              <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
+            </div>
+            <div class="offcanvas-body cob">
+              <form id="cobd-form-config" novalidate>
+                <div class="mb-2">
+                  <label for="cfg-modelo" class="form-label small mb-1">Modelo comercial <span class="text-danger">*</span></label>
+                  <select id="cfg-modelo" class="form-select form-select-sm" required></select>
+                  <div class="form-text" id="cfg-sugestao"></div>
+                </div>
+                <div class="mb-2">
+                  <label for="cfg-periodicidade" class="form-label small mb-1">Periodicidade <span class="text-danger">*</span></label>
+                  <select id="cfg-periodicidade" class="form-select form-select-sm" required>
+                    <option value="quinzenal">Quinzenal (1–15 e 16–fim do mês)</option>
+                    <option value="mensal">Mensal</option>
+                  </select>
+                </div>
+                <div class="form-check mb-3">
+                  <input class="form-check-input" type="checkbox" id="cfg-confirmar" />
+                  <label class="form-check-label small" for="cfg-confirmar">Confirmo o modelo e a periodicidade para cobrança</label>
+                </div>
+                <div class="mb-3">
+                  <label for="cfg-obs" class="form-label small mb-1">Observação interna</label>
+                  <textarea id="cfg-obs" class="form-control form-control-sm" rows="2" maxlength="1000"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm" id="cfg-salvar">Salvar configuração</button>
+              </form>
+
+              <hr />
+
+              <div class="d-flex align-items-baseline justify-content-between gap-2 mb-1">
+                <h3 class="h6 mb-0">Dados do cadastro</h3>
+                <a href="admin-owners.html" class="cob-link small" id="cfg-editar-cadastro">Editar no cadastro</a>
+              </div>
+              <p class="small cob-muted mb-2">Vão para o demonstrativo. Campo sem cadastro sai em branco.</p>
+              <dl class="cob-dados small mb-0" id="cfg-cadastro"></dl>
+
+              <hr />
+
+              <h3 class="h6 mb-1">Preço por pacote</h3>
+              <p class="small cob-muted mb-2">Vigente hoje: <strong id="cfg-preco-vigente">—</strong>. O período usa o preço vigente no dia inicial.</p>
+              <form id="cobd-form-preco" class="mb-2" novalidate>
+                <div class="row g-2">
+                  <div class="col-5">
+                    <label for="preco-valor" class="form-label small mb-1">Novo preço (R$) <span class="text-danger">*</span></label>
+                    <input id="preco-valor" class="form-control form-control-sm" inputmode="decimal" placeholder="0,50" required />
+                  </div>
+                  <div class="col-7">
+                    <label for="preco-inicio" class="form-label small mb-1">Vale a partir de <span class="text-danger">*</span></label>
+                    <input id="preco-inicio" type="date" class="form-control form-control-sm" required />
+                  </div>
+                  <div class="col-12">
+                    <label for="preco-motivo" class="form-label small mb-1">Motivo</label>
+                    <input id="preco-motivo" class="form-control form-control-sm" maxlength="300" />
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-outline-secondary btn-sm mt-2" id="preco-salvar">Adicionar preço</button>
+              </form>
+              <ul class="list-unstyled small mb-0" id="cfg-precos"></ul>
+
+              <hr />
+
+              <h3 class="h6 mb-1">Decisões deste período</h3>
+              <ul class="list-unstyled small mb-0" id="cfg-decisoes"></ul>
+
+              <div id="cobd-ajuste-wrap" class="d-none">
+                <hr />
+                <h3 class="h6 mb-1">Ajuste para o próximo ciclo</h3>
+                <p class="small cob-muted mb-2">Não altera este fechamento. Entra no próximo período fechado do Owner.</p>
+                <form id="cobd-form-ajuste" novalidate>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <label for="aj-tipo" class="form-label small mb-1">Tipo <span class="text-danger">*</span></label>
+                      <select id="aj-tipo" class="form-select form-select-sm">
+                        <option value="acrescimo">Acréscimo</option>
+                        <option value="desconto">Desconto</option>
+                        <option value="credito">Crédito</option>
+                        <option value="correcao">Correção (com sinal)</option>
+                      </select>
+                    </div>
+                    <div class="col-6">
+                      <label for="aj-valor" class="form-label small mb-1">Valor (R$) <span class="text-danger">*</span></label>
+                      <input id="aj-valor" class="form-control form-control-sm" inputmode="decimal" placeholder="0,00" />
+                    </div>
+                    <div class="col-12">
+                      <label for="aj-motivo" class="form-label small mb-1">Motivo <span class="text-danger">*</span></label>
+                      <input id="aj-motivo" class="form-control form-control-sm" maxlength="500" />
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-outline-secondary btn-sm mt-2" id="aj-salvar">Lançar ajuste</button>
+                </form>
+                <ul class="list-unstyled small mt-2 mb-0" id="cfg-ajustes"></ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: fechar período -->
+          <div class="modal fade" id="cobd-modal-fechar" tabindex="-1" aria-labelledby="cobd-modal-fechar-titulo" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content cob">
+                <div class="modal-header">
+                  <h2 class="modal-title h5" id="cobd-modal-fechar-titulo">Fechar período</h2>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                  <table class="cob-ledger mb-3">
+                    <tbody>
+                      <tr><td>Owner</td><td class="text-end fw-medium" id="mf-owner"></td></tr>
+                      <tr><td>Período</td><td class="text-end" id="mf-periodo"></td></tr>
+                      <tr><td>Pacotes faturáveis</td><td class="text-end" id="mf-pacotes"></td></tr>
+                      <tr><td>Preço unitário</td><td class="text-end" id="mf-preco"></td></tr>
+                      <tr id="mf-ajustes-row"><td>Ajustes</td><td class="text-end" id="mf-ajustes"></td></tr>
+                      <tr class="cob-ledger-total"><td>Total</td><td class="text-end" id="mf-total"></td></tr>
+                    </tbody>
+                  </table>
+                  <p class="mb-2">Depois de fechar, a operação não altera este valor.</p>
+                  <label for="mf-obs" class="form-label small mb-1">Observação no demonstrativo (opcional)</label>
+                  <textarea id="mf-obs" class="form-control form-control-sm" rows="2" maxlength="1000"></textarea>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Continuar conferindo</button>
+                  <button type="button" class="btn btn-primary" id="mf-confirmar">Fechar período</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: ajustar valor do período -->
+          <div class="modal fade" id="cobd-modal-ajuste" tabindex="-1" aria-labelledby="cobd-modal-ajuste-titulo" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content cob">
+                <form id="cobd-form-ajuste-periodo" novalidate>
+                  <div class="modal-header">
+                    <h2 class="modal-title h5" id="cobd-modal-ajuste-titulo">Ajustar valor do período</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                  </div>
+                  <div class="modal-body">
+                    <fieldset class="mb-3">
+                      <legend class="form-label small mb-1">O que fazer?</legend>
+                      <div class="cob-opcoes" role="radiogroup">
+                        <input type="radio" class="btn-check" name="ap-tipo" id="ap-tipo-desc-valor" value="desconto_valor" checked />
+                        <label class="btn btn-sm btn-outline-secondary" for="ap-tipo-desc-valor">Desconto em R$</label>
+                        <input type="radio" class="btn-check" name="ap-tipo" id="ap-tipo-desc-pct" value="desconto_pct" />
+                        <label class="btn btn-sm btn-outline-secondary" for="ap-tipo-desc-pct">Desconto em %</label>
+                        <input type="radio" class="btn-check" name="ap-tipo" id="ap-tipo-acrescimo" value="acrescimo" />
+                        <label class="btn btn-sm btn-outline-secondary" for="ap-tipo-acrescimo">Acréscimo</label>
+                        <input type="radio" class="btn-check" name="ap-tipo" id="ap-tipo-isencao" value="isencao" />
+                        <label class="btn btn-sm btn-outline-secondary" for="ap-tipo-isencao">Isentar período</label>
+                      </div>
+                    </fieldset>
+                    <div id="ap-bloco-valor" class="mb-3">
+                      <label for="ap-valor" class="form-label small mb-1" id="ap-valor-label">Valor (R$) <span class="text-danger">*</span></label>
+                      <input id="ap-valor" class="form-control form-control-sm" inputmode="decimal" placeholder="0,00" style="max-width: 160px;" />
+                      <div class="form-text" id="ap-valor-ajuda"></div>
+                    </div>
+                    <p id="ap-isencao-nota" class="small d-none">O total do período fica zerado. Os pacotes continuam no demonstrativo.</p>
+                    <label for="ap-motivo" class="form-label small mb-1">Motivo <span class="text-danger">*</span></label>
+                    <input id="ap-motivo" class="form-control form-control-sm mb-3" maxlength="500" placeholder="Ex.: negociação comercial de outubro" />
+                    <table class="cob-ledger">
+                      <tbody>
+                        <tr><td>Total atual</td><td class="text-end" id="ap-atual"></td></tr>
+                        <tr><td>Este ajuste</td><td class="text-end" id="ap-efeito"></td></tr>
+                        <tr class="cob-ledger-total"><td>Novo total</td><td class="text-end" id="ap-novo"></td></tr>
+                      </tbody>
+                    </table>
+                    <p class="small cob-muted mt-2 mb-0">Muda o valor deste período. Se já estiver conferido, confira de novo antes de fechar.</p>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="ap-salvar">Aplicar ajuste</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: mensagem para o Owner -->
+          <div class="modal fade" id="cobd-modal-mensagem" tabindex="-1" aria-labelledby="cobd-modal-mensagem-titulo" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content cob">
+                <div class="modal-header">
+                  <h2 class="modal-title h5" id="cobd-modal-mensagem-titulo">Mensagem para o Owner</h2>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                  <label for="msg-texto" class="form-label small mb-1">Revise antes de enviar</label>
+                  <textarea id="msg-texto" class="form-control form-control-sm" rows="12"></textarea>
+                  <div class="form-text" id="msg-ajuda">Anexe o demonstrativo em PDF na conversa.</div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-outline-secondary" id="msg-copiar"><i class="ri-file-copy-line me-1" aria-hidden="true"></i>Copiar</button>
+                  <a class="btn btn-primary" id="msg-whatsapp" target="_blank" rel="noopener"><i class="ri-whatsapp-line me-1" aria-hidden="true"></i>Abrir no WhatsApp</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: decisão sobre coleta manual -->
+          <div class="modal fade" id="cobd-modal-decisao" tabindex="-1" aria-labelledby="cobd-modal-decisao-titulo" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content cob">
+                <form id="cobd-form-decisao" novalidate>
+                  <div class="modal-header">
+                    <h2 class="modal-title h5" id="cobd-modal-decisao-titulo">Resolver coleta manual</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                  </div>
+                  <div class="modal-body">
+                    <p class="small mb-3" id="md-contexto"></p>
+                    <fieldset class="mb-3">
+                      <legend class="form-label small mb-1">O que aconteceu?</legend>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="md-tipo" id="md-tipo-distintos" value="volumes_distintos" checked />
+                        <label class="form-check-label small" for="md-tipo-distintos">São volumes diferentes: manter os dois</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="md-tipo" id="md-tipo-vinculo" value="vinculo_codigos" />
+                        <label class="form-check-label small" for="md-tipo-vinculo">Alguns códigos já estão no saldo manual</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="md-tipo" id="md-tipo-qtd" value="ajuste_quantidade" />
+                        <label class="form-check-label small" for="md-tipo-qtd">Corrigir a quantidade manual</label>
+                      </div>
+                    </fieldset>
+                    <div id="md-bloco-codigos" class="mb-3 d-none">
+                      <label for="md-codigos" class="form-label small mb-1">Códigos a vincular (um por linha) <span class="text-danger">*</span></label>
+                      <textarea id="md-codigos" class="form-control form-control-sm" rows="3"></textarea>
+                      <div class="form-text">Esses códigos deixam de somar: o saldo manual já os cobre.</div>
+                    </div>
+                    <div id="md-bloco-qtd" class="mb-3 d-none">
+                      <label for="md-qtd" class="form-label small mb-1">Quantidade correta <span class="text-danger">*</span></label>
+                      <input id="md-qtd" type="number" min="0" step="1" class="form-control form-control-sm" style="max-width: 140px;" />
+                    </div>
+                    <label for="md-motivo" class="form-label small mb-1">Motivo <span class="text-danger">*</span></label>
+                    <input id="md-motivo" class="form-control form-control-sm mb-2" maxlength="500" />
+                    <div class="form-check" id="md-todos-wrap">
+                      <input class="form-check-input" type="checkbox" id="md-todos" />
+                      <label class="form-check-label small" for="md-todos">Aplicar a todos os dias ainda ambíguos deste período (<span id="md-todos-n">0</span>)</label>
+                    </div>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="md-salvar">Registrar decisão</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    @@include("partials/footer.html")
+  </div>
+
+  @@include("partials/customizer.html")
+  @@include("partials/vendor-scripts.html")
+
+  <script src="assets/js/user.js"></script>
+  <script src="assets/js/pages/cobranca-owners-common.js?v=1"></script>
+  <script src="assets/js/pages/tracking-cobranca-owner-detalhe.init.js?v=2"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+
+</html>

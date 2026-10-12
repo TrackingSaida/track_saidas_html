@@ -58,7 +58,7 @@
       }
     } catch (ex) {
       if (err) {
-        err.textContent = ex.message || "Login ou senha incorretos.";
+        err.textContent = window.PortalSeller.friendlyError(ex, "Login ou senha incorretos.");
         err.classList.remove("d-none");
       }
     } finally {
