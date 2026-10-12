@@ -1,26 +1,40 @@
 //
-// Landing ROTEVO — conceito "etiqueta operacional"
-// Papel, tinta preta e tipografia de etiqueta térmica.
-// Papéis de cor: azul só no botão principal, verde só para "bipado/conferido",
+// Landing ROTEVO — conceito "etiqueta operacional" com a identidade da marca:
+// azul-marinho do login, gradiente teal → azul nos CTAs, Poppins no texto.
+// Papéis de cor: gradiente só nos CTAs, teal para "bipado/conferido",
 // vermelho só para divergência.
 //
 
-$rv-paper: #FAFAF7;
-$rv-paper-2: #F1F0EA;
-$rv-ink: #0B0B0C;
-$rv-ink-muted: #45454D;
-$rv-rule: rgba(11, 11, 12, 0.16);
-$rv-blue: #1D4ED8;
-$rv-blue-hover: #1E40AF;
-$rv-scan: #84CC16;
-$rv-scan-ink: #3F6212;
+$rv-paper: #F5F8FC;
+$rv-paper-2: #EAF1F8;
+$rv-ink: #0B1F3A;
+$rv-ink-muted: #4A5B72;
+$rv-rule: rgba(11, 31, 58, 0.14);
+$rv-line: rgba(11, 31, 58, 0.22);
+$rv-blue: #1A6FD4;
+$rv-blue-hover: #155CB3;
+$rv-scan: #14B8A6;
+$rv-scan-ink: #0F766E;
 $rv-alert: #DC2626;
+$rv-on-dark: #fff;
+$rv-on-dark-muted: rgba(255, 255, 255, 0.74);
+$rv-on-dark-rule: rgba(255, 255, 255, 0.16);
+
+$rv-gradient: linear-gradient(90deg, #14B8A6 0%, #1A6FD4 100%);
+$rv-gradient-hover: linear-gradient(90deg, #0F9B8C 0%, #155CB3 100%);
+$rv-dark-bg:
+  radial-gradient(55% 70% at 88% 12%, rgba(20, 184, 166, 0.22), transparent 62%),
+  radial-gradient(50% 60% at 0% 100%, rgba(26, 111, 212, 0.28), transparent 60%),
+  linear-gradient(160deg, #071526 0%, #0B1F3A 42%, #123A5C 78%, #0E4A5C 100%);
 
 $rv-font-display: "Archivo", "Arial Narrow", sans-serif;
-$rv-font-body: "Archivo", system-ui, sans-serif;
+$rv-font-body: "Poppins", system-ui, sans-serif;
 $rv-font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
 
-$rv-shadow-print: 6px 6px 0 $rv-ink;
+$rv-radius: 14px;
+$rv-radius-sm: 10px;
+$rv-shadow-print: 0 24px 48px rgba(7, 21, 38, 0.22), 0 2px 6px rgba(7, 21, 38, 0.12);
+$rv-shadow-soft: 0 10px 28px rgba(11, 31, 58, 0.1);
 $rv-nav-height: 76px;
 
 @import "navbar";
@@ -58,12 +72,12 @@ $rv-nav-height: 76px;
 
   .rv-kicker,
   .rv-mono-title {
-    font-family: $rv-font-mono;
+    font-family: $rv-font-body;
     font-size: 0.78rem;
-    font-weight: 500;
-    letter-spacing: 0.14em;
+    font-weight: 600;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: $rv-ink-muted;
+    color: $rv-scan-ink;
     margin: 0 0 1rem;
   }
 
@@ -107,7 +121,7 @@ $rv-nav-height: 76px;
   }
 
   .rv-section--rule {
-    border-top: 1px solid $rv-ink;
+    border-top: 1px solid $rv-rule;
   }
 
   .rv-section__head {
@@ -131,22 +145,23 @@ $rv-nav-height: 76px;
     list-style: none;
     padding: 0;
     margin: 2rem 0 0;
-    border-top: 1px solid currentColor;
+    border-top: 1px solid $rv-line;
 
     li {
       display: flex;
       gap: 1.25rem;
       align-items: baseline;
       padding: 0.95rem 0;
-      border-bottom: 1px dashed $rv-rule;
+      border-bottom: 1px solid $rv-rule;
       font-weight: 500;
     }
   }
 
   .rv-manifest__idx {
-    font-family: $rv-font-mono;
+    font-family: $rv-font-body;
     font-size: 0.8rem;
-    color: $rv-ink-muted;
+    font-weight: 600;
+    color: $rv-scan-ink;
     flex: 0 0 auto;
   }
 
@@ -158,10 +173,10 @@ $rv-nav-height: 76px;
     font-size: 0.95rem;
     line-height: 1;
     padding: 0.8rem 1.15rem;
-    border: 2px solid $rv-ink;
-    border-radius: 0;
+    border: 0;
+    border-radius: $rv-radius-sm;
     text-decoration: none;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 
     i {
       font-size: 1.15em;
@@ -169,20 +184,20 @@ $rv-nav-height: 76px;
   }
 
   .rv-btn--primary {
-    background: $rv-blue;
+    background: $rv-gradient;
     color: #fff;
-    box-shadow: 3px 3px 0 $rv-ink;
+    box-shadow: 0 8px 20px rgba(26, 111, 212, 0.28);
 
     &:hover {
-      background: $rv-blue-hover;
+      background: $rv-gradient-hover;
       color: #fff;
-      transform: translate(-1px, -1px);
-      box-shadow: 4px 4px 0 $rv-ink;
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px rgba(26, 111, 212, 0.34);
     }
 
     &:active {
-      transform: translate(2px, 2px);
-      box-shadow: 1px 1px 0 $rv-ink;
+      transform: translateY(1px);
+      box-shadow: 0 4px 12px rgba(26, 111, 212, 0.24);
     }
   }
 
@@ -215,24 +230,26 @@ $rv-nav-height: 76px;
     text-align: center;
     color: $rv-scan-ink;
     border: 3px solid $rv-scan;
+    border-radius: 6px;
     padding: 0.4rem 0.8rem;
-    background: rgba(132, 204, 22, 0.1);
+    background: rgba($rv-scan, 0.1);
   }
 
   .rv-tag {
-    font-family: $rv-font-mono;
+    font-family: $rv-font-body;
     font-size: 0.68rem;
     font-weight: 600;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    padding: 0.15rem 0.4rem;
+    padding: 0.15rem 0.5rem;
     border: 1px solid currentColor;
+    border-radius: 999px;
   }
 
   .rv-tag--ok {
     color: $rv-scan-ink;
-    background: rgba(132, 204, 22, 0.14);
-    border-color: $rv-scan;
+    background: rgba($rv-scan, 0.12);
+    border-color: rgba($rv-scan, 0.5);
   }
 
   .rv-tag--alert {
@@ -240,7 +257,7 @@ $rv-nav-height: 76px;
   }
 
   .rv-footer {
-    border-top: 1px solid $rv-ink;
+    border-top: 1px solid $rv-rule;
     padding: 1.75rem 0;
     font-size: 0.875rem;
     color: $rv-ink-muted;
@@ -272,7 +289,7 @@ $rv-nav-height: 76px;
 .layout-wrapper.landing .vertical-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(11, 11, 12, 0.5);
+  background: rgba(7, 21, 38, 0.55);
   z-index: 1025;
   display: none;
   pointer-events: none;

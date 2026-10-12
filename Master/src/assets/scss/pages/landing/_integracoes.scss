@@ -7,7 +7,10 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
     padding: 0;
     margin: 0;
-    border: 2px solid $rv-ink;
+    border: 1px solid $rv-line;
+    border-radius: $rv-radius;
+    overflow: hidden;
+    box-shadow: $rv-shadow-soft;
 
     @media (max-width: 767.98px) {
       grid-template-columns: 1fr;
@@ -23,11 +26,11 @@
       background: #fff;
 
       & + li {
-        border-left: 2px solid $rv-ink;
+        border-left: 1px solid $rv-rule;
 
         @media (max-width: 767.98px) {
           border-left: 0;
-          border-top: 2px solid $rv-ink;
+          border-top: 1px solid $rv-rule;
         }
       }
 
@@ -72,7 +75,7 @@
     align-items: end;
     margin-top: 4.5rem;
     padding-top: 2.5rem;
-    border-top: 1px solid $rv-ink;
+    border-top: 1px solid $rv-rule;
 
     @media (max-width: 991.98px) {
       grid-template-columns: 1fr;
@@ -97,10 +100,9 @@
   }
 
   .rv-pricing__note {
-    font-family: $rv-font-mono;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     color: $rv-ink !important;
-    border-left: 3px solid $rv-ink;
+    border-left: 3px solid $rv-scan;
     padding-left: 1rem;
   }
 }

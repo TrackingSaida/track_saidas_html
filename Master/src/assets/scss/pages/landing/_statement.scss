@@ -2,17 +2,24 @@
 
 .layout-wrapper.landing.rv-landing {
   .rv-section--ink {
-    background: $rv-ink;
-    color: $rv-paper;
+    background: $rv-dark-bg;
+    color: $rv-on-dark;
+
+    .rv-lead {
+      color: $rv-on-dark-muted;
+    }
 
     .rv-kicker,
-    .rv-lead,
     .rv-manifest__idx {
-      color: rgba(250, 250, 247, 0.68);
+      color: #5EEAD4;
+    }
+
+    .rv-manifest {
+      border-top-color: $rv-on-dark-rule;
     }
 
     .rv-manifest li {
-      border-bottom-color: rgba(250, 250, 247, 0.2);
+      border-bottom-color: $rv-on-dark-rule;
     }
   }
 
@@ -20,12 +27,13 @@
     position: relative;
     max-width: 420px;
     margin: 0 auto;
-    background: $rv-paper;
+    background: #fff;
     color: $rv-ink;
     padding: 1.5rem 1.5rem 1.75rem;
     font-family: $rv-font-mono;
+    border-radius: $rv-radius-sm;
     transform: rotate(1.5deg);
-    box-shadow: 8px 8px 0 rgba(250, 250, 247, 0.22);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
   }
 
   .rv-statement__head {
