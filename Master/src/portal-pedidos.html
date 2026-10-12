@@ -3,86 +3,76 @@
 <head>
   @@include("partials/title-meta.html", {"title": "Pedidos"})
   @@include("partials/head-css.html")
-  <link href="assets/css/portal-shell.css?v=3" rel="stylesheet">
+  <link href="assets/libs/flatpickr/flatpickr.min.css" rel="stylesheet">
+  <link href="assets/css/portal-shell.css?v=5" rel="stylesheet">
 </head>
 <body>
   @@include("partials/portal-shell.html")
   <div class="portal-body">
-    <h1 class="portal-page-title">Pedidos</h1>
-    <p class="portal-page-sub">Acompanhe status e detalhes das suas entregas.</p>
-
-    <div class="card mb-3">
-      <div class="card-body">
-        <form id="formFiltros" class="row g-2 align-items-end">
-          <div class="col-md-3">
-            <label class="form-label" for="filtroQ">Código ou destinatário</label>
-            <input class="form-control" id="filtroQ" placeholder="Buscar">
-          </div>
-          <div class="col-md-2">
-            <label class="form-label" for="filtroCanal">Canal</label>
-            <select class="form-select" id="filtroCanal">
-              <option value="">Todos</option>
-              <option value="site">Site</option>
-              <option value="mercado_livre">Mercado Livre</option>
-              <option value="shopee">Shopee</option>
-            </select>
-          </div>
-          <div class="col-md-2">
-            <label class="form-label" for="filtroStatus">Status</label>
-            <select class="form-select" id="filtroStatus">
-              <option value="">Todos</option>
-              <option value="aguardando_coleta">Aguardando coleta</option>
-              <option value="coletado">Coletado</option>
-              <option value="em_entrega">Saiu para entrega</option>
-              <option value="ausente">Destinatário ausente</option>
-              <option value="entregue">Entregue</option>
-              <option value="cancelado">Cancelado</option>
-            </select>
-          </div>
-          <div class="col-6 col-md-2">
-            <label class="form-label" for="filtroDe">De</label>
-            <input type="date" class="form-control" id="filtroDe">
-          </div>
-          <div class="col-6 col-md-2">
-            <label class="form-label" for="filtroAte">Até</label>
-            <input type="date" class="form-control" id="filtroAte">
-          </div>
-          <div class="col-md-1">
-            <button type="submit" class="btn btn-primary w-100">Filtrar</button>
-          </div>
-        </form>
+    <div class="ps-page-head">
+      <div>
+        <h1 class="portal-page-title">Pedidos</h1>
+        <p class="portal-page-sub mb-0">Acompanhe, reimprima e cancele as etiquetas dos seus pedidos.</p>
+      </div>
+      <div class="ps-page-filters">
+        <select class="form-select form-select-sm ps-select-compact" id="filtroCanal" aria-label="Canal de venda">
+          <option value="">Todos os canais</option>
+          <option value="site">Site</option>
+          <option value="mercado_livre">Mercado Livre</option>
+          <option value="shopee">Shopee</option>
+        </select>
+        <div class="btn-group ps-period" role="group" aria-label="Período">
+          <button type="button" class="btn btn-sm periodo-btn" data-periodo="hoje">Hoje</button>
+          <button type="button" class="btn btn-sm periodo-btn" data-periodo="7d">7 dias</button>
+          <button type="button" class="btn btn-sm periodo-btn" data-periodo="30d">30 dias</button>
+          <button type="button" class="btn btn-sm periodo-btn" data-periodo="custom">Personalizado</button>
+        </div>
+        <div id="boxCustomPeriodo" class="d-none">
+          <input class="form-control form-control-sm ps-range-input" id="filtroPeriodo" placeholder="Escolha as datas" aria-label="Período personalizado">
+        </div>
       </div>
     </div>
 
+    <div class="ps-tabs" role="tablist" aria-label="Status do pedido" id="statusTabs">
+      <button type="button" class="ps-tab" role="tab" data-status="">Todos <span class="ps-tab-count" data-count="recebidos"></span></button>
+      <button type="button" class="ps-tab" role="tab" data-status="aguardando_coleta">Aguardando coleta <span class="ps-tab-count" data-count="aguardando_coleta"></span></button>
+      <button type="button" class="ps-tab" role="tab" data-status="coletado">Coletado <span class="ps-tab-count" data-count="coletado"></span></button>
+      <button type="button" class="ps-tab" role="tab" data-status="em_entrega">Saiu para entrega <span class="ps-tab-count" data-count="em_rota"></span></button>
+      <button type="button" class="ps-tab" role="tab" data-status="ausente">Ausente <span class="ps-tab-count" data-count="ausentes"></span></button>
+      <button type="button" class="ps-tab" role="tab" data-status="entregue">Entregue <span class="ps-tab-count" data-count="entregues"></span></button>
+      <button type="button" class="ps-tab" role="tab" data-status="cancelado">Cancelado <span class="ps-tab-count" data-count="cancelados"></span></button>
+    </div>
+    <p id="buscaAviso" class="small text-muted mb-2 d-none"></p>
+
     <div class="card">
-      <div class="card-body">
-        <div id="listaLoading" class="text-muted">
+      <div class="card-body p-0">
+        <div id="listaLoading" class="p-3 text-muted">
           <div class="ps-skeleton ps-skeleton-line" style="width:40%"></div>
           <div class="ps-skeleton ps-skeleton-line" style="width:70%"></div>
           <div class="ps-skeleton ps-skeleton-line" style="width:55%"></div>
         </div>
-        <div id="listaErro" class="alert alert-danger d-none" role="alert"></div>
+        <div id="listaErro" class="alert alert-danger m-3 d-none" role="alert"></div>
         <div id="listaVazia" class="ps-empty d-none">
           <i class="ri-inbox-line" aria-hidden="true"></i>
           Nenhum pedido encontrado com esses filtros.
         </div>
-        <div class="table-responsive">
-          <table class="table align-middle mb-0" id="tabelaPedidos">
-            <thead>
-              <tr>
-                <th>Código</th>
-                <th>Canal</th>
-                <th>Destinatário</th>
-                <th>Cidade/UF</th>
-                <th>Status</th>
-                <th>Atualização</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="tbodyPedidos"></tbody>
-          </table>
+        <table class="table align-middle mb-0 ps-table" id="tabelaPedidos">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Canal</th>
+              <th>Destinatário</th>
+              <th>Status</th>
+              <th>Atualização</th>
+              <th class="text-end"><span class="visually-hidden">Ações</span></th>
+            </tr>
+          </thead>
+          <tbody id="tbodyPedidos"></tbody>
+        </table>
+        <div class="ps-list-foot d-none" id="listaFoot">
+          <span id="listaTotal" class="small text-muted"></span>
+          <button type="button" class="btn btn-sm btn-soft-secondary d-none" id="btnCarregarMais">Carregar mais</button>
         </div>
-        <p id="listaTotal" class="small text-muted mt-3 mb-0 d-none"></p>
       </div>
     </div>
   </div>
@@ -123,7 +113,8 @@
 
 <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/plugins.js"></script>
-<script src="assets/js/pages/portal-common.js"></script>
-<script src="assets/js/pages/portal-pedidos.init.js"></script>
+<script src="assets/libs/flatpickr/l10n/pt.js"></script>
+<script src="assets/js/pages/portal-common.js?v=5"></script>
+<script src="assets/js/pages/portal-pedidos.init.js?v=5"></script>
 </body>
 </html>

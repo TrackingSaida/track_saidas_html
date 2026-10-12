@@ -146,11 +146,12 @@
     recentesVazio.classList.add("d-none");
     items.forEach(function (it) {
       var tr = document.createElement("tr");
+      var quando = it.atualizado_em || it.updated_at || it.created_at;
       tr.innerHTML =
-        "<td><strong>" +
+        '<td class="c-codigo"><strong>' +
         esc(it.codigo || "—") +
         "</strong></td>" +
-        "<td>" +
+        '<td class="c-dest">' +
         esc(it.dest_nome || "—") +
         (it.dest_cidade
           ? '<div class="small text-muted">' +
@@ -159,13 +160,15 @@
             "</div>"
           : "") +
         "</td>" +
-        "<td>" +
+        '<td class="c-status">' +
         PS.statusBadgeHtml(it.status, it.status_label) +
         "</td>" +
-        "<td>" +
-        esc(fmt(it.atualizado_em || it.updated_at || it.created_at)) +
-        "</td>" +
-        '<td class="text-end"><a class="btn btn-sm btn-soft-primary" href="portal-pedido.html?id=' +
+        '<td class="c-data"><span class="d-none d-md-inline">' +
+        esc(fmt(quando)) +
+        '</span><span class="d-md-none small text-muted">' +
+        esc(PS.formatRelative(quando)) +
+        "</span></td>" +
+        '<td class="c-acoes text-end"><a class="btn btn-sm btn-soft-primary" href="portal-pedido.html?id=' +
         encodeURIComponent(it.id_saida) +
         '">Ver</a></td>';
       tbody.appendChild(tr);
@@ -213,8 +216,7 @@
       });
       loading.classList.add("d-none");
       if (!res.ok) {
-        erro.textContent = PS.parseDetail(data);
-        erro.classList.remove("d-none");
+        PS.showError(erro, PS.parseDetail(data), load);
         return;
       }
       content.classList.remove("d-none");
@@ -226,8 +228,7 @@
     } catch (ex) {
       loading.classList.add("d-none");
       if (ex && ex.status === 401) return;
-      erro.textContent = (ex && ex.message) || "Não foi possível carregar a visão geral.";
-      erro.classList.remove("d-none");
+      PS.showError(erro, PS.friendlyError(ex, "Não foi possível carregar a visão geral."), load);
     }
   }
 
@@ -268,6 +269,8 @@
   PS.bootShell().then(function (ok) {
     if (!ok) return;
     applyFromUrl();
+    PS.initDatePicker(document.getElementById("filtroDe"), null, { maxDate: "today" });
+    PS.initDatePicker(document.getElementById("filtroAte"), null, { maxDate: "today" });
     load();
   });
 })();

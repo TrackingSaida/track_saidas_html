@@ -206,7 +206,7 @@
       } catch (ex) {
         if (digits(destCep && destCep.value) !== cep) return;
         lookupOk = false;
-        lookupMsg = (ex && ex.message) || "CEP não encontrado.";
+        lookupMsg = PS.friendlyError(ex, "CEP não encontrado.");
       }
       if (digits(destCep && destCep.value) !== cep) return;
       var cobData = await checkCobertura(cep);
@@ -244,7 +244,7 @@
         filled ? "Endereço preenchido." : "CEP encontrado, mas sem rua cadastrada. Complete o endereço."
       );
     } catch (ex) {
-      showHint("hintCepRem", false, (ex && ex.message) || "CEP não encontrado.");
+      showHint("hintCepRem", false, PS.friendlyError(ex, "CEP não encontrado."));
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -597,6 +597,10 @@
         acomp.href = "portal-pedidos.html?q=" + encodeURIComponent(codigo);
       }
       msg.textContent = "";
+    } catch (ex) {
+      if (!(ex && ex.status === 401)) {
+        msg.textContent = PS.friendlyError(ex, "Não foi possível gerar a etiqueta.");
+      }
     } finally {
       emitting = false;
       btn.disabled = false;

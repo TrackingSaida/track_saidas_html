@@ -721,6 +721,196 @@ a.portal-kpi:focus-visible {
   cursor: wait;
 }
 
+/* Cabeçalho de página com filtros */
+.ps-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.ps-page-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ps-select-compact {
+  width: auto;
+  min-width: 10rem;
+}
+
+.ps-period .periodo-btn {
+  background: #fff;
+  border: 1px solid var(--ps-border);
+  color: #475569;
+  font-weight: 500;
+}
+
+.ps-period .periodo-btn.is-active {
+  background: var(--ps-deep);
+  border-color: var(--ps-deep);
+  color: #fff;
+}
+
+.ps-range-input,
+.ps-range-input + .form-control {
+  min-width: 14rem;
+}
+
+/* Abas de status */
+.ps-tabs {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--ps-border);
+  margin-bottom: 1rem;
+  scrollbar-width: none;
+}
+
+.ps-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.ps-tab {
+  border: 0;
+  background: transparent;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ps-tab:hover {
+  color: var(--ps-deep);
+}
+
+.ps-tab.is-active {
+  color: var(--ps-deep);
+  font-weight: 600;
+  border-bottom-color: #14b8a6;
+}
+
+.ps-tab-count:empty {
+  display: none;
+}
+
+.ps-tab-count {
+  background: #eef2f6;
+  color: #475569;
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.ps-tab.is-active .ps-tab-count {
+  background: rgba(20, 184, 166, 0.15);
+  color: #0f766e;
+}
+
+.ps-table th {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+  background: #f8fafc;
+}
+
+.ps-table > :not(caption) > * > * {
+  padding: 0.75rem 1rem;
+}
+
+.ps-list-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--ps-border);
+}
+
+/* Avisos rápidos */
+.ps-toast-host {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  z-index: 1090;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  pointer-events: none;
+}
+
+.ps-toast {
+  background: var(--ps-deep);
+  color: #fff;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  box-shadow: 0 8px 24px rgba(11, 31, 58, 0.25);
+}
+
+.ps-toast--erro {
+  background: #991b1b;
+}
+
+/* Lista em cartões no celular */
+@media (max-width: 767.98px) {
+  .ps-table thead {
+    display: none;
+  }
+  .ps-table,
+  .ps-table tbody {
+    display: block;
+  }
+  .ps-table tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "codigo status"
+      "dest dest"
+      "data acoes";
+    gap: 0.35rem 0.75rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--ps-border);
+  }
+  .ps-table > :not(caption) > * > * {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .ps-table .c-codigo { grid-area: codigo; }
+  .ps-table .c-status { grid-area: status; text-align: right; }
+  .ps-table .c-dest { grid-area: dest; }
+  .ps-table .c-data { grid-area: data; align-self: center; }
+  .ps-table .c-acoes { grid-area: acoes; }
+  .ps-table .c-canal { display: none; }
+  .ps-table .c-acoes:empty { display: none; }
+  .ps-page-filters {
+    width: 100%;
+  }
+  .ps-select-compact {
+    flex: 1 1 100%;
+  }
+  .ps-period {
+    flex: 1 1 100%;
+  }
+  .ps-period .periodo-btn {
+    flex: 1;
+  }
+}
+
 @media (max-width: 991.98px) {
   .portal-app {
     display: block;

@@ -3,7 +3,7 @@
 <head>
   @@include("partials/title-meta.html", {"title": "Emitir etiqueta"})
   @@include("partials/head-css.html")
-  <link href="assets/css/portal-shell.css?v=4" rel="stylesheet">
+  <link href="assets/css/portal-shell.css?v=5" rel="stylesheet">
 </head>
 <body>
   @@include("partials/portal-shell.html")
@@ -12,7 +12,7 @@
       <span class="portal-eyebrow">Envio próprio</span>
       <h1 class="portal-page-title">Emitir etiqueta</h1>
       <p class="portal-page-sub">Crie um pedido e deixe o pacote pronto para coleta.</p>
-      <a href="portal-etiquetas.html" class="small fw-semibold">Ver etiquetas emitidas</a>
+      <a href="portal-pedidos.html" class="small fw-semibold">Ver pedidos e etiquetas emitidas</a>
     </div>
 
     <div id="boxTrocaSenha" class="card mb-3 d-none">
@@ -203,7 +203,7 @@
             <ul>
               <li>A etiqueta é gerada e o PDF fica disponível para impressão.</li>
               <li>O pacote fica aguardando coleta pela operação.</li>
-              <li>Você acompanha o status em Pedidos e Etiquetas.</li>
+              <li>Você acompanha o status, reimprime ou cancela em Pedidos.</li>
             </ul>
           </aside>
         </div>
@@ -314,7 +314,7 @@
 
 <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/plugins.js"></script>
-<script src="assets/js/pages/portal-common.js"></script>
-<script src="assets/js/pages/portal-emitir.init.js"></script>
+<script src="assets/js/pages/portal-common.js?v=5"></script>
+<script src="assets/js/pages/portal-emitir.init.js?v=5"></script>
 </body>
 </html>

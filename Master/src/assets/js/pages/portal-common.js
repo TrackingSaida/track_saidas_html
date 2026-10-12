@@ -60,6 +60,210 @@
     return res;
   }
 
+  var NETWORK_MSG = "Não foi possível conectar. Verifique a internet e tente de novo.";
+
+  function friendlyError(ex, fallback) {
+    if (ex && ex.status === 401) return ex.message;
+    var msg = String((ex && ex.message) || "");
+    if ((ex && ex.name === "TypeError") || /failed to fetch|networkerror|load failed/i.test(msg)) {
+      return NETWORK_MSG;
+    }
+    return msg || fallback || "Não foi possível concluir.";
+  }
+
+  function showError(el, msg, onRetry) {
+    if (!el) return;
+    el.innerHTML =
+      '<div class="d-flex flex-wrap align-items-center justify-content-between gap-2">' +
+      "<span>" +
+      escapeHtml(msg) +
+      "</span>" +
+      (onRetry ? '<button type="button" class="btn btn-sm btn-light ps-retry">Tentar de novo</button>' : "") +
+      "</div>";
+    el.classList.remove("d-none");
+    var btn = el.querySelector(".ps-retry");
+    if (btn) {
+      btn.addEventListener("click", function () {
+        el.classList.add("d-none");
+        onRetry();
+      });
+    }
+  }
+
+  function notify(msg, type) {
+    var host = document.getElementById("psToastHost");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "psToastHost";
+      host.className = "ps-toast-host";
+      host.setAttribute("aria-live", "polite");
+      document.body.appendChild(host);
+    }
+    var t = document.createElement("div");
+    t.className = "ps-toast ps-toast--" + (type || "ok");
+    t.textContent = msg;
+    host.appendChild(t);
+    setTimeout(function () {
+      t.remove();
+    }, 3200);
+  }
+
+  function debounce(fn, ms) {
+    var timer = null;
+    return function () {
+      var args = arguments;
+      var ctx = this;
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        fn.apply(ctx, args);
+      }, ms);
+    };
+  }
+
+  async function copiarTexto(text, btn) {
+    try {
+      await navigator.clipboard.writeText(String(text || ""));
+      notify("Código copiado.");
+      if (btn) {
+        btn.classList.add("is-done");
+        setTimeout(function () {
+          btn.classList.remove("is-done");
+        }, 1500);
+      }
+    } catch (e) {
+      notify("Não foi possível copiar.", "erro");
+    }
+  }
+
+  async function baixarEtiqueta(idEnvio, codigo) {
+    try {
+      var res = await req("/envios/" + encodeURIComponent(idEnvio) + "/pdf");
+      if (!res.ok) {
+        var body = await res.json().catch(function () {
+          return {};
+        });
+        notify(parseDetail(body), "erro");
+        return false;
+      }
+      var blob = await res.blob();
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "etiqueta-" + (codigo || idEnvio) + ".pdf";
+      a.click();
+      setTimeout(function () {
+        URL.revokeObjectURL(url);
+      }, 2000);
+      return true;
+    } catch (ex) {
+      if (ex && ex.status === 401) return false;
+      notify(friendlyError(ex, "Não foi possível baixar a etiqueta."), "erro");
+      return false;
+    }
+  }
+
+  var cancelModalEl = null;
+
+  function confirmarCancelamento(codigo) {
+    if (!cancelModalEl) {
+      cancelModalEl = document.createElement("div");
+      cancelModalEl.className = "modal fade";
+      cancelModalEl.id = "psModalCancelar";
+      cancelModalEl.tabIndex = -1;
+      cancelModalEl.setAttribute("aria-labelledby", "psModalCancelarLabel");
+      cancelModalEl.setAttribute("aria-hidden", "true");
+      cancelModalEl.innerHTML =
+        '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">' +
+        '<div class="modal-header"><h2 class="modal-title h5" id="psModalCancelarLabel">Cancelar etiqueta</h2>' +
+        '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>' +
+        '<div class="modal-body"><p class="mb-0" id="psCancelarTexto"></p></div>' +
+        '<div class="modal-footer"><button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Manter</button>' +
+        '<button type="button" class="btn btn-danger" id="psCancelarConfirmar">Cancelar etiqueta</button></div>' +
+        "</div></div>";
+      document.body.appendChild(cancelModalEl);
+    }
+    var texto = cancelModalEl.querySelector("#psCancelarTexto");
+    texto.innerHTML = codigo
+      ? "Cancelar a etiqueta <strong>" + escapeHtml(codigo) + "</strong>? Só é possível antes da coleta."
+      : "Cancelar esta etiqueta? Só é possível antes da coleta.";
+    if (!w.bootstrap) {
+      return Promise.resolve(confirm(texto.textContent));
+    }
+    var modal = bootstrap.Modal.getOrCreateInstance(cancelModalEl);
+    return new Promise(function (resolve) {
+      var confirmed = false;
+      var btn = cancelModalEl.querySelector("#psCancelarConfirmar");
+      function onConfirm() {
+        confirmed = true;
+        modal.hide();
+      }
+      function onHidden() {
+        btn.removeEventListener("click", onConfirm);
+        cancelModalEl.removeEventListener("hidden.bs.modal", onHidden);
+        resolve(confirmed);
+      }
+      btn.addEventListener("click", onConfirm);
+      cancelModalEl.addEventListener("hidden.bs.modal", onHidden);
+      modal.show();
+    });
+  }
+
+  async function cancelarEtiqueta(idEnvio, codigo) {
+    var ok = await confirmarCancelamento(codigo);
+    if (!ok) return false;
+    try {
+      var r = await req("/envios/" + encodeURIComponent(idEnvio) + "/cancelar", {
+        method: "POST",
+        body: "{}",
+      });
+      if (!r.ok) {
+        var body = await r.json().catch(function () {
+          return {};
+        });
+        notify(parseDetail(body), "erro");
+        return false;
+      }
+      notify("Etiqueta cancelada.");
+      return true;
+    } catch (ex) {
+      if (ex && ex.status === 401) return false;
+      notify(friendlyError(ex, "Não foi possível cancelar a etiqueta."), "erro");
+      return false;
+    }
+  }
+
+  function initDatePicker(input, onChange, extra) {
+    if (!input || !w.flatpickr) return null;
+    return w.flatpickr(
+      input,
+      Object.assign(
+        {
+          locale: (w.flatpickr.l10ns && w.flatpickr.l10ns.pt) || "default",
+          dateFormat: "Y-m-d",
+          altInput: true,
+          altFormat: "d/m/Y",
+          allowInput: false,
+          disableMobile: true,
+          onChange: function (dates, str, inst) {
+            if (onChange) onChange(dates, str, inst);
+          },
+        },
+        extra || {}
+      )
+    );
+  }
+
+  function isoDate(d) {
+    if (!d) return "";
+    return (
+      d.getFullYear() +
+      "-" +
+      String(d.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(d.getDate()).padStart(2, "0")
+    );
+  }
+
   function escapeHtml(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -349,6 +553,15 @@
     authHeaders: authHeaders,
     parseDetail: parseDetail,
     req: req,
+    friendlyError: friendlyError,
+    showError: showError,
+    notify: notify,
+    debounce: debounce,
+    copiarTexto: copiarTexto,
+    baixarEtiqueta: baixarEtiqueta,
+    cancelarEtiqueta: cancelarEtiqueta,
+    initDatePicker: initDatePicker,
+    isoDate: isoDate,
     escapeHtml: escapeHtml,
     formatDateTime: formatDateTime,
     formatDate: formatDate,
