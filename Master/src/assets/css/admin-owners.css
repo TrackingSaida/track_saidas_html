@@ -150,6 +150,31 @@
 /* Lista: cidade/UF abaixo da sub-base */
 .of-local { display: block; font-size: 0.75rem; color: #64748B; }
 
+/* Lista: endereço do owner selecionado */
+.of-endereco-painel {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  background: #F8FAFC;
+}
+.of-endereco-painel.d-none { display: none !important; }
+.of-endereco-titulo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 0.25rem;
+}
+.of-endereco-texto { color: #0F172A; font-weight: 500; }
+@media (max-width: 575.98px) {
+  .of-endereco-painel { flex-direction: column; align-items: flex-start; }
+}
+
 @media (max-width: 991.98px) {
   .of .of-layout { grid-template-columns: 1fr; background: none; }
   .of .of-nav {

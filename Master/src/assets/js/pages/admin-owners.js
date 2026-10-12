@@ -385,6 +385,7 @@ function renderTable() {
     if (!FILTERED.length) {
         tbody.innerHTML = "";
         empty.classList.remove("d-none");
+        renderEnderecoSelecionado([]);
         return;
     } else {
         empty.classList.add("d-none");
@@ -449,8 +450,58 @@ function setupRowSelection() {
         chk.addEventListener("change", () => {
             const selected = getSelectedIds();
             document.getElementById("btnHeaderEdit").disabled = (selected.length !== 1);
+            renderEnderecoSelecionado(selected);
         });
     });
+    renderEnderecoSelecionado(getSelectedIds());
+}
+
+let ENDERECO_SEQ = 0;
+
+function formatarEnderecoSeller(s) {
+    const linha1 = [s.rua, s.numero].filter(Boolean).join(", ") + (s.complemento ? ` - ${s.complemento}` : "");
+    const local = [s.cidade, s.estado].filter(Boolean).join("/");
+    return [linha1, s.bairro, local, s.cep ? `CEP ${maskCep(s.cep)}` : ""].filter(Boolean).join(" · ");
+}
+
+async function renderEnderecoSelecionado(selected) {
+    const painel = document.getElementById("ownerEnderecoPainel");
+    const seq = ++ENDERECO_SEQ;
+    if (selected.length !== 1) {
+        painel.classList.add("d-none");
+        painel.innerHTML = "";
+        return;
+    }
+    const owner = ALL_OWNERS.find(o => o.id_owner === selected[0]);
+    const nome = escapeHtml(owner ? (owner.nome_fantasia || owner.username) : "");
+    const editar = (texto) =>
+        `<button type="button" class="btn btn-sm btn-soft-primary" data-editar-endereco><i class="ri-pencil-line me-1"></i>${texto}</button>`;
+    painel.classList.remove("d-none");
+    painel.innerHTML = `<div class="of-endereco-titulo">Endereço · ${nome}</div><div class="text-muted small">Carregando...</div>`;
+
+    let corpo;
+    try {
+        const r = await fetch(`${API}/${selected[0]}/seller-dados`, { credentials: "include" });
+        if (seq !== ENDERECO_SEQ) return;
+        if (r.ok) {
+            const s = await r.json();
+            if (seq !== ENDERECO_SEQ) return;
+            corpo = `
+                <div class="of-endereco-texto">${escapeHtml(formatarEnderecoSeller(s)) || "—"}</div>
+                ${s.cnpj ? `<div class="text-muted small">CNPJ/CPF ${escapeHtml(maskDocumento(s.cnpj))}</div>` : ""}
+            </div>${editar("Editar endereço")}`;
+        } else if (r.status === 404) {
+            corpo = `<div class="text-muted">Endereço não cadastrado.</div></div>${editar("Cadastrar endereço")}`;
+        } else {
+            corpo = `<div class="text-danger small">Não foi possível carregar o endereço.</div></div>`;
+        }
+    } catch (_) {
+        if (seq !== ENDERECO_SEQ) return;
+        corpo = `<div class="text-danger small">Não foi possível carregar o endereço.</div></div>`;
+    }
+    painel.innerHTML = `<div class="flex-grow-1"><div class="of-endereco-titulo">Endereço · ${nome}</div>${corpo}`;
+    const btn = painel.querySelector("[data-editar-endereco]");
+    if (btn) btn.addEventListener("click", openEditFromSelection);
 }
 
 function getSelectedIds() {
