@@ -60,6 +60,225 @@
     return res;
   }
 
+  var NETWORK_MSG = "Não foi possível conectar. Verifique a internet e tente de novo.";
+
+  function friendlyError(ex, fallback) {
+    if (ex && ex.status === 401) return ex.message;
+    var msg = String((ex && ex.message) || "");
+    if ((ex && ex.name === "TypeError") || /failed to fetch|networkerror|load failed/i.test(msg)) {
+      return NETWORK_MSG;
+    }
+    return msg || fallback || "Não foi possível concluir.";
+  }
+
+  function showError(el, msg, onRetry) {
+    if (!el) return;
+    el.innerHTML =
+      '<div class="d-flex flex-wrap align-items-center justify-content-between gap-2">' +
+      "<span>" +
+      escapeHtml(msg) +
+      "</span>" +
+      (onRetry ? '<button type="button" class="btn btn-sm btn-light ps-retry">Tentar de novo</button>' : "") +
+      "</div>";
+    el.classList.remove("d-none");
+    var btn = el.querySelector(".ps-retry");
+    if (btn) {
+      btn.addEventListener("click", function () {
+        el.classList.add("d-none");
+        onRetry();
+      });
+    }
+  }
+
+  function notify(msg, type) {
+    var host = document.getElementById("psToastHost");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "psToastHost";
+      host.className = "ps-toast-host";
+      host.setAttribute("aria-live", "polite");
+      document.body.appendChild(host);
+    }
+    var t = document.createElement("div");
+    t.className = "ps-toast ps-toast--" + (type || "ok");
+    t.textContent = msg;
+    host.appendChild(t);
+    setTimeout(function () {
+      t.remove();
+    }, 3200);
+  }
+
+  function debounce(fn, ms) {
+    var timer = null;
+    return function () {
+      var args = arguments;
+      var ctx = this;
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        fn.apply(ctx, args);
+      }, ms);
+    };
+  }
+
+  async function copiarTexto(text, btn) {
+    try {
+      await navigator.clipboard.writeText(String(text || ""));
+      notify("Código copiado.");
+      if (btn) {
+        btn.classList.add("is-done");
+        setTimeout(function () {
+          btn.classList.remove("is-done");
+        }, 1500);
+      }
+    } catch (e) {
+      notify("Não foi possível copiar.", "erro");
+    }
+  }
+
+  async function baixarEtiqueta(idEnvio, codigo) {
+    try {
+      var res = await req("/envios/" + encodeURIComponent(idEnvio) + "/pdf");
+      if (!res.ok) {
+        var body = await res.json().catch(function () {
+          return {};
+        });
+        notify(parseDetail(body), "erro");
+        return false;
+      }
+      var blob = await res.blob();
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "etiqueta-" + (codigo || idEnvio) + ".pdf";
+      a.click();
+      setTimeout(function () {
+        URL.revokeObjectURL(url);
+      }, 2000);
+      return true;
+    } catch (ex) {
+      if (ex && ex.status === 401) return false;
+      notify(friendlyError(ex, "Não foi possível baixar a etiqueta."), "erro");
+      return false;
+    }
+  }
+
+  var confirmModalEl = null;
+
+  function confirmar(opts) {
+    opts = opts || {};
+    if (!confirmModalEl) {
+      confirmModalEl = document.createElement("div");
+      confirmModalEl.className = "modal fade";
+      confirmModalEl.id = "psModalConfirmar";
+      confirmModalEl.tabIndex = -1;
+      confirmModalEl.setAttribute("aria-labelledby", "psModalConfirmarLabel");
+      confirmModalEl.setAttribute("aria-hidden", "true");
+      confirmModalEl.innerHTML =
+        '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">' +
+        '<div class="modal-header"><h2 class="modal-title h5" id="psModalConfirmarLabel"></h2>' +
+        '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>' +
+        '<div class="modal-body"><p class="mb-0" id="psConfirmarTexto"></p></div>' +
+        '<div class="modal-footer"><button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal" id="psConfirmarVoltar"></button>' +
+        '<button type="button" class="btn" id="psConfirmarOk"></button></div>' +
+        "</div></div>";
+      document.body.appendChild(confirmModalEl);
+    }
+    var texto = confirmModalEl.querySelector("#psConfirmarTexto");
+    var btn = confirmModalEl.querySelector("#psConfirmarOk");
+    confirmModalEl.querySelector("#psModalConfirmarLabel").textContent = opts.titulo || "Confirmar";
+    confirmModalEl.querySelector("#psConfirmarVoltar").textContent = opts.voltar || "Voltar";
+    texto.innerHTML = opts.html || escapeHtml(opts.texto || "");
+    btn.textContent = opts.ok || "Confirmar";
+    btn.className = "btn " + (opts.okClass || "btn-danger");
+    if (!w.bootstrap) {
+      return Promise.resolve(confirm(texto.textContent));
+    }
+    var modal = bootstrap.Modal.getOrCreateInstance(confirmModalEl);
+    return new Promise(function (resolve) {
+      var confirmed = false;
+      function onConfirm() {
+        confirmed = true;
+        modal.hide();
+      }
+      function onHidden() {
+        btn.removeEventListener("click", onConfirm);
+        confirmModalEl.removeEventListener("hidden.bs.modal", onHidden);
+        resolve(confirmed);
+      }
+      btn.addEventListener("click", onConfirm);
+      confirmModalEl.addEventListener("hidden.bs.modal", onHidden);
+      modal.show();
+    });
+  }
+
+  function confirmarCancelamento(codigo) {
+    codigo = String(codigo || "").trim();
+    return confirmar({
+      titulo: "Cancelar etiqueta",
+      html: codigo
+        ? "Cancelar a etiqueta <strong>" + escapeHtml(codigo) + "</strong>? Só é possível antes da coleta."
+        : "Cancelar esta etiqueta? Só é possível antes da coleta.",
+      voltar: "Manter",
+      ok: "Cancelar etiqueta",
+    });
+  }
+
+  async function cancelarEtiqueta(idEnvio, codigo) {
+    var ok = await confirmarCancelamento(codigo);
+    if (!ok) return false;
+    try {
+      var r = await req("/envios/" + encodeURIComponent(idEnvio) + "/cancelar", {
+        method: "POST",
+        body: "{}",
+      });
+      if (!r.ok) {
+        var body = await r.json().catch(function () {
+          return {};
+        });
+        notify(parseDetail(body), "erro");
+        return false;
+      }
+      notify("Etiqueta cancelada.");
+      return true;
+    } catch (ex) {
+      if (ex && ex.status === 401) return false;
+      notify(friendlyError(ex, "Não foi possível cancelar a etiqueta."), "erro");
+      return false;
+    }
+  }
+
+  function initDatePicker(input, onChange, extra) {
+    if (!input || !w.flatpickr) return null;
+    return w.flatpickr(
+      input,
+      Object.assign(
+        {
+          locale: (w.flatpickr.l10ns && w.flatpickr.l10ns.pt) || "default",
+          dateFormat: "Y-m-d",
+          altInput: true,
+          altFormat: "d/m/Y",
+          allowInput: false,
+          disableMobile: true,
+          onChange: function (dates, str, inst) {
+            if (onChange) onChange(dates, str, inst);
+          },
+        },
+        extra || {}
+      )
+    );
+  }
+
+  function isoDate(d) {
+    if (!d) return "";
+    return (
+      d.getFullYear() +
+      "-" +
+      String(d.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(d.getDate()).padStart(2, "0")
+    );
+  }
+
   function escapeHtml(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -155,10 +374,16 @@
     events.forEach(function (ev, idx) {
       var li = document.createElement("li");
       li.className = "list-group-item px-0 portal-timeline-item" + (idx === 0 ? " is-current" : "");
-      var motoboy =
-        ev.motoboy_nome && String(ev.detalhe || "").indexOf(ev.motoboy_nome) === -1
-          ? '<div class="small mt-1">Entregador: ' + escapeHtml(ev.motoboy_nome) + "</div>"
-          : "";
+      var nome = String(ev.motoboy_nome || "").trim();
+      var jaCitado =
+        !nome ||
+        (String(ev.titulo || "") + " " + String(ev.detalhe || ""))
+          .toLowerCase()
+          .indexOf(nome.toLowerCase()) !== -1 ||
+        (idx > 0 && String(events[idx - 1].motoboy_nome || "").trim() === nome);
+      var motoboy = jaCitado
+        ? ""
+        : '<div class="small mt-1">Entregador: ' + escapeHtml(nome) + "</div>";
       li.innerHTML =
         '<div class="fw-semibold">' +
         escapeHtml(ev.titulo || "") +
@@ -196,6 +421,9 @@
       a.classList.toggle("is-active", active);
       if (active) a.setAttribute("aria-current", "page");
       else a.removeAttribute("aria-current");
+    });
+    document.querySelectorAll("[data-hide-on]").forEach(function (el) {
+      el.classList.toggle("d-none", el.getAttribute("data-hide-on") === key);
     });
     // legado (navbar antiga)
     document.querySelectorAll("nav a.btn[href]").forEach(function (a) {
@@ -247,6 +475,13 @@
       node.textContent = src.textContent;
       node.classList.toggle("d-none", src.classList.contains("d-none"));
     });
+    var avatar = document.getElementById("portalAvatar");
+    if (avatar) {
+      var partes = String(seller).trim().split(/\s+/).filter(Boolean);
+      avatar.textContent =
+        ((partes[0] || "").charAt(0) + (partes.length > 1 ? partes[partes.length - 1].charAt(0) : "")).toUpperCase() ||
+        "—";
+    }
   }
 
   function todayISO() {
@@ -349,6 +584,16 @@
     authHeaders: authHeaders,
     parseDetail: parseDetail,
     req: req,
+    friendlyError: friendlyError,
+    showError: showError,
+    notify: notify,
+    debounce: debounce,
+    copiarTexto: copiarTexto,
+    baixarEtiqueta: baixarEtiqueta,
+    cancelarEtiqueta: cancelarEtiqueta,
+    confirmar: confirmar,
+    initDatePicker: initDatePicker,
+    isoDate: isoDate,
     escapeHtml: escapeHtml,
     formatDateTime: formatDateTime,
     formatDate: formatDate,

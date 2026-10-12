@@ -12,8 +12,12 @@
   function showError(msg) {
     loading.classList.add("d-none");
     box.classList.add("d-none");
-    erro.textContent = msg || "Não foi possível carregar o pedido.";
-    erro.classList.remove("d-none");
+    PS.showError(erro, msg || "Não foi possível carregar o pedido.", id ? retry : null);
+  }
+
+  function retry() {
+    loading.classList.remove("d-none");
+    load();
   }
 
   async function load() {
@@ -70,49 +74,34 @@
         data.timeline || []
       );
 
-      var acoes = document.getElementById("boxAcoes");
       var btnPdf = document.getElementById("btnPdf");
       var btnCancel = document.getElementById("btnCancelar");
+      document.getElementById("btnCopiar").classList.toggle("d-none", !data.codigo);
+      btnPdf.classList.toggle("d-none", !data.id_envio);
+      btnCancel.classList.toggle("d-none", !(data.id_envio && data.pode_cancelar));
       if (data.id_envio) {
-        acoes.classList.remove("d-none");
         btnPdf.setAttribute("data-id", String(data.id_envio));
-        if (data.pode_cancelar) {
-          btnCancel.classList.remove("d-none");
-          btnCancel.setAttribute("data-id", String(data.id_envio));
-        } else {
-          btnCancel.classList.add("d-none");
-        }
-      } else {
-        acoes.classList.add("d-none");
+        btnCancel.setAttribute("data-id", String(data.id_envio));
       }
     } catch (ex) {
       if (ex && ex.status === 401) return;
-      showError(ex && ex.message);
+      showError(PS.friendlyError(ex, "Não foi possível carregar o pedido."));
     }
   }
 
-  document.getElementById("btnPdf")?.addEventListener("click", async function () {
+  document.getElementById("btnCopiar")?.addEventListener("click", function () {
+    PS.copiarTexto(document.getElementById("pedidoCodigo").textContent, this);
+  });
+
+  document.getElementById("btnPdf")?.addEventListener("click", function () {
     var envioId = this.getAttribute("data-id");
-    if (!envioId) return;
-    var res = await PS.req("/envios/" + envioId + "/pdf");
-    if (!res.ok) return;
-    var blob = await res.blob();
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = "etiqueta.pdf";
-    a.click();
+    if (envioId) PS.baixarEtiqueta(envioId, document.getElementById("pedidoCodigo").textContent);
   });
 
   document.getElementById("btnCancelar")?.addEventListener("click", async function () {
     var envioId = this.getAttribute("data-id");
     if (!envioId) return;
-    if (!confirm("Cancelar esta etiqueta? Só é possível antes da coleta.")) return;
-    var r = await PS.req("/envios/" + envioId + "/cancelar", {
-      method: "POST",
-      body: "{}",
-    });
-    if (r.ok) load();
+    if (await PS.cancelarEtiqueta(envioId, document.getElementById("pedidoCodigo").textContent)) load();
   });
 
   PS.bootShell().then(function (ok) {

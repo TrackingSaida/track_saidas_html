@@ -3,7 +3,7 @@
 <head>
   @@include("partials/title-meta.html", {"title": "Pedido"})
   @@include("partials/head-css.html")
-  <link href="assets/css/portal-shell.css?v=3" rel="stylesheet">
+  <link href="assets/css/portal-shell.css?v=7" rel="stylesheet">
 </head>
 <body>
   @@include("partials/portal-shell.html")
@@ -21,6 +21,11 @@
           <span id="pedidoStatus"></span>
           <div class="small text-muted mt-1" id="pedidoAtualizado"></div>
         </div>
+      </div>
+      <div class="ps-detail-actions mb-3" id="boxAcoes">
+        <button type="button" class="btn btn-sm btn-light" id="btnCopiar"><i class="ri-file-copy-line" aria-hidden="true"></i> Copiar código</button>
+        <button type="button" class="btn btn-sm btn-light d-none" id="btnPdf"><i class="ri-printer-line" aria-hidden="true"></i> Reimprimir</button>
+        <button type="button" class="btn btn-sm btn-soft-danger d-none" id="btnCancelar"><i class="ri-close-circle-line" aria-hidden="true"></i> Cancelar</button>
       </div>
       <div class="card mb-3">
         <div class="card-body">
@@ -40,10 +45,6 @@
           <ol id="timeline" class="list-group list-group-flush portal-detail-timeline"></ol>
         </div>
       </div>
-      <div id="boxAcoes" class="d-none d-flex flex-wrap gap-2">
-        <button type="button" class="btn btn-soft-primary" id="btnPdf">Reimprimir etiqueta</button>
-        <button type="button" class="btn btn-soft-danger d-none" id="btnCancelar">Cancelar etiqueta</button>
-      </div>
     </div>
   </div>
   </div><!-- /.portal-main -->
@@ -51,7 +52,7 @@
 
 <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/plugins.js"></script>
-<script src="assets/js/pages/portal-common.js"></script>
-<script src="assets/js/pages/portal-pedido.init.js"></script>
+<script src="assets/js/pages/portal-common.js?v=7"></script>
+<script src="assets/js/pages/portal-pedido.init.js?v=7"></script>
 </body>
 </html>
