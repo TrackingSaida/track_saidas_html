@@ -205,7 +205,11 @@ document.addEventListener("DOMContentLoaded", () => {
       </td>`;
   }
 
-  function linhaLado(titulo, subtitulo, href, link, lado) {
+  function rotuloGrade(icone, titulo) {
+    return `<span class="contab-grade-titulo"><i class="${icone} contab-grade-icone" aria-hidden="true"></i>${titulo}</span>`;
+  }
+
+  function linhaLado(icone, titulo, subtitulo, href, link, lado) {
     const celulas = FAIXAS.map((f) => {
       const faixa = lado[f] || { valor: 0, quantidade: 0, unidade: "fechamentos" };
       const u = UNIDADES[faixa.unidade] || UNIDADES.fechamentos;
@@ -213,7 +217,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }).join("");
     return `<tr>
         <th scope="row" class="contab-grade-rotulo">
-          <span class="d-block">${titulo}</span>
+          ${rotuloGrade(icone, titulo)}
           <span class="contab-grade-nota text-start">${subtitulo} · <a href="${href}" class="text-decoration-none">${link} <i class="ri-arrow-right-line align-middle" aria-hidden="true"></i></a></span>
         </th>
         ${celulas}
@@ -232,11 +236,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const p = bal.pagar;
     const saldo = (f) => num(r[f] && r[f].valor) - num(p[f] && p[f].valor);
     el.innerHTML = [
-      linhaLado("A receber", "Coletas", "tracking-bases-a-receber.html", "Ver recebimentos", r),
-      linhaLado("A pagar", "Motoboys", "tracking-entregadores-a-pagar.html", "Ver pagamentos", p),
+      linhaLado("ri-arrow-down-circle-line", "A receber", "Coletas", "tracking-bases-a-receber.html", "Ver recebimentos", r),
+      linhaLado("ri-arrow-up-circle-line", "A pagar", "Motoboys", "tracking-entregadores-a-pagar.html", "Ver pagamentos", p),
       `<tr class="contab-grade-saldo">
         <th scope="row" class="contab-grade-rotulo">
-          <span class="d-block">Saldo</span>
+          ${rotuloGrade("ri-scales-3-line", "Saldo")}
           <span class="contab-grade-nota text-start">A receber − a pagar</span>
         </th>
         ${celulaValor(saldo("pendente"), "ainda sem fechamento")}

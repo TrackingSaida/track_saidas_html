@@ -1213,6 +1213,19 @@
     background: var(--vz-tertiary-bg);
   }
 
+  .contab-grade-titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .contab-grade-icone {
+    font-size: 1.0625rem;
+    font-weight: 400;
+    line-height: 1;
+    color: var(--vz-secondary-color);
+  }
+
   .contab-grade-valor {
     display: block;
     font-weight: 600;
