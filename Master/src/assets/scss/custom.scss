@@ -1140,11 +1140,21 @@
 
 /* Contabilidade: balanço por status */
 .contab-page {
-  transition: opacity 0.15s ease;
+  .placeholder {
+    max-width: 100%;
+    min-height: 0.9em;
+    opacity: 0.25;
+  }
 
-  &.contab-loading .contab-panel,
-  &.contab-loading .contab-kpi {
-    opacity: 0.55;
+  .contab-result .placeholder {
+    min-height: 1.6rem;
+  }
+
+  .contab-spinner-xs {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-width: 0.15em;
+    vertical-align: -0.1em;
   }
 
   .min-w-0 {

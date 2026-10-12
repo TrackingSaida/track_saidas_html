@@ -150,10 +150,57 @@ document.addEventListener("DOMContentLoaded", () => {
       : "";
   }
 
+  function mostrarCarregando(texto) {
+    if (!resumoMsg) return;
+    resumoMsg.innerHTML = `<div class="alert alert-light border text-body d-flex align-items-center gap-2 mb-0">
+        <span class="spinner-border spinner-border-sm text-primary flex-shrink-0" aria-hidden="true"></span>
+        <span>${esc(texto)}</span>
+      </div>`;
+  }
+
+  const esqueleto = (largura) => `<span class="placeholder rounded" style="width:${largura}"></span>`;
+
+  function linhasEsqueleto(colunas, linhas) {
+    const linha = `<tr class="placeholder-glow">${Array.from({ length: colunas }, (_, i) =>
+      `<td${i ? ' class="text-end"' : ""}>${esqueleto(i ? "4.5rem" : "7rem")}</td>`).join("")}</tr>`;
+    return linha.repeat(linhas);
+  }
+
+  function renderEsqueletos() {
+    ["#contab-previsto", "#contab-realizado"].forEach((id) => {
+      const el = qs(id);
+      if (!el) return;
+      el.classList.remove("contab-negative");
+      el.innerHTML = `<span class="placeholder-glow d-block">${esqueleto("9rem")}</span>`;
+    });
+    ["#contab-previsto-variacao", "#contab-realizado-variacao", "#contab-previsto-margem"].forEach((id) => {
+      const el = qs(id);
+      if (el) el.innerHTML = "";
+    });
+    ["#card-ticket", "#card-custo", "#card-lucro-pacote", "#card-taxa"].forEach((id) => {
+      const el = qs(id);
+      if (el) el.innerHTML = `<span class="placeholder-glow d-block">${esqueleto("5rem")}</span>`;
+    });
+    const set = (id, html) => { const el = qs(id); if (el) el.innerHTML = html; };
+    set("#contab-grade", linhasEsqueleto(5, 3));
+    set("#container-servicos", linhasEsqueleto(8, 3));
+    set("#lista-rentabilidade-base", linhasEsqueleto(5, 3));
+    set("#lista-despesas-entregador", linhasEsqueleto(4, 3));
+  }
+
+  let avisoDemora = null;
+
   function setCarregando(ativo) {
-    if (pagina) pagina.classList.toggle("contab-loading", ativo);
     if (pagina) pagina.setAttribute("aria-busy", ativo ? "true" : "false");
     if (btnEmitir) btnEmitir.disabled = ativo || !ultimoResumo;
+    clearTimeout(avisoDemora);
+    if (ativo) {
+      renderEsqueletos();
+      mostrarCarregando("Carregando o balanço do período…");
+      avisoDemora = setTimeout(() => {
+        mostrarCarregando("Calculando o balanço do período. Em períodos com muitas saídas isso pode levar alguns segundos…");
+      }, 8000);
+    }
   }
 
   /* ---------------- Resultados ---------------- */
@@ -398,9 +445,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const minhaRequisicao = ++requisicaoAtual;
     ultimoResumo = null;
     setCarregando(true);
-    mostrarMensagem("light", "ri-loader-4-line", "Carregando o balanço do período…");
+    let compararDepois = false;
     try {
-      const params = new URLSearchParams({ data_inicio: dataInicio, data_fim: dataFim });
+      const params = new URLSearchParams({ data_inicio: dataInicio, data_fim: dataFim, comparar_anterior: "false" });
       const res = await fetch(`${API_RESUMO}?${params.toString()}`, { credentials: "include" });
       if (minhaRequisicao !== requisicaoAtual) return;
       if (!res.ok) {
@@ -422,12 +469,76 @@ document.addEventListener("DOMContentLoaded", () => {
         mostrarMensagem("", "", "");
       }
       ultimoResumo = semDados(data) ? null : { data: data, inicio: dataInicio, fim: dataFim };
+      compararDepois = !!ultimoResumo && data.balanco.previsto.anterior == null;
     } catch (err) {
       if (minhaRequisicao !== requisicaoAtual) return;
       try { console.error("[Contabilidade]", err); } catch (_) {}
       mostrarMensagem("warning", "ri-error-warning-line", "Não foi possível obter os dados. Tente novamente.");
     } finally {
       if (minhaRequisicao === requisicaoAtual) setCarregando(false);
+    }
+    if (compararDepois && minhaRequisicao === requisicaoAtual) {
+      carregarComparacao(minhaRequisicao, dataInicio, dataFim);
+    }
+  }
+
+  /* ---------------- Comparação com o período anterior (segundo plano) ---------------- */
+
+  function isoUtc(d) {
+    return d.toISOString().slice(0, 10);
+  }
+
+  function periodoAnterior(inicio, fim) {
+    const ini = new Date(inicio + "T00:00:00Z");
+    const dias = Math.round((new Date(fim + "T00:00:00Z") - ini) / 86400000) + 1;
+    const prevFim = new Date(ini.getTime() - 86400000);
+    const prevIni = new Date(prevFim.getTime() - (dias - 1) * 86400000);
+    return { inicio: isoUtc(prevIni), fim: isoUtc(prevFim) };
+  }
+
+  function variacaoPct(atual, anterior) {
+    if (!anterior) return null;
+    return Math.round((atual - anterior) / Math.abs(anterior) * 10000) / 100;
+  }
+
+  function mostrarComparando(ativo) {
+    ["#contab-previsto-variacao", "#contab-realizado-variacao"].forEach((id) => {
+      const el = qs(id);
+      if (!el) return;
+      el.innerHTML = ativo
+        ? '<span class="text-muted"><span class="spinner-border spinner-border-sm me-1 contab-spinner-xs" aria-hidden="true"></span>Comparando com o período anterior…</span>'
+        : "";
+    });
+  }
+
+  async function carregarComparacao(minhaRequisicao, dataInicio, dataFim) {
+    const prev = periodoAnterior(dataInicio, dataFim);
+    if (prev.inicio < "2000-01-01") return;
+    mostrarComparando(true);
+    try {
+      const params = new URLSearchParams({ data_inicio: prev.inicio, data_fim: prev.fim, comparar_anterior: "false" });
+      const res = await fetch(`${API_RESUMO}?${params.toString()}`, { credentials: "include" });
+      if (minhaRequisicao !== requisicaoAtual) return;
+      const anterior = res.ok ? await res.json() : null;
+      if (minhaRequisicao !== requisicaoAtual) return;
+      const atual = ultimoResumo && ultimoResumo.data.balanco;
+      if (!atual || !anterior || !anterior.balanco) {
+        mostrarComparando(false);
+        return;
+      }
+      ["previsto", "realizado"].forEach((chave) => {
+        const valorAnterior = num(anterior.balanco[chave].valor);
+        atual[chave].anterior = valorAnterior;
+        atual[chave].variacao_pct = variacaoPct(num(atual[chave].valor), valorAnterior);
+      });
+      atual.periodo_anterior_inicio = prev.inicio;
+      atual.periodo_anterior_fim = prev.fim;
+      renderResultado("#contab-previsto", "#contab-previsto-variacao", atual.previsto, atual);
+      renderResultado("#contab-realizado", "#contab-realizado-variacao", atual.realizado, atual);
+    } catch (err) {
+      if (minhaRequisicao !== requisicaoAtual) return;
+      try { console.error("[Contabilidade] comparação", err); } catch (_) {}
+      mostrarComparando(false);
     }
   }
 
