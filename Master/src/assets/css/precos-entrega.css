@@ -1,0 +1,328 @@
+/* Cadastros → Preços de Entrega (.pe). Usa os tokens .fm de fechamento-motoboys.css. */
+.pe .pe-bloco {
+  border: 1px solid var(--fm-border);
+  box-shadow: none;
+  margin-bottom: 1rem;
+}
+
+.pe .pe-bloco-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.pe .pe-bloco-titulo {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--fm-strong);
+  margin-bottom: 0.125rem;
+}
+
+.pe .pe-bloco-topo .fm-sub {
+  max-width: 40rem;
+  text-wrap: pretty;
+}
+
+/* Preço padrão */
+.pe .pe-precos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+
+.pe .pe-preco {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--fm-border);
+  border-radius: 8px;
+  background: var(--fm-soft);
+}
+
+.pe .pe-preco-rotulo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--fm-muted);
+}
+
+.pe .pe-preco-valor {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--fm-strong);
+}
+
+.pe .pe-preco-nota {
+  font-size: 0.75rem;
+  color: var(--fm-muted);
+}
+
+/* Pacotes grandes */
+.pe .pe-adicional {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--fm-border);
+  border-radius: 8px;
+}
+
+.pe .pe-adicional--off {
+  background: var(--fm-warn-bg);
+  border-color: #FDE68A;
+}
+
+.pe .pe-cat-nome {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 6px;
+  background: var(--fm-strong);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.pe .pe-cat--inativa .pe-cat-nome {
+  background: #94A3B8;
+}
+
+.pe .pe-cat--inativa td {
+  color: var(--fm-muted);
+}
+
+.pe .pe-regra-texto {
+  font-weight: 600;
+  color: var(--fm-text);
+}
+
+.pe .pe-cat--inativa .pe-regra-texto {
+  color: var(--fm-muted);
+}
+
+.pe .pe-sem-cobranca {
+  color: var(--fm-muted);
+}
+
+.pe .pe-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.pe .pe-acao {
+  border: 0;
+  background: none;
+  padding: 0.3125rem 0.4375rem;
+  border-radius: 4px;
+  color: var(--fm-muted);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.pe .pe-acao:hover,
+.pe .pe-acao:focus-visible {
+  color: var(--fm-strong);
+  background: var(--fm-soft);
+}
+
+.pe .pe-acao:disabled {
+  opacity: 0.35;
+  background: none;
+}
+
+.pe .pe-acao--perigo:hover,
+.pe .pe-acao--perigo:focus-visible {
+  color: var(--fm-err);
+}
+
+/* Preço por motoboy */
+.pe .pe-padrao {
+  color: #94A3B8;
+  font-size: 0.8125rem;
+}
+
+.pe .pe-vazio {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  margin-top: 0.75rem;
+  border: 1px dashed var(--fm-border);
+  border-radius: 8px;
+  color: var(--fm-muted);
+  font-size: 0.875rem;
+}
+
+/* Modal de categoria: formulário + prévia */
+.pe-cat-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 15rem;
+  gap: 1.5rem;
+}
+
+.pe-regra {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--fm-border);
+}
+
+.pe-regra-titulo {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--fm-strong);
+  margin-bottom: 0.5rem;
+}
+
+.pe-regra-campo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.625rem;
+}
+
+.pe-regra-campo .form-control {
+  width: 9rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pe-segmento .btn-check:checked + .btn {
+  background: var(--fm-strong);
+  border-color: var(--fm-strong);
+  color: #fff;
+}
+
+.pe-previa {
+  align-self: start;
+  padding: 1rem;
+  border: 1px solid var(--fm-border);
+  border-radius: 8px;
+  background: var(--fm-soft);
+  font-size: 0.8125rem;
+}
+
+.pe-previa-titulo,
+.pe-previa-rotulo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--fm-muted);
+}
+
+.pe-previa-titulo {
+  margin-bottom: 0.5rem;
+}
+
+.pe-previa-tabela {
+  width: 100%;
+}
+
+.pe-previa-tabela th {
+  font-weight: 600;
+  color: var(--fm-muted);
+  padding-bottom: 0.25rem;
+}
+
+.pe-previa-tabela th + th,
+.pe-previa-tabela td + td {
+  text-align: right;
+}
+
+.pe-previa-tabela td {
+  padding: 0.25rem 0;
+  border-top: 1px solid var(--fm-border);
+  font-variant-numeric: tabular-nums;
+}
+
+.pe-previa-tabela .pe-previa-de {
+  display: block;
+  color: var(--fm-muted);
+  font-size: 0.75rem;
+}
+
+.pe-previa-tabela strong {
+  color: var(--fm-strong);
+}
+
+.pe-previa-nota {
+  margin: 0.5rem 0 0;
+  color: var(--fm-warn);
+}
+
+.pe-previa-nota:empty {
+  display: none;
+}
+
+.pe-previa-base {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--fm-border);
+}
+
+.pe-previa-valor {
+  font-weight: 700;
+  color: var(--fm-strong);
+}
+
+/* Modal de preço por motoboy */
+.pe-excecao-campos {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.pe-excecao-campo {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pe-excecao-campo .form-label {
+  margin: 0;
+}
+
+.pe-excecao-campo .form-control {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pe-usar-padrao {
+  color: var(--fm-muted);
+  text-decoration: none;
+  padding: 0.25rem;
+}
+
+.pe-usar-padrao:hover,
+.pe-usar-padrao:focus-visible {
+  color: var(--fm-strong);
+  text-decoration: underline;
+}
+
+@media (max-width: 767.98px) {
+  .pe-cat-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .pe-excecao-campo {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .pe-excecao-campo .form-label {
+    grid-column: 1 / -1;
+  }
+}

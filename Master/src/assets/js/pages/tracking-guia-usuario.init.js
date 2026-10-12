@@ -126,11 +126,15 @@
           steps: [
             {
               title: "Abra Cadastros → Preços de Entrega",
-              text: "A tela mostra os valores padrão e as exceções por entregador.",
+              text: "A tela mostra o preço padrão, as categorias de pacote grande e o preço por motoboy.",
             },
             {
-              title: "Use exceção só quando precisar",
-              text: "Clique em Adicionar Exceção para um motoboy com preço diferente do padrão.",
+              title: "Configure os pacotes grandes",
+              text: "Em Pacotes grandes, crie categorias (G1, G2…) e defina quanto o motoboy recebe a mais e quanto a base paga a mais. Ligue o adicional para o motoboy receber.",
+            },
+            {
+              title: "Use preço por motoboy só quando precisar",
+              text: "Clique em Adicionar motoboy para quem recebe diferente do padrão. Campo vazio segue o preço padrão.",
             },
             {
               title: "Confira antes do fechamento",
