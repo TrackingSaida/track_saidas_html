@@ -46,6 +46,148 @@ document.querySelectorAll('.switch-btn').forEach(function (btn) {
     });
 });
 
+// Hero – etiqueta "bipada" ao carregar
+(function () {
+    var heroLabel = document.getElementById('rv-hero-label');
+    if (!heroLabel) return;
+    heroLabel.classList.add('is-armed');
+    window.addEventListener('load', function () {
+        setTimeout(function () {
+            heroLabel.classList.add('is-scanning');
+        }, 350);
+    });
+})();
+
+// Jornada – cada etapa é "bipada" em sequência ao entrar na tela
+(function () {
+    var steps = document.querySelectorAll('.rv-journey__step');
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!steps.length || reduceMotion || !('IntersectionObserver' in window)) return;
+
+    var stepInterval = 320;
+    var nextAt = 0;
+    var journey = document.querySelector('.rv-journey');
+    if (journey) journey.classList.add('is-armed');
+
+    var observer = new IntersectionObserver(function (entries) {
+        entries
+            .filter(function (entry) { return entry.isIntersecting; })
+            .sort(function (a, b) {
+                return Array.prototype.indexOf.call(steps, a.target) - Array.prototype.indexOf.call(steps, b.target);
+            })
+            .forEach(function (entry) {
+                var now = Date.now();
+                nextAt = Math.max(now, nextAt) + stepInterval;
+                setTimeout(function () {
+                    entry.target.classList.add('is-on');
+                }, nextAt - now - stepInterval);
+                observer.unobserve(entry.target);
+            });
+    }, { threshold: 0.35 });
+
+    steps.forEach(function (step) { observer.observe(step); });
+})();
+
+// Percurso – a rota é desenhada conforme a rolagem e cada parada é "bipada" ao ser alcançada
+(function () {
+    var section = document.getElementById('rv-route');
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!section || reduceMotion || !('IntersectionObserver' in window)) return;
+
+    var statusEl = document.getElementById('rv-route-status');
+    var narrowQuery = window.matchMedia('(max-width: 767.98px)');
+    var wideSvg = section.querySelector('.rv-route__svg--wide');
+    var narrowSvg = section.querySelector('.rv-route__svg--narrow');
+    var cache = new Map();
+    var active = false;
+    var ticking = false;
+
+    // Só mede o SVG visível: getTotalLength falha em elementos ocultos em alguns navegadores.
+    function getRoute(svg) {
+        if (cache.has(svg)) return cache.get(svg);
+        var line = svg.querySelector('.rv-route__line');
+        var length = line.getTotalLength();
+        var steps = 400;
+        var pins = Array.prototype.map.call(svg.querySelectorAll('.rv-route__pin'), function (pin) {
+            var m = pin.transform.baseVal.consolidate().matrix;
+            var best = 0;
+            var bestDist = Infinity;
+            for (var i = 0; i <= steps; i++) {
+                var at = (length * i) / steps;
+                var pt = line.getPointAtLength(at);
+                var dist = (pt.x - m.e) * (pt.x - m.e) + (pt.y - m.f) * (pt.y - m.f);
+                if (dist < bestDist) { bestDist = dist; best = at; }
+            }
+            return { el: pin, at: best };
+        });
+        line.style.strokeDasharray = length;
+        var route = { line: line, length: length, pins: pins, parcel: svg.querySelector('.rv-route__parcel') };
+        cache.set(svg, route);
+        return route;
+    }
+
+    function render() {
+        ticking = false;
+        var route = getRoute(narrowQuery.matches ? narrowSvg : wideSvg);
+        var rect = section.getBoundingClientRect();
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        var progress = Math.min(1, Math.max(0, (vh * 0.9 - rect.top) / (vh * 0.6)));
+        var drawn = route.length * progress;
+        var status = 'Aguardando coleta';
+
+        route.line.style.strokeDashoffset = route.length - drawn;
+        var pt = route.line.getPointAtLength(drawn);
+        route.parcel.setAttribute('transform', 'translate(' + pt.x + ' ' + pt.y + ')');
+        route.pins.forEach(function (pin) {
+            var on = drawn >= pin.at;
+            pin.el.classList.toggle('is-on', on);
+            if (on) status = pin.el.getAttribute('data-status');
+        });
+        if (statusEl && statusEl.textContent !== status) statusEl.textContent = status;
+    }
+
+    function requestRender() {
+        if (active && !ticking) {
+            ticking = true;
+            window.requestAnimationFrame(render);
+        }
+    }
+
+    section.classList.add('is-armed');
+    render();
+
+    new IntersectionObserver(function (entries) {
+        active = entries[0].isIntersecting;
+        requestRender();
+    }).observe(section);
+
+    window.addEventListener('scroll', requestRender, { passive: true });
+    window.addEventListener('resize', requestRender);
+})();
+
+// Mobile – botão fixo de WhatsApp enquanto os CTAs do topo e do final estão fora da tela
+(function () {
+    var sticky = document.getElementById('rv-sticky-cta');
+    var targets = [document.getElementById('rv-hero-actions'), document.getElementById('rv-cta-actions')].filter(Boolean);
+    if (!sticky || !targets.length || !('IntersectionObserver' in window)) return;
+
+    var link = sticky.querySelector('a');
+    var visibleTargets = new Set();
+
+    var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+            if (entry.isIntersecting) visibleTargets.add(entry.target);
+            else visibleTargets.delete(entry.target);
+        });
+        var show = visibleTargets.size === 0;
+        sticky.classList.toggle('is-visible', show);
+        sticky.setAttribute('aria-hidden', show ? 'false' : 'true');
+        if (link) link.setAttribute('tabindex', show ? '0' : '-1');
+    });
+
+    targets.forEach(function (target) { observer.observe(target); });
+})();
+
 // Collapse Menu + overlay (oculta conteúdo atrás do menu no mobile)
 const navLinks = document.querySelectorAll('.nav-item');
 const menuToggle = document.getElementById('navbarSupportedContent');

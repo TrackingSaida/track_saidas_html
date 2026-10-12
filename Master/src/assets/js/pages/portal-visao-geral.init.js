@@ -52,56 +52,26 @@
         ? "—"
         : String(kpis.taxa_sucesso).replace(".", ",") + "%";
     var cards = [
+      { label: "Recebidos", value: kpis.recebidos || 0, filter: "" },
       {
-        key: "recebidos",
-        type: "recebidos",
-        label: "Recebidos",
-        value: kpis.recebidos || 0,
-        filter: "",
-      },
-      {
-        key: "aguardando_coleta",
-        type: "aguardando",
         label: "Aguardando coleta",
         value: kpis.aguardando_coleta || 0,
         filter: "aguardando_coleta",
+        acao: true,
       },
-      {
-        key: "em_rota",
-        type: "em_rota",
-        label: "Em rota",
-        value: kpis.em_rota || 0,
-        filter: "em_entrega",
-      },
-      {
-        key: "entregues",
-        type: "entregues",
-        label: "Entregues",
-        value: kpis.entregues || 0,
-        filter: "entregue",
-      },
-      {
-        key: "cancelados",
-        type: "cancelados",
-        label: "Cancelados",
-        value: kpis.cancelados || 0,
-        filter: "cancelado",
-      },
-      {
-        key: "taxa",
-        type: "taxa",
-        label: "Taxa de sucesso",
-        value: taxa,
-        filter: "entregue",
-        hint: "sobre finalizados",
-      },
+      { label: "Saiu para entrega", value: kpis.em_rota || 0, filter: "em_entrega" },
+      { label: "Ausente", value: kpis.ausentes || 0, filter: "ausente", acao: true },
+      { label: "Entregues", value: kpis.entregues || 0, filter: "entregue" },
+      { label: "Cancelados", value: kpis.cancelados || 0, filter: "cancelado" },
+      { label: "Taxa de sucesso", value: taxa, filter: "entregue", hint: "sobre finalizados" },
     ];
     kpiGrid.innerHTML = cards
       .map(function (c) {
         var href = pedidosUrl(c.filter ? { status: c.filter } : {});
+        var destaque = c.acao && Number(c.value) > 0;
         return (
-          '<a class="portal-kpi portal-kpi--' +
-          c.type +
+          '<a class="portal-kpi' +
+          (destaque ? " portal-kpi--acao" : "") +
           '" href="' +
           href +
           '">' +
@@ -146,11 +116,16 @@
     recentesVazio.classList.add("d-none");
     items.forEach(function (it) {
       var tr = document.createElement("tr");
+      tr.className = "portal-pedido-row";
+      tr.tabIndex = 0;
+      tr.setAttribute("data-href", "portal-pedido.html?id=" + encodeURIComponent(it.id_saida));
+      tr.setAttribute("aria-label", "Abrir pedido " + (it.codigo || ""));
+      var quando = it.atualizado_em || it.updated_at || it.created_at;
       tr.innerHTML =
-        "<td><strong>" +
+        '<td class="c-codigo"><strong>' +
         esc(it.codigo || "—") +
         "</strong></td>" +
-        "<td>" +
+        '<td class="c-dest">' +
         esc(it.dest_nome || "—") +
         (it.dest_cidade
           ? '<div class="small text-muted">' +
@@ -159,18 +134,29 @@
             "</div>"
           : "") +
         "</td>" +
-        "<td>" +
+        '<td class="c-status">' +
         PS.statusBadgeHtml(it.status, it.status_label) +
         "</td>" +
-        "<td>" +
-        esc(fmt(it.atualizado_em || it.updated_at || it.created_at)) +
-        "</td>" +
-        '<td class="text-end"><a class="btn btn-sm btn-soft-primary" href="portal-pedido.html?id=' +
-        encodeURIComponent(it.id_saida) +
-        '">Ver</a></td>';
+        '<td class="c-data"><span class="d-none d-md-inline">' +
+        esc(fmt(quando)) +
+        '</span><span class="d-md-none small text-muted">' +
+        esc(PS.formatRelative(quando)) +
+        "</span></td>";
       tbody.appendChild(tr);
     });
   }
+
+  function abrirRecente(ev) {
+    var row = ev.target.closest("tr.portal-pedido-row");
+    if (row) location.href = row.getAttribute("data-href");
+  }
+
+  tbody.addEventListener("click", abrirRecente);
+  tbody.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Enter" && ev.key !== " ") return;
+    ev.preventDefault();
+    abrirRecente(ev);
+  });
 
   function renderCanais(canais) {
     listaCanais.innerHTML = "";
@@ -183,17 +169,32 @@
       return;
     }
     canalVazio.classList.add("d-none");
-    comTotal.forEach(function (c) {
-      var li = document.createElement("li");
-      li.className = "list-group-item d-flex justify-content-between align-items-center px-0";
-      li.innerHTML =
-        "<span>" +
-        esc(c.canal_label || c.canal || "—") +
-        '</span><span class="badge bg-primary-subtle text-primary">' +
-        esc(c.total) +
-        "</span>";
-      listaCanais.appendChild(li);
-    });
+    var soma = comTotal.reduce(function (acc, c) {
+      return acc + Number(c.total || 0);
+    }, 0);
+    comTotal
+      .slice()
+      .sort(function (a, b) {
+        return Number(b.total || 0) - Number(a.total || 0);
+      })
+      .forEach(function (c) {
+        var total = Number(c.total || 0);
+        var pct = soma ? Math.round((total / soma) * 100) : 0;
+        var li = document.createElement("li");
+        li.className = "ps-canal-item";
+        li.innerHTML =
+          '<div class="ps-canal-linha"><span>' +
+          esc(c.canal_label || c.canal || "—") +
+          '</span><span class="ps-canal-num">' +
+          esc(total) +
+          ' <span class="text-muted">· ' +
+          pct +
+          "%</span></span></div>" +
+          '<div class="ps-canal-barra" aria-hidden="true"><span style="width:' +
+          pct +
+          '%"></span></div>';
+        listaCanais.appendChild(li);
+      });
   }
 
   async function load() {
@@ -213,8 +214,7 @@
       });
       loading.classList.add("d-none");
       if (!res.ok) {
-        erro.textContent = PS.parseDetail(data);
-        erro.classList.remove("d-none");
+        PS.showError(erro, PS.parseDetail(data), load);
         return;
       }
       content.classList.remove("d-none");
@@ -226,8 +226,7 @@
     } catch (ex) {
       loading.classList.add("d-none");
       if (ex && ex.status === 401) return;
-      erro.textContent = (ex && ex.message) || "Não foi possível carregar a visão geral.";
-      erro.classList.remove("d-none");
+      PS.showError(erro, PS.friendlyError(ex, "Não foi possível carregar a visão geral."), load);
     }
   }
 
@@ -268,6 +267,8 @@
   PS.bootShell().then(function (ok) {
     if (!ok) return;
     applyFromUrl();
+    PS.initDatePicker(document.getElementById("filtroDe"), null, { maxDate: "today" });
+    PS.initDatePicker(document.getElementById("filtroAte"), null, { maxDate: "today" });
     load();
   });
 })();

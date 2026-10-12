@@ -3,7 +3,7 @@
 <head>
   @@include("partials/title-meta.html", {"title": "Emitir etiqueta"})
   @@include("partials/head-css.html")
-  <link href="assets/css/portal-shell.css?v=4" rel="stylesheet">
+  <link href="assets/css/portal-shell.css?v=7" rel="stylesheet">
 </head>
 <body>
   @@include("partials/portal-shell.html")
@@ -12,7 +12,7 @@
       <span class="portal-eyebrow">Envio próprio</span>
       <h1 class="portal-page-title">Emitir etiqueta</h1>
       <p class="portal-page-sub">Crie um pedido e deixe o pacote pronto para coleta.</p>
-      <a href="portal-etiquetas.html" class="small fw-semibold">Ver etiquetas emitidas</a>
+      <a href="portal-pedidos.html" class="small fw-semibold">Ver pedidos e etiquetas emitidas</a>
     </div>
 
     <div id="boxTrocaSenha" class="card mb-3 d-none">
@@ -35,10 +35,6 @@
         </div>
         <div class="ps-step" data-step="2">
           <span class="ps-step-num">2</span>
-          <span>Pacote</span>
-        </div>
-        <div class="ps-step" data-step="3">
-          <span class="ps-step-num">3</span>
           <span>Revisão</span>
         </div>
       </div>
@@ -138,40 +134,32 @@
                   <input class="form-control" id="destReferencia" placeholder="Ponto de referência (opcional)">
                 </div>
               </div>
-              <div class="d-flex justify-content-between mt-3">
-                <button type="button" class="btn btn-soft-secondary btn-limpar-emitir">Limpar</button>
-                <button type="button" class="btn btn-primary" id="btnStep1Next">Continuar</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="card d-none" id="stepPacote">
-            <div class="card-body">
-              <h2 class="h6 mb-3">Pacote</h2>
-              <div class="row g-2">
-                <div class="col-md-4">
-                  <label class="form-label" for="pacotePeso">Peso (kg)</label>
-                  <input class="form-control" id="pacotePeso" type="number" min="0" step="0.01" placeholder="Ex.: 1,5">
+              <details class="ps-optional mt-3" id="pacoteDetalhes">
+                <summary>Detalhes do pacote <span class="text-muted fw-normal">(opcional)</span></summary>
+                <div class="ps-optional-body">
+                  <div class="row g-2">
+                    <div class="col-md-4">
+                      <label class="form-label" for="pacotePeso">Peso (kg)</label>
+                      <input class="form-control" id="pacotePeso" type="number" min="0" step="0.01" placeholder="Ex.: 1,5">
+                    </div>
+                    <div class="col-md-8">
+                      <label class="form-label" for="pacoteDimensoes">Dimensões</label>
+                      <input class="form-control" id="pacoteDimensoes" placeholder="Ex.: 20x15x10 cm">
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label" for="pacoteObs">Observação</label>
+                      <textarea class="form-control" id="pacoteObs" rows="2" maxlength="500"></textarea>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label" for="pacotePedidoLoja">Número do pedido do site</label>
+                      <input class="form-control" id="pacotePedidoLoja" placeholder="Ex.: #12345">
+                    </div>
+                  </div>
                 </div>
-                <div class="col-md-8">
-                  <label class="form-label" for="pacoteDimensoes">Dimensões</label>
-                  <input class="form-control" id="pacoteDimensoes" placeholder="Ex.: 20x15x10 cm">
-                </div>
-                <div class="col-12">
-                  <label class="form-label" for="pacoteObs">Observação</label>
-                  <textarea class="form-control" id="pacoteObs" rows="2" maxlength="500"></textarea>
-                </div>
-                <div class="col-12">
-                  <label class="form-label" for="pacotePedidoLoja">Número do pedido do site</label>
-                  <input class="form-control" id="pacotePedidoLoja" placeholder="Ex.: #12345">
-                </div>
-              </div>
-              <div class="d-flex justify-content-between mt-3">
-                <button type="button" class="btn btn-soft-secondary" id="btnStep2Back">Voltar</button>
-                <div class="d-flex gap-2">
-                  <button type="button" class="btn btn-soft-secondary btn-limpar-emitir">Limpar</button>
-                  <button type="button" class="btn btn-primary" id="btnStep2Next">Continuar</button>
-                </div>
+              </details>
+              <div class="d-flex justify-content-between align-items-center mt-3">
+                <button type="button" class="btn btn-link btn-sm ps-link-limpar btn-limpar-emitir">Limpar formulário</button>
+                <button type="button" class="btn ps-btn-primary" id="btnStep1Next">Continuar</button>
               </div>
             </div>
           </div>
@@ -182,13 +170,10 @@
               <p class="ps-section-sub">Confira os dados antes de gerar a etiqueta</p>
               <div id="revisaoResumo" class="ps-revisao"></div>
               <div class="d-flex justify-content-between mt-3">
-                <button type="button" class="btn btn-soft-secondary" id="btnStep3Back">Voltar</button>
-                <div class="d-flex gap-2">
-                  <button type="button" class="btn btn-soft-secondary btn-limpar-emitir">Limpar</button>
-                  <button type="button" class="btn btn-success" id="btnEmitir">
-                    <span class="btn-label">Gerar etiqueta</span>
-                  </button>
-                </div>
+                <button type="button" class="btn btn-soft-secondary" id="btnRevisaoVoltar">Voltar</button>
+                <button type="button" class="btn ps-btn-primary" id="btnEmitir">
+                  <span class="btn-label">Gerar etiqueta</span>
+                </button>
               </div>
               <p id="emitirMsg" class="small mt-2 mb-0" aria-live="polite"></p>
             </div>
@@ -197,13 +182,15 @@
 
         <div class="col-lg-4">
           <aside class="ps-tip-card" id="emitirTipCard">
-            <h3>Preenchimento mais rápido</h3>
-            <p>Use o CEP com Buscar para preencher rua, bairro, cidade e UF automaticamente.</p>
+            <div id="tipPreenchimento">
+              <h3>Preenchimento mais rápido</h3>
+              <p>Use o CEP com Buscar para preencher rua, bairro, cidade e UF automaticamente.</p>
+            </div>
             <h3>O que acontece depois?</h3>
             <ul>
               <li>A etiqueta é gerada e o PDF fica disponível para impressão.</li>
               <li>O pacote fica aguardando coleta pela operação.</li>
-              <li>Você acompanha o status em Pedidos e Etiquetas.</li>
+              <li>Você acompanha o status, reimprime ou cancela em Pedidos.</li>
             </ul>
           </aside>
         </div>
@@ -217,7 +204,7 @@
         <p class="mb-1">Código: <strong id="sucessoCodigo">—</strong></p>
         <div class="d-flex flex-wrap justify-content-center gap-2 mt-3">
           <a class="btn btn-soft-primary d-none" id="sucessoPdf" href="#" download>Baixar PDF</a>
-          <a class="btn btn-primary" id="sucessoAcompanhar" href="portal-pedidos.html">Acompanhar pedido</a>
+          <a class="btn ps-btn-primary" id="sucessoAcompanhar" href="portal-pedidos.html">Acompanhar pedido</a>
           <button type="button" class="btn btn-soft-secondary" id="btnNovaEtiqueta">Emitir outra</button>
         </div>
       </div>
@@ -314,7 +301,7 @@
 
 <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/plugins.js"></script>
-<script src="assets/js/pages/portal-common.js?v=6"></script>
-<script src="assets/js/pages/portal-emitir.init.js?v=6"></script>
+<script src="assets/js/pages/portal-common.js?v=8"></script>
+<script src="assets/js/pages/portal-emitir.init.js?v=7"></script>
 </body>
 </html>

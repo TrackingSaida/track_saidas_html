@@ -1366,3 +1366,188 @@
   overflow-x: auto;
 }
 
+/* Contabilidade: balanço por status */
+.contab-page {
+  .placeholder {
+    max-width: 100%;
+    min-height: 0.9em;
+    opacity: 0.25;
+  }
+
+  .contab-result .placeholder {
+    min-height: 1.6rem;
+  }
+
+  .contab-spinner-xs {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-width: 0.15em;
+    vertical-align: -0.1em;
+  }
+
+  .min-w-0 {
+    min-width: 0;
+  }
+}
+
+.contab-panel {
+  border: 1px solid var(--vz-border-color);
+  box-shadow: none;
+
+  .card-header {
+    border-bottom: 1px solid var(--vz-border-color);
+  }
+}
+
+.contab-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vz-secondary-color);
+}
+
+.contab-result {
+  margin: 0.5rem 0 0.25rem;
+  font-size: clamp(1.75rem, 1.2rem + 1.6vw, 2.375rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--vz-heading-color, var(--vz-body-color));
+  font-variant-numeric: tabular-nums;
+}
+
+.contab-negative {
+  color: var(--vz-danger) !important;
+}
+
+.contab-regime {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.contab-grade {
+  th,
+  td {
+    padding: 0.75rem 1rem;
+  }
+
+  thead th {
+    vertical-align: bottom;
+  }
+
+  .contab-grade-rotulo {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    min-width: 11rem;
+    text-align: left;
+    font-weight: 600;
+    background: var(--vz-secondary-bg, #fff);
+  }
+
+  thead .contab-grade-rotulo {
+    background: var(--vz-tertiary-bg);
+  }
+
+  .contab-grade-titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .contab-grade-icone {
+    font-size: 1.0625rem;
+    font-weight: 400;
+    line-height: 1;
+    color: var(--vz-secondary-color);
+  }
+
+  .contab-grade-valor {
+    display: block;
+    font-weight: 600;
+  }
+
+  .contab-grade-nota {
+    display: block;
+    margin-top: 0.125rem;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--vz-secondary-color);
+  }
+
+  .contab-grade-destaque .contab-grade-valor {
+    font-size: 1.0625rem;
+  }
+
+  .contab-grade-saldo > * {
+    background: var(--vz-tertiary-bg);
+    border-top: 2px solid var(--vz-border-color);
+  }
+}
+
+.contab-table {
+  th,
+  td {
+    padding: 0.625rem 0.75rem;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  thead th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--vz-secondary-color);
+    background: var(--vz-tertiary-bg);
+    border-bottom-width: 1px;
+  }
+
+  tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+
+  .contab-col-nome {
+    max-width: 14rem;
+  }
+
+  .contab-col-share {
+    min-width: 9.5rem;
+  }
+}
+
+.contab-share {
+  height: 6px;
+}
+
+.contab-share-pct {
+  min-width: 3.25rem;
+  text-align: right;
+}
+
+.contab-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  height: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--vz-border-color);
+  border-radius: 0.25rem;
+  background: var(--vz-secondary-bg, #fff);
+}
+
+.contab-kpi-label {
+  font-size: 0.8125rem;
+  color: var(--vz-secondary-color);
+}
+
+.contab-kpi-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.contab-kpi-hint {
+  font-size: 0.75rem;
+  color: var(--vz-secondary-color);
+}

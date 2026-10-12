@@ -105,6 +105,10 @@
   text-shadow: 0 2px 16px rgba(7, 21, 38, 0.45);
 }
 
+.portal-login .rv-headline {
+  color: #fff;
+}
+
 .rv-headline em {
   font-style: normal;
   color: var(--rv-cyan);
