@@ -16,10 +16,7 @@
 
             <!-- Barra do período -->
             <div class="contab-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-              <div class="min-w-0">
-                <h5 class="mb-0">Balanço do período</h5>
-                <span class="text-muted small" id="contab-periodo-texto">Quinzena atual</span>
-              </div>
+              <h5 class="mb-0">Balanço do período</h5>
               <div class="d-flex flex-wrap align-items-center gap-2">
                 <div class="dropdown">
                   <button class="btn btn-light border dropdown-toggle d-flex align-items-center gap-2" type="button" id="contabilidade-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-label="Escolher período">
@@ -53,11 +50,11 @@
                 <section class="card contab-panel h-100 mb-0" aria-labelledby="contab-previsto-titulo">
                   <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start gap-2">
-                      <h6 class="contab-eyebrow mb-0" id="contab-previsto-titulo">Resultado previsto</h6>
-                      <span class="small text-muted" id="contab-previsto-margem"></span>
+                      <h6 class="contab-eyebrow mb-0" id="contab-previsto-titulo">Resultado previsto <span class="contab-regime">· competência</span></h6>
+                      <span class="small text-muted text-nowrap" id="contab-previsto-margem"></span>
                     </div>
                     <div class="contab-result" id="contab-previsto">R$ 0,00</div>
-                    <p class="text-muted small mb-2">A receber menos a pagar, incluindo o que ainda não foi fechado.</p>
+                    <p class="text-muted small mb-2">Tudo o que o período gera: a receber menos a pagar, incluindo o que ainda não foi fechado.</p>
                     <div class="small" id="contab-previsto-variacao"></div>
                   </div>
                 </section>
@@ -66,54 +63,47 @@
                 <section class="card contab-panel h-100 mb-0" aria-labelledby="contab-realizado-titulo">
                   <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start gap-2">
-                      <h6 class="contab-eyebrow mb-0" id="contab-realizado-titulo">Resultado realizado</h6>
+                      <h6 class="contab-eyebrow mb-0" id="contab-realizado-titulo">Resultado realizado <span class="contab-regime">· caixa</span></h6>
                     </div>
                     <div class="contab-result" id="contab-realizado">R$ 0,00</div>
-                    <p class="text-muted small mb-2">Só o que já foi recebido das bases menos o que já foi pago aos motoboys.</p>
+                    <p class="text-muted small mb-2">Recebido das <span data-owner-term="bases_lower">bases</span> menos o pago aos motoboys, pelos fechamentos do período já baixados (não pela data do pagamento).</p>
                     <div class="small" id="contab-realizado-variacao"></div>
                   </div>
                 </section>
               </div>
             </div>
 
-            <!-- Livros por status -->
-            <div class="row g-3 mb-4">
-              <div class="col-lg-6">
-                <section class="card contab-panel h-100 mb-0" aria-labelledby="contab-receber-titulo">
-                  <div class="card-header bg-transparent d-flex justify-content-between align-items-center gap-2">
-                    <div class="min-w-0">
-                      <h6 class="card-title mb-0" id="contab-receber-titulo">A receber</h6>
-                      <span class="small text-muted">Fechamentos das <span data-owner-term="bases_lower">bases</span></span>
-                    </div>
-                    <a href="tracking-bases-a-receber.html" class="btn btn-sm btn-link text-decoration-none px-0">Ver recebimentos <i class="ri-arrow-right-line align-middle" aria-hidden="true"></i></a>
-                  </div>
-                  <div class="card-body pt-2" id="contab-ledger-receber"></div>
-                </section>
-              </div>
-              <div class="col-lg-6">
-                <section class="card contab-panel h-100 mb-0" aria-labelledby="contab-pagar-titulo">
-                  <div class="card-header bg-transparent d-flex justify-content-between align-items-center gap-2">
-                    <div class="min-w-0">
-                      <h6 class="card-title mb-0" id="contab-pagar-titulo">A pagar</h6>
-                      <span class="small text-muted">Fechamentos de motoboys</span>
-                    </div>
-                    <a href="tracking-entregadores-a-pagar.html" class="btn btn-sm btn-link text-decoration-none px-0">Ver pagamentos <i class="ri-arrow-right-line align-middle" aria-hidden="true"></i></a>
-                  </div>
-                  <div class="card-body pt-2" id="contab-ledger-pagar"></div>
-                </section>
-              </div>
-            </div>
-
-            <!-- Demonstrativo -->
-            <section class="card contab-panel mb-4" aria-labelledby="contab-dre-titulo">
+            <!-- Balanço por status -->
+            <section class="card contab-panel mb-4" aria-labelledby="contab-balanco-titulo">
               <div class="card-header bg-transparent">
-                <h6 class="card-title mb-0" id="contab-dre-titulo">Demonstrativo do resultado</h6>
-                <span class="small text-muted">Valores pelo status de cada fechamento. Pendentes são estimados até o fechamento.</span>
+                <h6 class="card-title mb-0" id="contab-balanco-titulo">Balanço por status</h6>
+                <span class="small text-muted">Gerado e baixado usam o valor oficial dos fechamentos. Pendente é estimado até o fechamento ser gerado.</span>
               </div>
               <div class="card-body p-0">
                 <div class="table-responsive">
-                  <table class="table table-sm align-middle mb-0 contab-table contab-dre">
-                    <tbody id="container-dre"></tbody>
+                  <table class="table align-middle mb-0 contab-table contab-grade">
+                    <thead>
+                      <tr>
+                        <th scope="col" class="contab-grade-rotulo"><span class="visually-hidden">Lado</span></th>
+                        <th scope="col" class="text-end">
+                          <span class="badge bg-warning-subtle text-warning-emphasis">Pendente</span>
+                          <span class="contab-grade-nota">estimado</span>
+                        </th>
+                        <th scope="col" class="text-end">
+                          <span class="badge bg-success-subtle text-success">Gerado</span>
+                          <span class="contab-grade-nota">inclui reajustados</span>
+                        </th>
+                        <th scope="col" class="text-end">
+                          <span class="badge bg-primary-subtle text-primary">Recebido / Pago</span>
+                          <span class="contab-grade-nota">já baixado</span>
+                        </th>
+                        <th scope="col" class="text-end">
+                          Total
+                          <span class="contab-grade-nota">do período</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody id="contab-grade"></tbody>
                   </table>
                 </div>
               </div>
@@ -183,7 +173,7 @@
                 <section class="card contab-panel h-100 mb-0" aria-labelledby="contab-base-titulo">
                   <div class="card-header bg-transparent">
                     <h6 class="card-title mb-0" id="contab-base-titulo"><span data-owner-term="rentabilidade_por_base">Rentabilidade por Base</span></h6>
-                    <span class="small text-muted" data-owner-term="ranking_bases_lucro">Ranking de bases ordenado por lucro líquido</span>
+                    <span class="small text-muted">Ordenado pelo resultado do período</span>
                   </div>
                   <div class="card-body p-0">
                     <div class="table-responsive">
