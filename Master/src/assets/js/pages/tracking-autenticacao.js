@@ -531,12 +531,18 @@ async function sincronizarSeller(btn) {
             return;
         }
         const erros = (s.erros || []).length;
+        const foraCobertura = s.fora_cobertura || [];
         const linhas = [
             `Pendentes de coleta no Mercado Livre: ${s.pendentes || 0}`,
             `Novos pedidos importados: ${s.criados || 0}`,
             `Já existiam no sistema: ${s.ja_registrados || 0}`,
         ];
+        if (foraCobertura.length) linhas.push(`Fora da área de cobertura: ${foraCobertura.length}`);
         if (erros) linhas.push(`Não importados por erro: ${erros}`);
+        if (foraCobertura.length) {
+            mostrarForaCobertura(linhas, foraCobertura);
+            return;
+        }
         notificar(erros ? "warning" : "success", "Sincronização concluída", linhas.join("\n"));
     } catch (e) {
         notificar("error", "Erro", e.message || "Falha ao sincronizar.");
@@ -544,6 +550,38 @@ async function sincronizarSeller(btn) {
         btn.disabled = false;
         btn.innerHTML = original;
     }
+}
+
+function mostrarForaCobertura(linhas, pedidos) {
+    if (typeof Swal === "undefined") {
+        notificar("warning", "Sincronização concluída", linhas.join("\n"));
+        return;
+    }
+    const itens = pedidos.map((p) => {
+        const local = [p.cidade, p.estado].filter(Boolean).join("/");
+        const envio = p.pack_id || p.shipment_id;
+        return `<tr>
+            <td>${escapeHtml(p.comprador || "—")}</td>
+            <td class="text-nowrap">${escapeHtml(p.cep || "sem CEP")}</td>
+            <td>${escapeHtml(local || "—")}</td>
+            <td class="text-nowrap">${escapeHtml(envio != null ? String(envio) : "—")}</td>
+        </tr>`;
+    }).join("");
+    Swal.fire({
+        icon: "warning",
+        title: "Sincronização concluída",
+        width: 720,
+        html: `<div class="text-start">
+            <p class="mb-2">${linhas.map(escapeHtml).join("<br>")}</p>
+            <p class="mb-2 text-muted fs-13">Estes pedidos não foram importados porque o CEP do destinatário não é atendido pela base. Avise o seller.</p>
+            <div class="table-responsive" style="max-height: 280px;">
+                <table class="table table-sm table-striped align-middle mb-0 fs-13">
+                    <thead><tr><th>Comprador</th><th>CEP</th><th>Cidade</th><th>Nº do pedido</th></tr></thead>
+                    <tbody>${itens}</tbody>
+                </table>
+            </div>
+        </div>`,
+    });
 }
 
 // ───────────────────────── Conectar conta ─────────────────────────
@@ -576,22 +614,22 @@ async function gerarLink() {
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Gerando...';
     try {
         const subBase = (me && me.sub_base) ? String(me.sub_base).trim() : "";
-        let url;
+        let authUrl;
         if (platform === "ml") {
             if (!subBase) {
                 notificar("warning", "Sub-base não definida", "Seu usuário não tem sub-base. Ajuste o cadastro do usuário antes de conectar contas.");
                 return;
             }
-            url = `${API_BASE}/ml-int/connect?state=${encodeURIComponent(subBase)}`;
+            const res = await fetch(`${API_BASE}/ml-int/connect?state=${encodeURIComponent(subBase)}`, { credentials: "include" });
+            if (!res.ok) throw new Error(mensagemDoDetalhe(await lerErroDetalhe(res), "Erro ao gerar link."));
+            const data = await res.json();
+            authUrl = data.auth_url || data.url || "";
         } else {
-            url = subBase
-                ? `${API_BASE}/shopee/auth-url?state=${encodeURIComponent(subBase)}`
-                : `${API_BASE}/shopee/auth-url`;
+            // O link assinado da Shopee expira em minutos; este endpoint assina na hora do clique do seller.
+            const params = new URLSearchParams({ redirect: "1" });
+            if (subBase) params.set("state", subBase);
+            authUrl = new URL(`${API_BASE}/shopee/auth-url?${params.toString()}`, window.location.href).href;
         }
-        const res = await fetch(url, { credentials: "include" });
-        if (!res.ok) throw new Error(mensagemDoDetalhe(await lerErroDetalhe(res), "Erro ao gerar link."));
-        const data = await res.json();
-        const authUrl = data.auth_url || data.url || "";
         document.getElementById("authUrl").value = authUrl;
         document.getElementById("linkResult").classList.remove("d-none");
         document.getElementById("btnCopiarLink").focus();
