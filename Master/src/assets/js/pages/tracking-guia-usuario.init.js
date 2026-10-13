@@ -461,11 +461,11 @@
             },
             {
               title: "Gere todos ou um por vez",
-              text: "Gerar todos os pendentes cria os fechamentos sem ajustes. Bases com dias sem lançamento ou pacotes grandes de tamanho sem valor de cobrança ficam de fora: use Revisar e gerar na linha.",
+              text: "Gerar todos os pendentes cria os fechamentos sem ajustes. Bases com dias sem lançamento ou pacotes grandes de tamanho sem valor de cobrança ficam de fora: use Revisar e gerar na linha. Gerar individual permite escolher a base direto.",
             },
             {
               title: "Revise antes de gerar",
-              text: "No painel, resolva os dias sem lançamento (lance a coleta ou justifique), confira os dias e lance ajustes com motivo. O valor dos pacotes grandes vem das categorias de Preços de Entrega; se precisar, use Ajustar valor dos pacotes grandes.",
+              text: "No painel, justifique os dias sem lançamento (para lançar ou corrigir uma coleta, use Consultar Coletas), confira os dias e lance ajustes com motivo. O valor dos pacotes grandes vem das categorias de Preços de Entrega; se precisar, use Ajustar valor dos pacotes grandes.",
             },
             {
               title: "Reajuste quando as coletas mudarem",
