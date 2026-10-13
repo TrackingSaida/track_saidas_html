@@ -4,6 +4,23 @@
 <head>
     @@include("partials/title-meta.html", {"title": "Autenticação"})
     @@include("partials/head-css.html")
+    <style>
+        .auth-steps { counter-reset: passo; }
+        .auth-steps li { counter-increment: passo; display: flex; gap: .625rem; align-items: flex-start; }
+        .auth-steps li::before {
+            content: counter(passo);
+            flex: 0 0 1.5rem; height: 1.5rem; border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: .75rem; font-weight: 600;
+            background: var(--vz-primary-bg-subtle); color: var(--vz-primary);
+        }
+        #listaContas .conta-row { border-left: 3px solid transparent; transition: background-color .3s, border-color .3s; }
+        #listaContas .conta-row.conta-pendente { border-left-color: var(--vz-warning); }
+        #listaContas .conta-row.conta-alerta { border-left-color: var(--vz-danger); }
+        #listaContas .conta-row.conta-destaque { background-color: var(--vz-warning-bg-subtle); border-left-color: var(--vz-warning); }
+        .conta-plataforma { width: 2.5rem; height: 2.5rem; font-size: .8125rem; font-weight: 700; }
+        .conta-vinculo select { max-width: 280px; }
+    </style>
 </head>
 
 <body>
@@ -18,67 +35,75 @@
 
                 @@include("partials/page-title.html", {"pagetitle": "Cadastros", "title": "Autenticação", "withSubtitle": false, "ownerTerm": ""})
 
-                <!-- ======================= Gerar link de autenticação ======================= -->
-                <div class="card">
+                <!-- ======================= Conectar nova conta ======================= -->
+                <div class="card" id="cardConectar">
                     <div class="card-header">
-                        <h5 class="card-title mb-0">Gerar link de autenticação</h5>
+                        <h5 class="card-title mb-0">Conectar conta de marketplace</h5>
                     </div>
                     <div class="card-body">
-                        <p class="text-muted">Selecione a plataforma e gere o link para enviar ao seller. Após o seller autorizar, ele aparecerá na lista abaixo.</p>
-                        <div class="row align-items-end g-3">
-                            <div class="col-md-4">
-                                <label class="form-label">Plataforma</label>
-                                <select id="platform" class="form-select">
-                                    <option value="ml">Mercado Livre</option>
-                                    <option value="shopee">Shopee</option>
-                                </select>
+                        <div class="row g-4">
+                            <div class="col-lg-5">
+                                <ol class="auth-steps list-unstyled vstack gap-3 mb-0 text-muted">
+                                    <li><span>Gere o link e envie ao seller (WhatsApp ou e-mail).</span></li>
+                                    <li><span>O seller entra na conta dele e autoriza o acesso.</span></li>
+                                    <li><span>A conta aparece abaixo: escolha o <strong>seller cadastrado</strong> correspondente para importar os pedidos.</span></li>
+                                </ol>
                             </div>
-                            <div class="col-md-4">
-                                <button type="button" class="btn btn-primary" id="btnGerarLink">
-                                    <i class="ri-link align-bottom me-1"></i> Gerar link
-                                </button>
-                            </div>
-                        </div>
-                        <div id="linkResult" class="mt-3 d-none">
-                            <label class="form-label">Link gerado</label>
-                            <div class="input-group">
-                                <input type="text" id="authUrl" class="form-control" readonly>
-                                <button type="button" class="btn btn-outline-primary" id="btnCopiarLink" title="Copiar link">
-                                    <i class="ri-file-copy-line"></i> Copiar
-                                </button>
+                            <div class="col-lg-7">
+                                <label class="form-label d-block">Plataforma</label>
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <div class="btn-group" role="group" aria-label="Plataforma">
+                                        <input type="radio" class="btn-check" name="platform" id="platformMl" value="ml" autocomplete="off" checked>
+                                        <label class="btn btn-outline-primary" for="platformMl">Mercado Livre</label>
+                                        <input type="radio" class="btn-check" name="platform" id="platformShopee" value="shopee" autocomplete="off">
+                                        <label class="btn btn-outline-primary" for="platformShopee">Shopee</label>
+                                    </div>
+                                    <button type="button" class="btn btn-primary" id="btnGerarLink">
+                                        <i class="ri-link align-bottom me-1"></i> Gerar link
+                                    </button>
+                                </div>
+                                <div id="linkResult" class="mt-3 d-none">
+                                    <label class="form-label" for="authUrl">Link para o seller</label>
+                                    <div class="input-group">
+                                        <input type="text" id="authUrl" class="form-control" readonly>
+                                        <button type="button" class="btn btn-primary" id="btnCopiarLink">
+                                            <i class="ri-file-copy-line align-bottom me-1"></i> Copiar
+                                        </button>
+                                    </div>
+                                    <div class="form-text">Depois que o seller autorizar, clique em <strong>Atualizar</strong> na lista abaixo.</div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- ======================= Sellers conectados ======================= -->
+                <!-- ======================= Contas conectadas ======================= -->
                 <div class="card">
-                    <div class="card-header d-flex align-items-center justify-content-between">
-                        <h5 class="card-title mb-0">Sellers conectados</h5>
+                    <div class="card-header d-flex flex-wrap align-items-center gap-2">
+                        <h5 class="card-title mb-0 flex-grow-1">Contas conectadas</h5>
                         <button type="button" class="btn btn-soft-primary btn-sm" id="btnAtualizarLista">
                             <i class="ri-refresh-line align-bottom me-1"></i> Atualizar
                         </button>
                     </div>
-                    <div class="card-body">
-                        <div class="table-responsive table-card">
-                            <table class="table table-striped align-middle table-nowrap" id="tbl-sellers">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Plataforma</th>
-                                        <th>ID</th>
-                                        <th>Nome</th>
-                                        <th>Status</th>
-                                        <th>Data conexão</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbody-sellers"></tbody>
-                            </table>
+                    <div class="card-body border-bottom">
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Filtrar contas" id="filtrosContas">
+                                <input type="radio" class="btn-check" name="filtroContas" id="filtroTodas" value="todas" checked>
+                                <label class="btn btn-outline-secondary" for="filtroTodas">Todas <span class="badge bg-light text-body ms-1" data-contador="todas">0</span></label>
+                                <input type="radio" class="btn-check" name="filtroContas" id="filtroSemSeller" value="sem_seller">
+                                <label class="btn btn-outline-secondary" for="filtroSemSeller">Sem seller <span class="badge bg-warning-subtle text-warning ms-1" data-contador="sem_seller">0</span></label>
+                                <input type="radio" class="btn-check" name="filtroContas" id="filtroAtencao" value="atencao">
+                                <label class="btn btn-outline-secondary" for="filtroAtencao">Requer autorização <span class="badge bg-danger-subtle text-danger ms-1" data-contador="atencao">0</span></label>
+                            </div>
+                            <div class="search-box ms-md-auto" style="min-width:240px">
+                                <input type="search" class="form-control form-control-sm" id="buscaContas" placeholder="Buscar conta ou seller...">
+                                <i class="ri-search-line search-icon"></i>
+                            </div>
                         </div>
-                        <div id="emptySellers" class="text-center text-muted py-4 d-none">
-                            <lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop"
-                                colors="primary:#121331,secondary:#08a88a" style="width:60px;height:60px"></lord-icon>
-                            <div class="mt-2">Nenhum seller conectado nesta sub-base.</div>
-                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="listaContas" class="list-group list-group-flush" aria-live="polite"></div>
+                        <div id="estadoContas" class="text-center text-muted py-5 d-none"></div>
                     </div>
                 </div>
 
@@ -93,6 +118,7 @@
 @@include("partials/vendor-scripts.html")
 
 <script src="assets/js/pages/tracking-autenticacao.js"></script>
+<script src="assets/js/app.js"></script>
 
 </body>
 </html>

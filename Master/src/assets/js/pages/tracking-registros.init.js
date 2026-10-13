@@ -640,6 +640,7 @@ function augmentEntregadoresFromRows(rows){
     liberacao_ausencias: "Nova tentativa liberada pela operação",
     coleta: "Pacote coletado",
     criado_coleta: "Pacote coletado",
+    ml_int_sync: "Importado do Mercado Livre",
     reatribuido: "Entregador reatribuído",
     reatribuicao: "Entregador reatribuído",
     assumir: "Entregador reatribuído",
@@ -2055,6 +2056,18 @@ function setupPagerEvents() {
           "</div>";
       }
 
+      var mlPackId = saida.ml_pack_id || saida.ml_order_id || null;
+      var mlBlock = "";
+      if (saida.ml_shipment_id || mlPackId) {
+        mlBlock =
+          '<div class="pedido-section">' +
+            '<p class="section-title">Mercado Livre</p>' +
+            '<p class="small mb-1">Pack ID: ' + escapeHtml(mlPackId ? String(mlPackId) : "—") + "</p>" +
+            '<p class="small mb-1">Nº do envio: ' + escapeHtml(saida.ml_shipment_id ? String(saida.ml_shipment_id) : "—") + "</p>" +
+            '<p class="small mb-0">Seller: ' + escapeHtml(saida.base ? String(saida.base) : "—") + "</p>" +
+          "</div>";
+      }
+
       var podeAlterarTamanho = canEditG() && !statusJaEntregue && !statusJaCancelado;
       var tamanhoBlock = "";
       if (saida.is_grande || podeAlterarTamanho) {
@@ -2114,6 +2127,7 @@ function setupPagerEvents() {
           acoesHtml +
           tamanhoBlock +
           destinoBlock +
+          mlBlock +
           entregaBlock +
           avulsoHtml +
           '<div class="pedido-section">' +
