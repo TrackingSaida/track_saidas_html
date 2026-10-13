@@ -3675,14 +3675,40 @@ function updateSummaryCards(res) {
     return n;
   };
 
-  if (typeof res.sumShopee === 'number') sumShopeeEl.textContent = res.sumShopee;
-  else if (res.total === rows.length) sumShopeeEl.textContent = compute(rows, 'shopee');
+  const completo = res.total === rows.length;
+  const valor = (soma, nome) => (typeof soma === 'number' ? soma : (completo ? compute(rows, nome) : null));
+  const fmt = (n) => Number(n || 0).toLocaleString('pt-BR');
 
-  if (typeof res.sumMercado === 'number') sumMercadoEl.textContent = res.sumMercado;
-  else if (res.total === rows.length) sumMercadoEl.textContent = compute(rows, 'mercado');
+  const total = Number(res.total ?? rows.length ?? 0) || 0;
+  const servicos = [
+    { el: sumShopeeEl, chave: 'shopee', nome: 'Shopee', n: valor(res.sumShopee, 'shopee') },
+    { el: sumMercadoEl, chave: 'ml', nome: 'Mercado Livre', n: valor(res.sumMercado, 'mercado') },
+    { el: sumAvulsoEl, chave: 'avulso', nome: 'Avulso', n: valor(res.sumAvulso, 'avulso') },
+  ];
+  const pct = (n) => (total > 0 && n != null ? Math.round((n / total) * 100) : null);
 
-  if (typeof res.sumAvulso === 'number') sumAvulsoEl.textContent = res.sumAvulso;
-  else if (res.total === rows.length) sumAvulsoEl.textContent = compute(rows, 'avulso');
+  servicos.forEach((s) => {
+    if (s.n != null) s.el.textContent = fmt(s.n);
+    const p = pct(s.n);
+    const txt = document.querySelector('#pct-' + s.chave);
+    const bar = document.querySelector('#bar-' + s.chave);
+    if (txt) txt.textContent = p == null ? '—' : p + '% do total';
+    if (bar) bar.style.width = (p == null ? 0 : Math.min(100, (s.n / total) * 100)) + '%';
+  });
 
-  sumTotalEl.textContent   = res.total ?? rows.length ?? 0;
+  sumTotalEl.textContent = fmt(total);
+
+  const mix = document.querySelector('#mix-total');
+  if (mix) {
+    const partes = servicos.filter((s) => s.n != null && total > 0);
+    servicos.forEach((s) => {
+      const seg = mix.querySelector('.rs-mix--' + s.chave);
+      if (seg) seg.style.width = (s.n != null && total > 0 ? (s.n / total) * 100 : 0) + '%';
+    });
+    const descricao = partes.length
+      ? 'Distribuição: ' + partes.map((s) => s.nome + ' ' + pct(s.n) + '%').join(', ')
+      : 'Sem pacotes no período';
+    mix.setAttribute('aria-label', descricao);
+    mix.title = descricao;
+  }
 }
