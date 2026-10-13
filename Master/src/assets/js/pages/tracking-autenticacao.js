@@ -314,8 +314,8 @@ function contaHtml(row, donos) {
                     <span class="badge ${st.classe}">${escapeHtml(st.texto)}</span>
                     ${precisaAutorizacao(row) ? `<div><button type="button" class="btn btn-link btn-sm p-0 mt-1" data-reautorizar="${row.platform === "shopee" ? "shopee" : "ml"}">Gerar novo link</button></div>` : ""}
                 </div>
-                <div class="col-lg-4 conta-vinculo">${vinculoHtml(row, donos)}</div>
-                <div class="col-lg-2 text-lg-end">${acoesHtml(row)}</div>
+                <div class="col-lg-3 conta-vinculo">${vinculoHtml(row, donos)}</div>
+                <div class="col-lg-3 text-lg-end">${acoesHtml(row)}</div>
             </div>
         </div>`;
 }
@@ -353,7 +353,7 @@ function acoesHtml(row) {
     const titulo = row.id_base == null
         ? "Vincule um seller para importar os pedidos"
         : (row.status !== "conectado" ? "A conta precisa ser autorizada novamente" : "Importar agora os pedidos Flex pendentes de coleta");
-    return `<button type="button" class="btn btn-soft-primary btn-sm" data-ml-sync="${escapeHtml(String(row.user_id_ml))}" title="${escapeHtml(titulo)}"${podeSync ? "" : " disabled"}>
+    return `<button type="button" class="btn btn-soft-primary btn-sm text-nowrap" data-ml-sync="${escapeHtml(String(row.user_id_ml))}" title="${escapeHtml(titulo)}"${podeSync ? "" : " disabled"}>
         <i class="ri-download-cloud-2-line align-bottom me-1"></i> Sincronizar agora
     </button>`;
 }
