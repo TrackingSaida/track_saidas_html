@@ -49,6 +49,132 @@ function initPage() {
     document.getElementById("btnGerarLink").addEventListener("click", gerarLink);
     document.getElementById("btnCopiarLink").addEventListener("click", copiarLink);
     document.getElementById("btnAtualizarLista").addEventListener("click", () => loadSellers());
+
+    const tbody = document.getElementById("tbody-sellers");
+    tbody.addEventListener("change", (ev) => {
+        const sel = ev.target.closest("select[data-ml-vinculo]");
+        if (sel) salvarVinculo(sel);
+    });
+    tbody.addEventListener("click", (ev) => {
+        const btn = ev.target.closest("button[data-ml-sync]");
+        if (btn) sincronizarSeller(btn);
+    });
+}
+
+function notificar(icon, title, text) {
+    if (typeof Swal !== "undefined") {
+        const multilinha = String(text || "").indexOf("\n") >= 0;
+        Swal.fire({
+            icon,
+            title,
+            ...(multilinha ? { html: String(text).split("\n").map(escapeHtml).join("<br>") } : { text }),
+            timer: icon === "success" && !multilinha ? 2500 : undefined,
+            showConfirmButton: icon !== "success" || multilinha,
+        });
+    } else {
+        alert(text ? `${title}\n${text}` : title);
+    }
+}
+
+async function lerErro(res, fallback) {
+    const err = await res.json().catch(() => ({}));
+    const d = err && err.detail;
+    if (typeof d === "string" && d.trim()) return d.trim();
+    if (d && typeof d.message === "string") return d.message;
+    return fallback;
+}
+
+async function salvarVinculo(sel) {
+    const userIdMl = sel.getAttribute("data-ml-vinculo");
+    const anterior = sel.getAttribute("data-atual") || "";
+    const valor = sel.value;
+    sel.disabled = true;
+    try {
+        const res = await fetch(`${API_BASE}/ml-int/sellers/${encodeURIComponent(userIdMl)}/vinculo`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id_base: valor ? Number(valor) : null }),
+        });
+        if (!res.ok) throw new Error(await lerErro(res, "Não foi possível salvar o vínculo."));
+        const data = await res.json();
+        notificar(
+            "success",
+            data.base_nome ? "Seller vinculado" : "Vínculo removido",
+            data.base_nome ? `Pedidos desta conta serão importados como "${data.base_nome}".` : "Os pedidos desta conta não serão importados."
+        );
+        loadSellers();
+    } catch (e) {
+        sel.value = anterior;
+        sel.disabled = false;
+        notificar("error", "Erro", e.message || "Falha ao salvar o vínculo.");
+    }
+}
+
+async function sincronizarSeller(btn) {
+    const userIdMl = btn.getAttribute("data-ml-sync");
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sincronizando...';
+    try {
+        const res = await fetch(`${API_BASE}/ml-int/sync-envios?user_id_ml=${encodeURIComponent(userIdMl)}`, {
+            method: "POST",
+            credentials: "include",
+        });
+        if (!res.ok) throw new Error(await lerErro(res, "Falha ao sincronizar."));
+        const data = await res.json();
+        const s = (data.sellers || [])[0] || {};
+        const motivos = {
+            sem_vinculo: "Conta não associada a um seller.",
+            requer_reautorizacao: "A conta precisa ser autorizada novamente no Mercado Livre.",
+            erro_conexao: "Não foi possível acessar a conta no Mercado Livre.",
+            erro_api_ml: "O Mercado Livre não respondeu. Tente novamente em instantes.",
+        };
+        if (s.motivo) {
+            notificar("warning", "Sincronização não concluída", motivos[s.motivo] || "Tente novamente.");
+            return;
+        }
+        const erros = (s.erros || []).length;
+        const linhas = [
+            `Pendentes de coleta no Mercado Livre: ${s.pendentes || 0}`,
+            `Novos pedidos importados: ${s.criados || 0}`,
+            `Já existiam no sistema: ${s.ja_registrados || 0}`,
+        ];
+        if (erros) linhas.push(`Não importados por erro: ${erros}`);
+        notificar(erros ? "warning" : "success", "Sincronização concluída", linhas.join("\n"));
+    } catch (e) {
+        notificar("error", "Erro", e.message || "Falha ao sincronizar.");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = original;
+    }
+}
+
+function vinculoCellHtml(row, bases) {
+    if (row.platform !== "mercado_livre") return "—";
+    const atual = row.id_base != null ? String(row.id_base) : "";
+    const opcoes = bases.map(b => ({ id: String(b.id_base), nome: b.base || `#${b.id_base}` }));
+    if (atual && !opcoes.some(o => o.id === atual)) {
+        opcoes.unshift({ id: atual, nome: row.base_nome || `#${atual}` });
+    }
+    const options = ['<option value="">Não associado</option>']
+        .concat(opcoes.map(o => `<option value="${escapeHtml(o.id)}"${o.id === atual ? " selected" : ""}>${escapeHtml(o.nome)}</option>`))
+        .join("");
+    const aviso = atual
+        ? ""
+        : '<div class="small text-warning mt-1">Não associado — pedidos não serão importados</div>';
+    return `<select class="form-select form-select-sm" style="min-width:180px" data-ml-vinculo="${escapeHtml(String(row.user_id_ml))}" data-atual="${escapeHtml(atual)}">${options}</select>${aviso}`;
+}
+
+function acoesCellHtml(row) {
+    if (row.platform !== "mercado_livre") return "—";
+    const podeSync = row.id_base != null && row.status === "conectado";
+    const titulo = row.id_base == null
+        ? "Associe a um seller para importar os pedidos"
+        : (row.status !== "conectado" ? "A conta precisa ser autorizada novamente" : "Importar agora os pedidos Flex pendentes de coleta");
+    return `<button type="button" class="btn btn-soft-primary btn-sm" data-ml-sync="${escapeHtml(String(row.user_id_ml))}" title="${escapeHtml(titulo)}"${podeSync ? "" : " disabled"}>
+        <i class="ri-download-cloud-2-line align-bottom me-1"></i> Sincronizar agora
+    </button>`;
 }
 
 /** Verifica se o usuário voltou da página de sucesso do ML ou Shopee e atualiza a lista. */
@@ -160,13 +286,15 @@ async function loadSellers() {
     tbody.innerHTML = "";
 
     try {
-        const [mlIntRes, shopeeRes] = await Promise.all([
+        const [mlIntRes, shopeeRes, basesRes] = await Promise.all([
             fetch(`${API_BASE}/ml-int/sellers`, { credentials: "include" }),
-            fetch(`${API_BASE}/shopee/sellers`, { credentials: "include" })
+            fetch(`${API_BASE}/shopee/sellers`, { credentials: "include" }),
+            fetch(`${API_BASE}/base/?status=ativo`, { credentials: "include" })
         ]);
 
         const mlIntList = mlIntRes.ok ? await mlIntRes.json() : [];
         const shopeeList = shopeeRes.ok ? await shopeeRes.json() : [];
+        const basesAtivas = basesRes.ok ? await basesRes.json() : [];
 
         const mlWithPlatform = mlIntList.map(x => ({ ...x, platform: "mercado_livre", _sort: x.criado_em || "" }));
         const shopeeWithPlatform = shopeeList.map(x => ({ ...x, platform: "shopee", _sort: x.criado_em || "" }));
@@ -214,6 +342,8 @@ async function loadSellers() {
                 <td>${escapeHtml(nickname) || "—"}</td>
                 <td><span class="badge bg-${badgeClass}">${escapeHtml(status)}</span></td>
                 <td>${escapeHtml(dataConexao)}</td>
+                <td>${vinculoCellHtml(row, basesAtivas)}</td>
+                <td>${acoesCellHtml(row)}</td>
             `;
             tbody.appendChild(tr);
         });

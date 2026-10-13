@@ -48,8 +48,8 @@
     excluir_base: { subbase: "Excluir base?", base: "Excluir seller?" },
     buscar_por_base: { subbase: "Buscar por base...", base: "Buscar por seller..." },
     buscar_codigo_entregador_base: {
-      subbase: "Buscar por código, entregador ou base...",
-      base: "Buscar por código, entregador ou seller...",
+      subbase: "Buscar por código, comprador, endereço, entregador ou base...",
+      base: "Buscar por código, comprador, endereço, entregador ou seller...",
     },
     nenhuma_base_encontrada: { subbase: "Nenhuma base encontrada.", base: "Nenhum seller encontrado." },
     nenhuma_base_ativa: {

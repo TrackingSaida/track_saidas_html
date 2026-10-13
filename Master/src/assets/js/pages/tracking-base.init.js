@@ -184,10 +184,15 @@ async function apiDelete(id) {
   function buildRow(b) {
     const ativoChecked = b.ativo ? "checked" : "";
     const id = b.id_base || b.id;
+    const mlContas = Array.isArray(b.ml_contas) ? b.ml_contas : [];
+    const mlNomes = mlContas.map(c => escapeHtmlPortal(c.nickname || String(c.user_id_ml || ""))).join(", ");
+    const mlHtml = mlContas.length
+      ? `<div class="small text-muted">Mercado Livre: ${mlNomes} · <a href="tracking-autenticacao.html">Gerenciar em Autenticação</a></div>`
+      : "";
     return `
       <tr class="row-selectable" data-id="${id}">
         <td class="text-center"><input class="form-check-input sel-row" type="radio" name="sel-base" value="${id}"></td>
-        <td>${b.base || "-"}</td>
+        <td>${b.base || "-"}${mlHtml}</td>
         <td class="text-end">R$ ${Number(b.ml).toFixed(2).replace(".", ",")}</td>
         <td class="text-end">R$ ${Number(b.shopee).toFixed(2).replace(".", ",")}</td>
         <td class="text-end">R$ ${Number(b.avulso).toFixed(2).replace(".", ",")}</td>
