@@ -1,7 +1,8 @@
 /**
- * Página Autenticação — conectar contas (ML Int / Shopee), vincular conta ML ao seller cadastrado e sincronizar.
+ * Página Autenticação — conectar contas (ML Int / Shopee), vincular a conta ao seller cadastrado e sincronizar.
  * ML: /api/ml-int/connect?state=sub_base, /api/ml-int/sellers, PATCH /api/ml-int/sellers/{id}/vinculo, POST /api/ml-int/sync-envios.
- * Cada seller cadastrado aceita uma única conta ML; o backend responde 409 (code seller_ja_vinculado) se já houver outra.
+ * Shopee: /api/shopee/auth-url?redirect=1, /api/shopee/sellers, PATCH /api/shopee/sellers/{shop_id}/vinculo, POST /api/shopee/sync-envios.
+ * Cada seller cadastrado aceita uma única conta por plataforma; o backend responde 409 (code seller_ja_vinculado) se já houver outra.
  * Ao voltar da autenticação (query ml=ok / shopee=ok), atualiza a lista e mostra feedback.
  * Acesso: role 0 (root) sempre; role 1 (admin) só quando tipo_owner === "base".
  */
@@ -18,8 +19,14 @@ const state = {
 };
 
 const PLATAFORMA = {
-    mercado_livre: { nome: "Mercado Livre", sigla: "ML", classe: "bg-warning-subtle text-warning" },
-    shopee: { nome: "Shopee", sigla: "SH", classe: "bg-danger-subtle text-danger" },
+    mercado_livre: {
+        nome: "Mercado Livre", sigla: "ML", classe: "bg-warning-subtle text-warning",
+        idKey: "user_id_ml", rota: "ml-int", artigo: "do", tipoPedido: "Flex",
+    },
+    shopee: {
+        nome: "Shopee", sigla: "SH", classe: "bg-danger-subtle text-danger",
+        idKey: "shop_id", rota: "shopee", artigo: "da", tipoPedido: "Entrega Direta",
+    },
 };
 
 const STATUS = {
@@ -91,11 +98,11 @@ function initPage() {
 
     const lista = document.getElementById("listaContas");
     lista.addEventListener("change", (ev) => {
-        const sel = ev.target.closest("select[data-ml-vinculo]");
+        const sel = ev.target.closest("select[data-vinculo]");
         if (sel) aoTrocarVinculo(sel);
     });
     lista.addEventListener("click", (ev) => {
-        const btnSync = ev.target.closest("button[data-ml-sync]");
+        const btnSync = ev.target.closest("button[data-sync]");
         if (btnSync) return sincronizarSeller(btnSync);
         const btnReauth = ev.target.closest("button[data-reautorizar]");
         if (btnReauth) return irParaGerarLink(btnReauth.getAttribute("data-reautorizar"));
@@ -164,13 +171,21 @@ function nomeDaBase(idBase) {
     return b ? (b.base || `#${b.id_base}`) : null;
 }
 
-/** Mapa id_base → conta ML que já usa o seller. */
+/** Mapa "plataforma:id_base" → conta que já usa o seller naquela plataforma. */
 function donosDosSellers() {
     const mapa = new Map();
     state.contas.forEach(c => {
-        if (c.platform === "mercado_livre" && c.id_base != null) mapa.set(String(c.id_base), c);
+        if (c.id_base != null) mapa.set(`${c.platform}:${c.id_base}`, c);
     });
     return mapa;
+}
+
+function chaveConta(row) {
+    return `${row.platform}:${idDaConta(row)}`;
+}
+
+function contaPorChave(chave) {
+    return state.contas.find(c => chaveConta(c) === chave);
 }
 
 function precisaAutorizacao(row) {
@@ -178,7 +193,7 @@ function precisaAutorizacao(row) {
 }
 
 function semSeller(row) {
-    return row.platform === "mercado_livre" && row.id_base == null;
+    return row.id_base == null;
 }
 
 // ───────────────────────── Carregamento e render ─────────────────────────
@@ -298,7 +313,7 @@ function contaHtml(row, donos) {
         conectadaEm = isNaN(d) ? "" : ` · conectada em ${d.toLocaleDateString("pt-BR")}`;
     }
     const classeLinha = precisaAutorizacao(row) ? "conta-alerta" : (semSeller(row) ? "conta-pendente" : "");
-    const chave = `${row.platform}:${idDaConta(row)}`;
+    const chave = chaveConta(row);
 
     return `
         <div class="list-group-item py-3 conta-row ${classeLinha}" data-conta="${escapeHtml(chave)}">
@@ -321,9 +336,8 @@ function contaHtml(row, donos) {
 }
 
 function vinculoHtml(row, donos) {
-    if (row.platform !== "mercado_livre") {
-        return '<span class="small text-muted">Importação de pedidos disponível só para Mercado Livre</span>';
-    }
+    if (!PLATAFORMA[row.platform]) return "";
+    const chave = chaveConta(row);
     const atual = row.id_base != null ? String(row.id_base) : "";
     const opcoes = state.bases.map(b => ({ id: String(b.id_base), nome: b.base || `#${b.id_base}` }));
     if (atual && !opcoes.some(o => o.id === atual)) {
@@ -331,29 +345,30 @@ function vinculoHtml(row, donos) {
     }
     const options = ['<option value="">Não associado</option>']
         .concat(opcoes.map(o => {
-            const dono = donos.get(o.id);
-            const ocupado = dono && String(dono.user_id_ml) !== String(row.user_id_ml);
+            const dono = donos.get(`${row.platform}:${o.id}`);
+            const ocupado = dono && chaveConta(dono) !== chave;
             const rotulo = ocupado ? `${o.nome} — vinculado a ${nickDaConta(dono)}` : o.nome;
-            return `<option value="${escapeHtml(o.id)}"${o.id === atual ? " selected" : ""}${ocupado ? ` data-dono="${escapeHtml(String(dono.user_id_ml))}"` : ""}>${escapeHtml(rotulo)}</option>`;
+            return `<option value="${escapeHtml(o.id)}"${o.id === atual ? " selected" : ""}${ocupado ? ` data-dono="${escapeHtml(chaveConta(dono))}"` : ""}>${escapeHtml(rotulo)}</option>`;
         }))
         .join("");
-    const idSelect = `vinculo-${escapeHtml(String(row.user_id_ml))}`;
+    const idSelect = `vinculo-${escapeHtml(chave.replace(":", "-"))}`;
     const aviso = atual
         ? '<div class="small text-success mt-1"><i class="ri-checkbox-circle-line align-bottom me-1"></i>Pedidos importados com este seller</div>'
         : '<div class="small text-warning mt-1"><i class="ri-error-warning-line align-bottom me-1"></i>Sem seller — os pedidos desta conta não são importados</div>';
     return `
         <label class="form-label small text-muted mb-1" for="${idSelect}">Seller vinculado</label>
-        <select class="form-select form-select-sm" id="${idSelect}" data-ml-vinculo="${escapeHtml(String(row.user_id_ml))}" data-atual="${escapeHtml(atual)}">${options}</select>
+        <select class="form-select form-select-sm" id="${idSelect}" data-vinculo="${escapeHtml(chave)}" data-atual="${escapeHtml(atual)}">${options}</select>
         ${aviso}`;
 }
 
 function acoesHtml(row) {
-    if (row.platform !== "mercado_livre") return "";
+    const plat = PLATAFORMA[row.platform];
+    if (!plat) return "";
     const podeSync = row.id_base != null && row.status === "conectado";
     const titulo = row.id_base == null
         ? "Vincule um seller para importar os pedidos"
-        : (row.status !== "conectado" ? "A conta precisa ser autorizada novamente" : "Importar agora os pedidos Flex pendentes de coleta");
-    return `<button type="button" class="btn btn-soft-primary btn-sm text-nowrap" data-ml-sync="${escapeHtml(String(row.user_id_ml))}" title="${escapeHtml(titulo)}"${podeSync ? "" : " disabled"}>
+        : (row.status !== "conectado" ? "A conta precisa ser autorizada novamente" : `Importar agora os pedidos ${plat.tipoPedido} pendentes de coleta`);
+    return `<button type="button" class="btn btn-soft-primary btn-sm text-nowrap" data-sync="${escapeHtml(chaveConta(row))}" title="${escapeHtml(titulo)}"${podeSync ? "" : " disabled"}>
         <i class="ri-download-cloud-2-line align-bottom me-1"></i> Sincronizar agora
     </button>`;
 }
@@ -366,13 +381,13 @@ function limparFiltros() {
     renderContas();
 }
 
-function destacarConta(userIdMl) {
+function destacarConta(chave) {
     if (state.filtro !== "todas" || state.busca) limparFiltros();
-    const el = document.querySelector(`[data-conta="mercado_livre:${CSS.escape(String(userIdMl))}"]`);
+    const el = document.querySelector(`[data-conta="${CSS.escape(chave)}"]`);
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     el.classList.add("conta-destaque");
-    const sel = el.querySelector("select[data-ml-vinculo]");
+    const sel = el.querySelector("select[data-vinculo]");
     if (sel) setTimeout(() => sel.focus(), 400);
     setTimeout(() => el.classList.remove("conta-destaque"), 3500);
 }
@@ -388,20 +403,21 @@ function irParaGerarLink(plataforma) {
     setTimeout(() => document.getElementById("btnGerarLink").focus(), 400);
 }
 
-// ───────────────────────── Vínculo conta ML ↔ seller ─────────────────────────
+// ───────────────────────── Vínculo conta ↔ seller ─────────────────────────
 
-async function alertarSellerOcupado({ baseNome, nickDono, userIdDono }) {
+async function alertarSellerOcupado({ baseNome, nickDono, chaveDono, platform }) {
+    const plat = PLATAFORMA[platform] || PLATAFORMA.mercado_livre;
     const nick = escapeHtml(nickDono);
     const base = escapeHtml(baseNome);
     if (typeof Swal === "undefined") {
-        alert(`O seller "${baseNome}" já está vinculado à conta ${nickDono}. Desvincule essa conta (Não associado) antes de vincular a esta.`);
+        alert(`O seller "${baseNome}" já está vinculado à conta ${nickDono} ${plat.artigo} ${plat.nome}. Desvincule essa conta (Não associado) antes de vincular a esta.`);
         return;
     }
     const r = await Swal.fire({
         icon: "warning",
         title: "Seller já vinculado",
         html: `
-            <p class="mb-3">O seller <strong>${base}</strong> já está vinculado à conta <strong>${nick}</strong> do Mercado Livre. Cada seller aceita apenas uma conta.</p>
+            <p class="mb-3">O seller <strong>${base}</strong> já está vinculado à conta <strong>${nick}</strong> ${plat.artigo} ${escapeHtml(plat.nome)}. Cada seller aceita apenas uma conta ${plat.artigo} ${escapeHtml(plat.nome)}.</p>
             <div class="text-start bg-light rounded p-3 small">
                 <div class="fw-semibold mb-2">Para vincular o seller correto:</div>
                 <ol class="mb-0 ps-3">
@@ -415,7 +431,7 @@ async function alertarSellerOcupado({ baseNome, nickDono, userIdDono }) {
         customClass: { confirmButton: "btn btn-primary me-2", cancelButton: "btn btn-light" },
         buttonsStyling: false,
     });
-    if (r.isConfirmed && userIdDono != null) destacarConta(userIdDono);
+    if (r.isConfirmed && chaveDono) destacarConta(chaveDono);
 }
 
 async function confirmarDesvinculo(nick, baseNome) {
@@ -436,40 +452,43 @@ async function confirmarDesvinculo(nick, baseNome) {
 }
 
 async function aoTrocarVinculo(sel) {
-    const userIdMl = sel.getAttribute("data-ml-vinculo");
+    const chave = sel.getAttribute("data-vinculo");
     const anterior = sel.getAttribute("data-atual") || "";
     const valor = sel.value;
-    const conta = state.contas.find(c => c.platform === "mercado_livre" && String(c.user_id_ml) === String(userIdMl));
-    const nick = conta ? nickDaConta(conta) : userIdMl;
+    const conta = contaPorChave(chave);
+    if (!conta) return;
+    const nick = nickDaConta(conta);
 
     const opt = sel.selectedOptions[0];
-    const donoId = opt ? opt.getAttribute("data-dono") : null;
-    if (donoId) {
+    const chaveDono = opt ? opt.getAttribute("data-dono") : null;
+    if (chaveDono) {
         sel.value = anterior;
-        const dono = state.contas.find(c => c.platform === "mercado_livre" && String(c.user_id_ml) === donoId);
+        const dono = contaPorChave(chaveDono);
         await alertarSellerOcupado({
             baseNome: nomeDaBase(valor) || `#${valor}`,
-            nickDono: dono ? nickDaConta(dono) : donoId,
-            userIdDono: donoId,
+            nickDono: dono ? nickDaConta(dono) : chaveDono,
+            chaveDono,
+            platform: conta.platform,
         });
         return;
     }
 
     if (!valor && anterior) {
-        const ok = await confirmarDesvinculo(nick, (conta && conta.base_nome) || nomeDaBase(anterior) || `#${anterior}`);
+        const ok = await confirmarDesvinculo(nick, conta.base_nome || nomeDaBase(anterior) || `#${anterior}`);
         if (!ok) {
             sel.value = anterior;
             return;
         }
     }
 
-    await salvarVinculo(sel, userIdMl, valor, anterior);
+    await salvarVinculo(sel, conta, valor, anterior);
 }
 
-async function salvarVinculo(sel, userIdMl, valor, anterior) {
+async function salvarVinculo(sel, conta, valor, anterior) {
+    const plat = PLATAFORMA[conta.platform];
     sel.disabled = true;
     try {
-        const res = await fetch(`${API_BASE}/ml-int/sellers/${encodeURIComponent(userIdMl)}/vinculo`, {
+        const res = await fetch(`${API_BASE}/${plat.rota}/sellers/${encodeURIComponent(idDaConta(conta))}/vinculo`, {
             method: "PATCH",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
@@ -480,10 +499,12 @@ async function salvarVinculo(sel, userIdMl, valor, anterior) {
             sel.value = anterior;
             sel.disabled = false;
             if (res.status === 409 && detalhe && detalhe.code === "seller_ja_vinculado") {
+                const idDono = detalhe[plat.idKey];
                 await alertarSellerOcupado({
                     baseNome: detalhe.base_nome || nomeDaBase(valor) || `#${valor}`,
-                    nickDono: detalhe.nickname || String(detalhe.user_id_ml),
-                    userIdDono: detalhe.user_id_ml,
+                    nickDono: detalhe.nickname || String(idDono),
+                    chaveDono: idDono != null ? `${conta.platform}:${idDono}` : null,
+                    platform: conta.platform,
                 });
                 loadSellers();
                 return;
@@ -508,23 +529,27 @@ async function salvarVinculo(sel, userIdMl, valor, anterior) {
 // ───────────────────────── Sincronização ─────────────────────────
 
 async function sincronizarSeller(btn) {
-    const userIdMl = btn.getAttribute("data-ml-sync");
+    const conta = contaPorChave(btn.getAttribute("data-sync"));
+    if (!conta) return;
+    const plat = PLATAFORMA[conta.platform];
     const original = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sincronizando...';
     try {
-        const res = await fetch(`${API_BASE}/ml-int/sync-envios?user_id_ml=${encodeURIComponent(userIdMl)}`, {
+        const res = await fetch(`${API_BASE}/${plat.rota}/sync-envios?${plat.idKey}=${encodeURIComponent(idDaConta(conta))}`, {
             method: "POST",
             credentials: "include",
         });
         if (!res.ok) throw new Error(mensagemDoDetalhe(await lerErroDetalhe(res), "Falha ao sincronizar."));
         const data = await res.json();
         const s = (data.sellers || [])[0] || {};
+        const naPlataforma = `${plat.artigo === "do" ? "no" : "na"} ${plat.nome}`;
         const motivos = {
             sem_vinculo: "Conta não associada a um seller.",
-            requer_reautorizacao: "A conta precisa ser autorizada novamente no Mercado Livre.",
-            erro_conexao: "Não foi possível acessar a conta no Mercado Livre.",
+            requer_reautorizacao: `A conta precisa ser autorizada novamente ${naPlataforma}.`,
+            erro_conexao: `Não foi possível acessar a conta ${naPlataforma}.`,
             erro_api_ml: "O Mercado Livre não respondeu. Tente novamente em instantes.",
+            erro_api_shopee: "A Shopee não respondeu. Tente novamente em instantes.",
         };
         if (s.motivo) {
             notificar("warning", "Sincronização não concluída", motivos[s.motivo] || "Tente novamente.");
@@ -533,10 +558,11 @@ async function sincronizarSeller(btn) {
         const erros = (s.erros || []).length;
         const foraCobertura = s.fora_cobertura || [];
         const linhas = [
-            `Pendentes de coleta no Mercado Livre: ${s.pendentes || 0}`,
+            `Pendentes de coleta ${naPlataforma}: ${s.pendentes || 0}`,
             `Novos pedidos importados: ${s.criados || 0}`,
             `Já existiam no sistema: ${s.ja_registrados || 0}`,
         ];
+        if (s.sem_rastreio) linhas.push(`Aguardando etiqueta do seller (entram na próxima sincronização): ${s.sem_rastreio}`);
         if (foraCobertura.length) linhas.push(`Fora da área de cobertura: ${foraCobertura.length}`);
         if (erros) linhas.push(`Não importados por erro: ${erros}`);
         if (foraCobertura.length) {
@@ -559,7 +585,7 @@ function mostrarForaCobertura(linhas, pedidos) {
     }
     const itens = pedidos.map((p) => {
         const local = [p.cidade, p.estado].filter(Boolean).join("/");
-        const envio = p.pack_id || p.shipment_id;
+        const envio = p.pack_id || p.order_sn || p.shipment_id;
         return `<tr>
             <td>${escapeHtml(p.comprador || "—")}</td>
             <td class="text-nowrap">${escapeHtml(p.cep || "sem CEP")}</td>
@@ -591,7 +617,7 @@ function checkReturnFromAuth() {
     const params = new URLSearchParams(window.location.search);
     const retornos = [
         { chave: "ml", texto: "A conta foi autorizada. Agora escolha o seller cadastrado dela na lista abaixo." },
-        { chave: "shopee", texto: "A conta Shopee foi autorizada e já aparece na lista abaixo." },
+        { chave: "shopee", texto: "A loja Shopee foi autorizada. Agora escolha o seller cadastrado dela na lista abaixo." },
     ];
     retornos.forEach(({ chave, texto }) => {
         if (params.get(chave) !== "ok") return;
