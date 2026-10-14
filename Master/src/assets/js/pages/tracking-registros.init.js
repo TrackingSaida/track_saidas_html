@@ -642,6 +642,7 @@ function augmentEntregadoresFromRows(rows){
     criado_coleta: "Pacote coletado",
     ml_int_sync: "Importado do Mercado Livre",
     shopee_int_sync: "Importado da Shopee",
+    cancelado_plataforma: "Cancelado na plataforma: verificar devolução",
     reatribuido: "Entregador reatribuído",
     reatribuicao: "Entregador reatribuído",
     assumir: "Entregador reatribuído",
@@ -1442,11 +1443,17 @@ function setupPagerEvents() {
             throw new Error("Erro ao gerar etiqueta");
           });
         }
-        return res.blob();
+        var aviso = res.headers.get("X-Etiqueta-Aviso") || "";
+        return res.blob().then(function(blob) {
+          return { blob: blob, aviso: aviso };
+        });
       })
-      .then(function(blob) {
-        var url = URL.createObjectURL(blob);
+      .then(function(out) {
+        var url = URL.createObjectURL(out.blob);
         window.open(url, "_blank");
+        if (out.aviso === "qr_ml_incompleto") {
+          notify("A etiqueta oficial do Mercado Livre ainda não está disponível. O QR saiu só com o número do envio; leia a etiqueta original na coleta ou gere de novo mais tarde.", "warning");
+        }
       })
       .catch(function(err) {
         notify(err.message || "Falha ao gerar etiqueta.", "error");
@@ -1703,7 +1710,9 @@ function setupPagerEvents() {
     });
 
     return historico.map(function(item, index) {
-      var title = labelEventoHistorico(item.evento, item.acao_label);
+      var title = item.plataforma && item.acao_label
+        ? String(item.acao_label)
+        : labelEventoHistorico(item.evento, item.acao_label);
       var dateLine = fmtDt(item.timestamp);
       var whoLine = item.usuario_nome
         ? ("Registrado por " + escapeHtml(item.usuario_nome))
@@ -2059,9 +2068,19 @@ function setupPagerEvents() {
 
       var mlPackId = saida.ml_pack_id || saida.ml_order_id || null;
       var mlBlock = "";
+      var canceladoPlataformaHtml = "";
+      if (saida.plataforma_cancelado_em) {
+        canceladoPlataformaHtml =
+          '<div class="alert alert-warning py-2 px-3 small mb-2" role="alert">' +
+            "Pedido cancelado " + (saida.ml_shipment_id || mlPackId ? "no Mercado Livre" : "na Shopee") +
+            " em " + escapeHtml(fmtDt(saida.plataforma_cancelado_em)) +
+            ". Verifique a devolução do pacote ao seller." +
+          "</div>";
+      }
       if (saida.ml_shipment_id || mlPackId) {
         mlBlock =
           '<div class="pedido-section">' +
+            canceladoPlataformaHtml +
             '<p class="section-title">Mercado Livre</p>' +
             '<p class="small mb-1">Pack ID: ' + escapeHtml(mlPackId ? String(mlPackId) : "—") + "</p>" +
             '<p class="small mb-1">Nº do envio: ' + escapeHtml(saida.ml_shipment_id ? String(saida.ml_shipment_id) : "—") + "</p>" +
@@ -2070,6 +2089,7 @@ function setupPagerEvents() {
       } else if (saida.shopee_order_sn) {
         mlBlock =
           '<div class="pedido-section">' +
+            canceladoPlataformaHtml +
             '<p class="section-title">Shopee</p>' +
             '<p class="small mb-1">Nº do pedido: ' + escapeHtml(String(saida.shopee_order_sn)) + "</p>" +
             '<p class="small mb-0">Seller: ' + escapeHtml(saida.base ? String(saida.base) : "—") + "</p>" +

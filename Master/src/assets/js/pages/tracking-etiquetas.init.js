@@ -33,6 +33,9 @@
     return String(window.TIPO_OWNER || u.tipo_owner || "").toLowerCase();
   }
 
+  var MSG_QR_ML_INCOMPLETO =
+    "A etiqueta oficial do Mercado Livre ainda não está disponível. O QR saiu só com o número do envio; leia a etiqueta original na coleta ou gere de novo mais tarde.";
+
   function toast(msg, ok) {
     if (window.Swal) {
       Swal.fire({
@@ -132,8 +135,9 @@
         });
       }
       var codigo = res.headers.get("X-Codigo") || "";
+      var aviso = res.headers.get("X-Etiqueta-Aviso") || "";
       return res.blob().then(function (blob) {
-        return { blob: blob, codigo: codigo };
+        return { blob: blob, codigo: codigo, aviso: aviso };
       });
     });
   }
@@ -153,6 +157,7 @@
     })
       .then(function (out) {
         showPreview(out.blob, codigo);
+        if (out.aviso === "qr_ml_incompleto") toast(MSG_QR_ML_INCOMPLETO);
       })
       .catch(function (err) {
         toast(err.message || "Falha ao gerar etiqueta.", false);
