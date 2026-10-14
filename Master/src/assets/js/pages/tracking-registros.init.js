@@ -773,6 +773,11 @@ function augmentEntregadoresFromRows(rows){
       label = "Nova saída confirmada";
     }
     var mapped = ACTION_BADGE_MAP[label];
+    if (!mapped && labelLower.indexOf("entrega confirmada ") === 0) {
+      mapped = { category: "success", className: "action-success" };
+    } else if (!mapped && (labelLower.indexOf("cancelado ") === 0 || labelLower.indexOf("sem coleta: cancelado") !== -1)) {
+      mapped = { category: "exception", className: "action-exception" };
+    }
     if (!mapped) {
       return {
         label: label,
