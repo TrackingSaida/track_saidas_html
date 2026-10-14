@@ -641,6 +641,7 @@ function augmentEntregadoresFromRows(rows){
     coleta: "Pacote coletado",
     criado_coleta: "Pacote coletado",
     ml_int_sync: "Importado do Mercado Livre",
+    shopee_int_sync: "Importado da Shopee",
     reatribuido: "Entregador reatribuído",
     reatribuicao: "Entregador reatribuído",
     assumir: "Entregador reatribuído",
@@ -2064,6 +2065,13 @@ function setupPagerEvents() {
             '<p class="section-title">Mercado Livre</p>' +
             '<p class="small mb-1">Pack ID: ' + escapeHtml(mlPackId ? String(mlPackId) : "—") + "</p>" +
             '<p class="small mb-1">Nº do envio: ' + escapeHtml(saida.ml_shipment_id ? String(saida.ml_shipment_id) : "—") + "</p>" +
+            '<p class="small mb-0">Seller: ' + escapeHtml(saida.base ? String(saida.base) : "—") + "</p>" +
+          "</div>";
+      } else if (saida.shopee_order_sn) {
+        mlBlock =
+          '<div class="pedido-section">' +
+            '<p class="section-title">Shopee</p>' +
+            '<p class="small mb-1">Nº do pedido: ' + escapeHtml(String(saida.shopee_order_sn)) + "</p>" +
             '<p class="small mb-0">Seller: ' + escapeHtml(saida.base ? String(saida.base) : "—") + "</p>" +
           "</div>";
       }
