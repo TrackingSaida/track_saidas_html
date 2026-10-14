@@ -583,6 +583,8 @@ function augmentEntregadoresFromRows(rows){
     if (s.indexOf("ausente") !== -1) return "status-warning";
     if (s.indexOf("cancelado") !== -1) return "status-danger";
     if (s.indexOf("rota") !== -1 || s.indexOf("saiu") !== -1) return "status-info";
+    if (s === "aguardando coleta") return "status-warning";
+    if (s === "coletado") return "status-collected";
     return "status-default";
   }
 
@@ -605,6 +607,15 @@ function augmentEntregadoresFromRows(rows){
     if (s.indexOf("shopee") !== -1) return "servico-shopee";
     if (isMercadoServico(s) || s.indexOf("livre") !== -1) return "servico-ml";
     return "servico-avulso";
+  }
+
+  function servicoBadgeHtml(servico) {
+    var classe = getServicoClass(servico);
+    var icone = classe === "servico-shopee" ? "shopee" : classe === "servico-ml" ? "mercado-livre" : "";
+    var img = icone
+      ? '<img class="servico-logo" src="assets/images/canais/' + icone + '.png" alt="" aria-hidden="true">'
+      : "";
+    return '<span class="servico-badge ' + classe + '">' + img + escapeHtml(servico || "-") + "</span>";
   }
 
   function escapeHtml(text){
@@ -642,6 +653,7 @@ function augmentEntregadoresFromRows(rows){
     criado_coleta: "Pacote coletado",
     ml_int_sync: "Importado do Mercado Livre",
     shopee_int_sync: "Importado da Shopee",
+    cancelado_plataforma: "Cancelado na plataforma: verificar devolução",
     reatribuido: "Entregador reatribuído",
     reatribuicao: "Entregador reatribuído",
     assumir: "Entregador reatribuído",
@@ -761,6 +773,11 @@ function augmentEntregadoresFromRows(rows){
       label = "Nova saída confirmada";
     }
     var mapped = ACTION_BADGE_MAP[label];
+    if (!mapped && labelLower.indexOf("entrega confirmada ") === 0) {
+      mapped = { category: "success", className: "action-success" };
+    } else if (!mapped && (labelLower.indexOf("cancelado ") === 0 || labelLower.indexOf("sem coleta: cancelado") !== -1)) {
+      mapped = { category: "exception", className: "action-exception" };
+    }
     if (!mapped) {
       return {
         label: label,
@@ -889,7 +906,6 @@ function augmentEntregadoresFromRows(rows){
         var isCancelado = String(r.status || "").toLowerCase() === "cancelado";
         var rowClass = "registro-row clickable-row" + (isCancelado ? " table-danger-subtle bg-danger-subtle" : "");
         var statusBadgeClass = "status-badge " + getStatusClass(r.status);
-        var servicoBadgeClass = "servico-badge " + getServicoClass(r.servico);
         var acaoLabel = getActionBadgeConfig(r.acao).label;
         var acaoTexto = [acaoLabel === "Sem ação" ? "" : acaoLabel, r.tsAcaoCurto].filter(Boolean).join(" · ");
         var executor = String(r.executado_por || "").trim();
@@ -906,7 +922,7 @@ function augmentEntregadoresFromRows(rows){
             <td class="reg-col-chk"><input type="checkbox" class="rowchk form-check-input" aria-label="Selecionar ${attr(r.codigo_exibicao || r.codigo)}" /></td>
             <td class="reg-col-pacote">
               <span class="reg-codigo">${escapeHtml(r.codigo_exibicao || r.codigo || "-")}</span>
-              <div class="reg-linha2"><span class="${servicoBadgeClass}">${escapeHtml(r.servico || "-")}</span>${chipTamanho(r, podeTamanho)}</div>
+              <div class="reg-linha2">${servicoBadgeHtml(r.servico)}${chipTamanho(r, podeTamanho)}</div>
             </td>
             <td class="reg-col-situacao">
               <span class="${statusBadgeClass}">${escapeHtml(r.status || "-")}</span>
@@ -1442,11 +1458,17 @@ function setupPagerEvents() {
             throw new Error("Erro ao gerar etiqueta");
           });
         }
-        return res.blob();
+        var aviso = res.headers.get("X-Etiqueta-Aviso") || "";
+        return res.blob().then(function(blob) {
+          return { blob: blob, aviso: aviso };
+        });
       })
-      .then(function(blob) {
-        var url = URL.createObjectURL(blob);
+      .then(function(out) {
+        var url = URL.createObjectURL(out.blob);
         window.open(url, "_blank");
+        if (out.aviso === "qr_ml_incompleto") {
+          notify("A etiqueta oficial do Mercado Livre ainda não está disponível. O QR saiu só com o número do envio; leia a etiqueta original na coleta ou gere de novo mais tarde.", "warning");
+        }
       })
       .catch(function(err) {
         notify(err.message || "Falha ao gerar etiqueta.", "error");
@@ -1703,7 +1725,9 @@ function setupPagerEvents() {
     });
 
     return historico.map(function(item, index) {
-      var title = labelEventoHistorico(item.evento, item.acao_label);
+      var title = item.plataforma && item.acao_label
+        ? String(item.acao_label)
+        : labelEventoHistorico(item.evento, item.acao_label);
       var dateLine = fmtDt(item.timestamp);
       var whoLine = item.usuario_nome
         ? ("Registrado por " + escapeHtml(item.usuario_nome))
@@ -2059,21 +2083,46 @@ function setupPagerEvents() {
 
       var mlPackId = saida.ml_pack_id || saida.ml_order_id || null;
       var mlBlock = "";
+      var canceladoPlataformaHtml = "";
+      if (saida.plataforma_cancelado_em) {
+        canceladoPlataformaHtml =
+          '<div class="alert alert-warning py-2 px-3 small mb-2" role="alert">' +
+            "Pedido cancelado " + (saida.ml_shipment_id || mlPackId ? "no Mercado Livre" : "na Shopee") +
+            " em " + escapeHtml(fmtDt(saida.plataforma_cancelado_em)) +
+            ". Verifique a devolução do pacote ao seller." +
+          "</div>";
+      }
+      var sellerCanal = saida.base ? String(saida.base).trim() : "";
+      var contaCanal = saida.conta_nickname ? String(saida.conta_nickname).trim() : "";
+      if (contaCanal && contaCanal.toUpperCase() !== sellerCanal.toUpperCase()) {
+        sellerCanal = sellerCanal ? sellerCanal + " · " + contaCanal : contaCanal;
+      }
+      function blocoCanal(nome, campos) {
+        return '<div class="pedido-section">' +
+          canceladoPlataformaHtml +
+          '<div class="pedido-canal-head">' + servicoBadgeHtml(nome) + "</div>" +
+          '<div class="pedido-meta-grid">' +
+            campos.map(function(m) {
+              return '<div><span class="meta-label">' + escapeHtml(m.label) + '</span>' +
+                '<span class="meta-value">' + escapeHtml(m.value || "—") + "</span></div>";
+            }).join("") +
+          "</div>" +
+        "</div>";
+      }
+      var dataVendaCanal = saida.data_venda ? fmtDt(saida.data_venda) : "—";
       if (saida.ml_shipment_id || mlPackId) {
-        mlBlock =
-          '<div class="pedido-section">' +
-            '<p class="section-title">Mercado Livre</p>' +
-            '<p class="small mb-1">Pack ID: ' + escapeHtml(mlPackId ? String(mlPackId) : "—") + "</p>" +
-            '<p class="small mb-1">Nº do envio: ' + escapeHtml(saida.ml_shipment_id ? String(saida.ml_shipment_id) : "—") + "</p>" +
-            '<p class="small mb-0">Seller: ' + escapeHtml(saida.base ? String(saida.base) : "—") + "</p>" +
-          "</div>";
+        mlBlock = blocoCanal("Mercado Livre", [
+          { label: "Pack ID", value: mlPackId ? String(mlPackId) : "" },
+          { label: "Nº do envio", value: saida.ml_shipment_id ? String(saida.ml_shipment_id) : "" },
+          { label: "Data da venda", value: dataVendaCanal },
+          { label: "Seller", value: sellerCanal }
+        ]);
       } else if (saida.shopee_order_sn) {
-        mlBlock =
-          '<div class="pedido-section">' +
-            '<p class="section-title">Shopee</p>' +
-            '<p class="small mb-1">Nº do pedido: ' + escapeHtml(String(saida.shopee_order_sn)) + "</p>" +
-            '<p class="small mb-0">Seller: ' + escapeHtml(saida.base ? String(saida.base) : "—") + "</p>" +
-          "</div>";
+        mlBlock = blocoCanal("Shopee", [
+          { label: "Nº do pedido", value: String(saida.shopee_order_sn) },
+          { label: "Data da venda", value: dataVendaCanal },
+          { label: "Seller", value: sellerCanal }
+        ]);
       }
 
       var podeAlterarTamanho = canEditG() && !statusJaEntregue && !statusJaCancelado;
@@ -3697,14 +3746,40 @@ function updateSummaryCards(res) {
     return n;
   };
 
-  if (typeof res.sumShopee === 'number') sumShopeeEl.textContent = res.sumShopee;
-  else if (res.total === rows.length) sumShopeeEl.textContent = compute(rows, 'shopee');
+  const completo = res.total === rows.length;
+  const valor = (soma, nome) => (typeof soma === 'number' ? soma : (completo ? compute(rows, nome) : null));
+  const fmt = (n) => Number(n || 0).toLocaleString('pt-BR');
 
-  if (typeof res.sumMercado === 'number') sumMercadoEl.textContent = res.sumMercado;
-  else if (res.total === rows.length) sumMercadoEl.textContent = compute(rows, 'mercado');
+  const total = Number(res.total ?? rows.length ?? 0) || 0;
+  const servicos = [
+    { el: sumShopeeEl, chave: 'shopee', nome: 'Shopee', n: valor(res.sumShopee, 'shopee') },
+    { el: sumMercadoEl, chave: 'ml', nome: 'Mercado Livre', n: valor(res.sumMercado, 'mercado') },
+    { el: sumAvulsoEl, chave: 'avulso', nome: 'Avulso', n: valor(res.sumAvulso, 'avulso') },
+  ];
+  const pct = (n) => (total > 0 && n != null ? Math.round((n / total) * 100) : null);
 
-  if (typeof res.sumAvulso === 'number') sumAvulsoEl.textContent = res.sumAvulso;
-  else if (res.total === rows.length) sumAvulsoEl.textContent = compute(rows, 'avulso');
+  servicos.forEach((s) => {
+    if (s.n != null) s.el.textContent = fmt(s.n);
+    const p = pct(s.n);
+    const txt = document.querySelector('#pct-' + s.chave);
+    const bar = document.querySelector('#bar-' + s.chave);
+    if (txt) txt.textContent = p == null ? '—' : p + '% do total';
+    if (bar) bar.style.width = (p == null ? 0 : Math.min(100, (s.n / total) * 100)) + '%';
+  });
 
-  sumTotalEl.textContent   = res.total ?? rows.length ?? 0;
+  sumTotalEl.textContent = fmt(total);
+
+  const mix = document.querySelector('#mix-total');
+  if (mix) {
+    const partes = servicos.filter((s) => s.n != null && total > 0);
+    servicos.forEach((s) => {
+      const seg = mix.querySelector('.rs-mix--' + s.chave);
+      if (seg) seg.style.width = (s.n != null && total > 0 ? (s.n / total) * 100 : 0) + '%';
+    });
+    const descricao = partes.length
+      ? 'Distribuição: ' + partes.map((s) => s.nome + ' ' + pct(s.n) + '%').join(', ')
+      : 'Sem pacotes no período';
+    mix.setAttribute('aria-label', descricao);
+    mix.title = descricao;
+  }
 }

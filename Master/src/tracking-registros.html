@@ -269,28 +269,45 @@
 
               <!-- Cards de totais -->
               <div class="row g-3 mb-4 registros-summary-row">
-                <div class="col-12 col-sm-6 col-md-3">
-                  <div class="registros-summary-card card-shopee p-3 text-center rounded-3 shadow-sm">
+                <div class="col-6 col-md-3">
+                  <div class="registros-summary-card rs-card--shopee">
                     <span class="registros-summary-label">Shopee</span>
                     <div class="registros-summary-num" id="sum-shopee">0</div>
+                    <div class="rs-share">
+                      <div class="rs-share-bar" aria-hidden="true"><span id="bar-shopee"></span></div>
+                      <span class="rs-share-txt" id="pct-shopee">—</span>
+                    </div>
                   </div>
                 </div>
-                <div class="col-12 col-sm-6 col-md-3">
-                  <div class="registros-summary-card card-ml p-3 text-center rounded-3 shadow-sm">
+                <div class="col-6 col-md-3">
+                  <div class="registros-summary-card rs-card--ml">
                     <span class="registros-summary-label">Mercado Livre</span>
                     <div class="registros-summary-num" id="sum-ml">0</div>
+                    <div class="rs-share">
+                      <div class="rs-share-bar" aria-hidden="true"><span id="bar-ml"></span></div>
+                      <span class="rs-share-txt" id="pct-ml">—</span>
+                    </div>
                   </div>
                 </div>
-                <div class="col-12 col-sm-6 col-md-3">
-                  <div class="registros-summary-card card-avulso p-3 text-center rounded-3 shadow-sm">
+                <div class="col-6 col-md-3">
+                  <div class="registros-summary-card rs-card--avulso">
                     <span class="registros-summary-label">Avulso</span>
                     <div class="registros-summary-num" id="sum-avulso">0</div>
+                    <div class="rs-share">
+                      <div class="rs-share-bar" aria-hidden="true"><span id="bar-avulso"></span></div>
+                      <span class="rs-share-txt" id="pct-avulso">—</span>
+                    </div>
                   </div>
                 </div>
-                <div class="col-12 col-sm-6 col-md-3">
-                  <div class="registros-summary-card registros-summary-card-total card-total p-3 text-center rounded-3 shadow-sm">
+                <div class="col-6 col-md-3">
+                  <div class="registros-summary-card rs-card--total">
                     <span class="registros-summary-label">Total</span>
-                    <div class="registros-summary-num registros-summary-num-total" id="sum-total">0</div>
+                    <div class="registros-summary-num" id="sum-total">0</div>
+                    <div class="rs-share">
+                      <div class="rs-mix" id="mix-total" role="img" aria-label="Sem pacotes no período">
+                        <span class="rs-mix--shopee"></span><span class="rs-mix--ml"></span><span class="rs-mix--avulso"></span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -320,56 +337,96 @@
               }
             }
 
-            /* Cards de resumo: estilo fechamento motoboy — fundos pálidos, borda fina, título cinza */
+            /* Cards de resumo: mesmo padrão dos KPIs do fechamento (borda lateral, bolinha, número na cor) */
             .registros-layout .registros-summary-card {
-              border-radius: 12px;
-              border: 1px solid;
+              --rs-cor: #0B1F3A;
+              --rs-trilho: #EEF2F6;
+              display: flex;
+              flex-direction: column;
+              gap: 0.125rem;
+              height: 100%;
+              padding: 0.875rem 1rem;
+              background: #fff;
+              border: 1px solid #E2E8F0;
+              border-left: 3px solid var(--rs-cor);
+              border-radius: 8px;
             }
+            .registros-layout .rs-card--shopee { --rs-cor: #D46A2E; }
+            .registros-layout .rs-card--ml { --rs-cor: #9A7A22; --rs-barra: #D4A72C; }
+            .registros-layout .rs-card--avulso { --rs-cor: #4A7AB8; }
             .registros-layout .registros-summary-label {
-              display: block;
-              font-size: 0.8125rem;
-              font-weight: 500;
-              color: #495057 !important;
+              display: inline-flex;
+              align-items: center;
+              gap: 0.375rem;
+              font-size: 0.75rem;
+              font-weight: 600;
+              color: #64748B;
+            }
+            .registros-layout .registros-summary-label::before {
+              content: "";
+              width: 0.5rem;
+              height: 0.5rem;
+              border-radius: 50%;
+              background: var(--rs-cor);
             }
             .registros-layout .registros-summary-num {
-              font-size: 1.5rem;
+              font-size: 1.625rem;
               font-weight: 700;
-              line-height: 1.2;
+              line-height: 1.15;
+              color: var(--rs-cor);
+              font-variant-numeric: tabular-nums;
             }
-            .registros-layout .registros-summary-card.card-shopee {
-              background-color: rgba(255, 180, 130, 0.25);
-              border-color: rgba(238, 130, 70, 0.6);
+            .registros-layout .rs-card--total .registros-summary-num { font-weight: 800; }
+            .registros-layout .rs-share {
+              display: flex;
+              align-items: center;
+              gap: 0.5rem;
+              margin-top: 0.375rem;
             }
-            .registros-layout .registros-summary-card.card-shopee .registros-summary-num {
-              color: #d46a2e;
+            .registros-layout .rs-share-bar,
+            .registros-layout .rs-mix {
+              flex: 1 1 auto;
+              display: flex;
+              height: 4px;
+              border-radius: 999px;
+              background: var(--rs-trilho);
+              overflow: hidden;
             }
-            .registros-layout .registros-summary-card.card-ml {
-              background-color: rgba(255, 230, 170, 0.5);
-              border-color: rgba(220, 180, 50, 0.6);
+            .registros-layout .rs-share-bar span {
+              width: 0;
+              background: var(--rs-barra, var(--rs-cor));
+              transition: width .3s ease;
             }
-            .registros-layout .registros-summary-card.card-ml .registros-summary-num {
-              color: #b8922e;
+            .registros-layout .rs-card--total .rs-share { min-height: 1.125rem; }
+            .registros-layout .rs-mix span { width: 0; transition: width .3s ease; }
+            .registros-layout .rs-mix--shopee { background: #D46A2E; }
+            .registros-layout .rs-mix--ml { background: #D4A72C; }
+            .registros-layout .rs-mix--avulso { background: #4A7AB8; }
+            .registros-layout .rs-share-txt {
+              flex: 0 0 auto;
+              font-size: 0.75rem;
+              color: #64748B;
+              font-variant-numeric: tabular-nums;
+              white-space: nowrap;
             }
-            .registros-layout .registros-summary-card.card-avulso {
-              background-color: rgba(180, 200, 230, 0.4);
-              border-color: rgba(100, 140, 200, 0.55);
+            [data-bs-theme="dark"] .registros-layout .registros-summary-card {
+              --rs-cor: #CBD5E1;
+              --rs-trilho: rgba(255, 255, 255, 0.08);
+              background: var(--bs-secondary-bg, #2b3035);
+              border-color: rgba(255, 255, 255, 0.12);
+              border-left-color: var(--rs-cor);
             }
-            .registros-layout .registros-summary-card.card-avulso .registros-summary-num {
-              color: #4a7ab8;
-            }
-            .registros-layout .registros-summary-card.card-total {
-              background-color: rgba(200, 205, 230, 0.35);
-              border-color: rgba(80, 85, 140, 0.5);
-            }
-            .registros-layout .registros-summary-card.card-total .registros-summary-num {
-              color: #2d3277;
-            }
-            .registros-layout .registros-summary-card-total {
-              border-width: 1px;
-            }
-            .registros-layout .registros-summary-num-total {
-              font-size: 1.75rem;
-              font-weight: 800;
+            [data-bs-theme="dark"] .registros-layout .rs-card--shopee { --rs-cor: #FB923C; }
+            [data-bs-theme="dark"] .registros-layout .rs-card--ml { --rs-cor: #FACC15; --rs-barra: #FACC15; }
+            [data-bs-theme="dark"] .registros-layout .rs-card--avulso { --rs-cor: #60A5FA; }
+            [data-bs-theme="dark"] .registros-layout .rs-mix--shopee { background: #FB923C; }
+            [data-bs-theme="dark"] .registros-layout .rs-mix--ml { background: #FACC15; }
+            [data-bs-theme="dark"] .registros-layout .rs-mix--avulso { background: #60A5FA; }
+            [data-bs-theme="dark"] .registros-layout .registros-summary-label,
+            [data-bs-theme="dark"] .registros-layout .rs-share-txt { color: #94A3B8; }
+            @media (prefers-reduced-motion: reduce) {
+              .registros-layout .rs-share-bar span,
+              .registros-layout .rs-mix span { transition: none; }
             }
             .registros-table-wrap { position: relative; }
             .registros-table-loading {
@@ -753,7 +810,11 @@
   .status-warning { background: #ffedd5; color: #9a3412; }
   .status-danger { background: #fee2e2; color: #991b1b; }
   .status-info { background: #e0f2fe; color: #075985; }
+  .status-collected { background: #e0e7ff; color: #3730a3; }
   .status-default { background: #f1f5f9; color: #475569; }
+  .pedido-canal-head { margin: 0 0 0.65rem; }
+  .servico-badge { display: inline-flex; align-items: center; gap: 4px; }
+  .servico-logo { width: 16px; height: 16px; flex: 0 0 16px; border-radius: 4px; object-fit: contain; }
   .action-neutral { background: #e9ecef; color: #6c757d; }
   .action-movement { background: #e6f0ff; color: #007bff; }
   .action-success { background: #e6f7ee; color: #28a745; }
@@ -1018,7 +1079,7 @@
   <!-- Sequência original dos scripts (mantida) -->
 <script src="assets/js/components/date-picker-dashboard.js?v=2.0"></script>
   <script src="assets/js/pages/tracking-api-leitura-registros.init.js?v=1.1" defer></script>
-  <script src="assets/js/pages/tracking-registros.init.js?v=1.5" defer></script>
+  <script src="assets/js/pages/tracking-registros.init.js?v=1.7" defer></script>
   <script src="assets/js/app.js"></script>
 </body>
 </html>

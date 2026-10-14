@@ -20,8 +20,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const API_URL = (typeof window.getTrackApiUrl === "function" ? window.getTrackApiUrl() : window.TRACK_API_URL || "").replace(/\/+$/, "");
   const API_FECH = `${API_URL}/coletas/fechamentos`;
   const API_BASES = `${API_URL}/base/?status=ativo`;
-  const API_COLETAS = `${API_URL}/coletas/`;
-  const API_MANUAL = `${API_URL}/coletas/manual`;
   const API_CALENDARIO = `${API_URL}/coletas/operacionais/calendario`;
   const COR_PRIMARIA = "#0B1F3A";
 
@@ -112,9 +110,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     SEM_COLETAS: "Sem coletas no período.",
     JA_GERADO: "Já tem fechamento neste período.",
   };
-
-  const modoOperacao = String(usuario?.modo_operacao || window.MODO_OPERACAO || "codigo");
-  const coletaManualPermitida = ["coleta_manual", "ambos"].includes(modoOperacao);
 
   const state = {
     items: [],
@@ -218,14 +213,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   function diasHtml(r) {
     const dias = Array.isArray(r.dias) ? r.dias : [];
     const recebido = String(r.situacao || "").toUpperCase() === "RECEBIDO";
-    const podeCorrigir = coletaManualPermitida && !recebido;
     const pend = r.dias_pendentes || [];
     let html = "";
     if (dias.length) {
       html +=
         '<table class="table table-sm"><thead><tr>' +
         '<th>Dia</th><th class="text-end">Shopee</th><th class="text-end">Mercado Livre</th><th class="text-end">Avulso</th>' +
-        `<th class="text-end">Pacotes G</th><th class="text-end">Cancelados</th>${podeCorrigir ? "<th></th>" : ""}` +
+        '<th class="text-end">Pacotes G</th><th class="text-end">Cancelados</th>' +
         "</tr></thead><tbody>" +
         dias
           .map(
@@ -237,9 +231,6 @@ document.addEventListener("DOMContentLoaded", async () => {
               `<td class="text-end fm-num">${num(d.avulso)}</td>` +
               `<td class="text-end fm-num">${num(d.pacotes_g)}</td>` +
               `<td class="text-end fm-num">${num(d.cancelados)}</td>` +
-              (podeCorrigir
-                ? `<td class="text-end"><button type="button" class="btn btn-sm btn-link px-1" data-acao="corrigir-dia" data-base="${esc(r.base)}" data-data="${esc(d.data)}">Corrigir</button></td>`
-                : "") +
               "</tr>"
           )
           .join("") +
@@ -608,7 +599,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       .map(
         (d) =>
           `<div class="fm-pendencia"><span class="fm-num me-auto">${esc(dmy(d))}</span>` +
-          (coletaManualPermitida ? `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="lancar" data-data="${esc(d)}">Lançar coleta</button>` : "") +
           `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="justificar" data-data="${esc(d)}">Justificar</button></div>`
       )
       .join("");
@@ -1053,7 +1043,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // ====== Coleta manual ======
+  // ====== Bases ativas ======
   let basesAtivasCache = null;
 
   async function carregarBasesAtivas() {
@@ -1064,211 +1054,46 @@ document.addEventListener("DOMContentLoaded", async () => {
     return basesAtivasCache;
   }
 
-  const modalEl = qs("#modalColetaManual");
-  const modal = modalEl && typeof bootstrap !== "undefined" ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
-  const mc = {
-    id: qs("#modalColetaManualId"),
-    data: qs("#modalColetaManualData"),
-    base: qs("#modalColetaManualBase"),
-    shopee: qs("#modalColetaManualShopee"),
-    ml: qs("#modalColetaManualMl"),
-    avulso: qs("#modalColetaManualAvulso"),
-    g: qs("#coletaGCategorias"),
-    gErro: qs("#coletaGErro"),
-    salvar: qs("#modalColetaManualSalvar"),
-  };
-  let aposSalvarColeta = null;
-  let categoriasGCache = null;
-
-  async function carregarCategoriasG() {
-    if (categoriasGCache) return categoriasGCache;
-    const lista = await api(`${API_URL}/entregadores/precos/categorias-g?incluir_inativas=true`);
-    categoriasGCache = (Array.isArray(lista) ? lista : []).sort(
-      (a, b) => (b.ativo ? 1 : 0) - (a.ativo ? 1 : 0) || (num(a.ordem) - num(b.ordem)) || a.id - b.id
-    );
-    return categoriasGCache;
-  }
-
-  const SERVICOS_G = [
-    { chave: "shopee", rotulo: "Shopee" },
-    { chave: "ml", rotulo: "ML / Flex" },
-    { chave: "avulso", rotulo: "Avulso" },
-  ];
-
-  function gDaColeta(coleta, padraoId) {
-    if (coleta?.g_categorias && typeof coleta.g_categorias === "object") return coleta.g_categorias;
-    const gS = num(coleta?.g_shopee);
-    const gM = num(coleta?.g_ml);
-    let gA = num(coleta?.g_avulso);
-    if (coleta && gS + gM + gA === 0) gA = num(coleta.pacotes_g);
-    return gS + gM + gA > 0 && padraoId ? { [padraoId]: { shopee: gS, ml: gM, avulso: gA } } : {};
-  }
-
-  function renderGColeta(categorias, atual) {
-    const usadas = new Set(Object.keys(atual || {}).filter((id) => SERVICOS_G.some((s) => num(atual[id]?.[s.chave]) > 0)));
-    const visiveis = categorias.filter((c) => c.ativo !== false || usadas.has(String(c.id)));
-    mc.gErro.classList.add("d-none");
-    if (!visiveis.length) {
-      mc.g.innerHTML = '<p class="small text-muted mb-0">Nenhuma categoria de pacote grande ativa. Cadastre em Cadastros › Preços de Entrega.</p>';
+  // ====== Gerar individual (escolher base) ======
+  async function gerarIndividual() {
+    const { ini, fim } = periodo();
+    if (periodoAberto(fim)) {
+      Swal.fire({ icon: "info", title: "Período em aberto", text: "Escolha um período que termine antes de hoje para gerar o fechamento.", confirmButtonColor: COR_PRIMARIA });
       return;
     }
-    mc.g.innerHTML =
-      '<div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th scope="col">Tamanho</th>' +
-      SERVICOS_G.map((s) => `<th scope="col" class="text-end">${s.rotulo}</th>`).join("") +
-      "</tr></thead><tbody>" +
-      visiveis
-        .map(
-          (c) =>
-            `<tr><th scope="row" class="small">${esc(c.nome)}${c.ativo === false ? ' <span class="text-muted fw-normal">(desativada)</span>' : ""}</th>` +
-            SERVICOS_G.map((s) => {
-              const v = num(atual?.[c.id]?.[s.chave]);
-              return `<td><input type="number" min="0" inputmode="numeric" class="form-control form-control-sm text-end" data-g-cat="${esc(c.id)}" data-g-servico="${s.chave}" value="${v || ""}" placeholder="0" aria-label="${esc(c.nome)} ${s.rotulo}"></td>`;
-            }).join("") +
-            "</tr>"
-        )
-        .join("") +
-      "</tbody></table></div>";
-  }
-
-  function lerGColeta() {
-    const mapa = {};
-    mc.g.querySelectorAll("input[data-g-cat]").forEach((el) => {
-      const qtd = Math.max(0, parseInt(el.value, 10) || 0);
-      if (!qtd) return;
-      const id = el.dataset.gCat;
-      mapa[id] = mapa[id] || { categoria_g_id: Number(id), shopee: 0, ml: 0, avulso: 0 };
-      mapa[id][el.dataset.gServico] += qtd;
+    let bases;
+    try {
+      bases = await carregarBasesAtivas();
+    } catch (err) {
+      avisoErro(`Não foi possível carregar as ${TERMO_BASE.toLowerCase()}s`, err);
+      return;
+    }
+    if (!bases.length) {
+      Swal.fire({ icon: "info", title: `Nenhuma ${TERMO_BASE.toLowerCase()} ativa`, confirmButtonColor: COR_PRIMARIA });
+      return;
+    }
+    const inputOptions = {};
+    bases.forEach((b) => {
+      inputOptions[b.base] = b.base;
     });
-    return Object.values(mapa);
-  }
-
-  async function abrirColetaManual({ data, base, coleta }) {
-    if (!modal) return;
-    try {
-      const bases = await carregarBasesAtivas();
-      mc.base.innerHTML =
-        '<option value="">Selecione…</option>' + bases.map((b) => `<option value="${esc(b.base)}">${esc(b.base)}</option>`).join("");
-    } catch (err) {
-      avisoErro("Não foi possível carregar as bases", err);
-      return;
-    }
-    if (base && ![...mc.base.options].some((o) => o.value === base)) {
-      mc.base.insertAdjacentHTML("beforeend", `<option value="${esc(base)}">${esc(base)}</option>`);
-    }
-    mc.id.value = coleta ? String(coleta.id_coleta) : "";
-    mc.data.value = data || hojeYmd();
-    mc.base.value = base || "";
-    mc.shopee.value = String(num(coleta?.shopee));
-    mc.ml.value = String(num(coleta?.mercado_livre));
-    mc.avulso.value = String(num(coleta?.avulso));
-    try {
-      const categorias = await carregarCategoriasG();
-      const padrao = categorias.find((c) => c.ativo !== false);
-      renderGColeta(categorias, gDaColeta(coleta, padrao?.id));
-    } catch (err) {
-      mc.g.innerHTML = '<p class="small text-danger mb-0">Não foi possível carregar os tamanhos de pacote.</p>';
-    }
-    mc.data.disabled = !!coleta || !!data;
-    mc.base.disabled = !!coleta || !!base;
-    qs("#modalColetaManualLabel").textContent = coleta ? `Corrigir coleta de ${dmy(data)}` : "Coleta manual";
-    modal.show();
-  }
-
-  async function corrigirDia(base, data) {
-    try {
-      const lista = await api(`${API_COLETAS}?${new URLSearchParams({ data_inicio: data, data_fim: data })}`);
-      const coletas = Array.isArray(lista) ? lista : lista.items || [];
-      const manual = coletas.find(
-        (c) => String(c.base || "").toUpperCase() === String(base).toUpperCase() && String(c.origem || "").toLowerCase() === "manual"
-      );
-      if (!manual && coletas.some((c) => String(c.base || "").toUpperCase() === String(base).toUpperCase())) {
-        Swal.fire({
-          icon: "info",
-          title: "Coleta registrada por leitura",
-          text: "Este dia foi registrado pela leitura de códigos. Para corrigir, ajuste as quantidades em Revisar e gerar (Conferir dias).",
-          confirmButtonColor: COR_PRIMARIA,
-        });
-        return;
-      }
-      aposSalvarColeta = carregar;
-      await abrirColetaManual({ data, base, coleta: manual || null });
-    } catch (err) {
-      avisoErro("Não foi possível abrir a coleta", err);
-    }
-  }
-
-  async function salvarColetaManual() {
-    const id = mc.id.value.trim();
-    const base = (mc.base.value || "").trim();
-    const data = mc.data.value;
-    const inteiro = (el) => Math.max(0, parseInt(el.value, 10) || 0);
-    const gCategorias = lerGColeta();
-    const corpo = {
-      shopee: inteiro(mc.shopee),
-      mercado_livre: inteiro(mc.ml),
-      avulso: inteiro(mc.avulso),
-    };
-    const somaG = (s) => gCategorias.reduce((t, c) => t + c[s], 0);
-    const excedido = [
-      ["Shopee", somaG("shopee"), corpo.shopee],
-      ["Mercado Livre", somaG("ml"), corpo.mercado_livre],
-      ["Avulso", somaG("avulso"), corpo.avulso],
-    ].find(([, g, total]) => g > total);
-    if (excedido) {
-      mc.gErro.textContent = `${excedido[0]}: ${excedido[1]} pacotes grandes, mas só ${excedido[2]} no total.`;
-      mc.gErro.classList.remove("d-none");
-      return;
-    }
-    if (mc.g.querySelector("input[data-g-cat]")) corpo.g_categorias = gCategorias;
-    if (!base || !data) {
-      Swal.fire({ icon: "warning", title: "Campos obrigatórios", text: `Informe a data e a ${TERMO_BASE.toLowerCase()}.`, confirmButtonColor: COR_PRIMARIA });
-      return;
-    }
-    mc.salvar.disabled = true;
-    try {
-      const coleta = id
-        ? await api(`${API_MANUAL}/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) })
-        : await api(API_MANUAL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data, base, ...corpo }) });
-      modal.hide();
-      Swal.fire({
-        icon: "success",
-        title: id ? "Coleta corrigida" : "Coleta lançada",
-        text: `Valor da coleta: ${moeda(coleta.valor_total)}`,
-        timer: 2200,
-        showConfirmButton: false,
-      });
-      const depois = aposSalvarColeta;
-      aposSalvarColeta = null;
-      if (depois) await depois();
-    } catch (err) {
-      if (err.status === 409 && !id) {
-        Swal.fire({
-          icon: "warning",
-          title: "Já existe lançamento",
-          text: err.message || termo("lancamento_mesma_data_base", "Já existe um lançamento para essa data e base. Use Corrigir no dia."),
-          confirmButtonColor: COR_PRIMARIA,
-        });
-      } else {
-        avisoErro("Não foi possível salvar a coleta", err);
-      }
-    } finally {
-      mc.salvar.disabled = false;
-    }
+    const { value } = await Swal.fire({
+      title: `Escolha a ${TERMO_BASE.toLowerCase()}`,
+      input: "select",
+      inputOptions,
+      inputPlaceholder: "Selecione",
+      showCancelButton: true,
+      confirmButtonText: "Revisar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: COR_PRIMARIA,
+      inputValidator: (v) => (!v ? `Selecione uma ${TERMO_BASE.toLowerCase()}` : null),
+    });
+    if (!value) return;
+    abrirPainel({ modo: "gerar", base: value, ini, fim });
   }
 
   // ====== Eventos ======
   qs("#btnGerarTodos")?.addEventListener("click", gerarTodosPendentes);
-
-  const btnColeta = qs("#btnColetaManual");
-  if (btnColeta && coletaManualPermitida) {
-    btnColeta.classList.remove("d-none");
-    btnColeta.addEventListener("click", () => {
-      aposSalvarColeta = carregar;
-      abrirColetaManual({});
-    });
-  }
-  mc.salvar?.addEventListener("click", salvarColetaManual);
-  mc.g?.addEventListener("input", () => mc.gErro.classList.add("d-none"));
+  qs("#btnGerarIndividual")?.addEventListener("click", gerarIndividual);
 
   document.querySelectorAll("#fm-cards .fm-card").forEach((card) => {
     card.addEventListener("click", () => {
@@ -1301,8 +1126,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       abrirPainel({ modo: "reajustar", idFech: btn.dataset.id });
     } else if (acao === "pdf" && typeof window.gerarPdfFechamentoBases === "function") {
       window.gerarPdfFechamentoBases(Number(btn.dataset.id));
-    } else if (acao === "corrigir-dia") {
-      corrigirDia(btn.dataset.base, btn.dataset.data);
     }
   });
 
@@ -1316,13 +1139,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       atualizarPainel();
     }
     else if (acao === "justificar") justificarDia(btn.dataset.data);
-    else if (acao === "lancar") {
-      aposSalvarColeta = async () => {
-        await recarregarPendencias();
-        await carregar();
-      };
-      abrirColetaManual({ data: btn.dataset.data, base: state.painel?.base });
-    }
   });
 
   painelEl?.addEventListener("input", (e) => {

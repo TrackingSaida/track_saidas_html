@@ -242,7 +242,8 @@ document.addEventListener("DOMContentLoaded", () => {
   async function api(url, options) {
     const opts = { credentials: "include", ...(options || {}) };
     const consulta = !opts.method || opts.method.toUpperCase() === "GET";
-    if (consulta && !opts.signal && typeof AbortSignal !== "undefined" && AbortSignal.timeout) {
+    const pagamento = String(opts.method || "").toUpperCase() === "POST" && String(url).includes("/marcar-pago");
+    if ((consulta || pagamento) && !opts.signal && typeof AbortSignal !== "undefined" && AbortSignal.timeout) {
       opts.signal = AbortSignal.timeout(TEMPO_LIMITE_CONSULTA_MS);
     }
     let res;
@@ -250,7 +251,11 @@ document.addEventListener("DOMContentLoaded", () => {
       res = await fetch(url, opts);
     } catch (e) {
       if (e && (e.name === "TimeoutError" || e.name === "AbortError")) {
-        throw new Error("A consulta demorou mais que o esperado. Tente novamente em instantes.");
+        throw new Error(
+          pagamento
+            ? "O registro demorou demais. A lista será atualizada para mostrar o que já foi gravado."
+            : "A consulta demorou mais que o esperado. Tente novamente em instantes."
+        );
       }
       throw new Error("Não foi possível falar com o servidor. Verifique a conexão e tente novamente.");
     }
@@ -355,8 +360,12 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       Swal.fire({ icon: "error", title: "Não foi possível registrar o pagamento", text: err.message || "Tente novamente.", confirmButtonColor: COR_PRIMARIA });
     } finally {
-      state.pagando = false;
-      await carregarLista();
+      try {
+        await carregarLista();
+      } finally {
+        state.pagando = false;
+        renderSelecao();
+      }
     }
   }
 
