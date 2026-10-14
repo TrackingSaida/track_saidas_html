@@ -591,6 +591,16 @@ async function enviarColetaUnica(item, entregadorId = null) {
       toast("Enviado com sucesso!");
       Sound.play("ok");
     } else {
+      const data = await r.json().catch(() => ({}));
+      const detail = typeof data.detail === "string" ? data.detail : (data.detail?.message || data.message || "");
+      if (r.status === 409 && detail) {
+        item.status = "recusado";
+        item.motivo = detail;
+        salvarColetasLocais();
+        Sound.play("error");
+        avisarColetaRecusada(item, detail, entregadorId);
+        return;
+      }
       throw new Error(`Status ${r.status}`);
     }
   } catch (err) {
@@ -601,6 +611,65 @@ async function enviarColetaUnica(item, entregadorId = null) {
   } finally {
     renderTabela();
   }
+}
+
+
+function salvarColetasLocais() {
+  if (!STORAGE_KEY) return;
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(COLETAS)); } catch (_) {}
+}
+
+function itemForaDaContagem(c) {
+  const st = (c.status || "").toLowerCase();
+  return st.includes("duplicado") || st === "recusado";
+}
+
+function opcaoBasePorNome(nome) {
+  const alvo = String(nome || "").trim().toUpperCase();
+  const sel = qs("#selBase");
+  if (!alvo || !sel) return null;
+  return Array.from(sel.options).find(o => String(o.value || "").trim().toUpperCase() === alvo) || null;
+}
+
+/* Pedido sincronizado de outro seller: oferece trocar o seller e coletar de novo. */
+function avisarColetaRecusada(item, detail, entregadorId) {
+  const m = /é do seller "([^"]+)"/.exec(detail);
+  const opcao = m ? opcaoBasePorNome(m[1]) : null;
+  if (!opcao || !window.Swal) {
+    toast(detail, false);
+    return;
+  }
+  Swal.fire({
+    icon: "warning",
+    title: "Pedido de outro seller",
+    text: detail,
+    showCancelButton: true,
+    confirmButtonText: `Trocar para ${opcao.value} e coletar`,
+    cancelButtonText: "Fechar",
+  }).then(res => {
+    if (!res.isConfirmed) return;
+    COLETAS = COLETAS.filter(c => c !== item);
+    salvarColetasLocais();
+    selecionarBaseNoPicker(qs("#selBase"), opcao.value);
+    if (COLETAS.some(c => c.codigo === item.codigo)) {
+      toast("Código já lido neste seller.", false);
+      return;
+    }
+    const novoItem = {
+      base: opcao.value,
+      codigo: item.codigo,
+      servico: item.servico,
+      status: "pendente",
+      tentativas: 0,
+      data: dataOperacaoAtual(),
+      qr_payload_raw: item.qr_payload_raw || undefined,
+      is_grande: Boolean(item.is_grande),
+    };
+    COLETAS.push(novoItem);
+    salvarColetasLocais();
+    renderTabela();
+    enviarColetaUnica(novoItem, entregadorId);
+  });
 }
 
 
@@ -744,10 +813,11 @@ function classifyCodigo(rawInput){
 
 /* =============== Atualiza Resumo ============= */
 function contarTotaisLocais() {
-  const shopee = COLETAS.filter(c => c.servico === "Shopee" && !(c.status || "").toLowerCase().includes("duplicado")).length;
-  const ml = COLETAS.filter(c => (c.servico === "Mercado Livre" || c.servico === "ML") && !(c.status || "").toLowerCase().includes("duplicado")).length;
-  const avulso = COLETAS.filter(c => c.servico === "Avulso" && !(c.status || "").toLowerCase().includes("duplicado")).length;
-  const total = COLETAS.filter(c => !(c.status || "").toLowerCase().includes("duplicado")).length;
+  const validos = COLETAS.filter(c => !itemForaDaContagem(c));
+  const shopee = validos.filter(c => c.servico === "Shopee").length;
+  const ml = validos.filter(c => c.servico === "Mercado Livre" || c.servico === "ML").length;
+  const avulso = validos.filter(c => c.servico === "Avulso").length;
+  const total = validos.length;
   return { shopee, mercado_livre: ml, avulso, total };
 }
 
@@ -869,7 +939,7 @@ function atualizarVistaMonitor(totaisOverride) {
       if (statusEl) {
         const st = (ultima.status || "pendente").toLowerCase();
         statusEl.textContent = (ultima.status || "Pendente").trim() || "Pendente";
-        statusEl.className = "badge " + (st === "enviado" ? "bg-success" : st === "duplicado" ? "bg-warning text-dark" : st === "erro" ? "bg-danger" : st === "reenviando" ? "bg-info text-dark" : "bg-secondary");
+        statusEl.className = "badge " + (st === "enviado" ? "bg-success" : st === "duplicado" || st === "recusado" ? "bg-warning text-dark" : st === "erro" ? "bg-danger" : st === "reenviando" ? "bg-info text-dark" : "bg-secondary");
       }
     } else {
       if (el("monitor-ultima-codigo")) el("monitor-ultima-codigo").textContent = "—";
@@ -931,6 +1001,8 @@ function renderTabela() {
           ? '<span class="badge bg-success">Enviado</span>'
           : item.status === "duplicado"
           ? '<span class="badge bg-warning text-dark">Duplicado</span>'
+          : item.status === "recusado"
+          ? `<span class="badge bg-warning text-dark" title="${String(item.motivo || "").replace(/"/g, "&quot;")}">Recusado</span>`
           : item.status === "erro"
           ? '<span class="badge bg-danger">Erro</span>'
           : item.status === "reenviando"
