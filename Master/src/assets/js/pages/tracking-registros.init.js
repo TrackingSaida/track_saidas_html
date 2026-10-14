@@ -583,6 +583,8 @@ function augmentEntregadoresFromRows(rows){
     if (s.indexOf("ausente") !== -1) return "status-warning";
     if (s.indexOf("cancelado") !== -1) return "status-danger";
     if (s.indexOf("rota") !== -1 || s.indexOf("saiu") !== -1) return "status-info";
+    if (s === "aguardando coleta") return "status-warning";
+    if (s === "coletado") return "status-collected";
     return "status-default";
   }
 
@@ -2077,23 +2079,37 @@ function setupPagerEvents() {
             ". Verifique a devolução do pacote ao seller." +
           "</div>";
       }
+      var sellerCanal = saida.base ? String(saida.base).trim() : "";
+      var contaCanal = saida.conta_nickname ? String(saida.conta_nickname).trim() : "";
+      if (contaCanal && contaCanal.toUpperCase() !== sellerCanal.toUpperCase()) {
+        sellerCanal = sellerCanal ? sellerCanal + " · " + contaCanal : contaCanal;
+      }
+      function blocoCanal(nome, classe, campos) {
+        return '<div class="pedido-section">' +
+          canceladoPlataformaHtml +
+          '<div class="pedido-canal-head"><span class="servico-badge ' + classe + '">' + escapeHtml(nome) + "</span></div>" +
+          '<div class="pedido-meta-grid">' +
+            campos.map(function(m) {
+              return '<div><span class="meta-label">' + escapeHtml(m.label) + '</span>' +
+                '<span class="meta-value">' + escapeHtml(m.value || "—") + "</span></div>";
+            }).join("") +
+          "</div>" +
+        "</div>";
+      }
+      var dataVendaCanal = saida.data_venda ? fmtDt(saida.data_venda) : "—";
       if (saida.ml_shipment_id || mlPackId) {
-        mlBlock =
-          '<div class="pedido-section">' +
-            canceladoPlataformaHtml +
-            '<p class="section-title">Mercado Livre</p>' +
-            '<p class="small mb-1">Pack ID: ' + escapeHtml(mlPackId ? String(mlPackId) : "—") + "</p>" +
-            '<p class="small mb-1">Nº do envio: ' + escapeHtml(saida.ml_shipment_id ? String(saida.ml_shipment_id) : "—") + "</p>" +
-            '<p class="small mb-0">Seller: ' + escapeHtml(saida.base ? String(saida.base) : "—") + "</p>" +
-          "</div>";
+        mlBlock = blocoCanal("Mercado Livre", "servico-ml", [
+          { label: "Pack ID", value: mlPackId ? String(mlPackId) : "" },
+          { label: "Nº do envio", value: saida.ml_shipment_id ? String(saida.ml_shipment_id) : "" },
+          { label: "Data da venda", value: dataVendaCanal },
+          { label: "Seller", value: sellerCanal }
+        ]);
       } else if (saida.shopee_order_sn) {
-        mlBlock =
-          '<div class="pedido-section">' +
-            canceladoPlataformaHtml +
-            '<p class="section-title">Shopee</p>' +
-            '<p class="small mb-1">Nº do pedido: ' + escapeHtml(String(saida.shopee_order_sn)) + "</p>" +
-            '<p class="small mb-0">Seller: ' + escapeHtml(saida.base ? String(saida.base) : "—") + "</p>" +
-          "</div>";
+        mlBlock = blocoCanal("Shopee", "servico-shopee", [
+          { label: "Nº do pedido", value: String(saida.shopee_order_sn) },
+          { label: "Data da venda", value: dataVendaCanal },
+          { label: "Seller", value: sellerCanal }
+        ]);
       }
 
       var podeAlterarTamanho = canEditG() && !statusJaEntregue && !statusJaCancelado;
