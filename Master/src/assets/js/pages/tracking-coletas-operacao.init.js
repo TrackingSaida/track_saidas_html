@@ -5,6 +5,11 @@
     itens: [],
     podeCorrigir: false,
     correcao: null,
+    temAColetar: false,
+  };
+  const LOGO_CANAL = {
+    "Mercado Livre": "assets/images/canais/mercado-livre.png",
+    Shopee: "assets/images/canais/shopee.png",
   };
   const $ = (id) => document.getElementById(id);
 
@@ -89,21 +94,86 @@
     });
   }
 
+  function totalAColetar(item) {
+    return Number(item.a_coletar?.total || 0);
+  }
+
   function itensFiltrados() {
     const status = $("coletas-operacao-status").value;
     const base = $("coletas-operacao-base").value;
-    return state.itens.filter((item) => (!status || statusNormalizado(item.status) === status) && (!base || String(item.base_id) === base));
+    return state.itens.filter((item) => {
+      if (base && String(item.base_id) !== base) return false;
+      if (status === "a_coletar") return totalAColetar(item) > 0;
+      return !status || statusNormalizado(item.status) === status;
+    });
+  }
+
+  function contasHtml(item) {
+    const contas = Array.isArray(item.contas) ? item.contas : [];
+    if (!contas.length) return "";
+    return `<span class="coleta-contas">${contas
+      .filter((c) => LOGO_CANAL[c.canal])
+      .map((c) => {
+        const titulo = `Conta ${c.canal} conectada${c.conta ? `: ${c.conta}` : ""}`;
+        return `<img src="${LOGO_CANAL[c.canal]}" alt="${esc(titulo)}" title="${esc(titulo)}">`;
+      })
+      .join("")}</span>`;
+  }
+
+  function aColetarHtml(item) {
+    if (!item.a_coletar) return '<span class="text-muted" title="Seller sem conta conectada">—</span>';
+    const total = totalAColetar(item);
+    if (!total) return '<span class="coleta-nada">Nada pendente</span>';
+    const texto = statusNormalizado(item.status) === "coletado"
+      ? (total === 1 ? "novo após a coleta" : "novos após a coleta")
+      : (total === 1 ? "pedido" : "pedidos");
+    return `<span class="coleta-a-coletar"><b>${total}</b><span>${texto}</span></span>`;
+  }
+
+  function aColetarFrase(item) {
+    const total = totalAColetar(item);
+    if (!total) return "";
+    if (statusNormalizado(item.status) === "coletado") {
+      return total === 1 ? "1 novo pedido após a coleta" : `${total} novos pedidos após a coleta`;
+    }
+    return total === 1 ? "1 pedido a coletar" : `${total} pedidos a coletar`;
+  }
+
+  function renderResumoAColetar(resumo) {
+    const card = $("coletas-kpi-a-coletar-card");
+    const opcao = $("coletas-opcao-a-coletar");
+    state.temAColetar = Boolean(resumo);
+    card.classList.toggle("d-none", !resumo);
+    opcao.hidden = !resumo;
+    $("coletas-th-a-coletar").classList.toggle("d-none", !resumo);
+    if (!resumo) {
+      if ($("coletas-operacao-status").value === "a_coletar") $("coletas-operacao-status").value = "";
+      return;
+    }
+    $("coletas-kpi-a-coletar").textContent = Number(resumo.total || 0);
+    const partes = [];
+    if (Number(resumo.mercado_livre || 0)) {
+      partes.push(`<span class="coleta-canal-mini"><img src="${LOGO_CANAL["Mercado Livre"]}" alt="Mercado Livre">${Number(resumo.mercado_livre)}</span>`);
+    }
+    if (Number(resumo.shopee || 0)) {
+      partes.push(`<span class="coleta-canal-mini"><img src="${LOGO_CANAL.Shopee}" alt="Shopee">${Number(resumo.shopee)}</span>`);
+    }
+    const sellers = Number(resumo.sellers || 0);
+    partes.push(`<span>${sellers ? `em ${sellers} ${sellers === 1 ? "seller" : "sellers"}` : "nenhum pedido aguardando coleta"}</span>`);
+    $("coletas-kpi-a-coletar-sub").innerHTML = partes.join("");
   }
 
   function render() {
     const itens = itensFiltrados();
+    $("coletas-kpi-a-coletar-card").classList.toggle("ativo", $("coletas-operacao-status").value === "a_coletar");
     $("coletas-operacao-vazio").classList.toggle("d-none", itens.length > 0);
     $("coletas-operacao-tabela-wrap").classList.toggle("d-none", itens.length === 0);
     $("coletas-operacao-tbody").innerHTML = itens
       .map(
         (item) => `
-      <tr>
-        <td class="fw-semibold">${esc(item.base)}</td><td>${statusBadge(item.status)}</td>
+      <tr class="${totalAColetar(item) > 0 ? "coleta-com-pendencia" : ""}">
+        <td class="fw-semibold"><span class="coleta-base">${esc(item.base)}${contasHtml(item)}</span></td><td>${statusBadge(item.status)}</td>
+        ${state.temAColetar ? `<td>${aColetarHtml(item)}</td>` : ""}
         <td class="coleta-participantes">${participantesComAcao(item)}</td><td>${esc(modoLabel(item.modo))}</td>
         <td class="text-center">${Number(item.mercado_livre || 0)}</td><td class="text-center">${Number(item.shopee || 0)}</td>
         <td class="text-center">${Number(item.avulso || 0)}</td><td>${formatarDataHora(item.atualizado_em)}</td>
@@ -120,8 +190,9 @@
           )
           .join("");
         return `
-      <article class="coleta-mobile-card">
-        <div class="d-flex justify-content-between align-items-start gap-2 mb-2"><strong>${esc(item.base)}</strong>${statusBadge(item.status)}</div>
+      <article class="coleta-mobile-card${totalAColetar(item) > 0 ? " coleta-com-pendencia" : ""}">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-2"><strong class="coleta-base">${esc(item.base)}${contasHtml(item)}</strong>${statusBadge(item.status)}</div>
+        ${aColetarFrase(item) ? `<div class="coleta-a-coletar mb-2"><b>${esc(aColetarFrase(item))}</b></div>` : ""}
         <div class="small text-muted mb-2">${(item.participantes || []).map((p) => `${esc(p.username)}${p.sem_volume ? " (sem volume)" : p.status === "em_coleta" ? " (em coleta)" : ""}`).join("<br>") || "—"}</div>
         <div class="d-flex flex-wrap gap-2 mb-2">
           <span class="badge bg-light text-body">Flex ${Number(item.mercado_livre || 0)}</span>
@@ -259,6 +330,7 @@
       const kpiSem = $("coletas-kpi-sem-volume");
       if (kpiSem) kpiSem.textContent = Number(payload.resumo?.sem_volume || 0);
       $("coletas-kpi-coletadas").textContent = Number(payload.resumo?.coletadas || 0);
+      renderResumoAColetar(payload.resumo?.a_coletar || null);
       preencherBases();
       render();
     } catch (error) {
@@ -276,6 +348,11 @@
     $("coletas-operacao-data").addEventListener("change", carregar);
     $("coletas-operacao-status").addEventListener("change", render);
     $("coletas-operacao-base").addEventListener("change", render);
+    $("coletas-kpi-a-coletar-card").addEventListener("click", () => {
+      const select = $("coletas-operacao-status");
+      select.value = select.value === "a_coletar" ? "" : "a_coletar";
+      render();
+    });
     ["corr-flex", "corr-shopee", "corr-avulso"].forEach((id) => {
       $(id).addEventListener("input", calcPreview);
     });

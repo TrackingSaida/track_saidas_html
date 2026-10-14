@@ -39,6 +39,30 @@
         color: #495057;
         border-color: #6c757d;
       }
+      .coleta-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
+      .coleta-kpi-a-coletar {
+        grid-column: span 2;
+        border-color: #fcd34d;
+        background: rgba(254, 243, 199, 0.45);
+        cursor: pointer;
+        text-align: left;
+        width: 100%;
+      }
+      @media (max-width: 420px) { .coleta-kpi-a-coletar { grid-column: 1 / -1; } }
+      .coleta-kpi-a-coletar:hover, .coleta-kpi-a-coletar.ativo { border-color: #f59e0b; }
+      .coleta-kpi-a-coletar > span { color: #b45309; font-weight: 500; }
+      .coleta-kpi-a-coletar strong { color: #b45309; }
+      .coleta-kpi-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 0.8125rem; color: var(--vz-body-color); margin-top: 2px; }
+      .coleta-canal-mini { display: inline-flex; align-items: center; gap: 4px; }
+      .coleta-canal-mini img, .coleta-contas img { width: 16px; height: 16px; border-radius: 4px; display: block; }
+      .coleta-base { display: inline-flex; align-items: center; gap: 8px; }
+      .coleta-contas { display: inline-flex; gap: 3px; }
+      .coleta-a-coletar { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+      .coleta-a-coletar b { font-weight: 600; font-size: 0.95rem; color: #b45309; }
+      .coleta-a-coletar span { font-size: 0.75rem; color: var(--vz-secondary-color, #64748b); }
+      .coleta-nada { font-size: 0.75rem; color: var(--vz-secondary-color, #94a3b8); }
+      tr.coleta-com-pendencia > td { background: rgba(254, 243, 199, 0.25); }
+      .coleta-mobile-card.coleta-com-pendencia { border-color: #fcd34d; }
     </style>
   </head>
   <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
@@ -66,6 +90,7 @@
                       <option value="em_coleta">Em coleta</option>
                       <option value="sem_volume">Sem volume</option>
                       <option value="coletado">Coletada</option>
+                      <option value="a_coletar" id="coletas-opcao-a-coletar">Com pedidos a coletar</option>
                     </select>
                   </div>
                   <div class="col-6 col-sm-4 col-lg-3">
@@ -79,11 +104,16 @@
                   </div>
                 </div>
 
-                <div class="row g-3 mb-4">
-                  <div class="col-6 col-md-3"><div class="coleta-kpi"><span class="text-muted">Pendentes</span><strong id="coletas-kpi-pendentes" class="text-warning">0</strong></div></div>
-                  <div class="col-6 col-md-3"><div class="coleta-kpi"><span class="text-muted">Em coleta</span><strong id="coletas-kpi-em-coleta" class="text-info">0</strong></div></div>
-                  <div class="col-6 col-md-3"><div class="coleta-kpi"><span class="text-muted">Sem volume</span><strong id="coletas-kpi-sem-volume" class="text-secondary">0</strong></div></div>
-                  <div class="col-6 col-md-3"><div class="coleta-kpi"><span class="text-muted">Coletadas</span><strong id="coletas-kpi-coletadas" class="text-success">0</strong></div></div>
+                <div class="coleta-kpis mb-4">
+                  <button type="button" id="coletas-kpi-a-coletar-card" class="coleta-kpi coleta-kpi-a-coletar d-none" title="Ver só sellers com pedidos a coletar">
+                    <span>A coletar nos sellers</span>
+                    <strong id="coletas-kpi-a-coletar">0</strong>
+                    <div class="coleta-kpi-sub" id="coletas-kpi-a-coletar-sub"></div>
+                  </button>
+                  <div class="coleta-kpi"><span class="text-muted">Pendentes</span><strong id="coletas-kpi-pendentes" class="text-warning">0</strong></div>
+                  <div class="coleta-kpi"><span class="text-muted">Em coleta</span><strong id="coletas-kpi-em-coleta" class="text-info">0</strong></div>
+                  <div class="coleta-kpi"><span class="text-muted">Sem volume</span><strong id="coletas-kpi-sem-volume" class="text-secondary">0</strong></div>
+                  <div class="coleta-kpi"><span class="text-muted">Coletadas</span><strong id="coletas-kpi-coletadas" class="text-success">0</strong></div>
                 </div>
 
                 <div id="coletas-operacao-loading" class="text-center py-5 d-none">
@@ -93,7 +123,7 @@
 
                 <div class="table-responsive d-none d-md-block" id="coletas-operacao-tabela-wrap">
                   <table class="table align-middle table-hover mb-0">
-                    <thead class="table-light"><tr><th>Base</th><th>Status</th><th>Participantes</th><th>Modo</th><th class="text-center">Flex</th><th class="text-center">Shopee</th><th class="text-center">Avulso</th><th>Atualização</th></tr></thead>
+                    <thead class="table-light"><tr><th>Base</th><th>Status</th><th id="coletas-th-a-coletar" class="d-none">A coletar</th><th>Participantes</th><th>Modo</th><th class="text-center">Flex</th><th class="text-center">Shopee</th><th class="text-center">Avulso</th><th>Atualização</th></tr></thead>
                     <tbody id="coletas-operacao-tbody"></tbody>
                   </table>
                 </div>
@@ -144,7 +174,7 @@
 
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
-<script src="assets/js/pages/tracking-coletas-operacao.init.js"></script>
+<script src="assets/js/pages/tracking-coletas-operacao.init.js?v=2"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>
