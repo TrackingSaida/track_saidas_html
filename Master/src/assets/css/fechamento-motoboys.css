@@ -472,6 +472,42 @@
   font-size: 0.875rem;
 }
 
+.fm-painel .fm-app {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 0.625rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.fm-painel .fm-app img {
+  border-radius: 6px;
+}
+
+.fm-painel .fm-app-campo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--fm-muted);
+  font-size: 0.8125rem;
+}
+
+.fm-painel .fm-app-campo input {
+  max-width: 6rem;
+}
+
+.fm-painel .fm-app-res {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.fm-painel .fm-app-res .fm-app-mais { color: #15803D; font-weight: 600; }
+.fm-painel .fm-app-res .fm-app-menos { color: #B91C1C; font-weight: 600; }
+.fm-painel .fm-app-res .fm-app-zero { color: var(--fm-muted); }
+.fm-painel .fm-app-res small { display: block; color: var(--fm-muted); font-size: 0.75rem; }
+
 .fm-painel .fm-total {
   display: flex;
   align-items: baseline;
