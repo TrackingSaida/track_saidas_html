@@ -34,6 +34,25 @@
     return '<img class="ps-canal-logo" src="' + src + '" alt="' + esc(label) + '" title="' + esc(label) + '">';
   }
 
+  function dataCurta(iso) {
+    if (!iso) return "";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function dataCelula(iso) {
+    var curta = dataCurta(iso);
+    if (!curta) return '<span class="text-muted">—</span>';
+    return '<span class="ps-data" title="' + esc(PS.formatDateTime(iso)) + '">' + esc(curta) + "</span>";
+  }
+
   var estado = { q: "", canal: "", status: "", periodo: "30d", de: "", ate: "", page: 1 };
   var itensCarregados = 0;
   var reqSeq = 0;
@@ -164,9 +183,15 @@
       '<td class="c-status">' +
       PS.statusBadgeHtml(it.status, it.status_label) +
       "</td>" +
+      '<td class="c-venda">' +
+      dataCelula(it.data_venda) +
+      "</td>" +
+      '<td class="c-entrega">' +
+      dataCelula(it.data_entrega) +
+      "</td>" +
       '<td class="c-data">' +
       '<span class="d-none d-md-inline">' +
-      esc(PS.formatDateTime(it.atualizado_em || it.updated_at || it.created_at)) +
+      dataCelula(it.atualizado_em || it.updated_at || it.created_at) +
       "</span>" +
       '<span class="d-md-none small text-muted">' +
       esc(PS.formatRelative(it.atualizado_em || it.updated_at || it.created_at)) +
@@ -284,6 +309,14 @@
       var rel = document.getElementById("drawerAtualizado");
       if (rel) {
         rel.textContent = PS.formatRelative(data.atualizado_em || data.created_at) || "";
+      }
+      var datasEl = document.getElementById("drawerDatas");
+      if (datasEl) {
+        var datas = [];
+        if (data.data_venda) datas.push("Venda: " + PS.formatDateTime(data.data_venda));
+        if (data.data_entrega) datas.push("Entrega: " + PS.formatDateTime(data.data_entrega));
+        datasEl.textContent = datas.join(" · ");
+        datasEl.classList.toggle("d-none", !datas.length);
       }
       var dest = data.destinatario || {};
       document.getElementById("drawerDestNome").textContent = dest.nome || data.dest_nome || "—";
