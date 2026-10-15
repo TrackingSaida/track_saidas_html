@@ -331,13 +331,88 @@ async function carregarMarcaFechamento(api) {
 /* ======================================================
    PDF a partir de Fechamento de Base (itens já ajustados)
 ====================================================== */
+const ROTULOS_DIA_SEM_COLETA = {
+  FERIADO: "Feriado",
+  SEM_COLETA: "Sem coleta / base fechada",
+  JUSTIFICADO: "Outro motivo justificado",
+};
+
+function montarLinhasDiasSemColeta(excecoes, diasComColeta) {
+  const comColeta = new Set((diasComColeta || []).map((d) => String(d).slice(0, 10)));
+  const especificas = new Map();
+  const globais = new Map();
+  (Array.isArray(excecoes) ? excecoes : []).forEach((item) => {
+    const tipo = String(item && item.tipo || "").toUpperCase();
+    if (!ROTULOS_DIA_SEM_COLETA[tipo]) return;
+    const data = String(item.data || "").slice(0, 10);
+    if (!data || comColeta.has(data)) return;
+    const destino = item.base_id == null ? globais : especificas;
+    destino.set(data, item);
+  });
+  return [...new Set([...especificas.keys(), ...globais.keys()])].sort().map((data) => {
+    const item = especificas.get(data) || globais.get(data);
+    const tipo = String(item.tipo || "").toUpperCase();
+    return {
+      data,
+      motivo: ROTULOS_DIA_SEM_COLETA[tipo],
+      descricao: String(item.motivo || "").trim(),
+    };
+  });
+}
+
+let gerandoPdfFechamento = false;
+let erroRelatorioMostrado = false;
+let avisoRelatorioEncerrado = false;
+
+function avisoGerandoRelatorio() {
+  avisoRelatorioEncerrado = false;
+  if (!window.Swal) return;
+  window.Swal.fire({
+    title: "Gerando relatório",
+    text: "O download começa em seguida.",
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false,
+    didOpen: () => {
+      if (avisoRelatorioEncerrado || erroRelatorioMostrado) return;
+      window.Swal.showLoading();
+    },
+  });
+}
+
+function encerrarAvisoRelatorio() {
+  avisoRelatorioEncerrado = true;
+  if (window.Swal && window.Swal.isVisible()) window.Swal.close();
+}
+
+function mostrarErroRelatorio(texto) {
+  erroRelatorioMostrado = true;
+  if (window.Swal) window.Swal.fire({ icon: "error", title: "Erro", text: texto });
+  else alert(texto);
+}
+
 async function gerarPdfFechamentoBases(idFechamento) {
+  if (gerandoPdfFechamento) return;
   const api = (window.TRACK_API_URL || "").replace(/\/+$/, "");
   if (!api || !idFechamento) return;
+  gerandoPdfFechamento = true;
+  erroRelatorioMostrado = false;
+  avisoGerandoRelatorio();
+  try {
+    await montarPdfFechamentoBases(idFechamento, api);
+  } catch (err) {
+    mostrarErroRelatorio((err && err.message) || "Não foi possível gerar o relatório.");
+  } finally {
+    gerandoPdfFechamento = false;
+    if (!erroRelatorioMostrado) encerrarAvisoRelatorio();
+    else avisoRelatorioEncerrado = true;
+  }
+}
 
+async function montarPdfFechamentoBases(idFechamento, api) {
   const res = await fetch(`${api}/coletas/fechamentos/${idFechamento}`, { credentials: "include" });
   if (!res.ok) {
-    if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Fechamento não encontrado." });
+    mostrarErroRelatorio("Fechamento não encontrado.");
     return;
   }
   const fech = await res.json();
@@ -498,6 +573,19 @@ async function gerarPdfFechamentoBases(idFechamento) {
   const statusKey = String(fech.status || "").toUpperCase();
   const statusLabel = statusKey === "RECEBIDO" ? "Recebido" : statusKey === "REAJUSTADO" ? "Reajustado" : "A receber";
   const qtdColetas = tabelaBruta.reduce((a, b) => a + b.total, 0);
+  const diasComColeta = tabelaBruta.filter((l) => l.total > 0).map((l) => l.data);
+  let diasSemColeta = [];
+  const baseId = baseObj && baseObj.id_base;
+  if (baseId && de && ate) {
+    try {
+      const paramsCal = new URLSearchParams({ data_inicio: de, data_fim: ate, base_id: String(baseId) });
+      const resCal = await fetch(`${api}/coletas/operacionais/calendario?${paramsCal}`, { credentials: "include" });
+      if (resCal.ok) {
+        const excecoes = await resCal.json();
+        diasSemColeta = montarLinhasDiasSemColeta(excecoes, diasComColeta);
+      }
+    } catch (_) {}
+  }
   const qtdShopee = tabelaBruta.reduce((a, b) => a + b.shopee, 0);
   const qtdMl = tabelaBruta.reduce((a, b) => a + b.flex, 0);
   const qtdAvulso = tabelaBruta.reduce((a, b) => a + b.avulso, 0);
@@ -569,7 +657,9 @@ async function gerarPdfFechamentoBases(idFechamento) {
     doc.setTextColor(ink[0], ink[1], ink[2]);
   }
 
-  function estiloTabela(bodyLen) {
+  function estiloTabela(bodyLen, opcoes) {
+    const destacarUltima = !opcoes || opcoes.destacarUltima !== false;
+    const columnStyles = Object.assign({ 0: { halign: "left" } }, (opcoes && opcoes.columnStyles) || {});
     return {
       theme: "plain",
       styles: { font: "helvetica", fontSize: 8, halign: "right", textColor: ink, cellPadding: 1.3 },
@@ -580,14 +670,15 @@ async function gerarPdfFechamentoBases(idFechamento) {
         fillColor: [255, 255, 255],
         halign: "right"
       },
-      columnStyles: { 0: { halign: "left" } },
+      columnStyles,
       margin: { left: margin, right: margin, top: faixaH + 6, bottom: 16 },
       didParseCell(data) {
-        if (data.section === "head" && data.column.index === 0) data.cell.styles.halign = "left";
+        const coluna = columnStyles[data.column.index];
+        if (data.section === "head" && coluna && coluna.halign) data.cell.styles.halign = coluna.halign;
         if (data.section === "body" && (data.cell.raw === 0 || data.cell.raw === "0")) {
           data.cell.styles.textColor = zeroCor;
         }
-        if (data.section === "body" && data.row.index === bodyLen - 1) {
+        if (destacarUltima && data.section === "body" && data.row.index === bodyLen - 1) {
           data.cell.styles.fontStyle = "bold";
           data.cell.styles.textColor = ink;
         }
@@ -697,6 +788,32 @@ async function gerarPdfFechamentoBases(idFechamento) {
   }, estiloTabela(corpo.length)));
 
   let yAfter = doc.lastAutoTable.finalY + 8;
+
+  if (diasSemColeta.length) {
+    if (yAfter > 250) {
+      doc.addPage();
+      desenharFaixa();
+      yAfter = faixaH + 8;
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(ink[0], ink[1], ink[2]);
+    doc.text("Dias sem coleta", margin, yAfter);
+    const corpoJust = diasSemColeta.map((l) => [isoParaBr(l.data), l.motivo, l.descricao || "—"]);
+    doc.autoTable(Object.assign({
+      startY: yAfter + 3,
+      head: [["Data", "Motivo", "Descrição"]],
+      body: corpoJust
+    }, estiloTabela(corpoJust.length, {
+      destacarUltima: false,
+      columnStyles: {
+        0: { halign: "left", cellWidth: 28 },
+        1: { halign: "left", cellWidth: 52 },
+        2: { halign: "left" }
+      }
+    })));
+    yAfter = doc.lastAutoTable.finalY + 8;
+  }
 
   if (temCancelados) {
     if (yAfter > 250) {

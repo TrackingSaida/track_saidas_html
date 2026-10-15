@@ -512,6 +512,67 @@ document.addEventListener("DOMContentLoaded", async () => {
     return dia ? num(dia[servico].valor_unit) : 0;
   }
 
+  const CANAIS_APP = ["flex", "shopee"];
+
+  function origemPreco(row, servico) {
+    const dia = (row?.dias || []).find((d) => d[servico] && d[servico].valor_unit != null);
+    return dia?.preco_origem?.[servico] === "motoboy" ? "preço do motoboy" : "preço global";
+  }
+
+  function lerQtdApp(canal) {
+    const bruto = String(qs(`#app-${canal}`)?.value || "").trim();
+    if (!bruto) return null;
+    const n = parseInt(bruto, 10);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  }
+
+  // Quantidade igual à salva mantém o número do sistema e o preço gravados, como o servidor faz.
+  function acertoCanal(canal) {
+    const a = state.painel?.apps?.[canal];
+    if (!a || a.app == null) return { diferenca: 0, unit: num(a?.unit), valor: 0 };
+    const salvo = a.salvo && a.salvo.app === a.app;
+    const sistema = salvo ? a.salvo.sistema : a.sistema;
+    const unit = salvo ? a.salvo.unit : a.unit;
+    const diferenca = a.app - sistema;
+    return { diferenca, unit, valor: centavos(diferenca * unit) };
+  }
+
+  function totalAcertoApps() {
+    return CANAIS_APP.reduce((s, c) => s + acertoCanal(c).valor, 0);
+  }
+
+  function assinaturaApps() {
+    return JSON.stringify(CANAIS_APP.map((c) => state.painel?.apps?.[c]?.app ?? null));
+  }
+
+  function renderApps() {
+    const p = state.painel;
+    if (!p?.apps) return;
+    CANAIS_APP.forEach((canal) => {
+      const a = p.apps[canal];
+      qs(`#app-${canal}-sistema`).textContent = String(a.sistema);
+      const salvoEl = qs(`#app-${canal}-salvo`);
+      if (salvoEl) {
+        salvoEl.textContent =
+          a.salvo && a.salvo.app === a.app && a.salvo.sistema !== a.sistema ? `Salvo com ${a.salvo.sistema} no sistema` : "";
+      }
+      const res = qs(`#app-${canal}-res`);
+      const { diferenca, unit, valor } = acertoCanal(canal);
+      if (!(unit > 0) && a.app != null) {
+        res.innerHTML = '<span class="fm-app-zero">Sem preço configurado</span>';
+      } else if (a.app == null) {
+        res.innerHTML = `<span class="fm-app-zero">sem ajuste</span><small>× ${esc(moeda(a.unit))} ${esc(a.origem)}</small>`;
+      } else if (diferenca === 0) {
+        res.innerHTML = `<span class="fm-app-zero">igual ao sistema</span><small>× ${esc(moeda(unit))} ${esc(a.origem)}</small>`;
+      } else {
+        const mais = diferenca > 0;
+        res.innerHTML =
+          `<span class="${mais ? "fm-app-mais" : "fm-app-menos"}">${mais ? "+" : "−"} ${esc(moeda(Math.abs(valor)))}</span>` +
+          `<small>${Math.abs(diferenca)} a ${mais ? "mais" : "menos"} × ${esc(moeda(unit))}</small>`;
+      }
+    });
+  }
+
   function baseDoPainel() {
     const p = state.painel;
     if (!p) return 0;
@@ -538,7 +599,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const p = state.painel;
     if (!p || !p.pronto) return false;
     const digitando = (qs("#ajuste-valor")?.value || "").trim() || (qs("#ajuste-motivo")?.value || "").trim();
-    return assinaturaAjustes() !== p.assinaturaInicial || !!digitando;
+    return assinaturaAjustes() !== p.assinaturaInicial || assinaturaApps() !== p.appsInicial || !!digitando;
   }
 
   function renderComposicao() {
@@ -597,8 +658,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   function renderTotais() {
     const p = state.painel;
     if (!p) return;
+    renderApps();
     const base = baseDoPainel();
-    const ajustes = totalAjustes();
+    const ajustes = centavos(totalAjustes() + totalAcertoApps());
     const total = centavos(base + ajustes);
     qs("#painel-total-base").textContent = moeda(base);
     const elAj = qs("#painel-total-ajustes");
@@ -610,7 +672,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderComposicao();
 
     const btn = qs("#btnPainelSalvar");
-    const semMudanca = p.modo === "reajustar" && assinaturaAjustes() === p.assinaturaInicial && !usaValorAtual();
+    const semMudanca =
+      p.modo === "reajustar" && assinaturaAjustes() === p.assinaturaInicial && assinaturaApps() === p.appsInicial && !usaValorAtual();
     btn.disabled = !p.pronto || negativo || state.salvando || semMudanca;
     btn.textContent = state.salvando ? "Salvando…" : p.modo === "reajustar" ? (semMudanca ? "Sem alterações" : "Salvar reajuste") : "Gerar fechamento";
   }
@@ -647,6 +710,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       gTotal: 0,
       row: null,
       conferencia: null,
+      apps: null,
+      appsInicial: "",
+      fechamento: null,
       pronto: false,
     };
     state.fecharPainelConfirmado = false;
@@ -655,7 +721,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     qs("#painel-carregando").classList.remove("d-none");
     qs("#painel-carregando").textContent = "Carregando…";
     qs("#painel-conteudo").classList.add("d-none");
-    ["#ajuste-valor", "#ajuste-motivo", "#avulso-qtde"].forEach((s) => {
+    ["#ajuste-valor", "#ajuste-motivo", "#avulso-qtde", "#app-flex", "#app-shopee"].forEach((s) => {
       const el = qs(s);
       if (el) el.value = "";
     });
@@ -688,11 +754,13 @@ document.addEventListener("DOMContentLoaded", async () => {
           return;
         }
         p.row = await carregarLinha(p.tipo, p.id, p.ini, p.fim);
+        if (state.painel !== p) return;
         if (p.divergente && p.row) {
           p.qtdColetas = num(p.row.qtd_dias_coleta);
           p.valorColetas = num(p.row.valor_coletas);
         }
         p.gTotal = num(p.row?.g_total);
+        p.fechamento = f;
       } else if (opts.row) {
         p.row = opts.row;
         p.valorBase = num(opts.row.valor_base);
@@ -734,6 +802,27 @@ document.addEventListener("DOMContentLoaded", async () => {
         return `<span class="fm-chip ${reconferir ? "fm-chip--reconferir" : "fm-chip--revisao"}">${esc(`${dd}/${m}`)}${reconferir ? " · Reconferir" : ""}</span>`;
       })
       .join(" ");
+
+    const f = p.fechamento;
+    p.apps = {};
+    CANAIS_APP.forEach((canal) => {
+      const atual = f?.[`qtd_sistema_atual_${canal}`];
+      const salvoApp = f?.[`qtd_app_${canal}`];
+      const a = {
+        sistema: atual != null ? num(atual) : num(p.row?.[`qtde_${canal}`]),
+        unit: precoUnit(p.row, canal),
+        origem: origemPreco(p.row, canal),
+        app: salvoApp != null ? num(salvoApp) : null,
+        salvo: null,
+      };
+      if (salvoApp != null) {
+        a.salvo = { app: num(salvoApp), sistema: num(f[`qtd_sistema_${canal}`]), unit: num(f[`preco_acerto_${canal}`]) };
+        const campo = qs(`#app-${canal}`);
+        if (campo) campo.value = String(a.salvo.app);
+      }
+      p.apps[canal] = a;
+    });
+    p.appsInicial = assinaturaApps();
 
     p.pronto = true;
     p.assinaturaInicial = assinaturaAjustes();
@@ -795,13 +884,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     const motivos = (lista) => lista.map((a) => a.motivo).join(" | ") || null;
     const ad = juntar("ADICAO");
     const sub = juntar("SUBTRACAO");
-    return { valor_adicao: soma(ad), motivo_adicao: motivos(ad), valor_subtracao: soma(sub), motivo_subtracao: motivos(sub) };
+    return {
+      valor_adicao: soma(ad),
+      motivo_adicao: motivos(ad),
+      valor_subtracao: soma(sub),
+      motivo_subtracao: motivos(sub),
+      qtd_app_flex: p.apps?.flex?.app ?? null,
+      qtd_app_shopee: p.apps?.shopee?.app ?? null,
+    };
   }
 
   async function salvarPainel() {
     const p = state.painel;
     if (!p || !p.pronto || state.salvando) return;
-    if (centavos(baseDoPainel() + totalAjustes()) < 0) return;
+    if (centavos(baseDoPainel() + totalAjustes() + totalAcertoApps()) < 0) return;
     const semConf = p.conferencia ? p.conferencia.sem : [];
     if (p.modo === "gerar" && semConf.length && window.Swal) {
       const ok = await Swal.fire({
@@ -894,6 +990,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (inp) inp.placeholder = qs("#ajuste-tipo").value === "SUBTRACAO" ? "Ex.: Adiantamento pago" : "Ex.: Coletas extras";
   });
   qs("#avulso-qtde")?.addEventListener("input", renderAvulso);
+  CANAIS_APP.forEach((canal) => {
+    qs(`#app-${canal}`)?.addEventListener("input", () => {
+      const p = state.painel;
+      if (!p?.apps) return;
+      p.apps[canal].app = lerQtdApp(canal);
+      renderTotais();
+    });
+  });
   qs("#btnAdicionarAvulso")?.addEventListener("click", adicionarAvulso);
   qs("#painel-atualizar-base")?.addEventListener("change", renderTotais);
   qs("#painel-ajustes")?.addEventListener("click", (ev) => {
