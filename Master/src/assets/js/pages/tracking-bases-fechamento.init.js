@@ -595,6 +595,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const mostrar = p.modo === "gerar" && p.pendentes.length > 0;
     sec.classList.toggle("d-none", !mostrar);
     if (!mostrar) return;
+    qs("#btnJustificarTodos")?.classList.toggle("d-none", p.pendentes.length < 2);
     qs("#painel-pendencias-lista").innerHTML = p.pendentes
       .map(
         (d) =>
@@ -847,22 +848,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  async function justificarDia(data) {
-    const p = state.painel;
+  let justificando = false;
+
+  async function pedirJustificativa(titulo, detalhe, confirmar) {
     document.addEventListener("focusin", liberarFocoDoAviso, true);
-    let r;
     try {
-      r = await Swal.fire({
-        title: `Justificar ${dmy(data)}`,
+      const r = await Swal.fire({
+        title: titulo,
         html:
           '<div class="text-start">' +
+          (detalhe ? `<p class="small mb-2">${detalhe}</p>` : "") +
           '<label class="form-label small" for="sw-tipo">Motivo do dia sem coleta</label>' +
           '<select id="sw-tipo" class="form-select mb-2"><option value="FERIADO">Feriado</option><option value="SEM_COLETA">Sem coleta / base fechada</option><option value="JUSTIFICADO">Outro motivo justificado</option></select>' +
-          '<label class="form-label small" for="sw-motivo">Descrição</label>' +
-          '<input id="sw-motivo" class="form-control" maxlength="200" placeholder="Ex.: Feriado municipal">' +
+          '<label class="form-label small" for="sw-motivo">Descrição <span class="text-danger">*</span></label>' +
+          '<input id="sw-motivo" class="form-control" maxlength="200" placeholder="Ex.: Feriado municipal" required>' +
           "</div>",
         showCancelButton: true,
-        confirmButtonText: "Salvar justificativa",
+        confirmButtonText: confirmar,
         cancelButtonText: "Cancelar",
         confirmButtonColor: COR_PRIMARIA,
         didOpen: () => {
@@ -878,21 +880,88 @@ document.addEventListener("DOMContentLoaded", async () => {
           return { tipo, motivo };
         },
       });
+      return r?.isConfirmed ? r.value : null;
     } finally {
       document.removeEventListener("focusin", liberarFocoDoAviso, true);
     }
-    if (!r?.isConfirmed) return;
+  }
+
+  async function idBasePainel() {
+    const p = state.painel;
+    const bases = await carregarBasesAtivas();
+    const baseObj = bases.find((b) => String(b.base || "").toUpperCase() === String(p.base || "").toUpperCase());
+    return baseObj?.id_base || null;
+  }
+
+  function salvarExcecao(data, tipo, motivo, baseId) {
+    return api(API_CALENDARIO, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data, tipo, motivo, base_id: baseId }),
+    });
+  }
+
+  async function justificarDia(data) {
+    if (justificando) return;
+    const valor = await pedirJustificativa(`Justificar ${dmy(data)}`, "", "Salvar justificativa");
+    if (!valor) return;
+    justificando = true;
     try {
-      const bases = await carregarBasesAtivas();
-      const baseObj = bases.find((b) => String(b.base || "").toUpperCase() === String(p.base || "").toUpperCase());
-      await api(API_CALENDARIO, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data, tipo: r.value.tipo, motivo: r.value.motivo, base_id: baseObj?.id_base || null }),
-      });
+      const baseId = await idBasePainel();
+      await salvarExcecao(data, valor.tipo, valor.motivo, baseId);
       await recarregarPendencias();
     } catch (err) {
       avisoErro("Não foi possível justificar o dia", err);
+    } finally {
+      justificando = false;
+    }
+  }
+
+  async function justificarTodos() {
+    const p = state.painel;
+    const dias = (p?.pendentes || []).slice();
+    if (justificando || dias.length < 2) return;
+    const lista = dias.map((d) => esc(dmy(d))).join(", ");
+    const valor = await pedirJustificativa(
+      "Justificar todos os dias",
+      `A mesma justificativa vale para ${esc(plural(dias.length, "dia", "dias"))}: ${lista}. Dias que já têm coleta não entram.`,
+      "Salvar em todos"
+    );
+    if (!valor) return;
+    justificando = true;
+    const falhas = [];
+    let erroGeral = null;
+    try {
+      const baseId = await idBasePainel();
+      Swal.fire({
+        title: "Salvando justificativas…",
+        text: plural(dias.length, "dia", "dias"),
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+      for (const data of dias) {
+        try {
+          await salvarExcecao(data, valor.tipo, valor.motivo, baseId);
+        } catch (err) {
+          falhas.push({ data, err });
+        }
+      }
+    } catch (err) {
+      erroGeral = err;
+    } finally {
+      justificando = false;
+      Swal.close();
+    }
+    if (erroGeral) {
+      avisoErro("Não foi possível justificar os dias", erroGeral);
+      return;
+    }
+    await recarregarPendencias();
+    if (falhas.length) {
+      avisoErro(
+        "Nem todos os dias foram justificados",
+        new Error(`Ficaram sem justificativa: ${falhas.map((f) => dmy(f.data)).join(", ")}.`)
+      );
     }
   }
 
@@ -1155,6 +1224,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       atualizarPainel();
     }
     else if (acao === "justificar") justificarDia(btn.dataset.data);
+    else if (acao === "justificar-todos") justificarTodos();
   });
 
   painelEl?.addEventListener("input", (e) => {
