@@ -3,7 +3,7 @@
   <head>
     @@include("partials/title-meta.html", {"title": "Fechamento de Motoboys"})
     @@include("partials/head-css.html")
-    <link href="assets/css/fechamento-motoboys.css?v=6" rel="stylesheet" type="text/css" />
+    <link href="assets/css/fechamento-motoboys.css?v=7" rel="stylesheet" type="text/css" />
   </head>
   <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
     <div id="layout-wrapper">
@@ -185,42 +185,9 @@
           </div>
 
           <div class="fm-secao">
-            <div class="fm-secao-titulo">Ajustes</div>
-            <div id="painel-ajustes" class="mb-2"></div>
-            <div class="row g-2">
-              <div class="col-5">
-                <label class="form-label small mb-1" for="ajuste-tipo">Tipo</label>
-                <select id="ajuste-tipo" class="form-select form-select-sm">
-                  <option value="ADICAO">Adição (+)</option>
-                  <option value="SUBTRACAO">Desconto (−)</option>
-                </select>
-              </div>
-              <div class="col-7">
-                <label class="form-label small mb-1" for="ajuste-valor">Valor (R$) <span class="text-danger">*</span></label>
-                <input type="number" id="ajuste-valor" class="form-control form-control-sm" step="0.01" min="0.01" inputmode="decimal" placeholder="0,00">
-              </div>
-              <div class="col-12">
-                <label class="form-label small mb-1" for="ajuste-motivo">Motivo <span class="text-danger">*</span></label>
-                <input type="text" id="ajuste-motivo" class="form-control form-control-sm" maxlength="200" placeholder="Ex.: Adiantamento pago">
-              </div>
-              <div class="col-12">
-                <div id="ajuste-erro" class="small text-danger d-none" role="alert"></div>
-                <button type="button" id="btnAdicionarAjuste" class="btn btn-outline-secondary btn-sm mt-1">
-                  <i class="ri-add-line me-1"></i> Adicionar ajuste
-                </button>
-              </div>
-            </div>
-            <div class="mt-3" id="painel-avulso">
-              <label class="form-label small mb-1" for="avulso-qtde">Avulsos fora do sistema</label>
-              <div class="d-flex gap-2 align-items-center">
-                <input type="number" id="avulso-qtde" class="form-control form-control-sm" style="max-width: 6rem" min="1" step="1" inputmode="numeric" placeholder="Qtd.">
-                <span class="fm-painel-sub fm-num" id="avulso-preview">× R$ 0,00</span>
-                <button type="button" id="btnAdicionarAvulso" class="btn btn-outline-secondary btn-sm ms-auto" disabled>Adicionar</button>
-              </div>
-            </div>
-            <div class="mt-3 fm-apps" id="painel-apps">
-              <div class="form-label small mb-0">Contagem nos apps</div>
-              <div class="fm-painel-sub mb-2">Quantidade que o app mostra neste período. Em branco, vale o sistema. Se o número for outro, só a diferença entra no total.</div>
+            <div class="fm-secao-titulo">Quantidades</div>
+            <div class="fm-painel-sub mb-2">Em branco, vale o sistema. No Mercado Livre e na Shopee, só a diferença entra no total. No avulso, o número é o que está fora do sistema.</div>
+            <div class="fm-apps" id="painel-apps">
               <div class="fm-app" data-canal="flex">
                 <img src="assets/images/canais/mercado-livre.png" alt="" width="28" height="28">
                 <div class="fm-app-dados">
@@ -247,27 +214,73 @@
                 </div>
                 <div class="fm-app-res" id="app-shopee-res"></div>
               </div>
+              <div class="fm-app" id="painel-avulso" data-canal="avulso">
+                <span class="fm-app-marca" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M2.5 5.2 8 2.5l5.5 2.7v5.6L8 13.5 2.5 10.8V5.2Z" stroke="currentColor" stroke-width="1.4"/>
+                    <path d="M2.7 5.4 8 8.1l5.3-2.7M8 8.1V13.2" stroke="currentColor" stroke-width="1.4"/>
+                  </svg>
+                </span>
+                <div class="fm-app-dados">
+                  <div class="fw-semibold">Avulso</div>
+                  <div class="fm-app-campo">
+                    <span>No sistema <strong class="fm-num" id="avulso-sistema">0</strong></span>
+                    <label class="mb-0" for="avulso-qtde">A mais</label>
+                    <input type="number" id="avulso-qtde" class="form-control form-control-sm" min="0" step="1" inputmode="numeric" placeholder="Qtd.">
+                  </div>
+                </div>
+                <div class="fm-app-res" id="avulso-res"></div>
+              </div>
             </div>
           </div>
 
           <div class="fm-secao">
-            <table class="fm-composicao">
-              <tbody>
-                <tr><td>Valor base</td><td class="fm-num" id="painel-total-base">R$ 0,00</td></tr>
-                <tr><td>Ajustes</td><td class="fm-num" id="painel-total-ajustes">R$ 0,00</td></tr>
-              </tbody>
-            </table>
-            <div class="fm-total mt-2" id="painel-total-wrap">
-              <span>Total a pagar</span>
-              <span class="fm-num" id="painel-total">R$ 0,00</span>
+            <div class="fm-secao-titulo">Ajustes</div>
+            <div id="painel-ajustes" class="mb-2"></div>
+            <button type="button" id="btnAbrirAjuste" class="btn btn-outline-secondary btn-sm">
+              <i class="ri-add-line me-1"></i> Adicionar ajuste
+            </button>
+            <div class="row g-2 d-none mt-2" id="form-ajuste">
+              <div class="col-5">
+                <label class="form-label small mb-1" for="ajuste-tipo">Tipo</label>
+                <select id="ajuste-tipo" class="form-select form-select-sm">
+                  <option value="ADICAO">Adição (+)</option>
+                  <option value="SUBTRACAO">Desconto (−)</option>
+                </select>
+              </div>
+              <div class="col-7">
+                <label class="form-label small mb-1" for="ajuste-valor">Valor (R$) <span class="text-danger">*</span></label>
+                <input type="number" id="ajuste-valor" class="form-control form-control-sm" step="0.01" min="0.01" inputmode="decimal" placeholder="0,00">
+              </div>
+              <div class="col-12">
+                <label class="form-label small mb-1" for="ajuste-motivo">Motivo <span class="text-danger">*</span></label>
+                <input type="text" id="ajuste-motivo" class="form-control form-control-sm" maxlength="200" placeholder="Ex.: Adiantamento pago">
+              </div>
+              <div class="col-12">
+                <div id="ajuste-erro" class="small text-danger d-none" role="alert"></div>
+                <button type="button" id="btnAdicionarAjuste" class="btn btn-outline-secondary btn-sm mt-1">Incluir</button>
+              </div>
             </div>
-            <div id="painel-total-erro" class="small text-danger mt-1 d-none" role="alert">O total não pode ficar negativo. Revise os descontos.</div>
           </div>
         </div>
       </div>
-      <div class="offcanvas-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
-        <button type="button" id="btnPainelSalvar" class="btn btn-fm-primary" disabled>Gerar fechamento</button>
+      <div class="offcanvas-footer fm-painel-rodape">
+        <table class="fm-composicao">
+          <tbody>
+            <tr><td>Valor base</td><td class="fm-num" id="painel-total-base">R$ 0,00</td></tr>
+            <tr><td>Acertos</td><td class="fm-num" id="painel-total-acertos">R$ 0,00</td></tr>
+            <tr><td>Ajustes</td><td class="fm-num" id="painel-total-ajustes">R$ 0,00</td></tr>
+          </tbody>
+        </table>
+        <div class="fm-total" id="painel-total-wrap">
+          <span>Total a pagar</span>
+          <span class="fm-num" id="painel-total">R$ 0,00</span>
+        </div>
+        <div id="painel-total-erro" class="small text-danger d-none" role="alert">O total não pode ficar negativo. Revise os descontos.</div>
+        <div class="d-flex gap-2 justify-content-end">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
+          <button type="button" id="btnPainelSalvar" class="btn btn-fm-primary" disabled>Gerar fechamento</button>
+        </div>
       </div>
     </div>
 
@@ -277,7 +290,7 @@
 
     <script src="assets/js/components/date-picker-dashboard.js?v=2.0"></script>
     <script src="assets/js/pages/tracking-entregadores-fechamento-pdf.js?v=3"></script>
-    <script src="assets/js/pages/tracking-entregadores-resumo.init.js?v=8"></script>
+    <script src="assets/js/pages/tracking-entregadores-resumo.init.js?v=9"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>
