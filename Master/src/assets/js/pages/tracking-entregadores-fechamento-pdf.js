@@ -23,13 +23,45 @@
     setTimeout(() => URL.revokeObjectURL(url), 1500);
   }
 
+  let gerando = false;
+  let avisoEncerrado = false;
+
+  function avisoGerandoRelatorio() {
+    avisoEncerrado = false;
+    if (!window.Swal) return;
+    window.Swal.fire({
+      title: "Gerando relatório",
+      text: "O download começa em seguida.",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        if (avisoEncerrado) return;
+        window.Swal.showLoading();
+      },
+    });
+  }
+
+  function encerrarAviso() {
+    avisoEncerrado = true;
+    if (window.Swal && window.Swal.isVisible()) window.Swal.close();
+  }
+
+  function mostrarErro(texto) {
+    if (window.Swal) window.Swal.fire({ icon: "error", title: "Erro", text: texto });
+    else alert(texto);
+  }
+
   async function gerar(idFechamento, entNomeParam) {
+    if (gerando) return;
     const id = Number(idFechamento);
     if (!Number.isFinite(id) || id <= 0) {
-      if (window.Swal) window.Swal.fire({ icon: "error", title: "Erro", text: "Fechamento inválido." });
-      else alert("Fechamento inválido.");
+      mostrarErro("Fechamento inválido.");
       return;
     }
+    gerando = true;
+    avisoGerandoRelatorio();
+    let erro = "";
     try {
       const res = await fetch(`${apiFechamentos()}/${id}/pdf`, { credentials: "include" });
       if (res.status === 401) {
@@ -49,16 +81,13 @@
       triggerBlobDownload(blob, filename);
     } catch (err) {
       console.error(err);
-      if (window.Swal) {
-        window.Swal.fire({
-          icon: "error",
-          title: "Erro",
-          text: err?.message || "Erro ao gerar PDF.",
-        });
-      } else {
-        alert(err?.message || "Erro ao gerar PDF.");
-      }
+      erro = err?.message || "Erro ao gerar PDF.";
+    } finally {
+      gerando = false;
+      if (!erro) encerrarAviso();
+      else avisoEncerrado = true;
     }
+    if (erro) mostrarErro(erro);
   }
 
   window.TrackSaidasFechamentoPdf = { gerar };

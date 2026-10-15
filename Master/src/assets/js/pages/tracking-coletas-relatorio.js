@@ -360,13 +360,59 @@ function montarLinhasDiasSemColeta(excecoes, diasComColeta) {
   });
 }
 
+let gerandoPdfFechamento = false;
+let erroRelatorioMostrado = false;
+let avisoRelatorioEncerrado = false;
+
+function avisoGerandoRelatorio() {
+  avisoRelatorioEncerrado = false;
+  if (!window.Swal) return;
+  window.Swal.fire({
+    title: "Gerando relatório",
+    text: "O download começa em seguida.",
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false,
+    didOpen: () => {
+      if (avisoRelatorioEncerrado || erroRelatorioMostrado) return;
+      window.Swal.showLoading();
+    },
+  });
+}
+
+function encerrarAvisoRelatorio() {
+  avisoRelatorioEncerrado = true;
+  if (window.Swal && window.Swal.isVisible()) window.Swal.close();
+}
+
+function mostrarErroRelatorio(texto) {
+  erroRelatorioMostrado = true;
+  if (window.Swal) window.Swal.fire({ icon: "error", title: "Erro", text: texto });
+  else alert(texto);
+}
+
 async function gerarPdfFechamentoBases(idFechamento) {
+  if (gerandoPdfFechamento) return;
   const api = (window.TRACK_API_URL || "").replace(/\/+$/, "");
   if (!api || !idFechamento) return;
+  gerandoPdfFechamento = true;
+  erroRelatorioMostrado = false;
+  avisoGerandoRelatorio();
+  try {
+    await montarPdfFechamentoBases(idFechamento, api);
+  } catch (err) {
+    mostrarErroRelatorio((err && err.message) || "Não foi possível gerar o relatório.");
+  } finally {
+    gerandoPdfFechamento = false;
+    if (!erroRelatorioMostrado) encerrarAvisoRelatorio();
+    else avisoRelatorioEncerrado = true;
+  }
+}
 
+async function montarPdfFechamentoBases(idFechamento, api) {
   const res = await fetch(`${api}/coletas/fechamentos/${idFechamento}`, { credentials: "include" });
   if (!res.ok) {
-    if (window.Swal) Swal.fire({ icon: "error", title: "Erro", text: "Fechamento não encontrado." });
+    mostrarErroRelatorio("Fechamento não encontrado.");
     return;
   }
   const fech = await res.json();
