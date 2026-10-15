@@ -609,13 +609,17 @@ function augmentEntregadoresFromRows(rows){
     return "servico-avulso";
   }
 
-  function servicoBadgeHtml(servico) {
+  function canalLogoSrc(servico) {
     var classe = getServicoClass(servico);
-    var icone = classe === "servico-shopee" ? "shopee" : classe === "servico-ml" ? "mercado-livre" : "";
-    var img = icone
-      ? '<img class="servico-logo" src="assets/images/canais/' + icone + '.png" alt="" aria-hidden="true">'
-      : "";
-    return '<span class="servico-badge ' + classe + '">' + img + escapeHtml(servico || "-") + "</span>";
+    if (classe === "servico-shopee") return "assets/images/canais/shopee.png";
+    if (classe === "servico-ml") return "assets/images/canais/mercado-livre.png";
+    return "";
+  }
+
+  function servicoBadgeHtml(servico) {
+    var src = canalLogoSrc(servico);
+    var img = src ? '<img class="servico-logo" src="' + src + '" alt="" aria-hidden="true">' : "";
+    return '<span class="servico-badge ' + getServicoClass(servico) + '">' + img + escapeHtml(servico || "-") + "</span>";
   }
 
   function escapeHtml(text){
@@ -1729,9 +1733,13 @@ function setupPagerEvents() {
         ? String(item.acao_label)
         : labelEventoHistorico(item.evento, item.acao_label);
       var dateLine = fmtDt(item.timestamp);
-      var whoLine = item.usuario_nome
-        ? ("Registrado por " + escapeHtml(item.usuario_nome))
-        : "";
+      var evNorm = String(item.evento || "").trim().toLowerCase();
+      var canalEvento = item.plataforma
+        ? String(item.plataforma)
+        : evNorm === "ml_int_sync" ? "Mercado Livre" : evNorm === "shopee_int_sync" ? "Shopee" : "";
+      var autor = item.plataforma ? String(item.plataforma) : (item.usuario_nome || "");
+      var metaLine = escapeHtml(dateLine) + (autor ? " · por <b>" + escapeHtml(autor) + "</b>" : "");
+      var logoEvento = canalEvento ? canalLogoSrc(canalEvento) : "";
 
       var eventPhotos = [];
       if (isEventoAusencia(item.evento)) eventPhotos = maps.ausenciaMap[index] || [];
@@ -1771,12 +1779,14 @@ function setupPagerEvents() {
       }
 
       var isLatest = index === historico.length - 1;
-      return "<div class=\"timeline-item" + (isLatest ? " is-current" : "") + "\">" +
-        "<div class=\"timeline-dot\"></div>" +
+      var nodeHtml = logoEvento
+        ? "<span class=\"timeline-node timeline-node-logo\"><img src=\"" + logoEvento + "\" alt=\"\" aria-hidden=\"true\"></span>"
+        : "<span class=\"timeline-node\"></span>";
+      return "<div class=\"timeline-item" + (isLatest ? " is-current" + (ctx.tom ? " tom-" + ctx.tom : "") : "") + "\">" +
+        nodeHtml +
         "<div class=\"timeline-content\">" +
         "<div class=\"timeline-title\">" + escapeHtml(title) + "</div>" +
-        "<div class=\"timeline-date\">" + escapeHtml(dateLine) + "</div>" +
-        (whoLine ? "<div class=\"timeline-who\">" + whoLine + "</div>" : "") +
+        "<div class=\"timeline-meta\">" + metaLine + "</div>" +
         extrasHtml +
         thumbHtml +
         "</div></div>";
@@ -2037,7 +2047,8 @@ function setupPagerEvents() {
 
       var timelineHtml = buildTimeline(historico, {
         detailNested: d,
-        photoGroups: photoGroups
+        photoGroups: photoGroups,
+        tom: statusClass === "status-danger" ? "bad" : statusClass === "status-success" ? "ok" : ""
       });
 
       var bloqueioBadgeHtml = bloqueadoAusencias
@@ -2075,9 +2086,9 @@ function setupPagerEvents() {
         destinoBlock =
           '<div class="pedido-section">' +
             '<p class="section-title">Destinatário</p>' +
-            (destNome ? '<p class="mb-1 fw-semibold">' + escapeHtml(destNome) + "</p>" : "") +
-            (temEndereco ? '<p class="text-muted small mb-1">' + escapeHtml(enderecoCompleto) + "</p>" : "") +
-            (destContato ? '<p class="small mb-0">Telefone: ' + escapeHtml(destContato) + "</p>" : "") +
+            (destNome ? '<p class="pedido-dest-nome">' + escapeHtml(destNome) + "</p>" : "") +
+            (temEndereco ? '<p class="pedido-dest-endereco">' + escapeHtml(enderecoCompleto) + "</p>" : "") +
+            (destContato ? '<p class="pedido-dest-sub">Telefone: ' + escapeHtml(destContato) + "</p>" : "") +
           "</div>";
       }
 
@@ -2094,34 +2105,47 @@ function setupPagerEvents() {
       }
       var sellerCanal = saida.base ? String(saida.base).trim() : "";
       var contaCanal = saida.conta_nickname ? String(saida.conta_nickname).trim() : "";
-      if (contaCanal && contaCanal.toUpperCase() !== sellerCanal.toUpperCase()) {
-        sellerCanal = sellerCanal ? sellerCanal + " · " + contaCanal : contaCanal;
-      }
-      function blocoCanal(nome, campos) {
+      if (contaCanal && contaCanal.toUpperCase() === sellerCanal.toUpperCase()) contaCanal = "";
+      function blocoCanal(nome, referencia, contaLabel, campos) {
+        var logo = canalLogoSrc(nome);
+        var visiveis = campos.filter(function(m) { return m.value; });
         return '<div class="pedido-section">' +
           canceladoPlataformaHtml +
-          '<div class="pedido-canal-head">' + servicoBadgeHtml(nome) + "</div>" +
-          '<div class="pedido-meta-grid">' +
-            campos.map(function(m) {
-              return '<div><span class="meta-label">' + escapeHtml(m.label) + '</span>' +
-                '<span class="meta-value">' + escapeHtml(m.value || "—") + "</span></div>";
-            }).join("") +
+          '<p class="section-title">Pedido no canal</p>' +
+          '<div class="pedido-canal">' +
+            (logo ? '<img src="' + logo + '" alt="" aria-hidden="true">' : "") +
+            '<span class="pedido-canal-nome">' + escapeHtml(nome) + "</span>" +
+            (referencia ? '<span class="pedido-canal-ref">' + escapeHtml(referencia) + "</span>" : "") +
           "</div>" +
+          (sellerCanal || visiveis.length
+            ? '<div class="pedido-meta-grid mt-3">' +
+                (sellerCanal
+                  ? '<div><span class="meta-label">Seller</span><span class="meta-value">' + escapeHtml(sellerCanal) +
+                      (contaCanal ? '<small class="meta-sub">' + escapeHtml(contaLabel + " " + contaCanal) + "</small>" : "") +
+                    "</span></div>"
+                  : "") +
+                visiveis.map(function(m) {
+                  return '<div><span class="meta-label">' + escapeHtml(m.label) + '</span>' +
+                    '<span class="meta-value">' + escapeHtml(m.value) + "</span></div>";
+                }).join("") +
+              "</div>"
+            : "") +
         "</div>";
       }
-      var dataVendaCanal = saida.data_venda ? fmtDt(saida.data_venda) : "—";
+      var dataVendaCanal = saida.data_venda ? fmtDt(saida.data_venda) : "";
       if (saida.ml_shipment_id || mlPackId) {
-        mlBlock = blocoCanal("Mercado Livre", [
-          { label: "Pack ID", value: mlPackId ? String(mlPackId) : "" },
-          { label: "Nº do envio", value: saida.ml_shipment_id ? String(saida.ml_shipment_id) : "" },
-          { label: "Data da venda", value: dataVendaCanal },
-          { label: "Seller", value: sellerCanal }
-        ]);
+        mlBlock = blocoCanal(
+          "Mercado Livre",
+          saida.ml_shipment_id ? "Envio " + saida.ml_shipment_id : "",
+          "conta",
+          [
+            { label: "Pack ID", value: mlPackId ? String(mlPackId) : "" },
+            { label: "Data da venda", value: dataVendaCanal }
+          ]
+        );
       } else if (saida.shopee_order_sn) {
-        mlBlock = blocoCanal("Shopee", [
-          { label: "Nº do pedido", value: String(saida.shopee_order_sn) },
-          { label: "Data da venda", value: dataVendaCanal },
-          { label: "Seller", value: sellerCanal }
+        mlBlock = blocoCanal("Shopee", "Pedido " + saida.shopee_order_sn, "loja", [
+          { label: "Data da venda", value: dataVendaCanal }
         ]);
       }
 
@@ -2188,7 +2212,7 @@ function setupPagerEvents() {
           entregaBlock +
           avulsoHtml +
           '<div class="pedido-section">' +
-            '<p class="section-title">Histórico do pedido</p>' +
+            '<p class="section-title">Histórico</p>' +
             '<div class="timeline timeline-portal">' + timelineHtml + "</div>" +
           "</div>" +
         "</div>" +

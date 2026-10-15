@@ -612,7 +612,7 @@
   <div class="reg-detail-panel-inner">
     <header class="reg-detail-header d-flex justify-content-between align-items-start px-3 py-3 border-bottom">
       <div class="reg-detail-header-main min-w-0 flex-grow-1 pe-2">
-        <p class="small text-uppercase text-muted mb-1 fw-semibold">Detalhes do pedido</p>
+        <p class="small text-muted mb-1">Detalhes do pedido</p>
         <div class="d-flex align-items-center gap-2 flex-wrap">
           <h5 class="reg-detail-title mb-0 fw-semibold text-break" id="reg-detail-codigo">—</h5>
           <button type="button" class="btn btn-ghost-secondary btn-sm px-1 py-0" id="reg-detail-copy" title="Copiar código" aria-label="Copiar código">
@@ -709,11 +709,9 @@
     background: #fff;
   }
   .pedido-detail-portal .pedido-section > .section-title {
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #64748b;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #0f172a;
     margin: 0 0 0.65rem;
   }
   .pedido-meta-grid {
@@ -723,17 +721,50 @@
   }
   .pedido-meta-grid .meta-label {
     display: block;
-    font-size: 0.72rem;
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 400;
     color: #64748b;
-    margin-bottom: 0.15rem;
+    margin-bottom: 0.1rem;
   }
   .pedido-meta-grid .meta-value {
-    font-size: 0.9rem;
-    font-weight: 600;
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 400;
     color: #0f172a;
+    font-variant-numeric: tabular-nums;
     word-break: normal;
     overflow-wrap: anywhere;
+  }
+  .pedido-meta-grid .meta-sub { display: block; font-size: 0.75rem; color: #64748b; }
+  .pedido-dest-nome { font-size: 0.9375rem; font-weight: 500; color: #0f172a; margin: 0 0 0.15rem; }
+  .pedido-dest-endereco { font-size: 0.8125rem; color: #334155; line-height: 1.5; margin: 0 0 0.35rem; }
+  .pedido-dest-sub { font-size: 0.75rem; color: #64748b; margin: 0; }
+  .pedido-canal {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f3f4f6;
+    border-radius: 8px;
+    padding: 8px 10px;
+    min-width: 0;
+  }
+  .pedido-canal img { width: 22px; height: 22px; flex: 0 0 22px; border-radius: 5px; }
+  .pedido-canal-nome { font-size: 0.8125rem; font-weight: 500; color: #0f172a; white-space: nowrap; }
+  .pedido-canal-ref {
+    font-size: 0.8125rem;
+    color: #64748b;
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pedido-detail-portal .status-badge { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+  .pedido-detail-portal .status-badge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
   }
   .pedido-ocorrencia-box {
     margin-top: 0.85rem;
@@ -812,7 +843,6 @@
   .status-info { background: #e0f2fe; color: #075985; }
   .status-collected { background: #e0e7ff; color: #3730a3; }
   .status-default { background: #f1f5f9; color: #475569; }
-  .pedido-canal-head { margin: 0 0 0.65rem; }
   .servico-badge { display: inline-flex; align-items: center; gap: 4px; }
   .servico-logo { width: 16px; height: 16px; flex: 0 0 16px; border-radius: 4px; object-fit: contain; }
   .action-neutral { background: #e9ecef; color: #6c757d; }
@@ -823,62 +853,64 @@
   .timeline {
     position: relative;
     margin: 0;
-    padding-left: 1.1rem;
-    border-left: 2px solid #cbd5e1;
     width: 100%;
   }
   .timeline-item {
-    display: block;
     position: relative;
-    margin-bottom: 0.28rem;
+    padding: 0 0 1rem 30px;
     width: 100%;
   }
-  .timeline-item:last-child {
-    margin-bottom: 0;
-  }
-  .timeline-dot {
-    width: 8px;
-    height: 8px;
-    background: #94a3b8;
-    border-radius: 50%;
+  .timeline-item:last-child { padding-bottom: 0; }
+  .timeline-item::before {
+    content: "";
     position: absolute;
-    left: -1.3rem;
-    top: 0.4rem;
+    left: 9px;
+    top: 20px;
+    bottom: -2px;
+    width: 1px;
+    background: #e5e7eb;
   }
-  .timeline-item.is-current .timeline-dot { background: #16a34a; }
-  .timeline-content {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-    padding: 0.4rem 0.65rem;
-    border: 1px solid rgba(148, 163, 184, 0.45);
-    border-radius: 0.45rem;
-    background: rgba(241, 245, 249, 0.72);
-    box-sizing: border-box;
+  .timeline-item:last-child::before { display: none; }
+  .timeline-node {
+    position: absolute;
+    left: 4px;
+    top: 5px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #cbd5e1;
   }
-  .timeline-item.is-current .timeline-content {
-    border-color: rgba(22, 163, 74, 0.35);
-    background: rgba(220, 252, 231, 0.55);
+  .timeline-item.is-current .timeline-node:not(.timeline-node-logo) { border-color: #334155; background: #334155; box-shadow: 0 0 0 3px #e2e8f0; }
+  .timeline-item.is-current.tom-ok .timeline-node:not(.timeline-node-logo) { border-color: #15803d; background: #15803d; box-shadow: 0 0 0 3px #dcfce7; }
+  .timeline-item.is-current.tom-bad .timeline-node:not(.timeline-node-logo) { border-color: #b91c1c; background: #b91c1c; box-shadow: 0 0 0 3px #fee2e2; }
+  .timeline-item .timeline-node.timeline-node-logo {
+    left: 0;
+    top: 1px;
+    width: 19px;
+    height: 19px;
+    border: 0;
+    border-radius: 5px;
+    background: none;
+    box-shadow: none;
   }
+  .timeline-node-logo img { display: block; width: 19px; height: 19px; border-radius: 5px; }
+  .timeline-content { min-width: 0; }
   .timeline-title {
-    font-weight: 700;
-    font-size: 0.95rem;
-    color: #0f172a;
+    font-weight: 400;
+    font-size: 0.875rem;
+    color: #334155;
     white-space: normal;
     word-break: normal;
     overflow-wrap: anywhere;
   }
-  .timeline-date {
+  .timeline-item.is-current .timeline-title { color: #0f172a; font-weight: 500; }
+  .timeline-meta {
     color: #64748b;
-    font-size: 0.78rem;
-    margin-top: 0.05rem;
-    white-space: normal;
-  }
-  .timeline-who {
-    color: #64748b;
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     margin-top: 0.05rem;
   }
+  .timeline-meta b { font-weight: 500; color: #334155; }
   .timeline-extras {
     margin-top: 0.2rem;
     font-size: 0.78rem;
@@ -1079,7 +1111,7 @@
   <!-- Sequência original dos scripts (mantida) -->
 <script src="assets/js/components/date-picker-dashboard.js?v=2.0"></script>
   <script src="assets/js/pages/tracking-api-leitura-registros.init.js?v=1.1" defer></script>
-  <script src="assets/js/pages/tracking-registros.init.js?v=1.7" defer></script>
+  <script src="assets/js/pages/tracking-registros.init.js?v=1.8" defer></script>
   <script src="assets/js/app.js"></script>
 </body>
 </html>
