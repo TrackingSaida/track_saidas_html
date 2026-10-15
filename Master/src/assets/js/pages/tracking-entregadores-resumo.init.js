@@ -545,6 +545,64 @@ document.addEventListener("DOMContentLoaded", async () => {
     return JSON.stringify(CANAIS_APP.map((c) => state.painel?.apps?.[c]?.app ?? null));
   }
 
+  function lerAvulso() {
+    const bruto = String(qs("#avulso-qtde")?.value || "").trim();
+    if (!bruto) return null;
+    const n = parseInt(bruto, 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  function totalAvulso() {
+    const p = state.painel;
+    const qtd = p?.avulsoQtd;
+    if (!(qtd > 0) || !(num(p.avulsoUnit) > 0)) return 0;
+    return centavos(qtd * num(p.avulsoUnit));
+  }
+
+  function motivoAvulso(qtd, unit) {
+    return `Avulsos (${qtd} × ${moeda(unit)})`;
+  }
+
+  function separarAvulsoSalvo(motivo, valor, unit) {
+    const partes = String(motivo || "").split(" | ").map((s) => s.trim()).filter(Boolean);
+    let qtd = 0;
+    const outras = [];
+    partes.forEach((parte) => {
+      const achou = parte.match(/^Avulsos \((\d+)\s*×/);
+      if (achou) qtd += parseInt(achou[1], 10) || 0;
+      else outras.push(parte);
+    });
+    if (!(qtd > 0) || !(unit > 0)) return { qtd: null, motivo, valor };
+    const valorAvulso = centavos(qtd * unit);
+    const resto = centavos(num(valor) - valorAvulso);
+    if (resto < -0.009) return { qtd: null, motivo, valor };
+    return { qtd, motivo: outras.join(" | "), valor: resto > 0 ? resto : 0 };
+  }
+
+  function renderAvulso() {
+    const p = state.painel;
+    const res = qs("#avulso-res");
+    const sistema = qs("#avulso-sistema");
+    if (!p || !res) return;
+    if (sistema) sistema.textContent = String(num(p.row?.qtde_avulso));
+    const qtd = p.avulsoQtd;
+    const unit = num(p.avulsoUnit);
+    const origem = p.row ? origemPreco(p.row, "avulso") : "preço global";
+    if (!(unit > 0) && qtd > 0) {
+      res.innerHTML = '<span class="fm-app-zero">Sem preço configurado</span>';
+      return;
+    }
+    if (!(qtd > 0)) {
+      const detalhe = unit > 0 ? `× ${esc(moeda(unit))} ${esc(origem)}` : "Sem preço configurado";
+      res.innerHTML = `<span class="fm-app-zero">sem ajuste</span><small>${detalhe}</small>`;
+      return;
+    }
+    const valor = centavos(qtd * unit);
+    res.innerHTML =
+      `<span class="fm-app-mais">+ ${esc(moeda(valor))}</span>` +
+      `<small>${qtd} a mais × ${esc(moeda(unit))}</small>`;
+  }
+
   function renderApps() {
     const p = state.painel;
     if (!p?.apps) return;
@@ -599,7 +657,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const p = state.painel;
     if (!p || !p.pronto) return false;
     const digitando = (qs("#ajuste-valor")?.value || "").trim() || (qs("#ajuste-motivo")?.value || "").trim();
-    return assinaturaAjustes() !== p.assinaturaInicial || assinaturaApps() !== p.appsInicial || !!digitando;
+    return assinaturaAjustes() !== p.assinaturaInicial || assinaturaApps() !== p.appsInicial || p.avulsoQtd !== p.avulsoInicial || !!digitando;
   }
 
   function renderComposicao() {
@@ -659,10 +717,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     const p = state.painel;
     if (!p) return;
     renderApps();
+    renderAvulso();
     const base = baseDoPainel();
-    const ajustes = centavos(totalAjustes() + totalAcertoApps());
-    const total = centavos(base + ajustes);
+    const acertos = centavos(totalAcertoApps() + totalAvulso());
+    const ajustes = centavos(totalAjustes());
+    const total = centavos(base + acertos + ajustes);
     qs("#painel-total-base").textContent = moeda(base);
+    const elAc = qs("#painel-total-acertos");
+    if (elAc) elAc.textContent = (acertos < 0 ? "− " : "") + moeda(Math.abs(acertos));
     const elAj = qs("#painel-total-ajustes");
     elAj.textContent = (ajustes < 0 ? "− " : "") + moeda(Math.abs(ajustes));
     qs("#painel-total").textContent = moeda(total);
@@ -673,18 +735,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const btn = qs("#btnPainelSalvar");
     const semMudanca =
-      p.modo === "reajustar" && assinaturaAjustes() === p.assinaturaInicial && assinaturaApps() === p.appsInicial && !usaValorAtual();
+      p.modo === "reajustar" &&
+      assinaturaAjustes() === p.assinaturaInicial &&
+      assinaturaApps() === p.appsInicial &&
+      p.avulsoQtd === p.avulsoInicial &&
+      !usaValorAtual();
     btn.disabled = !p.pronto || negativo || state.salvando || semMudanca;
     btn.textContent = state.salvando ? "Salvando…" : p.modo === "reajustar" ? (semMudanca ? "Sem alterações" : "Salvar reajuste") : "Gerar fechamento";
-  }
-
-  function renderAvulso() {
-    const p = state.painel;
-    const unit = num(p.avulsoUnit);
-    const qtd = parseInt(qs("#avulso-qtde")?.value || "0", 10) || 0;
-    const prev = qs("#avulso-preview");
-    if (prev) prev.textContent = unit > 0 ? `× ${moeda(unit)}${qtd > 0 ? " = " + moeda(qtd * unit) : ""}` : "Sem preço de avulso configurado";
-    qs("#btnAdicionarAvulso").disabled = !(unit > 0 && qtd > 0);
   }
 
   async function abrirPainel(opts) {
@@ -705,6 +762,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       ajustes: [],
       assinaturaInicial: "",
       avulsoUnit: 0,
+      avulsoQtd: null,
+      avulsoInicial: null,
       qtdColetas: 0,
       valorColetas: 0,
       gTotal: 0,
@@ -726,6 +785,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (el) el.value = "";
     });
     qs("#ajuste-erro").classList.add("d-none");
+    qs("#form-ajuste")?.classList.add("d-none");
     qs("#painel-atualizar-base").checked = true;
     qs("#btnPainelSalvar").disabled = true;
     painel.show();
@@ -746,7 +806,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         p.avulsoUnit = num(f.avulso_valor);
         p.qtdColetas = num(f.qtd_dias_coleta);
         p.valorColetas = num(f.valor_coletas);
-        if (num(f.valor_adicao) > 0) p.ajustes.push({ tipo: "ADICAO", valor: centavos(f.valor_adicao), motivo: f.motivo_adicao || "Adição" });
+        if (num(f.valor_adicao) > 0) {
+          const separado = separarAvulsoSalvo(f.motivo_adicao, f.valor_adicao, num(f.avulso_valor));
+          if (separado.qtd) {
+            p.avulsoQtd = separado.qtd;
+            const campo = qs("#avulso-qtde");
+            if (campo) campo.value = String(separado.qtd);
+          }
+          if (separado.valor > 0) p.ajustes.push({ tipo: "ADICAO", valor: separado.valor, motivo: separado.motivo || "Adição" });
+        }
         if (num(f.valor_subtracao) > 0) p.ajustes.push({ tipo: "SUBTRACAO", valor: centavos(f.valor_subtracao), motivo: f.motivo_subtracao || "Desconto" });
         qs("#painel-sub").textContent = `${p.nome} · ${periodoTexto(p.ini, p.fim)}`;
         if (String(f.status || "").toUpperCase() === "PAGO") {
@@ -824,6 +892,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
     p.appsInicial = assinaturaApps();
 
+    p.avulsoInicial = p.avulsoQtd;
     p.pronto = true;
     p.assinaturaInicial = assinaturaAjustes();
     qs("#painel-carregando").classList.add("d-none");
@@ -840,7 +909,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           .then((calc) => {
             if (state.painel !== p) return;
             p.avulsoUnit = num(calc.avulso_valor);
-            renderAvulso();
+            renderTotais();
           })
           .catch(() => {});
       };
@@ -866,23 +935,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderAjustes();
   }
 
-  function adicionarAvulso() {
-    const p = state.painel;
-    const unit = num(p?.avulsoUnit);
-    const qtd = parseInt(qs("#avulso-qtde")?.value || "0", 10) || 0;
-    if (!(unit > 0 && qtd > 0)) return;
-    p.ajustes.push({ tipo: "ADICAO", valor: centavos(qtd * unit), motivo: `Avulsos (${qtd} × ${moeda(unit)})` });
-    qs("#avulso-qtde").value = "";
-    renderAvulso();
-    renderAjustes();
-  }
-
   function corpoAjustes() {
     const p = state.painel;
     const juntar = (tipo) => p.ajustes.filter((a) => a.tipo === tipo);
     const soma = (lista) => centavos(lista.reduce((s, a) => s + num(a.valor), 0));
     const motivos = (lista) => lista.map((a) => a.motivo).join(" | ") || null;
     const ad = juntar("ADICAO");
+    if (p.avulsoQtd > 0 && totalAvulso() > 0) {
+      ad.push({ tipo: "ADICAO", valor: totalAvulso(), motivo: motivoAvulso(p.avulsoQtd, p.avulsoUnit) });
+    }
     const sub = juntar("SUBTRACAO");
     return {
       valor_adicao: soma(ad),
@@ -897,7 +958,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function salvarPainel() {
     const p = state.painel;
     if (!p || !p.pronto || state.salvando) return;
-    if (centavos(baseDoPainel() + totalAjustes() + totalAcertoApps()) < 0) return;
+    if (centavos(baseDoPainel() + totalAjustes() + totalAcertoApps() + totalAvulso()) < 0) return;
     const semConf = p.conferencia ? p.conferencia.sem : [];
     if (p.modo === "gerar" && semConf.length && window.Swal) {
       const ok = await Swal.fire({
@@ -989,7 +1050,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     const inp = qs("#ajuste-motivo");
     if (inp) inp.placeholder = qs("#ajuste-tipo").value === "SUBTRACAO" ? "Ex.: Adiantamento pago" : "Ex.: Coletas extras";
   });
-  qs("#avulso-qtde")?.addEventListener("input", renderAvulso);
+  qs("#btnAbrirAjuste")?.addEventListener("click", () => {
+    qs("#form-ajuste")?.classList.remove("d-none");
+    qs("#ajuste-valor")?.focus();
+  });
+  qs("#avulso-qtde")?.addEventListener("input", () => {
+    const p = state.painel;
+    if (!p) return;
+    p.avulsoQtd = lerAvulso();
+    renderTotais();
+  });
   CANAIS_APP.forEach((canal) => {
     qs(`#app-${canal}`)?.addEventListener("input", () => {
       const p = state.painel;
@@ -998,7 +1068,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderTotais();
     });
   });
-  qs("#btnAdicionarAvulso")?.addEventListener("click", adicionarAvulso);
   qs("#painel-atualizar-base")?.addEventListener("change", renderTotais);
   qs("#painel-ajustes")?.addEventListener("click", (ev) => {
     const btn = ev.target.closest("[data-remover]");
