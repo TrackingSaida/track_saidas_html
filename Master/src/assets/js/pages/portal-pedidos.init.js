@@ -22,6 +22,18 @@
   var drawerAtual = { codigo: "", idEnvio: null };
   var rangePicker = null;
 
+  var LOGO_CANAL = {
+    "Mercado Livre": "assets/images/canais/mercado-livre.png",
+    Shopee: "assets/images/canais/shopee.png",
+    Site: "assets/images/canais/site.svg",
+  };
+
+  function canalLogoHtml(label) {
+    var src = LOGO_CANAL[label];
+    if (!src) return esc(label || "—");
+    return '<img class="ps-canal-logo" src="' + src + '" alt="' + esc(label) + '" title="' + esc(label) + '">';
+  }
+
   var estado = { q: "", canal: "", status: "", periodo: "30d", de: "", ate: "", page: 1 };
   var itensCarregados = 0;
   var reqSeq = 0;
@@ -143,7 +155,7 @@
       (it.codigo_marketplace ? '<div class="small text-muted">Pedido ' + esc(it.codigo_marketplace) + "</div>" : "") +
       "</td>" +
       '<td class="c-canal">' +
-      esc(it.canal_label || "—") +
+      canalLogoHtml(it.canal_label) +
       "</td>" +
       '<td class="c-dest">' +
       esc(it.dest_nome || "—") +
@@ -264,7 +276,10 @@
       document.getElementById("pedidoDrawerLabel").textContent = data.codigo || "Pedido";
       var canalTxt = data.canal_label || "—";
       if (data.codigo_marketplace) canalTxt += " · Pedido " + data.codigo_marketplace;
-      document.getElementById("drawerCanal").textContent = canalTxt;
+      var logo = LOGO_CANAL[data.canal_label]
+        ? '<img class="ps-canal-logo ps-canal-logo-sm" src="' + LOGO_CANAL[data.canal_label] + '" alt="">'
+        : "";
+      document.getElementById("drawerCanal").innerHTML = logo + "<span>" + esc(canalTxt) + "</span>";
       document.getElementById("drawerStatus").innerHTML = PS.statusBadgeHtml(data.status, data.status_label);
       var rel = document.getElementById("drawerAtualizado");
       if (rel) {
