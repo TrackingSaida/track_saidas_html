@@ -840,32 +840,48 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  function liberarFocoDoAviso(evento) {
+    const alvo = evento.target;
+    if (alvo instanceof Element && alvo.closest(".swal2-container")) {
+      evento.stopImmediatePropagation();
+    }
+  }
+
   async function justificarDia(data) {
     const p = state.painel;
-    const r = await Swal.fire({
-      title: `Justificar ${dmy(data)}`,
-      html:
-        '<div class="text-start">' +
-        '<label class="form-label small" for="sw-tipo">Motivo do dia sem coleta</label>' +
-        '<select id="sw-tipo" class="form-select mb-2"><option value="FERIADO">Feriado</option><option value="SEM_COLETA">Sem coleta / base fechada</option><option value="JUSTIFICADO">Outro motivo justificado</option></select>' +
-        '<label class="form-label small" for="sw-motivo">Descrição</label>' +
-        '<input id="sw-motivo" class="form-control" maxlength="200" placeholder="Ex.: Feriado municipal">' +
-        "</div>",
-      showCancelButton: true,
-      confirmButtonText: "Salvar justificativa",
-      cancelButtonText: "Cancelar",
-      confirmButtonColor: COR_PRIMARIA,
-      preConfirm: () => {
-        const tipo = document.getElementById("sw-tipo").value;
-        const motivo = document.getElementById("sw-motivo").value.trim();
-        if (!motivo) {
-          Swal.showValidationMessage("Descreva o motivo.");
-          return false;
-        }
-        return { tipo, motivo };
-      },
-    });
-    if (!r.isConfirmed) return;
+    document.addEventListener("focusin", liberarFocoDoAviso, true);
+    let r;
+    try {
+      r = await Swal.fire({
+        title: `Justificar ${dmy(data)}`,
+        html:
+          '<div class="text-start">' +
+          '<label class="form-label small" for="sw-tipo">Motivo do dia sem coleta</label>' +
+          '<select id="sw-tipo" class="form-select mb-2"><option value="FERIADO">Feriado</option><option value="SEM_COLETA">Sem coleta / base fechada</option><option value="JUSTIFICADO">Outro motivo justificado</option></select>' +
+          '<label class="form-label small" for="sw-motivo">Descrição</label>' +
+          '<input id="sw-motivo" class="form-control" maxlength="200" placeholder="Ex.: Feriado municipal">' +
+          "</div>",
+        showCancelButton: true,
+        confirmButtonText: "Salvar justificativa",
+        cancelButtonText: "Cancelar",
+        confirmButtonColor: COR_PRIMARIA,
+        didOpen: () => {
+          document.getElementById("sw-motivo")?.focus();
+        },
+        preConfirm: () => {
+          const tipo = document.getElementById("sw-tipo").value;
+          const motivo = document.getElementById("sw-motivo").value.trim();
+          if (!motivo) {
+            Swal.showValidationMessage("Descreva o motivo.");
+            return false;
+          }
+          return { tipo, motivo };
+        },
+      });
+    } finally {
+      document.removeEventListener("focusin", liberarFocoDoAviso, true);
+    }
+    if (!r?.isConfirmed) return;
     try {
       const bases = await carregarBasesAtivas();
       const baseObj = bases.find((b) => String(b.base || "").toUpperCase() === String(p.base || "").toUpperCase());
