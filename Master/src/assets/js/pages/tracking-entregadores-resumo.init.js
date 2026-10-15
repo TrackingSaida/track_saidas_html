@@ -472,9 +472,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
     const executor = parseExecutorVal(fltEntregador?.value);
-    if (executor.id > 0) {
+      if (executor.id > 0) {
       const nome = fltEntregador.options[fltEntregador.selectedIndex]?.text || "";
-      abrirPainel({ modo: "gerar", tipo: executor.tipo, id: executor.id, nome, ini, fim });
+      const row = state.items.find((i) => i.executor_tipo === executor.tipo && Number(i.executor_id) === executor.id);
+      abrirPainel({ modo: "gerar", tipo: executor.tipo, id: executor.id, nome, ini, fim, row });
       return;
     }
     if (!executoresCache.length || !window.Swal) return;
@@ -495,7 +496,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
     if (!value) return;
     const escolhido = parseExecutorVal(value);
-    abrirPainel({ modo: "gerar", tipo: escolhido.tipo, id: escolhido.id, nome: inputOptions[value], ini, fim });
+    const row = state.items.find((i) => i.executor_tipo === escolhido.tipo && Number(i.executor_id) === escolhido.id);
+    abrirPainel({ modo: "gerar", tipo: escolhido.tipo, id: escolhido.id, nome: inputOptions[value], ini, fim, row });
   }
 
   // ====== Painel de revisão (gerar e reajustar) ======
@@ -691,6 +693,13 @@ document.addEventListener("DOMContentLoaded", async () => {
           p.valorColetas = num(p.row.valor_coletas);
         }
         p.gTotal = num(p.row?.g_total);
+      } else if (opts.row) {
+        p.row = opts.row;
+        p.valorBase = num(opts.row.valor_base);
+        p.qtdColetas = num(opts.row.qtd_dias_coleta);
+        p.valorColetas = num(opts.row.valor_coletas);
+        p.gTotal = num(opts.row.g_total);
+        p.avulsoUnit = precoUnit(opts.row, "avulso");
       } else {
         const params = new URLSearchParams({ periodo_inicio: p.ini, periodo_fim: p.fim });
         params.set(p.tipo === "m" ? "motoboy_id" : "entregador_id", String(p.id));
@@ -732,6 +741,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     qs("#painel-conteudo").classList.remove("d-none");
     renderAvulso();
     renderAjustes();
+    if (opts.row && p.modo !== "reajustar" && !(p.avulsoUnit > 0)) {
+      const campo = qs("#avulso-qtde");
+      const carregarPreco = () => {
+        campo?.removeEventListener("focus", carregarPreco);
+        const params = new URLSearchParams({ periodo_inicio: p.ini, periodo_fim: p.fim });
+        params.set(p.tipo === "m" ? "motoboy_id" : "entregador_id", String(p.id));
+        api(`${API_FECHAMENTOS}/calcular?${params}`)
+          .then((calc) => {
+            if (state.painel !== p) return;
+            p.avulsoUnit = num(calc.avulso_valor);
+            renderAvulso();
+          })
+          .catch(() => {});
+      };
+      campo?.addEventListener("focus", carregarPreco);
+    }
   }
 
   function adicionarAjuste() {
@@ -897,7 +922,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else if (acao === "gerar") {
       const r = state.items.find((i) => chaveLinha(i) === btn.dataset.k);
       const { ini, fim } = periodoFiltro();
-      if (r) abrirPainel({ modo: "gerar", tipo: r.executor_tipo, id: r.executor_id, nome: r.nome, ini, fim });
+      if (r) abrirPainel({ modo: "gerar", tipo: r.executor_tipo, id: r.executor_id, nome: r.nome, ini, fim, row: r });
     } else if (acao === "reajustar") {
       const id = Number(btn.dataset.id);
       const r = state.items.find((i) => Number(i.id_fechamento) === id);
