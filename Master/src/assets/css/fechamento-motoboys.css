@@ -481,8 +481,19 @@
   font-size: 0.875rem;
 }
 
-.fm-painel .fm-app img {
+.fm-painel .fm-app img,
+.fm-painel .fm-app-marca {
   border-radius: 6px;
+}
+
+.fm-painel .fm-app-marca {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--fm-border);
+  background: #F8FAFC;
+  color: var(--fm-strong);
 }
 
 .fm-painel .fm-app-campo {

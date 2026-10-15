@@ -139,14 +139,25 @@
     return total === 1 ? "1 pedido a coletar" : `${total} pedidos a coletar`;
   }
 
+  function ownerEhBase() {
+    return String(window.TIPO_OWNER || "").toLowerCase() === "base";
+  }
+
+  async function garantirTipoOwner() {
+    if (window.TIPO_OWNER || typeof window.ensureAuthUser !== "function") return;
+    try {
+      await window.ensureAuthUser();
+    } catch (_) {}
+  }
+
   function renderResumoAColetar(resumo) {
     const card = $("coletas-kpi-a-coletar-card");
     const opcao = $("coletas-opcao-a-coletar");
-    state.temAColetar = Boolean(resumo);
-    card.classList.toggle("d-none", !resumo);
-    opcao.hidden = !resumo;
-    $("coletas-th-a-coletar").classList.toggle("d-none", !resumo);
-    if (!resumo) {
+    state.temAColetar = ownerEhBase() && Boolean(resumo);
+    card.classList.toggle("d-none", !state.temAColetar);
+    opcao.hidden = !state.temAColetar;
+    $("coletas-th-a-coletar").classList.toggle("d-none", !state.temAColetar);
+    if (!state.temAColetar) {
       if ($("coletas-operacao-status").value === "a_coletar") $("coletas-operacao-status").value = "";
       return;
     }
@@ -171,7 +182,7 @@
     $("coletas-operacao-tbody").innerHTML = itens
       .map(
         (item) => `
-      <tr class="${totalAColetar(item) > 0 ? "coleta-com-pendencia" : ""}">
+      <tr class="${state.temAColetar && totalAColetar(item) > 0 ? "coleta-com-pendencia" : ""}">
         <td class="fw-semibold"><span class="coleta-base">${esc(item.base)}${contasHtml(item)}</span></td><td>${statusBadge(item.status)}</td>
         ${state.temAColetar ? `<td>${aColetarHtml(item)}</td>` : ""}
         <td class="coleta-participantes">${participantesComAcao(item)}</td><td>${esc(modoLabel(item.modo))}</td>
@@ -190,9 +201,9 @@
           )
           .join("");
         return `
-      <article class="coleta-mobile-card${totalAColetar(item) > 0 ? " coleta-com-pendencia" : ""}">
+      <article class="coleta-mobile-card${state.temAColetar && totalAColetar(item) > 0 ? " coleta-com-pendencia" : ""}">
         <div class="d-flex justify-content-between align-items-start gap-2 mb-2"><strong class="coleta-base">${esc(item.base)}${contasHtml(item)}</strong>${statusBadge(item.status)}</div>
-        ${aColetarFrase(item) ? `<div class="coleta-a-coletar mb-2"><b>${esc(aColetarFrase(item))}</b></div>` : ""}
+        ${state.temAColetar && aColetarFrase(item) ? `<div class="coleta-a-coletar mb-2"><b>${esc(aColetarFrase(item))}</b></div>` : ""}
         <div class="small text-muted mb-2">${(item.participantes || []).map((p) => `${esc(p.username)}${p.sem_volume ? " (sem volume)" : p.status === "em_coleta" ? " (em coleta)" : ""}`).join("<br>") || "—"}</div>
         <div class="d-flex flex-wrap gap-2 mb-2">
           <span class="badge bg-light text-body">Flex ${Number(item.mercado_livre || 0)}</span>
@@ -322,6 +333,7 @@
         return;
       }
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || "Não foi possível carregar as coletas.");
+      await garantirTipoOwner();
       const payload = await response.json();
       state.itens = Array.isArray(payload.itens) ? payload.itens : [];
       state.podeCorrigir = Boolean(payload.pode_corrigir_quantidades);
