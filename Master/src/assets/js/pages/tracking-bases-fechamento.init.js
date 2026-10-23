@@ -109,7 +109,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     DIAS_PENDENTES: "Há dias de coleta sem lançamento.",
     SEM_COLETAS: "Sem coletas no período.",
     JA_GERADO: "Já tem fechamento neste período.",
+    PERIODO_FECHAMENTO: "O período escolhido não corresponde ao fechamento desta base.",
   };
+
+  function motivoDeFora(r) {
+    if (r.motivo_bloqueio === "PERIODO_FECHAMENTO") {
+      return r.aviso_ciclo || MOTIVO_LOTE.PERIODO_FECHAMENTO;
+    }
+    return MOTIVO_LOTE[r.motivo_bloqueio] || r.motivo_bloqueio || "";
+  }
+
+  function badgePeriodo(r) {
+    const rotulo = { semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" }[r.periodo_fechamento] || "Nenhum";
+    return `<span class="fm-chip fm-chip--info">${esc(rotulo)}</span>`;
+  }
 
   const state = {
     items: [],
@@ -141,7 +154,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ====== Lista por base ======
   function colunas() {
-    return document.querySelectorAll("#tbl-bases thead th").length || 8;
+    return document.querySelectorAll("#tbl-bases thead th").length || 9;
   }
 
   function linhaMensagem(html) {
@@ -280,6 +293,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           `<tr class="${r.precisa_reajuste ? "fm-linha--revisao" : ""}">` +
           `<td><button type="button" class="fm-expandir" data-acao="expandir" data-base="${esc(k)}" aria-expanded="${aberto}" aria-controls="${idDias}" aria-label="Ver dias de ${esc(r.base)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
           `<td><div class="fw-semibold">${esc(r.base)}</div>${r.cnpj ? `<div class="fm-sub">${esc(r.cnpj)}</div>` : ""}</td>` +
+          `<td>${badgePeriodo(r)}</td>` +
           `<td class="text-end"><div class="fm-num fw-semibold">${coletas}</div>${servicosHtml(r)}</td>` +
           `<td class="text-end fm-num">${num(r.pacotes_g)}</td>` +
           `<td class="text-end fm-num">${num(r.cancelados)}</td>` +
@@ -395,7 +409,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         '<p class="small text-muted mb-0">Os fechamentos saem sem ajustes. Ajustes podem ser feitos depois, em Reajustar.</p>' +
         listaHtml(geraveis.map((r) => ({ nome: r.base, valor: r.valor_atual }))) +
         (deFora.length
-          ? `<p class="small text-muted mt-3 mb-0">Ficam de fora (gere individualmente):</p>${listaHtml(deFora.map((r) => ({ nome: r.base, motivo: MOTIVO_LOTE[r.motivo_bloqueio] || "" })))}`
+          ? `<p class="small text-muted mt-3 mb-0">Ficam de fora (gere individualmente):</p>${listaHtml(deFora.map((r) => ({ nome: r.base, motivo: motivoDeFora(r) })))}`
           : ""),
       showCancelButton: true,
       confirmButtonText: `Gerar ${plural(geraveis.length, "fechamento", "fechamentos")}`,
@@ -517,6 +531,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const p = state.painel;
     const erros = [];
     if (p.modo === "gerar" && p.pendentes.length) erros.push("Resolva os dias de coleta sem lançamento.");
+    if (p.modo === "gerar" && p.avisoCiclo) erros.push(p.avisoCiclo);
     if (c.total < 0) erros.push("O total não pode ficar negativo. Revise os descontos.");
     return erros;
   }
@@ -702,7 +717,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     qs("#painel-dias-resumo").textContent = totalDias ? `(${plural(totalDias, "dia", "dias")})` : "";
   }
 
+  function renderAvisoCiclo() {
+    const el = qs("#painel-ciclo");
+    const texto = qs("#painel-ciclo-texto");
+    const p = state.painel;
+    const mostrar = !!(p && p.modo === "gerar" && p.avisoCiclo);
+    if (el) el.classList.toggle("d-none", !mostrar);
+    if (texto) texto.textContent = mostrar ? p.avisoCiclo : "";
+  }
+
   function renderPainelCompleto() {
+    renderAvisoCiclo();
     renderPendencias();
     renderGrade();
     renderAjustes();
@@ -721,6 +746,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     qs("#painel-carregando").classList.remove("d-none");
     qs("#painel-conteudo").classList.add("d-none");
     qs("#painel-divergencia").classList.add("d-none");
+    qs("#painel-ciclo")?.classList.add("d-none");
     qs("#painel-pendencias").classList.add("d-none");
     qs("#painel-anterior").classList.add("d-none");
     qs("#painel-total-erro").classList.add("d-none");
@@ -758,6 +784,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           gCategorias: calc.g_por_categoria || [],
           ajusteG: null,
           avisoG: "",
+          avisoCiclo: calc.aviso_ciclo || "",
         });
       } else {
         const fech = await api(`${API_FECH}/${encodeURIComponent(opts.idFech)}`);
@@ -1033,6 +1060,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function salvarPainel() {
     const p = state.painel;
     if (!p || !p.pronto || p.salvando) return;
+    if (p.modo !== "reajustar" && p.avisoCiclo) {
+      Swal.fire({
+        icon: "warning",
+        title: "Período não corresponde",
+        text: p.avisoCiclo,
+        confirmButtonColor: COR_PRIMARIA,
+      });
+      return;
+    }
     const c = calculo();
     if (errosValidacao(c).length) return;
 

@@ -196,6 +196,7 @@
       entrada: !!qs("#entradaHabilitada")?.checked,
       conferencia: !!qs("#conferenciaHabilitada")?.checked,
       devolucao: !!qs("#devolucaoHabilitada")?.checked,
+      pix: (qs("#pixReceber")?.value || "").trim(),
       podeColeta: !!qs("#defPodeColeta")?.checked,
       podeSaida: !!qs("#defPodeSaida")?.checked,
       digitar: !!qs("#defDigitarManual")?.checked,
@@ -388,6 +389,7 @@
     qs("#entradaHabilitada").checked = !!op.entrada_habilitada;
     qs("#conferenciaHabilitada").checked = !!op.conferencia_saida_habilitada;
     qs("#devolucaoHabilitada").checked = !!op.devolucao_sub_base_habilitada;
+    if (qs("#pixReceber")) qs("#pixReceber").value = op.pix_receber || "";
     qs("#defPodeColeta").checked = !!pad.pode_realizar_coleta;
     qs("#defPodeSaida").checked = pad.pode_ler_saida !== false;
     qs("#defDigitarManual").checked = !!pad.pode_digitar_codigo_manual;
@@ -515,6 +517,7 @@
         entrada_habilitada: !!qs("#entradaHabilitada").checked,
         conferencia_saida_habilitada: !!qs("#conferenciaHabilitada").checked,
         devolucao_sub_base_habilitada: !!qs("#devolucaoHabilitada").checked,
+        pix_receber: (qs("#pixReceber")?.value || "").trim() || null,
       },
       padroes_motoboy: {
         pode_realizar_coleta: !!qs("#defPodeColeta").checked,

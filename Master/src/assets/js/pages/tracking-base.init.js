@@ -263,6 +263,16 @@ async function apiDelete(id) {
     }
   }
 
+  function rotuloPeriodoFechamento(codigo) {
+    return { semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" }[codigo] || "Nenhum";
+  }
+
+  function periodoFechamentoSelecionado() {
+    const id = SELECTED_ID ? Number(SELECTED_ID) : null;
+    const row = DATA_CACHE.find((b) => (b.id_base || b.id) === id);
+    return row?.periodo_fechamento || "";
+  }
+
   function showSellerDetailEmpty(message) {
     const wrap = qs("#seller-detail");
     if (!wrap) return;
@@ -307,6 +317,7 @@ async function apiDelete(id) {
     const cnpjFormatado = maskCnpj(seller.cnpj || "");
     setText("#s-cnpj", cnpjFormatado);
     setText("#s-pix", seller.chave_pix);
+    setText("#s-periodo", rotuloPeriodoFechamento(periodoFechamentoSelecionado()));
     setText("#s-cep", seller.cep);
     setText("#s-endereco", endereco);
     setText("#s-cidade-uf", cidadeUf);
@@ -331,12 +342,15 @@ async function apiDelete(id) {
         `${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados?base_id=${encodeURIComponent(SELECTED_ID)}`
       );
       if (!seller) {
-        showSellerDetailEmpty(typeof window.ownerTerm === "function" ? window.ownerTerm("sem_dados_detalhe") : "Não há dados de CNPJ e endereço cadastrados para a Base selecionada.");
+        renderSellerDetail({});
         return;
       }
       renderSellerDetail(seller);
     } catch (err) {
-      // 404 ou outro erro → indica ausência de dados para a entidade selecionada
+      if (err && err.status === 404) {
+        renderSellerDetail({});
+        return;
+      }
       showSellerDetailEmpty(typeof window.ownerTerm === "function" ? window.ownerTerm("sem_dados_detalhe") : "Não há dados de CNPJ e endereço cadastrados para a Base selecionada.");
     }
   }
@@ -440,6 +454,7 @@ async function apiDelete(id) {
     const chave = Array.from(dias).sort((a, b) => a - b).join(",");
     qs("#agendaPreset").value = ["1,2,3,4,5", "1,2,3,4,5,6"].includes(chave) ? chave : "custom";
     if (qs("#sellerPix")) qs("#sellerPix").value = "";
+    if (qs("#periodoFechamento")) qs("#periodoFechamento").value = data?.periodo_fechamento || "";
 
     atualizarAjudaCamposSeller();
     formModal.show();
@@ -490,6 +505,7 @@ async function apiDelete(id) {
       ativo: qs("#ativo").checked,
       dias_coleta: qsa(".dia-coleta:checked").map((el) => Number(el.value)),
       agenda_coleta_confirmada: qs("#agendaConfirmada").checked,
+      periodo_fechamento: qs("#periodoFechamento")?.value || null,
     };
   }
 

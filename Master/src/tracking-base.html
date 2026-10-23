@@ -130,6 +130,10 @@
                     <div id="s-pix">—</div>
                   </div>
                   <div class="col-md-4">
+                    <label class="form-label text-primary fw-medium mb-1">Período de fechamento</label>
+                    <div id="s-periodo">Nenhum</div>
+                  </div>
+                  <div class="col-md-4">
                     <label class="form-label text-primary fw-medium mb-1">CEP</label>
                     <div id="s-cep">—</div>
                   </div>
@@ -214,8 +218,18 @@
                         </div>
                         <div class="col-12">
                           <label for="sellerPix" class="form-label">PIX para pagamento</label>
-                          <input type="text" id="sellerPix" class="form-control" placeholder="Chave PIX da operação" maxlength="140" autocomplete="off">
-                          <div class="form-text small">Opcional. É a chave que a base usa para pagar o fechamento. Aparece no comprovante.</div>
+                          <input type="text" id="sellerPix" class="form-control" placeholder="Chave PIX da base" maxlength="140" autocomplete="off">
+                          <div class="form-text small">Opcional. Se preenchido, esta chave sai no relatório de coletas no lugar da chave de Políticas gerais. Vazio usa a chave global.</div>
+                        </div>
+                        <div class="col-md-6">
+                          <label for="periodoFechamento" class="form-label">Período de fechamento</label>
+                          <select id="periodoFechamento" class="form-select">
+                            <option value="">Nenhum</option>
+                            <option value="semanal">Semanal</option>
+                            <option value="quinzenal">Quinzenal</option>
+                            <option value="mensal">Mensal</option>
+                          </select>
+                          <div class="form-text small">Nenhum não restringe o intervalo. Semanal, quinzenal ou mensal só geram no ciclo correspondente.</div>
                         </div>
                       </div>
                     </div>
@@ -418,7 +432,7 @@
       });
     </script>
 
-    <script src="assets/js/pages/tracking-base.init.js?v=3"></script>
+    <script src="assets/js/pages/tracking-base.init.js?v=4"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>
