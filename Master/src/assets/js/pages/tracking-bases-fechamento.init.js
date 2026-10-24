@@ -120,8 +120,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function badgePeriodo(r) {
-    const rotulo = { semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" }[r.periodo_fechamento] || "Nenhum";
-    return `<span class="fm-chip fm-chip--info">${esc(rotulo)}</span>`;
+    const codigo = r.periodo_fechamento;
+    const rotulo = { semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" }[codigo] || "Nenhum";
+    const tom = { semanal: "fm-chip--semanal", quinzenal: "fm-chip--quinzenal", mensal: "fm-chip--mensal" }[codigo] || "fm-chip--info";
+    return `<span class="fm-chip ${tom}">${esc(rotulo)}</span>`;
   }
 
   const state = {
