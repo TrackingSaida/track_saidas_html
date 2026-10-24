@@ -270,8 +270,31 @@ async function apiDelete(id) {
     }
   }
 
+  const PERIODOS_FECHAMENTO = ["semanal", "quinzenal", "mensal"];
+
+  function codigoPeriodoFechamento(codigo) {
+    const valor = String(codigo || "").trim().toLowerCase();
+    return PERIODOS_FECHAMENTO.includes(valor) ? valor : "";
+  }
+
   function rotuloPeriodoFechamento(codigo) {
-    return { semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" }[codigo] || "Nenhum";
+    return { semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" }[codigoPeriodoFechamento(codigo)] || "Nenhum";
+  }
+
+  function aplicarPeriodoFechamento(codigo) {
+    const select = qs("#periodoFechamento");
+    if (!select || select.dataset.tocado === "1") return;
+    const valor = codigoPeriodoFechamento(codigo);
+    select.dataset.carregado = valor;
+    select.value = valor;
+    Array.from(select.options).forEach((op) => { op.selected = op.value === valor; });
+  }
+
+  function periodoFechamentoDoFormulario() {
+    const select = qs("#periodoFechamento");
+    if (!select) return null;
+    const codigo = select.dataset.tocado === "1" ? select.dataset.escolhido : select.value;
+    return codigoPeriodoFechamento(codigo) || null;
   }
 
   function periodoFechamentoSelecionado() {
@@ -462,7 +485,12 @@ async function apiDelete(id) {
     qs("#agendaPreset").value = ["1,2,3,4,5", "1,2,3,4,5,6"].includes(chave) ? chave : "custom";
     if (window.PixChave) PixChave.limpar(qs("#sellerPixTipo"), qs("#sellerPix"), "#sellerPixErro");
     else if (qs("#sellerPix")) qs("#sellerPix").value = "";
-    if (qs("#periodoFechamento")) qs("#periodoFechamento").value = data?.periodo_fechamento || "";
+    const periodoSelect = qs("#periodoFechamento");
+    if (periodoSelect) {
+      delete periodoSelect.dataset.tocado;
+      delete periodoSelect.dataset.escolhido;
+    }
+    aplicarPeriodoFechamento(data?.periodo_fechamento);
 
     atualizarAjudaCamposSeller();
     formModal.show();
@@ -513,7 +541,7 @@ async function apiDelete(id) {
       ativo: qs("#ativo").checked,
       dias_coleta: qsa(".dia-coleta:checked").map((el) => Number(el.value)),
       agenda_coleta_confirmada: qs("#agendaConfirmada").checked,
-      periodo_fechamento: qs("#periodoFechamento")?.value || null,
+      periodo_fechamento: periodoFechamentoDoFormulario(),
     };
   }
 
@@ -942,6 +970,13 @@ async function apiDelete(id) {
   // =======================================================
   document.addEventListener("DOMContentLoaded", async () => {
     if (window.PixChave) PixChave.ligar(qs("#sellerPixTipo"), qs("#sellerPix"), "#sellerPixErro");
+    qs("#periodoFechamento")?.addEventListener("change", (ev) => {
+      ev.currentTarget.dataset.tocado = "1";
+      ev.currentTarget.dataset.escolhido = codigoPeriodoFechamento(ev.currentTarget.value);
+    });
+    qs("#oc-form")?.addEventListener("shown.bs.modal", () => {
+      aplicarPeriodoFechamento(qs("#periodoFechamento")?.dataset.carregado);
+    });
     preencherLinkPortal();
     await carregarOwnerInfo();
     atualizarVisibilidadePortalSeller();
