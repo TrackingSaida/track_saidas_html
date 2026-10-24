@@ -239,7 +239,11 @@ async function apiDelete(id) {
       if (el && v != null) el.value = v || "";
     };
     setVal("#sellerCnpj", seller.cnpj ? maskCnpj(seller.cnpj) : "");
-    setVal("#sellerPix", seller.chave_pix || "");
+    if (window.PixChave) {
+      PixChave.preencher(qs("#sellerPixTipo"), qs("#sellerPix"), seller.chave_pix_tipo, seller.chave_pix);
+    } else {
+      setVal("#sellerPix", seller.chave_pix || "");
+    }
     setVal("#sellerCep", seller.cep ? maskCep(seller.cep) : "");
     setVal("#sellerRua", seller.rua || "");
     setVal("#sellerNumero", seller.numero || "");
@@ -316,7 +320,7 @@ async function apiDelete(id) {
 
     const cnpjFormatado = maskCnpj(seller.cnpj || "");
     setText("#s-cnpj", cnpjFormatado);
-    setText("#s-pix", seller.chave_pix);
+    setText("#s-pix", window.PixChave ? PixChave.exibir(seller.chave_pix_tipo, seller.chave_pix) : seller.chave_pix);
     setText("#s-periodo", rotuloPeriodoFechamento(periodoFechamentoSelecionado()));
     setText("#s-cep", seller.cep);
     setText("#s-endereco", endereco);
@@ -453,7 +457,8 @@ async function apiDelete(id) {
     qs("#agendaConfirmada").checked = !!data?.agenda_coleta_confirmada;
     const chave = Array.from(dias).sort((a, b) => a - b).join(",");
     qs("#agendaPreset").value = ["1,2,3,4,5", "1,2,3,4,5,6"].includes(chave) ? chave : "custom";
-    if (qs("#sellerPix")) qs("#sellerPix").value = "";
+    if (window.PixChave) PixChave.limpar(qs("#sellerPixTipo"), qs("#sellerPix"), "#sellerPixErro");
+    else if (qs("#sellerPix")) qs("#sellerPix").value = "";
     if (qs("#periodoFechamento")) qs("#periodoFechamento").value = data?.periodo_fechamento || "";
 
     atualizarAjudaCamposSeller();
@@ -933,6 +938,7 @@ async function apiDelete(id) {
   // Eventos
   // =======================================================
   document.addEventListener("DOMContentLoaded", async () => {
+    if (window.PixChave) PixChave.ligar(qs("#sellerPixTipo"), qs("#sellerPix"), "#sellerPixErro");
     preencherLinkPortal();
     await carregarOwnerInfo();
     atualizarVisibilidadePortalSeller();
@@ -1194,7 +1200,9 @@ async function apiDelete(id) {
       const cidade = (qs("#sellerCidade")?.value || "").trim();
       const estado = (qs("#sellerEstado")?.value || "").trim();
       const complemento = (qs("#sellerComplemento")?.value || "").trim();
-      const chavePix = (qs("#sellerPix")?.value || "").trim();
+      const pix = window.PixChave
+        ? PixChave.ler(qs("#sellerPixTipo"), qs("#sellerPix"))
+        : { tipo: null, chave: (qs("#sellerPix")?.value || "").trim() || null, erro: "" };
 
       const errosSeller = [];
       if (ownerTipo === "base") {
@@ -1206,6 +1214,9 @@ async function apiDelete(id) {
         if (!bairro) errosSeller.push(ot("bairro_obrigatorio_entidade"));
         if (!cidade) errosSeller.push(ot("cidade_obrigatoria_entidade"));
       }
+
+      if (pix.erro) errosSeller.push(pix.erro);
+      if (window.PixChave) PixChave.mostrarErro(qs("#sellerPix"), "#sellerPixErro", pix.erro);
 
       if (errosSeller.length) {
         toast(errosSeller.join(" "), false);
@@ -1235,7 +1246,8 @@ async function apiDelete(id) {
             bairro: bairro || null,
             cidade: cidade || null,
             estado: estado || null,
-            chave_pix: chavePix || null,
+            chave_pix: pix.chave,
+            chave_pix_tipo: pix.tipo,
           };
           const rSeller = await fetch(`${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados`, {
             method: "PATCH",
@@ -1245,7 +1257,13 @@ async function apiDelete(id) {
           });
           if (!rSeller.ok) {
             const errBody = await rSeller.json().catch(() => ({}));
-            const msg = errBody.detail || errBody.message || (typeof window.ownerTerm === "function" ? window.ownerTerm("falha_salvar_dados") : "Falha ao salvar dados da Base.");
+            const detalhe = errBody.detail || errBody.message;
+            const msg = typeof detalhe === "string" && detalhe
+              ? detalhe
+              : (typeof window.ownerTerm === "function" ? window.ownerTerm("falha_salvar_dados") : "Falha ao salvar dados da Base.");
+            if (window.PixChave && /chave PIX|CPF inválido|CNPJ inválido|Celular inválido|E-mail inválido|Chave aleatória/.test(msg)) {
+              PixChave.mostrarErro(qs("#sellerPix"), "#sellerPixErro", msg);
+            }
             toast(msg, false);
             return;
           }

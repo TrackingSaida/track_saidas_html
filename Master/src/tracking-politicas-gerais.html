@@ -129,10 +129,26 @@
                     <small class="text-muted d-block mt-1">Permite registrar pelo aplicativo a devolução de pacotes, incluindo foto quando aplicável.</small>
                   </div>
 
-                  <div class="mt-3" style="max-width: 420px;">
+                  <div class="mt-3" style="max-width: 520px;">
                     <label class="form-label fw-medium" for="pixReceber">PIX a receber</label>
-                    <input type="text" class="form-control" id="pixReceber" maxlength="140" autocomplete="off" placeholder="Chave PIX da operação">
-                    <small class="text-muted d-block mt-1">Opcional. Sai no relatório de fechamento de coletas quando a base não tem PIX próprio. Se a base tiver chave, a dela prevalece.</small>
+                    <div class="row g-2">
+                      <div class="col-sm-4">
+                        <label class="visually-hidden" for="pixReceberTipo">Tipo da chave</label>
+                        <select id="pixReceberTipo" class="form-select">
+                          <option value="">Tipo da chave</option>
+                          <option value="cpf">CPF</option>
+                          <option value="cnpj">CNPJ</option>
+                          <option value="telefone">Celular</option>
+                          <option value="email">E-mail</option>
+                          <option value="aleatoria">Aleatória</option>
+                        </select>
+                      </div>
+                      <div class="col-sm-8">
+                        <input type="text" class="form-control" id="pixReceber" maxlength="140" autocomplete="off" placeholder="Chave PIX da operação" aria-describedby="pixReceberErro">
+                      </div>
+                    </div>
+                    <div class="text-danger small mt-1" id="pixReceberErro" hidden></div>
+                    <small class="text-muted d-block mt-1">Opcional. O relatório imprime o tipo e a chave. Se a base tiver a sua, a dela prevalece.</small>
                   </div>
                 </div>
               </div>
@@ -286,6 +302,7 @@
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
     <script src="assets/js/pages/logo-crop-modal.js?v=1.0"></script>
-    <script src="assets/js/pages/tracking-politicas-gerais.init.v2.js?v=2.4"></script>
+    <script src="assets/js/components/pix-chave.js?v=1"></script>
+    <script src="assets/js/pages/tracking-politicas-gerais.init.v2.js?v=2.5"></script>
   </body>
 </html>
