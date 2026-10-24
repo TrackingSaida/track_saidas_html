@@ -239,7 +239,11 @@ async function apiDelete(id) {
       if (el && v != null) el.value = v || "";
     };
     setVal("#sellerCnpj", seller.cnpj ? maskCnpj(seller.cnpj) : "");
-    setVal("#sellerPix", seller.chave_pix || "");
+    if (window.PixChave) {
+      PixChave.preencher(qs("#sellerPixTipo"), qs("#sellerPix"), seller.chave_pix_tipo, seller.chave_pix);
+    } else {
+      setVal("#sellerPix", seller.chave_pix || "");
+    }
     setVal("#sellerCep", seller.cep ? maskCep(seller.cep) : "");
     setVal("#sellerRua", seller.rua || "");
     setVal("#sellerNumero", seller.numero || "");
@@ -261,6 +265,16 @@ async function apiDelete(id) {
     } catch (err) {
       // se 404 ou outro erro, apenas não preenche
     }
+  }
+
+  function rotuloPeriodoFechamento(codigo) {
+    return { semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" }[codigo] || "Nenhum";
+  }
+
+  function periodoFechamentoSelecionado() {
+    const id = SELECTED_ID ? Number(SELECTED_ID) : null;
+    const row = DATA_CACHE.find((b) => (b.id_base || b.id) === id);
+    return row?.periodo_fechamento || "";
   }
 
   function showSellerDetailEmpty(message) {
@@ -306,7 +320,8 @@ async function apiDelete(id) {
 
     const cnpjFormatado = maskCnpj(seller.cnpj || "");
     setText("#s-cnpj", cnpjFormatado);
-    setText("#s-pix", seller.chave_pix);
+    setText("#s-pix", window.PixChave ? PixChave.exibir(seller.chave_pix_tipo, seller.chave_pix) : seller.chave_pix);
+    setText("#s-periodo", rotuloPeriodoFechamento(periodoFechamentoSelecionado()));
     setText("#s-cep", seller.cep);
     setText("#s-endereco", endereco);
     setText("#s-cidade-uf", cidadeUf);
@@ -331,12 +346,15 @@ async function apiDelete(id) {
         `${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados?base_id=${encodeURIComponent(SELECTED_ID)}`
       );
       if (!seller) {
-        showSellerDetailEmpty(typeof window.ownerTerm === "function" ? window.ownerTerm("sem_dados_detalhe") : "Não há dados de CNPJ e endereço cadastrados para a Base selecionada.");
+        renderSellerDetail({});
         return;
       }
       renderSellerDetail(seller);
     } catch (err) {
-      // 404 ou outro erro → indica ausência de dados para a entidade selecionada
+      if (err && err.status === 404) {
+        renderSellerDetail({});
+        return;
+      }
       showSellerDetailEmpty(typeof window.ownerTerm === "function" ? window.ownerTerm("sem_dados_detalhe") : "Não há dados de CNPJ e endereço cadastrados para a Base selecionada.");
     }
   }
@@ -439,7 +457,9 @@ async function apiDelete(id) {
     qs("#agendaConfirmada").checked = !!data?.agenda_coleta_confirmada;
     const chave = Array.from(dias).sort((a, b) => a - b).join(",");
     qs("#agendaPreset").value = ["1,2,3,4,5", "1,2,3,4,5,6"].includes(chave) ? chave : "custom";
-    if (qs("#sellerPix")) qs("#sellerPix").value = "";
+    if (window.PixChave) PixChave.limpar(qs("#sellerPixTipo"), qs("#sellerPix"), "#sellerPixErro");
+    else if (qs("#sellerPix")) qs("#sellerPix").value = "";
+    if (qs("#periodoFechamento")) qs("#periodoFechamento").value = data?.periodo_fechamento || "";
 
     atualizarAjudaCamposSeller();
     formModal.show();
@@ -490,6 +510,7 @@ async function apiDelete(id) {
       ativo: qs("#ativo").checked,
       dias_coleta: qsa(".dia-coleta:checked").map((el) => Number(el.value)),
       agenda_coleta_confirmada: qs("#agendaConfirmada").checked,
+      periodo_fechamento: qs("#periodoFechamento")?.value || null,
     };
   }
 
@@ -917,6 +938,7 @@ async function apiDelete(id) {
   // Eventos
   // =======================================================
   document.addEventListener("DOMContentLoaded", async () => {
+    if (window.PixChave) PixChave.ligar(qs("#sellerPixTipo"), qs("#sellerPix"), "#sellerPixErro");
     preencherLinkPortal();
     await carregarOwnerInfo();
     atualizarVisibilidadePortalSeller();
@@ -1178,7 +1200,9 @@ async function apiDelete(id) {
       const cidade = (qs("#sellerCidade")?.value || "").trim();
       const estado = (qs("#sellerEstado")?.value || "").trim();
       const complemento = (qs("#sellerComplemento")?.value || "").trim();
-      const chavePix = (qs("#sellerPix")?.value || "").trim();
+      const pix = window.PixChave
+        ? PixChave.ler(qs("#sellerPixTipo"), qs("#sellerPix"))
+        : { tipo: null, chave: (qs("#sellerPix")?.value || "").trim() || null, erro: "" };
 
       const errosSeller = [];
       if (ownerTipo === "base") {
@@ -1190,6 +1214,9 @@ async function apiDelete(id) {
         if (!bairro) errosSeller.push(ot("bairro_obrigatorio_entidade"));
         if (!cidade) errosSeller.push(ot("cidade_obrigatoria_entidade"));
       }
+
+      if (pix.erro) errosSeller.push(pix.erro);
+      if (window.PixChave) PixChave.mostrarErro(qs("#sellerPix"), "#sellerPixErro", pix.erro);
 
       if (errosSeller.length) {
         toast(errosSeller.join(" "), false);
@@ -1219,7 +1246,8 @@ async function apiDelete(id) {
             bairro: bairro || null,
             cidade: cidade || null,
             estado: estado || null,
-            chave_pix: chavePix || null,
+            chave_pix: pix.chave,
+            chave_pix_tipo: pix.tipo,
           };
           const rSeller = await fetch(`${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados`, {
             method: "PATCH",
@@ -1229,7 +1257,13 @@ async function apiDelete(id) {
           });
           if (!rSeller.ok) {
             const errBody = await rSeller.json().catch(() => ({}));
-            const msg = errBody.detail || errBody.message || (typeof window.ownerTerm === "function" ? window.ownerTerm("falha_salvar_dados") : "Falha ao salvar dados da Base.");
+            const detalhe = errBody.detail || errBody.message;
+            const msg = typeof detalhe === "string" && detalhe
+              ? detalhe
+              : (typeof window.ownerTerm === "function" ? window.ownerTerm("falha_salvar_dados") : "Falha ao salvar dados da Base.");
+            if (window.PixChave && /chave PIX|CPF inválido|CNPJ inválido|Celular inválido|E-mail inválido|Chave aleatória/.test(msg)) {
+              PixChave.mostrarErro(qs("#sellerPix"), "#sellerPixErro", msg);
+            }
             toast(msg, false);
             return;
           }

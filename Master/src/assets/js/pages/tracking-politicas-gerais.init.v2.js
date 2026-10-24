@@ -196,6 +196,8 @@
       entrada: !!qs("#entradaHabilitada")?.checked,
       conferencia: !!qs("#conferenciaHabilitada")?.checked,
       devolucao: !!qs("#devolucaoHabilitada")?.checked,
+      pix: (qs("#pixReceber")?.value || "").trim(),
+      pixTipo: qs("#pixReceberTipo")?.value || "",
       podeColeta: !!qs("#defPodeColeta")?.checked,
       podeSaida: !!qs("#defPodeSaida")?.checked,
       digitar: !!qs("#defDigitarManual")?.checked,
@@ -388,6 +390,11 @@
     qs("#entradaHabilitada").checked = !!op.entrada_habilitada;
     qs("#conferenciaHabilitada").checked = !!op.conferencia_saida_habilitada;
     qs("#devolucaoHabilitada").checked = !!op.devolucao_sub_base_habilitada;
+    if (window.PixChave) {
+      PixChave.preencher(qs("#pixReceberTipo"), qs("#pixReceber"), op.pix_receber_tipo, op.pix_receber);
+    } else if (qs("#pixReceber")) {
+      qs("#pixReceber").value = op.pix_receber || "";
+    }
     qs("#defPodeColeta").checked = !!pad.pode_realizar_coleta;
     qs("#defPodeSaida").checked = pad.pode_ler_saida !== false;
     qs("#defDigitarManual").checked = !!pad.pode_digitar_codigo_manual;
@@ -507,6 +514,16 @@
       if (!conf.isConfirmed) return false;
     }
 
+    const pix = window.PixChave
+      ? PixChave.ler(qs("#pixReceberTipo"), qs("#pixReceber"))
+      : { tipo: null, chave: (qs("#pixReceber")?.value || "").trim() || null, erro: "" };
+    if (pix.erro) {
+      if (window.PixChave) PixChave.mostrarErro(qs("#pixReceber"), "#pixReceberErro", pix.erro);
+      toast(pix.erro, false);
+      return false;
+    }
+    if (window.PixChave) PixChave.mostrarErro(qs("#pixReceber"), "#pixReceberErro", "");
+
     const payload = {
       operacao: {
         coleta_habilitada: !!qs("#coletaHabilitada").checked,
@@ -515,6 +532,8 @@
         entrada_habilitada: !!qs("#entradaHabilitada").checked,
         conferencia_saida_habilitada: !!qs("#conferenciaHabilitada").checked,
         devolucao_sub_base_habilitada: !!qs("#devolucaoHabilitada").checked,
+        pix_receber: pix.chave,
+        pix_receber_tipo: pix.tipo,
       },
       padroes_motoboy: {
         pode_realizar_coleta: !!qs("#defPodeColeta").checked,
@@ -541,7 +560,13 @@
 
     hydrating = true;
     try {
-      const data = await http(API, { method: "POST", body: JSON.stringify(payload) });
+      let data;
+      try {
+        data = await http(API, { method: "POST", body: JSON.stringify(payload) });
+      } catch (errPix) {
+        if (window.PixChave) PixChave.mostrarErro(qs("#pixReceber"), "#pixReceberErro", errPix.message || "");
+        throw errPix;
+      }
       fillForm(data || {});
       baselinePoliticas = snapshotPoliticas();
       renderDirty();
@@ -734,6 +759,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
+    if (window.PixChave) PixChave.ligar(qs("#pixReceberTipo"), qs("#pixReceber"), "#pixReceberErro");
     ["#coletaHabilitada", "#entradaHabilitada", "#defCriarAvulsoColeta", "#defCriarAvulsoSaida"].forEach((sel) => {
       qs(sel)?.addEventListener("change", syncUiDeps);
     });

@@ -3,7 +3,7 @@
   <head>
     @@include("partials/title-meta.html", {"title":"Fechamento de Bases"})
     @@include("partials/head-css.html")
-    <link href="assets/css/fechamento-motoboys.css?v=4" rel="stylesheet" type="text/css" />
+    <link href="assets/css/fechamento-motoboys.css?v=5" rel="stylesheet" type="text/css" />
   </head>
 
   <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
@@ -82,6 +82,7 @@
                           <tr>
                             <th style="width: 2.5rem"><span class="visually-hidden">Detalhar dias</span></th>
                             <th data-owner-term="base">Base</th>
+                            <th>Período</th>
                             <th class="text-end">Coletas</th>
                             <th class="text-end">Pacotes G</th>
                             <th class="text-end">Cancelados</th>
@@ -124,6 +125,13 @@
               </div>
               <div class="mb-2">Resolva cada dia antes de gerar: lance a quantidade coletada ou justifique (feriado, sem coleta).</div>
               <div id="painel-pendencias-lista"></div>
+            </div>
+          </div>
+
+          <div class="fm-secao d-none" id="painel-ciclo">
+            <div class="fm-aviso fm-aviso--revisao" role="alert">
+              <div class="fw-semibold mb-1">Período não corresponde</div>
+              <div id="painel-ciclo-texto"></div>
             </div>
           </div>
 
@@ -255,8 +263,9 @@
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.min.js"></script>
     <script src="assets/js/components/date-picker-dashboard.js?v=2.0"></script>
-    <script src="assets/js/pages/tracking-coletas-relatorio.js?v=fechamento-3"></script>
-    <script src="assets/js/pages/tracking-bases-fechamento.init.js?v=8"></script>
+    <script src="assets/js/components/pix-chave.js?v=2"></script>
+    <script src="assets/js/pages/tracking-coletas-relatorio.js?v=fechamento-7"></script>
+    <script src="assets/js/pages/tracking-bases-fechamento.init.js?v=10"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>

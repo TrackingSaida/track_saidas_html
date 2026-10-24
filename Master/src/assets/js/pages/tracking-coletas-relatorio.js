@@ -563,6 +563,8 @@ async function montarPdfFechamentoBases(idFechamento, api) {
   const nomeEmpresa = (seller && seller.nome_base) ? seller.nome_base : base;
   const cnpjVal = seller && seller.cnpj ? formatarCnpjPdf(seller.cnpj) : null;
   const enderecoVal = (seller && seller.endereco_completo) ? seller.endereco_completo : null;
+  const pixVal = seller && seller.chave_pix ? String(seller.chave_pix).trim() : "";
+  const pixTipo = seller && seller.chave_pix_tipo ? String(seller.chave_pix_tipo).trim() : "";
   const fmtVal = (v) => {
     const n = Number(v) || 0;
     const neg = n < 0;
@@ -711,8 +713,32 @@ async function montarPdfFechamentoBases(idFechamento, api) {
 
   let y = faixaH + 8;
   const cardW = 54;
-  const cardH = 22;
   const cardX = pageW - margin - cardW;
+  const pixExibicao = pixVal && window.PixChave ? PixChave.formatar(pixTipo, pixVal) : pixVal;
+  const rotuloTipo = pixVal && window.PixChave ? PixChave.rotulo(pixTipo) : "";
+  let linhasChave = [];
+  if (pixVal) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    const textoChave = pixExibicao || pixVal;
+    const larguraChave = cardW - 8;
+    const cabe = (linhas) => linhas.every((linha) => doc.getTextWidth(linha) <= larguraChave);
+    if (doc.getTextWidth(textoChave) <= larguraChave) {
+      linhasChave = [textoChave];
+    } else if (pixTipo === "email" && textoChave.includes("@")) {
+      const arroba = textoChave.lastIndexOf("@");
+      linhasChave = [textoChave.slice(0, arroba + 1), textoChave.slice(arroba + 1)];
+    } else if (pixTipo === "aleatoria" && textoChave.split("-").length === 5) {
+      const grupos = textoChave.split("-");
+      linhasChave = [grupos.slice(0, 4).join("-"), grupos[4]];
+    }
+    if (!linhasChave.length || !cabe(linhasChave)) {
+      linhasChave = doc.splitTextToSize(textoChave, larguraChave).slice(0, 3);
+    }
+  }
+  const cardH = pixVal
+    ? 25 + (rotuloTipo ? 3.6 : 0) + linhasChave.length * 3.6 + 3
+    : 22;
   doc.setDrawColor(230, 230, 230);
   doc.setFillColor(255, 255, 255);
   doc.setLineWidth(0.3);
@@ -729,9 +755,34 @@ async function montarPdfFechamentoBases(idFechamento, api) {
   doc.setFontSize(8);
   doc.setTextColor(muted[0], muted[1], muted[2]);
   doc.text(`${qtdColetas} coletas no período`, cardX + cardW - 3, y + 18, { align: "right" });
+  if (pixVal) {
+    const direita = cardX + cardW - 3;
+    doc.setDrawColor(230, 230, 230);
+    doc.setLineWidth(0.2);
+    doc.line(cardX + 3, y + 21, direita, y + 21);
+    let py = y + 25;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(ink[0], ink[1], ink[2]);
+    doc.text("Pague no PIX", direita, py, { align: "right" });
+    if (rotuloTipo) {
+      py += 3.6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(muted[0], muted[1], muted[2]);
+      doc.text(rotuloTipo, direita, py, { align: "right" });
+    }
+    py += 3.8;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(ink[0], ink[1], ink[2]);
+    doc.text(linhasChave, direita, py, { align: "right" });
+  }
 
   const termoBase = typeof window.ownerTerm === "function" ? window.ownerTerm("base") : "Base";
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
+  doc.setTextColor(muted[0], muted[1], muted[2]);
   doc.text(String(termoBase).toUpperCase(), margin, y + 4);
   doc.setTextColor(ink[0], ink[1], ink[2]);
   doc.setFont("helvetica", "bold");
