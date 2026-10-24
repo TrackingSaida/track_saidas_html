@@ -219,7 +219,8 @@
     aplicarLimite(select, input);
     select.addEventListener("change", () => {
       if (select.dataset.silencioso) return;
-      input.value = "";
+      const tipo = select.value;
+      if (tipo && input.value.trim()) input.value = formatar(tipo, input.value);
       input.dataset.original = "";
       aplicarLimite(select, input);
       mostrarErro(input, erroId, "");
@@ -242,11 +243,25 @@
     });
   }
 
+  function inferirTipo(chave) {
+    const texto = String(chave || "").trim();
+    if (!texto) return "";
+    if (texto.includes("@") && !erroDaChave("email", texto)) return "email";
+    if (!erroDaChave("aleatoria", texto) && /[a-f]/i.test(texto)) return "aleatoria";
+    const nums = digitos(texto);
+    if (nums.length === 14 && cnpjValido(nums)) return "cnpj";
+    if (nums.length === 11 && cpfValido(nums)) return "cpf";
+    if (!erroDaChave("telefone", texto)) return "telefone";
+    return "";
+  }
+
   function preencher(select, input, tipo, chave) {
     if (!select || !input) return;
-    const codigo = String(tipo || "").trim().toLowerCase();
+    let codigo = String(tipo || "").trim().toLowerCase();
+    if (!ROTULO[codigo]) codigo = inferirTipo(chave);
     select.dataset.silencioso = "1";
     select.value = ROTULO[codigo] ? codigo : "";
+    Array.from(select.options).forEach((op) => { op.selected = op.value === select.value; });
     delete select.dataset.silencioso;
     input.dataset.original = String(chave || "").trim();
     input.value = select.value ? formatar(select.value, chave) : String(chave || "");

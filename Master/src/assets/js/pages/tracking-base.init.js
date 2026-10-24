@@ -253,14 +253,17 @@ async function apiDelete(id) {
     setVal("#sellerEstado", seller.estado || "");
   }
 
+  let sellerDadosSeq = 0;
+
   async function carregarSellerDados(baseId = null) {
     if (!OWNER_INFO || !OWNER_INFO.id_owner) return;
+    const seq = ++sellerDadosSeq;
     try {
       const url = baseId != null
         ? `${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados?base_id=${encodeURIComponent(baseId)}`
         : `${API_URL}/owner/${encodeURIComponent(OWNER_INFO.id_owner)}/seller-dados`;
       const seller = await http(url);
-      if (!seller) return;
+      if (seq !== sellerDadosSeq || !seller) return;
       preencherFormSellerDados(seller);
     } catch (err) {
       // se 404 ou outro erro, apenas não preenche
