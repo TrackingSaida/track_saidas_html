@@ -564,6 +564,10 @@ async function montarPdfFechamentoBases(idFechamento, api) {
   const cnpjVal = seller && seller.cnpj ? formatarCnpjPdf(seller.cnpj) : null;
   const enderecoVal = (seller && seller.endereco_completo) ? seller.endereco_completo : null;
   const pixVal = seller && seller.chave_pix ? String(seller.chave_pix).trim() : "";
+  const pixTipo = seller && seller.chave_pix_tipo ? String(seller.chave_pix_tipo).trim() : "";
+  const pixLinha = window.PixChave
+    ? PixChave.linhaRelatorio(pixTipo, pixVal)
+    : (pixVal ? `PIX ${pixVal}` : "");
   const fmtVal = (v) => {
     const n = Number(v) || 0;
     const neg = n < 0;
@@ -751,8 +755,8 @@ async function montarPdfFechamentoBases(idFechamento, api) {
     doc.text(linhasEnd.slice(0, 3), margin, infoY);
     infoY += 4 * Math.min(linhasEnd.length, 3);
   }
-  if (pixVal) {
-    const linhasPix = doc.splitTextToSize(`PIX ${pixVal}`, cardX - margin - 4);
+  if (pixLinha) {
+    const linhasPix = doc.splitTextToSize(pixLinha, cardX - margin - 4);
     doc.text(linhasPix.slice(0, 2), margin, infoY);
     infoY += 4 * Math.min(linhasPix.length, 2);
   }

@@ -218,8 +218,24 @@
                         </div>
                         <div class="col-12">
                           <label for="sellerPix" class="form-label">PIX para pagamento</label>
-                          <input type="text" id="sellerPix" class="form-control" placeholder="Chave PIX da base" maxlength="140" autocomplete="off">
-                          <div class="form-text small">Opcional. Se preenchido, esta chave sai no relatório de coletas no lugar da chave de Políticas gerais. Vazio usa a chave global.</div>
+                          <div class="row g-2">
+                            <div class="col-sm-4">
+                              <label class="visually-hidden" for="sellerPixTipo">Tipo da chave</label>
+                              <select id="sellerPixTipo" class="form-select">
+                                <option value="">Tipo da chave</option>
+                                <option value="cpf">CPF</option>
+                                <option value="cnpj">CNPJ</option>
+                                <option value="telefone">Celular</option>
+                                <option value="email">E-mail</option>
+                                <option value="aleatoria">Aleatória</option>
+                              </select>
+                            </div>
+                            <div class="col-sm-8">
+                              <input type="text" id="sellerPix" class="form-control" placeholder="Chave PIX da base" maxlength="140" autocomplete="off" aria-describedby="sellerPixErro">
+                            </div>
+                          </div>
+                          <div class="text-danger small mt-1" id="sellerPixErro" hidden></div>
+                          <div class="form-text small">Opcional. Preenchida, esta chave e o tipo dela saem no relatório no lugar da chave de Políticas gerais. Vazio usa a chave global.</div>
                         </div>
                         <div class="col-md-6">
                           <label for="periodoFechamento" class="form-label">Período de fechamento</label>
@@ -432,7 +448,8 @@
       });
     </script>
 
-    <script src="assets/js/pages/tracking-base.init.js?v=4"></script>
+    <script src="assets/js/components/pix-chave.js?v=1"></script>
+    <script src="assets/js/pages/tracking-base.init.js?v=5"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>
