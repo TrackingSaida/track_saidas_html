@@ -63,6 +63,18 @@
       .coleta-nada { font-size: 0.75rem; color: var(--vz-secondary-color, #94a3b8); }
       tr.coleta-com-pendencia > td { background: rgba(254, 243, 199, 0.25); }
       .coleta-mobile-card.coleta-com-pendencia { border-color: #fcd34d; }
+      .coleta-expandir {
+        border: 0;
+        background: none;
+        padding: 0.25rem;
+        line-height: 1;
+        color: var(--vz-secondary-color, #64748b);
+      }
+      .coleta-expandir[aria-expanded="true"] i { display: inline-block; transform: rotate(90deg); }
+      .coleta-dias > td { background: var(--vz-light, #f8f9fa); padding: 0.5rem 1rem 0.75rem 2.5rem; }
+      .coleta-dias table { margin: 0; font-size: 0.8125rem; }
+      .coleta-dia-bloco { border-top: 1px solid var(--vz-border-color); padding-top: 0.75rem; margin-top: 0.75rem; }
+      #coletas-operacao-period-btn { width: 100%; justify-content: space-between; }
     </style>
   </head>
   <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
@@ -79,8 +91,18 @@
               <div class="card-body">
                 <div class="row g-2 align-items-end mb-4">
                   <div class="col-12 col-sm-4 col-lg-3">
-                    <label for="coletas-operacao-data" class="form-label">Data</label>
-                    <input id="coletas-operacao-data" type="date" class="form-control" />
+                    <label for="coletas-operacao-period-btn" class="form-label">Período</label>
+                    <div class="dropdown">
+                      <button class="btn btn-light border dropdown-toggle d-flex align-items-center gap-2" type="button" id="coletas-operacao-period-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-haspopup="true">
+                        <i class="bx bx-calendar"></i>
+                        <span id="coletas-operacao-period-label" class="text-truncate">Hoje</span>
+                      </button>
+                      <div class="dropdown-menu p-0 period-panel" id="coletas-operacao-period-panel">
+                        <input type="hidden" id="coletas-operacao-inicio" />
+                        <input type="hidden" id="coletas-operacao-fim" />
+                        <div id="coletas-operacao-date-picker"></div>
+                      </div>
+                    </div>
                   </div>
                   <div class="col-6 col-sm-4 col-lg-3">
                     <label for="coletas-operacao-status" class="form-label">Status</label>
@@ -174,7 +196,8 @@
 
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
-<script src="assets/js/pages/tracking-coletas-operacao.init.js?v=3"></script>
+    <script src="assets/js/components/date-picker-dashboard.js?v=2.0"></script>
+    <script src="assets/js/pages/tracking-coletas-operacao.init.js?v=4"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>
