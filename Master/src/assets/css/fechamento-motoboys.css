@@ -352,10 +352,16 @@
 .fm-chip--revisao { background: #FFFBEB; color: #B45309; }
 .fm-chip--info { background: #F1F5F9; color: #475569; }
 .fm-chip--reconferir { background: #FFF7ED; color: #C2410C; }
+.fm-chip--semanal { background: #DCFCE7; color: #166534; }
+.fm-chip--quinzenal { background: #DBEAFE; color: #1E40AF; }
+.fm-chip--mensal { background: #CCFBF1; color: #0F766E; }
 
 [data-bs-theme="dark"] .fm-chip--revisao { background: rgba(251, 191, 36, 0.12); color: #FBBF24; }
 [data-bs-theme="dark"] .fm-chip--info { background: rgba(148, 163, 184, 0.15); color: #CBD5E1; }
 [data-bs-theme="dark"] .fm-chip--reconferir { background: rgba(251, 146, 60, 0.12); color: #FB923C; }
+[data-bs-theme="dark"] .fm-chip--semanal { background: rgba(22, 163, 74, 0.16); color: #4ADE80; }
+[data-bs-theme="dark"] .fm-chip--quinzenal { background: rgba(37, 99, 235, 0.16); color: #93C5FD; }
+[data-bs-theme="dark"] .fm-chip--mensal { background: rgba(15, 118, 110, 0.18); color: #5EEAD4; }
 
 /* Conferência de saída por dia */
 .fm-conf--conferida { color: #15803D; }
