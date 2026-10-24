@@ -38,10 +38,17 @@
     return out;
   }
 
+  function digitosCelular(valor) {
+    let texto = String(valor || "");
+    const tinhaPrefixo = texto.trimStart().startsWith("+55");
+    if (tinhaPrefixo) texto = texto.replace(/^\s*\+55/, "");
+    let d = texto.replace(/\D/g, "");
+    if (!tinhaPrefixo && d.startsWith("55") && d.length > 11) d = d.slice(2);
+    return d.slice(0, 11);
+  }
+
   function mascaraCelular(valor) {
-    let d = digitos(valor);
-    if (d.startsWith("55") && d.length > 11) d = d.slice(2);
-    d = d.slice(0, 11);
+    const d = digitosCelular(valor);
     if (!d) return "";
     let out = `+55 (${d.slice(0, Math.min(2, d.length))}`;
     if (d.length >= 2) out += ")";
@@ -95,11 +102,34 @@
     return nome ? `${nome} ${mostrado}` : mostrado;
   }
 
+  function posicaoCursor(tipo, formatado, qtd) {
+    if (!qtd) {
+      if (tipo === "telefone") {
+        const abre = formatado.indexOf("(");
+        return abre >= 0 ? abre + 1 : formatado.length;
+      }
+      return 0;
+    }
+    let vistos = 0;
+    let i = tipo === "telefone" && formatado.startsWith("+55") ? 3 : 0;
+    const conta = tipo === "aleatoria" || tipo === "email" ? /[0-9a-f]/i : /\d/;
+    if (tipo === "email") {
+      return Math.min(qtd, formatado.length);
+    }
+    for (; i < formatado.length; i += 1) {
+      if (conta.test(formatado[i])) {
+        vistos += 1;
+        if (vistos >= qtd) return i + 1;
+      }
+    }
+    return formatado.length;
+  }
+
   function linhaRelatorio(tipo, chave) {
     const valor = String(chave || "").trim();
     if (!valor) return "";
     const nome = rotulo(tipo);
-    return nome ? `PIX ${nome} ${valor}` : `PIX ${valor}`;
+    return nome ? `Pague no PIX · Chave ${nome} · ${valor}` : `Pague no PIX · ${valor}`;
   }
 
   function aplicarLimite(select, input) {
@@ -142,8 +172,7 @@
     if (tipo === "cpf") return cpfValido(digitos(chave)) ? "" : "CPF inválido.";
     if (tipo === "cnpj") return cnpjValido(digitos(chave)) ? "" : "CNPJ inválido.";
     if (tipo === "telefone") {
-      let d = digitos(chave);
-      if (d.startsWith("55") && d.length === 13) d = d.slice(2);
+      const d = digitosCelular(chave);
       if (d.length === 11 && d[2] === "9" && d[0] !== "0") return "";
       return "Celular inválido. Use DDD e os 9 dígitos.";
     }
@@ -198,12 +227,14 @@
     input.addEventListener("input", () => {
       const tipo = select.value;
       if (tipo) {
-        const pos = input.selectionStart;
         const antes = input.value;
+        const pos = input.selectionStart == null ? antes.length : input.selectionStart;
+        const qtd = tipo === "telefone"
+          ? digitosCelular(antes.slice(0, pos)).length
+          : antes.slice(0, pos).replace(tipo === "aleatoria" ? /[^0-9a-f]/gi : /\D/g, "").length;
         input.value = formatar(tipo, antes);
-        if (document.activeElement === input && pos != null) {
-          const delta = input.value.length - antes.length;
-          const alvo = Math.max(0, pos + delta);
+        if (document.activeElement === input) {
+          const alvo = posicaoCursor(tipo, input.value, qtd);
           input.setSelectionRange(alvo, alvo);
         }
       }
