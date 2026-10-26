@@ -5,6 +5,7 @@
    POST  /api/entregadores/fechamentos       (individual)
    POST  /api/entregadores/fechamentos/lote  (todos os pendentes)
    PATCH /api/entregadores/fechamentos/{id}  (reajuste)
+   DELETE /api/entregadores/fechamentos/{id} (excluir gerado ou reajustado)
    ====================================================== */
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -138,6 +139,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     conferenciaHabilitada: false,
     expandidos: new Set(),
     gerandoLote: false,
+    excluindo: false,
     painel: null,
     salvando: false,
     fecharPainelConfirmado: false,
@@ -182,23 +184,48 @@ document.addEventListener("DOMContentLoaded", async () => {
     return `${r.executor_tipo}_${r.executor_id}`;
   }
 
+  function rotuloPeriodoCurto(ini, fim) {
+    if (ini && ini === fim) {
+      const [y, m, d] = String(ini).split("-");
+      return d && m && y ? `${d}/${m}` : dmy(ini);
+    }
+    return periodoTexto(ini, fim);
+  }
+
+  function fechamentoExcluivel(r) {
+    if (!r?.id_fechamento || !r.periodo_inicio || !r.periodo_fim) return null;
+    const dia = (r.dias || []).find((d) => Number(d.id_fechamento) === Number(r.id_fechamento));
+    const st = String((dia && dia.fechamento_status) || (r.parcial ? "" : r.fechamento_status) || "").toUpperCase();
+    if (st !== "GERADO" && st !== "REAJUSTADO") return null;
+    return { id: Number(r.id_fechamento), ini: r.periodo_inicio, fim: r.periodo_fim };
+  }
+
+  function btnExcluirHtml(r) {
+    const alvo = fechamentoExcluivel(r);
+    if (!alvo) return "";
+    const quando = rotuloPeriodoCurto(alvo.ini, alvo.fim);
+    return `<button type="button" class="btn btn-sm btn-outline-danger ms-1" data-acao="excluir" data-id="${esc(alvo.id)}" data-k="${esc(chaveLinha(r))}">Excluir fechamento de ${esc(quando)}</button>`;
+  }
+
   function acoesHtml(r) {
     const st = String(r.fechamento_status || "PENDENTE").toUpperCase();
     const k = esc(chaveLinha(r));
     const pdf = r.id_fechamento
       ? `<button type="button" class="btn btn-sm btn-link text-secondary px-1" data-acao="pdf" data-id="${esc(r.id_fechamento)}" title="Baixar PDF" aria-label="Baixar PDF de ${esc(r.nome)}"><i class="ri-file-pdf-line fs-5"></i></button>`
       : "";
+    const excluir = btnExcluirHtml(r);
     if (st === "PENDENTE") {
       const { fim } = periodoFiltro();
       let motivo = "";
       if (periodoAberto(fim)) motivo = "Período ainda em aberto: escolha um período que termine antes de hoje.";
-      else if (r.parcial) motivo = "Parte do período já tem fechamento. Ajuste o período para os dias pendentes.";
+      else if (r.parcial) motivo = "Parte do período já tem fechamento. Exclua esse fechamento para gerar o período inteiro.";
       const btn = `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="gerar" data-k="${k}"${motivo ? " disabled" : ""}>Revisar e gerar</button>`;
-      return motivo ? `<span class="d-inline-block" tabindex="0" title="${esc(motivo)}">${btn}</span>` : btn;
+      const gerar = motivo ? `<span class="d-inline-block" tabindex="0" title="${esc(motivo)}">${btn}</span>` : btn;
+      return gerar + excluir;
     }
     if (st === "PAGO") return pdf;
     const classe = r.pode_reajustar ? "btn-fm-primary" : "btn-outline-secondary";
-    return `<button type="button" class="btn btn-sm ${classe}" data-acao="reajustar" data-id="${esc(r.id_fechamento)}">Reajustar</button>${pdf}`;
+    return `<button type="button" class="btn btn-sm ${classe}" data-acao="reajustar" data-id="${esc(r.id_fechamento)}">Reajustar</button>${excluir}${pdf}`;
   }
 
   function diasHtml(r) {
@@ -472,9 +499,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
     const executor = parseExecutorVal(fltEntregador?.value);
-      if (executor.id > 0) {
+    if (executor.id > 0) {
       const nome = fltEntregador.options[fltEntregador.selectedIndex]?.text || "";
       const row = state.items.find((i) => i.executor_tipo === executor.tipo && Number(i.executor_id) === executor.id);
+      if (avisarSeNaoPodeGerar(row)) return;
       abrirPainel({ modo: "gerar", tipo: executor.tipo, id: executor.id, nome, ini, fim, row });
       return;
     }
@@ -497,7 +525,68 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!value) return;
     const escolhido = parseExecutorVal(value);
     const row = state.items.find((i) => i.executor_tipo === escolhido.tipo && Number(i.executor_id) === escolhido.id);
+    if (avisarSeNaoPodeGerar(row)) return;
     abrirPainel({ modo: "gerar", tipo: escolhido.tipo, id: escolhido.id, nome: inputOptions[value], ini, fim, row });
+  }
+
+  function avisarSeNaoPodeGerar(row) {
+    if (!row) return false;
+    const st = String(row.fechamento_status || "PENDENTE").toUpperCase();
+    let title = "";
+    let text = "";
+    if (row.parcial) {
+      const alvo = fechamentoExcluivel(row);
+      title = "Parte do período já tem fechamento";
+      text = alvo
+        ? `Exclua o fechamento de ${rotuloPeriodoCurto(alvo.ini, alvo.fim)} para gerar o período inteiro.`
+        : "Ajuste o período para os dias que ainda estão pendentes.";
+    } else if (st !== "PENDENTE" && row.id_fechamento) {
+      title = "Este motoboy já tem fechamento neste período";
+      text = "Abra o reajuste desse fechamento, ou exclua se ele ainda não foi pago.";
+    }
+    if (!title) return false;
+    if (window.Swal) Swal.fire({ icon: "info", title, text, confirmButtonColor: COR_PRIMARIA });
+    else alert(title + ". " + text);
+    return true;
+  }
+
+  async function excluirFechamento(id, chave) {
+    if (!id || state.excluindo) return;
+    const r = state.items.find((i) => chaveLinha(i) === chave) || state.items.find((i) => Number(i.id_fechamento) === id);
+    const alvo = (r && fechamentoExcluivel(r)) || { id, ini: r?.periodo_inicio, fim: r?.periodo_fim };
+    const quando = rotuloPeriodoCurto(alvo.ini, alvo.fim);
+    const nome = r?.nome || "este motoboy";
+    const pergunta = `Excluir o fechamento de ${nome} de ${quando}? O período volta a pendente. As entregas não são apagadas.`;
+    let confirmou = false;
+    if (window.Swal) {
+      const resp = await Swal.fire({
+        icon: "warning",
+        title: "Excluir fechamento",
+        text: pergunta,
+        showCancelButton: true,
+        confirmButtonText: "Excluir",
+        cancelButtonText: "Cancelar",
+        confirmButtonColor: "#B91C1C",
+        focusCancel: true,
+      });
+      confirmou = !!resp.isConfirmed;
+    } else {
+      confirmou = window.confirm(pergunta);
+    }
+    if (!confirmou) return;
+    state.excluindo = true;
+    try {
+      await api(`${API_FECHAMENTOS}/${id}`, { method: "DELETE" });
+    } catch (err) {
+      state.excluindo = false;
+      avisoErro("Não foi possível excluir o fechamento", err);
+      return;
+    }
+    state.excluindo = false;
+    await carregarResumo();
+    if (window.Swal) {
+      Swal.fire({ icon: "success", title: "Fechamento excluído", text: "O período voltou a pendente.", confirmButtonColor: COR_PRIMARIA });
+    }
   }
 
   // ====== Painel de revisão (gerar e reajustar) ======
@@ -1100,6 +1189,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       const id = Number(btn.dataset.id);
       const r = state.items.find((i) => Number(i.id_fechamento) === id);
       if (id) abrirPainel({ modo: "reajustar", idFech: id, nome: r?.nome, ini: r?.periodo_inicio, fim: r?.periodo_fim });
+    } else if (acao === "excluir") {
+      excluirFechamento(Number(btn.dataset.id), btn.dataset.k);
     }
   });
 
