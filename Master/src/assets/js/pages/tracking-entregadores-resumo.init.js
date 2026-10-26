@@ -192,11 +192,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     return periodoTexto(ini, fim);
   }
 
+  function statusExcluivel(st) {
+    st = String(st || "").toUpperCase();
+    return st === "GERADO" || st === "REAJUSTADO" || st === "FECHADO";
+  }
+
   function fechamentoExcluivel(r) {
-    if (!r?.id_fechamento || !r.periodo_inicio || !r.periodo_fim) return null;
-    const dia = (r.dias || []).find((d) => Number(d.id_fechamento) === Number(r.id_fechamento));
-    const st = String((dia && dia.fechamento_status) || (r.parcial ? "" : r.fechamento_status) || "").toUpperCase();
-    if (st !== "GERADO" && st !== "REAJUSTADO") return null;
+    const dias = Array.isArray(r?.dias) ? r.dias : [];
+    const dia = dias.find((d) => statusExcluivel(d.fechamento_status) && Number(d.id_fechamento) > 0);
+    if (dia) {
+      return {
+        id: Number(dia.id_fechamento),
+        ini: dia.periodo_inicio || r.periodo_inicio,
+        fim: dia.periodo_fim || r.periodo_fim,
+      };
+    }
+    if (r?.parcial || !statusExcluivel(r?.fechamento_status) || !(Number(r?.id_fechamento) > 0)) return null;
     return { id: Number(r.id_fechamento), ini: r.periodo_inicio, fim: r.periodo_fim };
   }
 
@@ -235,6 +246,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const linhas = dias
       .map((d) => {
         const st = String(d.fechamento_status || "PENDENTE").toUpperCase();
+        const excluirDia =
+          r.parcial && statusExcluivel(st) && Number(d.id_fechamento) > 0
+            ? ` <button type="button" class="btn btn-sm btn-link text-danger p-0 align-baseline" data-acao="excluir" data-id="${esc(d.id_fechamento)}" data-k="${esc(chaveLinha(r))}">Excluir</button>`
+            : "";
         return (
           "<tr>" +
           `<td>${esc(dmy(d.data))}</td>` +
@@ -245,7 +260,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           `<td class="text-end fm-num">${num(d.total_cancelado)}</td>` +
           `<td class="text-end fm-num">${moeda(d.valor_feitos)}</td>` +
           (comConf ? `<td>${conferenciaHtml(d)}</td>` : "") +
-          `<td><span class="fm-status fm-status--${esc(st.toLowerCase())}">${esc(STATUS_LABEL[st] || st)}</span></td>` +
+          `<td><span class="fm-status fm-status--${esc(st.toLowerCase())}">${esc(STATUS_LABEL[st] || st)}</span>${excluirDia}</td>` +
           "</tr>"
         );
       })
