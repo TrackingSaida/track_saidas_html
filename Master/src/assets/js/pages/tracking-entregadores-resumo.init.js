@@ -166,6 +166,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     return { ini: fltDataInicio?.value || "", fim: fltDataFim?.value || "" };
   }
 
+  function mesmaData(a, b) {
+    return String(a || "").slice(0, 10) === String(b || "").slice(0, 10);
+  }
+
+  // A linha da lista só serve ao reajuste quando o filtro é o período do fechamento.
+  // Fora isso, os dias misturam outro intervalo e o painel busca a linha de novo.
+  function linhaNoPeriodoDoFechamento(row, ini, fim) {
+    if (!row) return null;
+    const filtro = periodoFiltro();
+    if (!mesmaData(filtro.ini, ini) || !mesmaData(filtro.fim, fim)) return null;
+    return row;
+  }
+
   function updatePeriodLabel(from, to) {
     const label = qs("#entregadores-resumo-period-label");
     if (label) label.textContent = from && to ? `${dmy(from)} — ${dmy(to)}` : "Período";
@@ -925,8 +938,13 @@ document.addEventListener("DOMContentLoaded", async () => {
           qs("#painel-carregando").textContent = "Este fechamento já foi pago e não pode ser reajustado.";
           return;
         }
-        p.row = await carregarLinha(p.tipo, p.id, p.ini, p.fim);
-        if (state.painel !== p) return;
+        const linhaLista = linhaNoPeriodoDoFechamento(opts.row, p.ini, p.fim);
+        if (linhaLista) {
+          p.row = linhaLista;
+        } else {
+          p.row = await carregarLinha(p.tipo, p.id, p.ini, p.fim);
+          if (state.painel !== p) return;
+        }
         if (p.divergente && p.row) {
           p.qtdColetas = num(p.row.qtd_dias_coleta);
           p.valorColetas = num(p.row.valor_coletas);
@@ -1203,7 +1221,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else if (acao === "reajustar") {
       const id = Number(btn.dataset.id);
       const r = state.items.find((i) => Number(i.id_fechamento) === id);
-      if (id) abrirPainel({ modo: "reajustar", idFech: id, nome: r?.nome, ini: r?.periodo_inicio, fim: r?.periodo_fim });
+      if (id) abrirPainel({ modo: "reajustar", idFech: id, nome: r?.nome, ini: r?.periodo_inicio, fim: r?.periodo_fim, row: r });
     } else if (acao === "excluir") {
       excluirFechamento(Number(btn.dataset.id), btn.dataset.k);
     }
@@ -1336,6 +1354,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (revisar > 0) {
     url.searchParams.delete("revisar");
     window.history.replaceState(null, "", url.pathname + url.search + url.hash);
-    abrirPainel({ modo: "reajustar", idFech: revisar, voltarAPagar: true });
+    const linha = state.items.find((i) => Number(i.id_fechamento) === revisar);
+    abrirPainel({
+      modo: "reajustar",
+      idFech: revisar,
+      nome: linha?.nome,
+      ini: linha?.periodo_inicio,
+      fim: linha?.periodo_fim,
+      row: linha,
+      voltarAPagar: true,
+    });
   }
 });
