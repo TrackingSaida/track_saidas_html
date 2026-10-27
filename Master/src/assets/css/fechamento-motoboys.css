@@ -650,6 +650,51 @@
 
 .fm-chip--aviso { background: #FFFBEB; color: #B45309; }
 
+.fm .fm-filtro-menu {
+  min-width: 17.5rem;
+}
+
+.fm .fm-filtro-selo {
+  background: var(--fm-strong);
+  color: #fff;
+}
+
+.fm .fm-filtros-ativos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-bottom: 0.75rem;
+}
+
+.fm .fm-filtro-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.625rem;
+  padding: 0 0.35rem 0 0.6rem;
+  border-radius: 999px;
+  background: #E8EEF6;
+  color: var(--fm-strong);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+[data-bs-theme="dark"] .fm .fm-filtro-chip {
+  background: rgba(148, 163, 184, 0.16);
+  color: #E2E8F0;
+}
+
+.fm .fm-filtro-chip button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  line-height: 1;
+  font-size: 1rem;
+}
+
 @media (max-width: 575.98px) {
   .fm .fm-busca,
   .fm .fm-busca input {

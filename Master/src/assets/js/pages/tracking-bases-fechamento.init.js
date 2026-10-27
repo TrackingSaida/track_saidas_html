@@ -104,6 +104,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   const STATUS_LABEL = { PENDENTE: "Pendente", GERADO: "Gerado", REAJUSTADO: "Reajustado", RECEBIDO: "Recebido" };
+
+  function statusExcluivel(st) {
+    st = String(st || "").toUpperCase();
+    return st === "GERADO" || st === "REAJUSTADO" || st === "FECHADO";
+  }
   const MOTIVO_LOTE = {
     PACOTES_G: "Tem pacotes grandes de tamanho sem valor de cobrança: revise em Revisar e gerar.",
     DIAS_PENDENTES: "Há dias de coleta sem lançamento.",
@@ -131,9 +136,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     totais: {},
     periodoAberto: true,
     filtro: "",
-    busca: "",
+    base: "",
+    ciclo: "",
     expandidos: new Set(),
     gerandoLote: false,
+    excluindo: false,
     painel: null,
     fecharConfirmado: false,
   };
@@ -165,18 +172,65 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function grupoDe(r) {
     const st = String(r.situacao || "PENDENTE").toUpperCase();
-    if (st === "GERADO" || st === "REAJUSTADO") return "A_RECEBER";
+    if (st === "GERADO" || st === "REAJUSTADO" || st === "FECHADO") return "A_RECEBER";
     return st;
   }
 
+  function cicloDe(r) {
+    const codigo = String(r.periodo_fechamento || "").toLowerCase();
+    return codigo === "semanal" || codigo === "quinzenal" || codigo === "mensal" ? codigo : "nenhum";
+  }
+
+  function passaBaseCiclo(r) {
+    if (state.base && String(r.base || "") !== state.base) return false;
+    if (state.ciclo && cicloDe(r) !== state.ciclo) return false;
+    return true;
+  }
+
+  function passaSituacao(r) {
+    if (!state.filtro) return true;
+    if (state.filtro === "REVISAO") return !!r.precisa_reajuste;
+    if (state.filtro === "GERADO" || state.filtro === "REAJUSTADO") return String(r.situacao || "").toUpperCase() === state.filtro;
+    return grupoDe(r) === state.filtro;
+  }
+
+  function itensEscopo() {
+    return state.items.filter(passaBaseCiclo);
+  }
+
   function itensVisiveis() {
-    const busca = state.busca.trim().toLocaleLowerCase("pt-BR");
-    return state.items.filter((r) => {
-      if (busca && !String(r.base || "").toLocaleLowerCase("pt-BR").includes(busca)) return false;
-      if (!state.filtro) return true;
-      if (state.filtro === "REVISAO") return !!r.precisa_reajuste;
-      return grupoDe(r) === state.filtro;
+    return itensEscopo().filter(passaSituacao);
+  }
+
+  function somarCentavos(acc, valor) {
+    return Math.round((acc + num(valor)) * 100) / 100;
+  }
+
+  function totaisLocais(items) {
+    const t = {
+      PENDENTE: { qtd: 0, valor: 0 },
+      A_RECEBER: { qtd: 0, valor: 0 },
+      RECEBIDO: { qtd: 0, valor: 0 },
+      REVISAO: { qtd: 0, valor: 0 },
+    };
+    items.forEach((r) => {
+      const st = String(r.situacao || "PENDENTE").toUpperCase();
+      if (st === "PENDENTE") {
+        t.PENDENTE.qtd += 1;
+        t.PENDENTE.valor = somarCentavos(t.PENDENTE.valor, r.valor_atual);
+      } else if ((st === "GERADO" || st === "REAJUSTADO" || st === "FECHADO") && r.fechamento) {
+        t.A_RECEBER.qtd += 1;
+        t.A_RECEBER.valor = somarCentavos(t.A_RECEBER.valor, r.fechamento.valor_final);
+      } else if (st === "RECEBIDO" && r.fechamento) {
+        t.RECEBIDO.qtd += 1;
+        t.RECEBIDO.valor = somarCentavos(t.RECEBIDO.valor, r.fechamento.valor_final);
+      }
+      if (r.precisa_reajuste && r.fechamento) {
+        t.REVISAO.qtd += 1;
+        t.REVISAO.valor = somarCentavos(t.REVISAO.valor, r.fechamento.valor_final);
+      }
     });
+    return t;
   }
 
   function servicosHtml(r) {
@@ -222,7 +276,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     if (st === "RECEBIDO") return pdf;
     const classe = r.precisa_reajuste ? "btn-fm-primary" : "btn-outline-secondary";
-    return `<button type="button" class="btn btn-sm ${classe}" data-acao="reajustar" data-id="${esc(id)}">Reajustar</button>${pdf}`;
+    const excluir = id && statusExcluivel(st)
+      ? `<button type="button" class="btn btn-sm btn-outline-danger ms-1" data-acao="excluir" data-id="${esc(id)}" data-base="${esc(r.base)}">Excluir fechamento de ${esc(periodoTexto(periodo().ini, periodo().fim))}</button>`
+      : "";
+    return `<button type="button" class="btn btn-sm ${classe}" data-acao="reajustar" data-id="${esc(id)}">Reajustar</button>${excluir}${pdf}`;
   }
 
   function diasHtml(r) {
@@ -273,8 +330,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         A_RECEBER: "Nenhum fechamento aguardando recebimento.",
         RECEBIDO: "Nenhum recebimento registrado neste período.",
         REVISAO: "Nenhum fechamento precisa de revisão.",
+        GERADO: "Nenhum fechamento gerado neste período.",
+        REAJUSTADO: "Nenhum fechamento reajustado neste período.",
       };
-      linhaMensagem(esc(state.busca ? "Nenhum resultado para a busca." : vazio[state.filtro] || "Nada para mostrar."));
+      linhaMensagem(esc(state.base || state.ciclo ? "Nenhuma base com esses filtros." : vazio[state.filtro] || "Nada para mostrar."));
       return;
     }
     tbody.innerHTML = items
@@ -310,7 +369,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function renderCards() {
-    const t = state.totais || {};
+    const t = totaisLocais(itensEscopo());
     const set = (id, txt) => {
       const el = qs(id);
       if (el) el.textContent = txt;
@@ -328,7 +387,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function elegiveisLote() {
-    return state.items.filter((r) => String(r.situacao).toUpperCase() === "PENDENTE" && r.pode_gerar_lote);
+    return itensEscopo().filter((r) => String(r.situacao).toUpperCase() === "PENDENTE" && r.pode_gerar_lote);
   }
 
   function atualizarBtnGerarTodos() {
@@ -345,9 +404,63 @@ document.addEventListener("DOMContentLoaded", async () => {
     wrap.title = motivo;
   }
 
+  const ROTULO_CICLO = { nenhum: "Nenhum", semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
+  const ROTULO_SITUACAO = {
+    PENDENTE: "Pendente",
+    A_RECEBER: "Gerados, a receber",
+    GERADO: "Gerado",
+    REAJUSTADO: "Reajustado",
+    RECEBIDO: "Recebido",
+    REVISAO: "Precisa revisão",
+  };
+
+  function sincronizarSelects() {
+    const base = qs("#flt-base");
+    const ciclo = qs("#flt-ciclo");
+    const status = qs("#flt-status");
+    if (base) base.value = state.base;
+    if (ciclo) ciclo.value = state.ciclo;
+    if (status) status.value = state.filtro;
+  }
+
+  function preencherBases() {
+    const select = qs("#flt-base");
+    if (!select) return;
+    const nomes = Array.from(new Set(state.items.map((r) => String(r.base || "").trim()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, "pt-BR", { sensitivity: "base" })
+    );
+    const atual = state.base;
+    const lista = atual && !nomes.includes(atual) ? [atual, ...nomes] : nomes;
+    select.innerHTML = `<option value="">Todas</option>${lista.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("")}`;
+    select.value = atual;
+  }
+
+  function renderFiltros() {
+    const faixa = qs("#fm-filtros-ativos");
+    const contador = qs("#filtrosContador");
+    const itens = [];
+    if (state.base) itens.push(["base", TERMO_BASE, state.base]);
+    if (state.ciclo) itens.push(["ciclo", "Período", ROTULO_CICLO[state.ciclo] || state.ciclo]);
+    if (state.filtro) itens.push(["filtro", "Situação", ROTULO_SITUACAO[state.filtro] || state.filtro]);
+    if (faixa) {
+      faixa.innerHTML = itens
+        .map(
+          ([chave, nome, valor]) =>
+            `<span class="fm-filtro-chip">${esc(nome)}: ${esc(valor)} <button type="button" data-limpar-filtro="${esc(chave)}" aria-label="Remover filtro de ${esc(nome)}">×</button></span>`
+        )
+        .join("");
+      faixa.classList.toggle("d-none", itens.length === 0);
+    }
+    if (contador) {
+      contador.textContent = String(itens.length);
+      contador.classList.toggle("d-none", itens.length === 0);
+    }
+  }
+
   function renderTudo() {
     renderCards();
     renderTabela();
+    renderFiltros();
     atualizarBtnGerarTodos();
   }
 
@@ -364,6 +477,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       state.items = Array.isArray(data.items) ? data.items : [];
       state.totais = data.totais || {};
       state.periodoAberto = !!data.periodo_aberto;
+      preencherBases();
     } catch (err) {
       console.error("Fechamento de Bases — carregar:", err);
       state.items = [];
@@ -400,7 +514,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (state.gerandoLote || !window.Swal) return;
     const { ini, fim } = periodo();
     const geraveis = elegiveisLote();
-    const deFora = state.items.filter((r) => String(r.situacao).toUpperCase() === "PENDENTE" && !r.pode_gerar_lote);
+    const deFora = itensEscopo().filter((r) => String(r.situacao).toUpperCase() === "PENDENTE" && !r.pode_gerar_lote);
     if (!geraveis.length) return;
     const total = geraveis.reduce((s, r) => s + num(r.valor_atual), 0);
     const conf = await Swal.fire({
@@ -1214,6 +1328,44 @@ document.addEventListener("DOMContentLoaded", async () => {
     abrirPainel({ modo: "gerar", base: value, ini, fim });
   }
 
+  async function excluirFechamento(id, base) {
+    if (!id || state.excluindo) return;
+    const { ini, fim } = periodo();
+    const quando = periodoTexto(ini, fim);
+    const nome = base || `esta ${TERMO_BASE.toLowerCase()}`;
+    const pergunta = `Excluir o fechamento de ${nome} de ${quando}? O período volta a pendente. As coletas não são apagadas.`;
+    let confirmou = false;
+    if (window.Swal) {
+      const resp = await Swal.fire({
+        icon: "warning",
+        title: "Excluir fechamento",
+        text: pergunta,
+        showCancelButton: true,
+        confirmButtonText: "Excluir",
+        cancelButtonText: "Cancelar",
+        confirmButtonColor: "#B91C1C",
+        focusCancel: true,
+      });
+      confirmou = !!resp.isConfirmed;
+    } else {
+      confirmou = window.confirm(pergunta);
+    }
+    if (!confirmou) return;
+    state.excluindo = true;
+    try {
+      await api(`${API_FECH}/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (state.painel && String(state.painel.idFech) === String(id)) {
+        state.fecharConfirmado = true;
+        painel?.hide();
+      }
+      await carregar();
+    } catch (err) {
+      avisoErro("Não foi possível excluir o fechamento", err);
+    } finally {
+      state.excluindo = false;
+    }
+  }
+
   // ====== Eventos ======
   qs("#btnGerarTodos")?.addEventListener("click", gerarTodosPendentes);
   qs("#btnGerarIndividual")?.addEventListener("click", gerarIndividual);
@@ -1221,14 +1373,39 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.querySelectorAll("#fm-cards .fm-card").forEach((card) => {
     card.addEventListener("click", () => {
       state.filtro = state.filtro === card.dataset.filtro ? "" : card.dataset.filtro;
-      renderCards();
-      renderTabela();
+      sincronizarSelects();
+      renderTudo();
     });
   });
 
-  qs("#flt-busca")?.addEventListener("input", (e) => {
-    state.busca = e.target.value || "";
-    renderTabela();
+  function aplicarFiltros() {
+    state.base = qs("#flt-base")?.value || "";
+    state.ciclo = qs("#flt-ciclo")?.value || "";
+    state.filtro = qs("#flt-status")?.value || "";
+    if (typeof bootstrap !== "undefined") bootstrap.Dropdown.getInstance(qs("#btnFiltrosIcon"))?.hide();
+    renderTudo();
+  }
+
+  function limparFiltros() {
+    state.base = "";
+    state.ciclo = "";
+    state.filtro = "";
+    sincronizarSelects();
+    if (typeof bootstrap !== "undefined") bootstrap.Dropdown.getInstance(qs("#btnFiltrosIcon"))?.hide();
+    renderTudo();
+  }
+
+  qs("#btnFiltroAplicar")?.addEventListener("click", aplicarFiltros);
+  qs("#btnFiltroLimpar")?.addEventListener("click", limparFiltros);
+  qs("#fm-filtros-ativos")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-limpar-filtro]");
+    if (!btn) return;
+    const chave = btn.dataset.limparFiltro;
+    if (chave === "base") state.base = "";
+    else if (chave === "ciclo") state.ciclo = "";
+    else if (chave === "filtro") state.filtro = "";
+    sincronizarSelects();
+    renderTudo();
   });
 
   tbody?.addEventListener("click", (e) => {
@@ -1249,6 +1426,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       abrirPainel({ modo: "reajustar", idFech: btn.dataset.id });
     } else if (acao === "pdf" && typeof window.gerarPdfFechamentoBases === "function") {
       window.gerarPdfFechamentoBases(Number(btn.dataset.id));
+    } else if (acao === "excluir") {
+      excluirFechamento(Number(btn.dataset.id), btn.dataset.base);
     }
   });
 
