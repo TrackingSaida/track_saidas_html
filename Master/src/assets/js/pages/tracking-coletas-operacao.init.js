@@ -5,6 +5,7 @@
     itens: [],
     podeCorrigir: false,
     correcao: null,
+    manual: null,
     temAColetar: false,
     multiDia: false,
     expandidos: new Set(),
@@ -41,6 +42,36 @@
     let fim = $("coletas-operacao-fim").value || ini;
     if (fim < ini) [ini, fim] = [fim, ini];
     return { ini, fim };
+  }
+
+  function somarDia(ymd) {
+    const partes = String(ymd || "").slice(0, 10).split("-").map(Number);
+    const dt = new Date(Date.UTC(partes[0], partes[1] - 1, partes[2] + 1));
+    const mes = String(dt.getUTCMonth() + 1).padStart(2, "0");
+    const dia = String(dt.getUTCDate()).padStart(2, "0");
+    return `${dt.getUTCFullYear()}-${mes}-${dia}`;
+  }
+
+  function diasAteHoje(ini, fim) {
+    const teto = fim < hoje() ? fim : hoje();
+    if (!ini || teto < ini) return [];
+    const dias = [];
+    let cursor = ini;
+    while (cursor <= teto && dias.length < 367) {
+      dias.push(cursor);
+      cursor = somarDia(cursor);
+    }
+    return dias;
+  }
+
+  function usuarioOperacao() {
+    const role = Number(window.__USER__?.role);
+    return role === 0 || role === 1 || role === 2;
+  }
+
+  function ownerPermiteManual() {
+    const modo = String(window.MODO_OPERACAO || "").toLowerCase();
+    return modo === "coleta_manual" || modo === "ambos";
   }
 
   function mensagemApi(payload, fallback) {
@@ -148,6 +179,48 @@
     return dias.reduce((total, dia) => total + Number(dia[campo] || 0), 0);
   }
 
+  function diaPendente(base, data) {
+    return {
+      base_id: Number(base.id_base),
+      base: base.base || "",
+      data_operacao: data,
+      status: "pendente",
+      modo: null,
+      mercado_livre: 0,
+      shopee: 0,
+      avulso: 0,
+      valor_total: 0,
+      participantes: [],
+      atualizado_em: null,
+      precos: { shopee: 0, mercado_livre: 0, avulso: 0 },
+      pode_corrigir: false,
+      contas: [],
+      a_coletar: null,
+      sintetico: true,
+    };
+  }
+
+  function completarPendentes(itens, bases, ini, fim) {
+    if (!usuarioOperacao()) return itens;
+    const dias = diasAteHoje(ini, fim);
+    if (!dias.length || !Array.isArray(bases) || !bases.length) return itens;
+    const chaves = new Set(
+      itens.map((item) => `${Number(item.base_id)}|${String(item.data_operacao || "").slice(0, 10)}`)
+    );
+    const extras = [];
+    bases.forEach((base) => {
+      const id = Number(base.id_base);
+      if (!id) return;
+      dias.forEach((dia) => {
+        const chave = `${id}|${dia}`;
+        if (chaves.has(chave)) return;
+        chaves.add(chave);
+        extras.push(diaPendente(base, dia));
+      });
+    });
+    return itens.concat(extras);
+  }
+
   function agruparPorBase(itens) {
     const grupos = new Map();
     itens.forEach((item) => {
@@ -201,9 +274,25 @@
     return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   }
 
+  function podeRegistrarManual(item) {
+    if (!item || !item.sintetico || !ownerPermiteManual()) return false;
+    if (statusNormalizado(item.status) !== "pendente") return false;
+    const dia = String(item.data_operacao || "").slice(0, 10);
+    if (!dia || dia > hoje()) return false;
+    if (dia < hoje() && !usuarioOperacao()) return false;
+    return true;
+  }
+
+  function botaoRegistrar(item) {
+    if (!podeRegistrarManual(item)) return "";
+    const dia = esc(String(item.data_operacao || "").slice(0, 10));
+    return `<button type="button" class="btn btn-sm btn-outline-primary mt-1 js-registrar-manual" data-base-id="${Number(item.base_id)}" data-data="${dia}">Registrar coleta</button>`;
+  }
+
   function participantesComAcao(item) {
     const lista = Array.isArray(item.participantes) ? item.participantes : [];
-    if (!lista.length) return "—";
+    const manual = botaoRegistrar(item);
+    if (!lista.length) return manual || "—";
     return lista
       .map((p) => {
         const sufixo = p.sem_volume
@@ -342,7 +431,7 @@
         (p) =>
           `<button type="button" class="btn btn-sm btn-outline-primary js-corrigir-qtde" data-base-id="${Number(item.base_id)}" data-participante-id="${Number(p.id_participante)}">Corrigir · ${esc(p.username)}</button>`
       )
-      .join("");
+      .join("") + botaoRegistrar(item);
     return `
       <div class="coleta-dia-bloco">
         <div class="d-flex justify-content-between align-items-start gap-2 mb-2"><strong>${esc(fmtDMY(item.data_operacao))}</strong>${statusBadge(item.status)}</div>
@@ -580,13 +669,90 @@
     }
   }
 
-  async function carregar() {
+  function lerQuantidade(id) {
+    const bruto = String($(id).value || "").trim();
+    if (bruto === "") return 0;
+    if (!/^\d+$/.test(bruto)) return null;
+    return parseInt(bruto, 10);
+  }
+
+  function abrirModalManual(baseId, data) {
+    const dia = String(data || "").slice(0, 10);
+    const item = state.itens.find(
+      (candidato) => Number(candidato.base_id) === Number(baseId) && String(candidato.data_operacao || "").slice(0, 10) === dia
+    );
+    if (!podeRegistrarManual(item)) return;
+    state.manual = { baseId: Number(item.base_id), data: dia, base: item.base || "" };
+    $("man-meta").textContent = `${item.base} · ${fmtDMY(dia)}`;
+    $("man-flex").value = "";
+    $("man-shopee").value = "";
+    $("man-avulso").value = "";
+    $("man-erro").classList.add("d-none");
+    $("man-salvar").disabled = false;
+    bootstrap.Modal.getOrCreateInstance($("modal-registrar-manual")).show();
+  }
+
+  async function salvarManual() {
+    const ctx = state.manual;
+    if (!ctx) return;
+    const flex = lerQuantidade("man-flex");
+    const shopee = lerQuantidade("man-shopee");
+    const avulso = lerQuantidade("man-avulso");
+    const erro = $("man-erro");
+    const btn = $("man-salvar");
+    erro.classList.add("d-none");
+    if (flex === null || shopee === null || avulso === null) {
+      erro.textContent = "Use apenas números inteiros a partir de zero.";
+      erro.classList.remove("d-none");
+      return;
+    }
+    if (flex + shopee + avulso <= 0) {
+      erro.textContent = "Informe a quantidade de Flex, Shopee ou Avulso.";
+      erro.classList.remove("d-none");
+      return;
+    }
+    btn.disabled = true;
+    try {
+      const response = await fetch(`${window.TRACK_API_URL}/coletas/operacionais/manual`, {
+        method: "POST",
+        credentials: "include",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          base_id: ctx.baseId,
+          data_operacao: ctx.data,
+          shopee,
+          mercado_livre: flex,
+          avulso,
+          sem_volume: false,
+          acrescentar: false,
+          origem_cliente: "web",
+        }),
+      });
+      if (response.status === 401) {
+        window.location.href = "auth-signin.html";
+        return;
+      }
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(mensagemApi(payload, "Não foi possível registrar a coleta."));
+      state.manual = null;
+      bootstrap.Modal.getOrCreateInstance($("modal-registrar-manual")).hide();
+      await carregar({ manterExpandidos: true });
+    } catch (error) {
+      erro.textContent = typeof error?.message === "string" ? error.message : "Não foi possível registrar a coleta.";
+      erro.classList.remove("d-none");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function carregar(opcoes) {
+    const preservar = opcoes && opcoes.manterExpandidos ? new Set(state.expandidos) : null;
     const loading = $("coletas-operacao-loading");
     const alert = $("coletas-operacao-alert");
     alert.classList.add("d-none");
     loading.classList.remove("d-none");
     $("coletas-operacao-atualizar").disabled = true;
-    state.expandidos.clear();
+    state.expandidos = new Set();
     try {
       const { ini, fim } = periodoSelecionado();
       $("coletas-operacao-inicio").value = ini;
@@ -604,9 +770,15 @@
         aplicarResumo(payload.resumo);
         renderResumoAColetar(payload.resumo?.a_coletar || null);
       } else {
-        const rows = await apiGet(
-          `${window.TRACK_API_URL}/coletas/operacionais/?data_inicio=${encodeURIComponent(ini)}&data_fim=${encodeURIComponent(fim)}`
-        );
+        const pedidos = [
+          apiGet(
+            `${window.TRACK_API_URL}/coletas/operacionais/?data_inicio=${encodeURIComponent(ini)}&data_fim=${encodeURIComponent(fim)}`
+          ),
+        ];
+        if (usuarioOperacao()) {
+          pedidos.push(apiGet(`${window.TRACK_API_URL}/base/?status=ativo`));
+        }
+        const [rows, bases] = await Promise.all(pedidos);
         let itens = (Array.isArray(rows) ? rows : []).map(normalizarExecucao);
         state.podeCorrigir = false;
         const dia = hoje();
@@ -617,9 +789,15 @@
             state.podeCorrigir = Boolean(hojePayload.pode_corrigir_quantidades);
           } catch (_) {}
         }
+        if (Array.isArray(bases)) itens = completarPendentes(itens, bases, ini, fim);
         state.itens = itens;
         aplicarResumo(resumoDeItens(itens));
         renderResumoAColetar(null);
+      }
+      if (preservar) {
+        preservar.forEach((id) => {
+          if (state.itens.some((item) => Number(item.base_id) === Number(id))) state.expandidos.add(Number(id));
+        });
       }
       preencherBases();
       render();
@@ -683,6 +861,7 @@
       $(id).addEventListener("input", calcPreview);
     });
     $("corr-salvar").addEventListener("click", () => void salvarCorrecao());
+    $("man-salvar").addEventListener("click", () => void salvarManual());
     document.body.addEventListener("click", (ev) => {
       const expandir = ev.target.closest(".js-expandir-base");
       if (expandir) {
@@ -690,6 +869,11 @@
         if (state.expandidos.has(id)) state.expandidos.delete(id);
         else state.expandidos.add(id);
         render();
+        return;
+      }
+      const registrar = ev.target.closest(".js-registrar-manual");
+      if (registrar) {
+        abrirModalManual(registrar.dataset.baseId, registrar.dataset.data);
         return;
       }
       const btn = ev.target.closest(".js-corrigir-qtde");

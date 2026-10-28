@@ -194,10 +194,44 @@
       </div>
     </div>
 
+    <div class="modal fade" id="modal-registrar-manual" tabindex="-1" aria-labelledby="modal-registrar-manual-title" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modal-registrar-manual-title">Registrar coleta</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <div class="modal-body">
+            <p id="man-meta" class="text-muted small mb-3"></p>
+            <div class="row g-3">
+              <div class="col-4">
+                <label for="man-flex" class="form-label">Flex</label>
+                <input id="man-flex" type="number" min="0" step="1" inputmode="numeric" class="form-control" />
+              </div>
+              <div class="col-4">
+                <label for="man-shopee" class="form-label">Shopee</label>
+                <input id="man-shopee" type="number" min="0" step="1" inputmode="numeric" class="form-control" />
+              </div>
+              <div class="col-4">
+                <label for="man-avulso" class="form-label">Avulso</label>
+                <input id="man-avulso" type="number" min="0" step="1" inputmode="numeric" class="form-control" />
+              </div>
+            </div>
+            <p class="text-muted small mt-3 mb-0">A coleta manual fica neste dia e nesta base.</p>
+            <div id="man-erro" class="alert alert-danger mt-3 mb-0 d-none" role="alert"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="man-salvar">Registrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
     <script src="assets/js/components/date-picker-dashboard.js?v=2.1"></script>
-    <script src="assets/js/pages/tracking-coletas-operacao.init.js?v=4"></script>
+    <script src="assets/js/pages/tracking-coletas-operacao.init.js?v=5"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>
