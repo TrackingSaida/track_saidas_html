@@ -652,6 +652,7 @@ function openEdit(o) {
     document.getElementById("ownerDevolucaoToggle").checked = !!o.devolucao_sub_base_habilitada;
     document.getElementById("ownerEntradaToggle").checked = !!o.entrada_obrigatoria_habilitada;
     document.getElementById("ownerConferenciaToggle").checked = !!o.conferencia_saida_habilitada;
+    document.getElementById("ownerConfirmacaoSessoesToggle").checked = !!o.confirmacao_saida_sessoes_habilitada;
     document.getElementById("ownerModoOperacao").value = ["codigo", "coleta_manual", "ambos"].includes(o.modo_operacao) ? o.modo_operacao : "codigo";
     document.getElementById("ownerTesteToggle").checked = !!o.teste;
     document.getElementById("ownerAtivoToggle").checked = o.ativo;
@@ -705,6 +706,7 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
         devolucao_sub_base_habilitada: document.getElementById("ownerDevolucaoToggle").checked,
         entrada_obrigatoria_habilitada: document.getElementById("ownerEntradaToggle").checked,
         conferencia_saida_habilitada: document.getElementById("ownerConferenciaToggle").checked,
+        confirmacao_saida_sessoes_habilitada: document.getElementById("ownerConfirmacaoSessoesToggle").checked,
         teste: document.getElementById("ownerTesteToggle").checked,
         ativo: document.getElementById("ownerAtivoToggle").checked,
         tipo_owner: (document.getElementById("ownerTipo").value || "subbase").toLowerCase()

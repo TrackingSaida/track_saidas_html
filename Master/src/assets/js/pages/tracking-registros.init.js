@@ -582,6 +582,7 @@ function augmentEntregadoresFromRows(rows){
     if (s.indexOf("entregue") !== -1) return "status-success";
     if (s.indexOf("ausente") !== -1) return "status-warning";
     if (s.indexOf("cancelado") !== -1) return "status-danger";
+    if (s.indexOf("aguardando confirmacao saida") !== -1 || s.indexOf("aguardando confirmação de saída") !== -1) return "status-warning";
     if (s.indexOf("rota") !== -1 || s.indexOf("saiu") !== -1) return "status-info";
     if (s === "aguardando coleta") return "status-warning";
     if (s === "coletado") return "status-collected";
@@ -595,6 +596,7 @@ function augmentEntregadoresFromRows(rows){
     if (lower === "na base") return "Na Base";
     if (lower === "etiquetado") return "Etiqueta gerada";
     if (lower === "saiu" || lower === "saiu para entrega") return "SAIU PARA ENTREGA";
+    if (lower === "aguardando confirmacao saida" || lower === "aguardando confirmação de saída") return "Aguardando confirmação de saída";
     if (lower === "encerrado sistema" || lower === "encerrado pelo sistema" || lower === "encerrado_sistema" || lower === "encerrado") {
       return "Encerrado";
     }

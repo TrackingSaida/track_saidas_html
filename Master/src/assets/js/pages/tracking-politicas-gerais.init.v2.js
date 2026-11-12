@@ -389,6 +389,7 @@
     qs("#bloquearSaidaSemColeta").checked = !!op.bloquear_saida_sem_coleta;
     qs("#entradaHabilitada").checked = !!op.entrada_habilitada;
     qs("#conferenciaHabilitada").checked = !!op.conferencia_saida_habilitada;
+    qs("#confirmacaoSaidaSessoesHabilitada").checked = !!op.confirmacao_saida_sessoes_habilitada;
     qs("#devolucaoHabilitada").checked = !!op.devolucao_sub_base_habilitada;
     if (window.PixChave) {
       PixChave.preencher(qs("#pixReceberTipo"), qs("#pixReceber"), op.pix_receber_tipo, op.pix_receber);
@@ -531,6 +532,7 @@
         bloquear_saida_sem_coleta: !!qs("#bloquearSaidaSemColeta").checked,
         entrada_habilitada: !!qs("#entradaHabilitada").checked,
         conferencia_saida_habilitada: !!qs("#conferenciaHabilitada").checked,
+        confirmacao_saida_sessoes_habilitada: !!qs("#confirmacaoSaidaSessoesHabilitada").checked,
         devolucao_sub_base_habilitada: !!qs("#devolucaoHabilitada").checked,
         pix_receber: pix.chave,
         pix_receber_tipo: pix.tipo,
