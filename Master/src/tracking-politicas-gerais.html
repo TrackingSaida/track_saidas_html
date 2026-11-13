@@ -93,6 +93,15 @@
                     <small class="text-muted d-block mt-1">Define como os pacotes serão registrados durante a coleta.</small>
                   </div>
 
+                  <div class="mb-3 ms-3 ps-2 border-start" id="coletaParticipantesWrap">
+                    <label class="form-label fw-medium" for="coletaParticipantesModo">Participantes na coleta</label>
+                    <select id="coletaParticipantesModo" class="form-select" style="max-width: 320px;">
+                      <option value="n">Vários (sem restrição)</option>
+                      <option value="um">Um por vez (com opção de ajudar)</option>
+                    </select>
+                    <small class="text-muted d-block mt-1">Em “Vários”, qualquer pessoa pode entrar na base que já está em coleta. Em “Um por vez”, o segundo coletor precisa confirmar Ajudar.</small>
+                  </div>
+
                   <div class="mb-3 ms-3 ps-2 border-start" id="bloquearSaidaSemColetaWrap">
                     <div class="form-check form-switch">
                       <input class="form-check-input" type="checkbox" id="bloquearSaidaSemColeta">

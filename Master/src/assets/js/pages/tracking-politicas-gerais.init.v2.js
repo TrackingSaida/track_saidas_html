@@ -192,6 +192,7 @@
     return JSON.stringify({
       coleta: !!qs("#coletaHabilitada")?.checked,
       modo: qs("#modoOperacao")?.value || "",
+      participantes: qs("#coletaParticipantesModo")?.value || "n",
       bloquear: !!qs("#bloquearSaidaSemColeta")?.checked,
       entrada: !!qs("#entradaHabilitada")?.checked,
       conferencia: !!qs("#conferenciaHabilitada")?.checked,
@@ -367,6 +368,8 @@
     const entradaOn = !!qs("#entradaHabilitada")?.checked;
     const modoWrap = qs("#modoOperacaoWrap");
     if (modoWrap) modoWrap.classList.toggle("d-none", !coletaOn);
+    const participantesWrap = qs("#coletaParticipantesWrap");
+    if (participantesWrap) participantesWrap.classList.toggle("d-none", !coletaOn);
     const bloquearWrap = qs("#bloquearSaidaSemColetaWrap");
     if (bloquearWrap) bloquearWrap.classList.toggle("d-none", !coletaOn);
     const hint = qs("#hintColetaEntrada");
@@ -386,6 +389,10 @@
     const pad = data?.padroes_motoboy || {};
     qs("#coletaHabilitada").checked = !!op.coleta_habilitada;
     qs("#modoOperacao").value = op.modo_operacao || "codigo";
+    const modoPart = (op.coleta_participantes_modo || "n").toString().trim().toLowerCase();
+    if (qs("#coletaParticipantesModo")) {
+      qs("#coletaParticipantesModo").value = modoPart === "um" ? "um" : "n";
+    }
     qs("#bloquearSaidaSemColeta").checked = !!op.bloquear_saida_sem_coleta;
     qs("#entradaHabilitada").checked = !!op.entrada_habilitada;
     qs("#conferenciaHabilitada").checked = !!op.conferencia_saida_habilitada;
@@ -524,10 +531,12 @@
     }
     if (window.PixChave) PixChave.mostrarErro(qs("#pixReceber"), "#pixReceberErro", "");
 
+    const modoPartRaw = (qs("#coletaParticipantesModo")?.value || "n").toString().trim().toLowerCase();
     const payload = {
       operacao: {
         coleta_habilitada: !!qs("#coletaHabilitada").checked,
         modo_operacao: qs("#modoOperacao").value,
+        coleta_participantes_modo: modoPartRaw === "um" ? "um" : "n",
         bloquear_saida_sem_coleta: !!qs("#bloquearSaidaSemColeta").checked,
         entrada_habilitada: !!qs("#entradaHabilitada").checked,
         conferencia_saida_habilitada: !!qs("#conferenciaHabilitada").checked,
