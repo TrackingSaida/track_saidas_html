@@ -48,14 +48,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     return ini && fim ? `${dm(ini)} a ${dmy(fim)}` : "—";
   }
 
-  function hojeYmd() {
-    const d = new Date();
-    const p = (n) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-  }
-
-  const periodoAberto = (fim) => !fim || fim >= hojeYmd();
-
   function mensagemErro(data, status) {
     const d = data && data.detail;
     if (typeof d === "string") return d;
@@ -104,13 +96,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   const STATUS_LABEL = { PENDENTE: "Pendente", GERADO: "Gerado", REAJUSTADO: "Reajustado", RECEBIDO: "Recebido" };
+
+  function statusExcluivel(st) {
+    st = String(st || "").toUpperCase();
+    return st === "GERADO" || st === "REAJUSTADO" || st === "FECHADO";
+  }
   const MOTIVO_LOTE = {
     PACOTES_G: "Tem pacotes grandes de tamanho sem valor de cobrança: revise em Revisar e gerar.",
     DIAS_PENDENTES: "Há dias de coleta sem lançamento.",
     SEM_COLETAS: "Sem coletas no período.",
     JA_GERADO: "Já tem fechamento neste período.",
     PERIODO_FECHAMENTO: "O período escolhido não corresponde ao fechamento desta base.",
+    PERIODO_ABERTO: "Ainda há dia de coleta neste período.",
   };
+  const ORDEM_CICLO = ["semanal", "quinzenal", "mensal", "nenhum"];
+  const ROTULO_CICLO = { nenhum: "Nenhum", semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
 
   function motivoDeFora(r) {
     if (r.motivo_bloqueio === "PERIODO_FECHAMENTO") {
@@ -131,9 +131,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     totais: {},
     periodoAberto: true,
     filtro: "",
-    busca: "",
+    base: "",
+    ciclo: "",
+    agruparCiclo: false,
+    gruposExpandidos: new Set(),
     expandidos: new Set(),
     gerandoLote: false,
+    excluindo: false,
     painel: null,
     fecharConfirmado: false,
   };
@@ -165,18 +169,65 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function grupoDe(r) {
     const st = String(r.situacao || "PENDENTE").toUpperCase();
-    if (st === "GERADO" || st === "REAJUSTADO") return "A_RECEBER";
+    if (st === "GERADO" || st === "REAJUSTADO" || st === "FECHADO") return "A_RECEBER";
     return st;
   }
 
+  function cicloDe(r) {
+    const codigo = String(r.periodo_fechamento || "").toLowerCase();
+    return codigo === "semanal" || codigo === "quinzenal" || codigo === "mensal" ? codigo : "nenhum";
+  }
+
+  function passaBaseCiclo(r) {
+    if (state.base && String(r.base || "") !== state.base) return false;
+    if (state.ciclo && cicloDe(r) !== state.ciclo) return false;
+    return true;
+  }
+
+  function passaSituacao(r) {
+    if (!state.filtro) return true;
+    if (state.filtro === "REVISAO") return !!r.precisa_reajuste;
+    if (state.filtro === "GERADO" || state.filtro === "REAJUSTADO") return String(r.situacao || "").toUpperCase() === state.filtro;
+    return grupoDe(r) === state.filtro;
+  }
+
+  function itensEscopo() {
+    return state.items.filter(passaBaseCiclo);
+  }
+
   function itensVisiveis() {
-    const busca = state.busca.trim().toLocaleLowerCase("pt-BR");
-    return state.items.filter((r) => {
-      if (busca && !String(r.base || "").toLocaleLowerCase("pt-BR").includes(busca)) return false;
-      if (!state.filtro) return true;
-      if (state.filtro === "REVISAO") return !!r.precisa_reajuste;
-      return grupoDe(r) === state.filtro;
+    return itensEscopo().filter(passaSituacao);
+  }
+
+  function somarCentavos(acc, valor) {
+    return Math.round((acc + num(valor)) * 100) / 100;
+  }
+
+  function totaisLocais(items) {
+    const t = {
+      PENDENTE: { qtd: 0, valor: 0 },
+      A_RECEBER: { qtd: 0, valor: 0 },
+      RECEBIDO: { qtd: 0, valor: 0 },
+      REVISAO: { qtd: 0, valor: 0 },
+    };
+    items.forEach((r) => {
+      const st = String(r.situacao || "PENDENTE").toUpperCase();
+      if (st === "PENDENTE") {
+        t.PENDENTE.qtd += 1;
+        t.PENDENTE.valor = somarCentavos(t.PENDENTE.valor, r.valor_atual);
+      } else if ((st === "GERADO" || st === "REAJUSTADO" || st === "FECHADO") && r.fechamento) {
+        t.A_RECEBER.qtd += 1;
+        t.A_RECEBER.valor = somarCentavos(t.A_RECEBER.valor, r.fechamento.valor_final);
+      } else if (st === "RECEBIDO" && r.fechamento) {
+        t.RECEBIDO.qtd += 1;
+        t.RECEBIDO.valor = somarCentavos(t.RECEBIDO.valor, r.fechamento.valor_final);
+      }
+      if (r.precisa_reajuste && r.fechamento) {
+        t.REVISAO.qtd += 1;
+        t.REVISAO.valor = somarCentavos(t.REVISAO.valor, r.fechamento.valor_final);
+      }
     });
+    return t;
   }
 
   function servicosHtml(r) {
@@ -216,13 +267,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       ? `<button type="button" class="btn btn-sm btn-link text-secondary px-1" data-acao="pdf" data-id="${esc(id)}" title="Baixar PDF" aria-label="Baixar PDF de ${esc(r.base)}"><i class="ri-file-pdf-line fs-5"></i></button>`
       : "";
     if (st === "PENDENTE") {
-      const motivo = state.periodoAberto ? "Período ainda em aberto: escolha um período que termine antes de hoje." : "";
+      const bloqueada = r.pode_gerar_lote === false;
+      const motivo = bloqueada ? motivoDeFora(r) || "Não é possível gerar esta base neste período." : "";
       const btn = `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="gerar" data-base="${esc(r.base)}"${motivo ? " disabled" : ""}>Revisar e gerar</button>`;
       return motivo ? `<span class="d-inline-block" tabindex="0" title="${esc(motivo)}">${btn}</span>` : btn;
     }
     if (st === "RECEBIDO") return pdf;
     const classe = r.precisa_reajuste ? "btn-fm-primary" : "btn-outline-secondary";
-    return `<button type="button" class="btn btn-sm ${classe}" data-acao="reajustar" data-id="${esc(id)}">Reajustar</button>${pdf}`;
+    const excluir = id && statusExcluivel(st)
+      ? `<button type="button" class="btn btn-sm btn-outline-danger ms-1" data-acao="excluir" data-id="${esc(id)}" data-base="${esc(r.base)}">Excluir fechamento de ${esc(periodoTexto(periodo().ini, periodo().fim))}</button>`
+      : "";
+    return `<button type="button" class="btn btn-sm ${classe}" data-acao="reajustar" data-id="${esc(id)}">Reajustar</button>${excluir}${pdf}`;
   }
 
   function diasHtml(r) {
@@ -260,6 +315,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     return html;
   }
 
+  function linhaBaseHtml(r) {
+    const k = String(r.base);
+    const aberto = state.expandidos.has(k);
+    const st = String(r.situacao || "PENDENTE").toUpperCase();
+    const coletas = num(r.shopee) + num(r.mercado_livre) + num(r.avulso);
+    const valor = st === "PENDENTE" ? r.valor_atual : r.fechamento?.valor_final;
+    let subValor = "";
+    if (r.precisa_reajuste && r.valor_final_recalculado != null) {
+      subValor = `<div class="fm-sub fm-num">valor atual ${moeda(r.valor_final_recalculado)}</div>`;
+    } else if (st === "PENDENTE" && num(r.valor_g) > 0) {
+      subValor = `<div class="fm-sub fm-num">inclui ${moeda(r.valor_g)} de pacotes G</div>`;
+    }
+    const idDias = `fm-dias-${esc(k.replace(/[^\w-]/g, "_"))}`;
+    return (
+      `<tr class="${r.precisa_reajuste ? "fm-linha--revisao" : ""}">` +
+      `<td><button type="button" class="fm-expandir" data-acao="expandir" data-base="${esc(k)}" aria-expanded="${aberto}" aria-controls="${idDias}" aria-label="Ver dias de ${esc(r.base)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
+      `<td><div class="fw-semibold">${esc(r.base)}</div>${r.cnpj ? `<div class="fm-sub">${esc(r.cnpj)}</div>` : ""}</td>` +
+      `<td>${badgePeriodo(r)}</td>` +
+      `<td class="text-end"><div class="fm-num fw-semibold">${coletas}</div>${servicosHtml(r)}</td>` +
+      `<td class="text-end fm-num">${num(r.pacotes_g)}</td>` +
+      `<td class="text-end fm-num">${num(r.cancelados)}</td>` +
+      `<td class="text-end"><div class="fw-semibold fm-num">${moeda(valor)}</div>${subValor}</td>` +
+      `<td>${statusHtml(r)}</td>` +
+      `<td class="text-end text-nowrap">${acoesHtml(r)}</td>` +
+      "</tr>" +
+      `<tr class="fm-dias${aberto ? "" : " d-none"}" id="${idDias}"><td colspan="${colunas()}">${diasHtml(r)}</td></tr>`
+    );
+  }
+
   function renderTabela() {
     if (!tbody) return;
     if (!state.items.length) {
@@ -273,44 +357,41 @@ document.addEventListener("DOMContentLoaded", async () => {
         A_RECEBER: "Nenhum fechamento aguardando recebimento.",
         RECEBIDO: "Nenhum recebimento registrado neste período.",
         REVISAO: "Nenhum fechamento precisa de revisão.",
+        GERADO: "Nenhum fechamento gerado neste período.",
+        REAJUSTADO: "Nenhum fechamento reajustado neste período.",
       };
-      linhaMensagem(esc(state.busca ? "Nenhum resultado para a busca." : vazio[state.filtro] || "Nada para mostrar."));
+      linhaMensagem(esc(state.base || state.ciclo ? "Nenhuma base com esses filtros." : vazio[state.filtro] || "Nada para mostrar."));
       return;
     }
-    tbody.innerHTML = items
-      .map((r) => {
-        const k = String(r.base);
-        const aberto = state.expandidos.has(k);
-        const st = String(r.situacao || "PENDENTE").toUpperCase();
-        const coletas = num(r.shopee) + num(r.mercado_livre) + num(r.avulso);
-        const valor = st === "PENDENTE" ? r.valor_atual : r.fechamento?.valor_final;
-        let subValor = "";
-        if (r.precisa_reajuste && r.valor_final_recalculado != null) {
-          subValor = `<div class="fm-sub fm-num">valor atual ${moeda(r.valor_final_recalculado)}</div>`;
-        } else if (st === "PENDENTE" && num(r.valor_g) > 0) {
-          subValor = `<div class="fm-sub fm-num">inclui ${moeda(r.valor_g)} de pacotes G</div>`;
-        }
-        const idDias = `fm-dias-${esc(k.replace(/[^\w-]/g, "_"))}`;
-        return (
-          `<tr class="${r.precisa_reajuste ? "fm-linha--revisao" : ""}">` +
-          `<td><button type="button" class="fm-expandir" data-acao="expandir" data-base="${esc(k)}" aria-expanded="${aberto}" aria-controls="${idDias}" aria-label="Ver dias de ${esc(r.base)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
-          `<td><div class="fw-semibold">${esc(r.base)}</div>${r.cnpj ? `<div class="fm-sub">${esc(r.cnpj)}</div>` : ""}</td>` +
-          `<td>${badgePeriodo(r)}</td>` +
-          `<td class="text-end"><div class="fm-num fw-semibold">${coletas}</div>${servicosHtml(r)}</td>` +
-          `<td class="text-end fm-num">${num(r.pacotes_g)}</td>` +
-          `<td class="text-end fm-num">${num(r.cancelados)}</td>` +
-          `<td class="text-end"><div class="fw-semibold fm-num">${moeda(valor)}</div>${subValor}</td>` +
-          `<td>${statusHtml(r)}</td>` +
-          `<td class="text-end text-nowrap">${acoesHtml(r)}</td>` +
-          "</tr>" +
-          `<tr class="fm-dias${aberto ? "" : " d-none"}" id="${idDias}"><td colspan="${colunas()}">${diasHtml(r)}</td></tr>`
-        );
-      })
-      .join("");
+    if (!state.agruparCiclo) {
+      tbody.innerHTML = items.map(linhaBaseHtml).join("");
+      return;
+    }
+    const porCiclo = new Map();
+    items.forEach((r) => {
+      const codigo = cicloDe(r);
+      if (!porCiclo.has(codigo)) porCiclo.set(codigo, []);
+      porCiclo.get(codigo).push(r);
+    });
+    const html = [];
+    ORDEM_CICLO.forEach((codigo) => {
+      const grupo = porCiclo.get(codigo);
+      if (!grupo || !grupo.length) return;
+      const aberto = state.gruposExpandidos.has(codigo);
+      const rotulo = ROTULO_CICLO[codigo] || codigo;
+      html.push(
+        `<tr class="fm-grupo">` +
+          `<td><button type="button" class="fm-expandir" data-acao="expandir-grupo" data-ciclo="${esc(codigo)}" aria-expanded="${aberto}" aria-label="Expandir ${esc(rotulo)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
+          `<td colspan="${colunas() - 1}"><span>${esc(rotulo)}</span> <span class="fm-grupo-meta">${esc(plural(grupo.length, "base", "bases"))}</span></td>` +
+          `</tr>`
+      );
+      if (aberto) html.push(...grupo.map(linhaBaseHtml));
+    });
+    tbody.innerHTML = html.join("");
   }
 
   function renderCards() {
-    const t = state.totais || {};
+    const t = totaisLocais(itensEscopo());
     const set = (id, txt) => {
       const el = qs(id);
       if (el) el.textContent = txt;
@@ -328,7 +409,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function elegiveisLote() {
-    return state.items.filter((r) => String(r.situacao).toUpperCase() === "PENDENTE" && r.pode_gerar_lote);
+    return itensEscopo().filter((r) => String(r.situacao).toUpperCase() === "PENDENTE" && r.pode_gerar_lote);
   }
 
   function atualizarBtnGerarTodos() {
@@ -338,16 +419,68 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!btn || !wrap) return;
     const n = elegiveisLote().length;
     let motivo = "";
-    if (state.periodoAberto) motivo = "Período ainda em aberto: escolha um período que termine antes de hoje.";
-    else if (n === 0) motivo = "Nenhuma pendente pode ser gerada de uma vez neste período.";
+    if (n === 0) motivo = "Nenhuma pendente pode ser gerada de uma vez neste período.";
     if (label) label.textContent = n > 0 ? `Gerar todos os pendentes (${n})` : "Gerar todos os pendentes";
     btn.disabled = !!motivo || state.gerandoLote;
     wrap.title = motivo;
   }
 
+  const ROTULO_SITUACAO = {
+    PENDENTE: "Pendente",
+    A_RECEBER: "Gerados, a receber",
+    GERADO: "Gerado",
+    REAJUSTADO: "Reajustado",
+    RECEBIDO: "Recebido",
+    REVISAO: "Precisa revisão",
+  };
+
+  function sincronizarSelects() {
+    const base = qs("#flt-base");
+    const ciclo = qs("#flt-ciclo");
+    const status = qs("#flt-status");
+    if (base) base.value = state.base;
+    if (ciclo) ciclo.value = state.ciclo;
+    if (status) status.value = state.filtro;
+  }
+
+  function preencherBases() {
+    const select = qs("#flt-base");
+    if (!select) return;
+    const nomes = Array.from(new Set(state.items.map((r) => String(r.base || "").trim()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, "pt-BR", { sensitivity: "base" })
+    );
+    const atual = state.base;
+    const lista = atual && !nomes.includes(atual) ? [atual, ...nomes] : nomes;
+    select.innerHTML = `<option value="">Todas</option>${lista.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("")}`;
+    select.value = atual;
+  }
+
+  function renderFiltros() {
+    const faixa = qs("#fm-filtros-ativos");
+    const contador = qs("#filtrosContador");
+    const itens = [];
+    if (state.base) itens.push(["base", TERMO_BASE, state.base]);
+    if (state.ciclo) itens.push(["ciclo", "Período", ROTULO_CICLO[state.ciclo] || state.ciclo]);
+    if (state.filtro) itens.push(["filtro", "Situação", ROTULO_SITUACAO[state.filtro] || state.filtro]);
+    if (faixa) {
+      faixa.innerHTML = itens
+        .map(
+          ([chave, nome, valor]) =>
+            `<span class="fm-filtro-chip">${esc(nome)}: ${esc(valor)} <button type="button" data-limpar-filtro="${esc(chave)}" aria-label="Remover filtro de ${esc(nome)}">×</button></span>`
+        )
+        .join("");
+      faixa.classList.toggle("d-none", itens.length === 0);
+    }
+    if (contador) {
+      contador.textContent = String(itens.length);
+      contador.classList.toggle("d-none", itens.length === 0);
+    }
+  }
+
   function renderTudo() {
     renderCards();
     renderTabela();
+    renderFiltros();
     atualizarBtnGerarTodos();
   }
 
@@ -364,6 +497,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       state.items = Array.isArray(data.items) ? data.items : [];
       state.totais = data.totais || {};
       state.periodoAberto = !!data.periodo_aberto;
+      preencherBases();
     } catch (err) {
       console.error("Fechamento de Bases — carregar:", err);
       state.items = [];
@@ -373,8 +507,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       linhaMensagem(`<span class="text-danger">${esc(err.message || "Não foi possível carregar.")}</span>`);
       return;
     }
-    if (msgEl && state.periodoAberto) {
-      msgEl.innerHTML = '<div class="fm-sub">O período ainda está em aberto. Você pode conferir as coletas, mas só gera o fechamento depois que o período terminar.</div>';
+    if (msgEl) {
+      const abertas = state.items.filter(
+        (r) => String(r.situacao || "").toUpperCase() === "PENDENTE" && r.motivo_bloqueio === "PERIODO_ABERTO"
+      );
+      if (state.periodoAberto && abertas.length) {
+        msgEl.innerHTML =
+          '<div class="fm-sub">Algumas bases ainda têm dia de coleta neste período. As demais com agenda encerrada já podem ser geradas.</div>';
+      } else {
+        msgEl.innerHTML = "";
+      }
     }
     renderTudo();
   }
@@ -400,7 +542,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (state.gerandoLote || !window.Swal) return;
     const { ini, fim } = periodo();
     const geraveis = elegiveisLote();
-    const deFora = state.items.filter((r) => String(r.situacao).toUpperCase() === "PENDENTE" && !r.pode_gerar_lote);
+    const deFora = itensEscopo().filter((r) => String(r.situacao).toUpperCase() === "PENDENTE" && !r.pode_gerar_lote);
     if (!geraveis.length) return;
     const total = geraveis.reduce((s, r) => s + num(r.valor_atual), 0);
     const conf = await Swal.fire({
@@ -1180,8 +1322,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ====== Gerar individual (escolher base) ======
   async function gerarIndividual() {
     const { ini, fim } = periodo();
-    if (periodoAberto(fim)) {
-      Swal.fire({ icon: "info", title: "Período em aberto", text: "Escolha um período que termine antes de hoje para gerar o fechamento.", confirmButtonColor: COR_PRIMARIA });
+    if (!ini || !fim) {
+      Swal.fire({ icon: "info", title: "Selecione um período", confirmButtonColor: COR_PRIMARIA });
       return;
     }
     let bases;
@@ -1214,28 +1356,101 @@ document.addEventListener("DOMContentLoaded", async () => {
     abrirPainel({ modo: "gerar", base: value, ini, fim });
   }
 
+  async function excluirFechamento(id, base) {
+    if (!id || state.excluindo) return;
+    const { ini, fim } = periodo();
+    const quando = periodoTexto(ini, fim);
+    const nome = base || `esta ${TERMO_BASE.toLowerCase()}`;
+    const pergunta = `Excluir o fechamento de ${nome} de ${quando}? O período volta a pendente. As coletas não são apagadas.`;
+    let confirmou = false;
+    if (window.Swal) {
+      const resp = await Swal.fire({
+        icon: "warning",
+        title: "Excluir fechamento",
+        text: pergunta,
+        showCancelButton: true,
+        confirmButtonText: "Excluir",
+        cancelButtonText: "Cancelar",
+        confirmButtonColor: "#B91C1C",
+        focusCancel: true,
+      });
+      confirmou = !!resp.isConfirmed;
+    } else {
+      confirmou = window.confirm(pergunta);
+    }
+    if (!confirmou) return;
+    state.excluindo = true;
+    try {
+      await api(`${API_FECH}/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (state.painel && String(state.painel.idFech) === String(id)) {
+        state.fecharConfirmado = true;
+        painel?.hide();
+      }
+      await carregar();
+    } catch (err) {
+      avisoErro("Não foi possível excluir o fechamento", err);
+    } finally {
+      state.excluindo = false;
+    }
+  }
+
   // ====== Eventos ======
   qs("#btnGerarTodos")?.addEventListener("click", gerarTodosPendentes);
   qs("#btnGerarIndividual")?.addEventListener("click", gerarIndividual);
+  qs("#chkAgruparCiclo")?.addEventListener("change", (e) => {
+    state.agruparCiclo = !!e.target.checked;
+    if (!state.agruparCiclo) state.gruposExpandidos.clear();
+    renderTabela();
+  });
 
   document.querySelectorAll("#fm-cards .fm-card").forEach((card) => {
     card.addEventListener("click", () => {
       state.filtro = state.filtro === card.dataset.filtro ? "" : card.dataset.filtro;
-      renderCards();
-      renderTabela();
+      sincronizarSelects();
+      renderTudo();
     });
   });
 
-  qs("#flt-busca")?.addEventListener("input", (e) => {
-    state.busca = e.target.value || "";
-    renderTabela();
+  function aplicarFiltros() {
+    state.base = qs("#flt-base")?.value || "";
+    state.ciclo = qs("#flt-ciclo")?.value || "";
+    state.filtro = qs("#flt-status")?.value || "";
+    if (typeof bootstrap !== "undefined") bootstrap.Dropdown.getInstance(qs("#btnFiltrosIcon"))?.hide();
+    renderTudo();
+  }
+
+  function limparFiltros() {
+    state.base = "";
+    state.ciclo = "";
+    state.filtro = "";
+    sincronizarSelects();
+    if (typeof bootstrap !== "undefined") bootstrap.Dropdown.getInstance(qs("#btnFiltrosIcon"))?.hide();
+    renderTudo();
+  }
+
+  qs("#btnFiltroAplicar")?.addEventListener("click", aplicarFiltros);
+  qs("#btnFiltroLimpar")?.addEventListener("click", limparFiltros);
+  qs("#fm-filtros-ativos")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-limpar-filtro]");
+    if (!btn) return;
+    const chave = btn.dataset.limparFiltro;
+    if (chave === "base") state.base = "";
+    else if (chave === "ciclo") state.ciclo = "";
+    else if (chave === "filtro") state.filtro = "";
+    sincronizarSelects();
+    renderTudo();
   });
 
   tbody?.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-acao]");
     if (!btn) return;
     const acao = btn.dataset.acao;
-    if (acao === "expandir") {
+    if (acao === "expandir-grupo") {
+      const ciclo = btn.dataset.ciclo;
+      if (state.gruposExpandidos.has(ciclo)) state.gruposExpandidos.delete(ciclo);
+      else state.gruposExpandidos.add(ciclo);
+      renderTabela();
+    } else if (acao === "expandir") {
       const k = btn.dataset.base;
       if (state.expandidos.has(k)) state.expandidos.delete(k);
       else state.expandidos.add(k);
@@ -1249,6 +1464,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       abrirPainel({ modo: "reajustar", idFech: btn.dataset.id });
     } else if (acao === "pdf" && typeof window.gerarPdfFechamentoBases === "function") {
       window.gerarPdfFechamentoBases(Number(btn.dataset.id));
+    } else if (acao === "excluir") {
+      excluirFechamento(Number(btn.dataset.id), btn.dataset.base);
     }
   });
 

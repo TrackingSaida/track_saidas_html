@@ -17,6 +17,7 @@
     { id: "hoje", label: "Hoje" },
     { id: "ontem", label: "Ontem" },
     { id: "semana", label: "Semana atual" },
+    { id: "semana-ant", label: "Semana anterior" },
     { id: "quinzena", label: "Quinzena atual" },
     { id: "quinzena-ant", label: "Quinzena anterior" },
     { id: "mes", label: "Mês atual" },
@@ -58,6 +59,13 @@
         const diff = day === 0 ? -6 : 1 - day;
         start = new Date(y, m, d + diff);
         end = new Date(y, m, d + diff + 6);
+        break;
+      }
+      case "semana-ant": {
+        const day = now.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        start = new Date(y, m, d + diff - 7);
+        end = new Date(y, m, d + diff - 1);
         break;
       }
       case "quinzena":
@@ -164,7 +172,7 @@
   /**
    * Inicializa o date picker no container
    * @param {Object} opts - { containerId, prefix, onApply, onCancel, defaultPreset }
-   * @param {string} opts.defaultPreset - preset inicial: hoje | ontem | semana | quinzena | quinzena-ant | mes | ultimos15 | ultimos30 | ultimos45
+   * @param {string} opts.defaultPreset - preset inicial: hoje | ontem | semana | semana-ant | quinzena | quinzena-ant | mes | ultimos15 | ultimos30 | ultimos45
    */
   window.initDatePickerDashboard = function (opts) {
     const container = document.getElementById(opts.containerId);
