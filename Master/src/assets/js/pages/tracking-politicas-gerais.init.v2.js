@@ -200,6 +200,7 @@
       pix: (qs("#pixReceber")?.value || "").trim(),
       pixTipo: qs("#pixReceberTipo")?.value || "",
       podeColeta: !!qs("#defPodeColeta")?.checked,
+      podeEntrada: !!qs("#defPodeEntrada")?.checked,
       podeSaida: !!qs("#defPodeSaida")?.checked,
       digitar: !!qs("#defDigitarManual")?.checked,
       avulsoColeta: !!qs("#defCriarAvulsoColeta")?.checked,
@@ -374,6 +375,13 @@
     if (bloquearWrap) bloquearWrap.classList.toggle("d-none", !coletaOn);
     const hint = qs("#hintColetaEntrada");
     if (hint) hint.classList.toggle("d-none", !(coletaOn && entradaOn));
+    const defEntrada = qs("#defPodeEntrada");
+    const defEntradaWrap = qs("#defPodeEntradaWrap");
+    if (defEntrada) {
+      defEntrada.disabled = !entradaOn;
+      if (!entradaOn && !hydrating) defEntrada.checked = false;
+    }
+    if (defEntradaWrap) defEntradaWrap.classList.toggle("opacity-50", !entradaOn);
     const avulsoOn =
       !!qs("#defCriarAvulsoColeta")?.checked || !!qs("#defCriarAvulsoSaida")?.checked;
     const foto = qs("#defAvulsoFoto");
@@ -404,6 +412,9 @@
       qs("#pixReceber").value = op.pix_receber || "";
     }
     qs("#defPodeColeta").checked = !!pad.pode_realizar_coleta;
+    if (qs("#defPodeEntrada")) {
+      qs("#defPodeEntrada").checked = !!pad.pode_realizar_entrada && !!op.entrada_habilitada;
+    }
     qs("#defPodeSaida").checked = pad.pode_ler_saida !== false;
     qs("#defDigitarManual").checked = !!pad.pode_digitar_codigo_manual;
     fillAvulsoFlags(pad);
@@ -548,6 +559,7 @@
       },
       padroes_motoboy: {
         pode_realizar_coleta: !!qs("#defPodeColeta").checked,
+        pode_realizar_entrada: !!qs("#entradaHabilitada")?.checked && !!qs("#defPodeEntrada")?.checked,
         pode_ler_saida: !!qs("#defPodeSaida").checked,
         pode_digitar_codigo_manual: !!qs("#defDigitarManual").checked,
         pode_criar_avulso_coleta: !!qs("#defCriarAvulsoColeta").checked,
