@@ -171,6 +171,18 @@
                                   <label class="form-check-label small" for="flt-acao-lido">Leu pedido</label>
                                 </div>
                                 <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-leitura-saida" value="leitura_saida">
+                                  <label class="form-check-label small" for="flt-acao-leitura-saida">Leu pacote para saída</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-sessao-finalizada" value="sessao_leitura_finalizada">
+                                  <label class="form-check-label small" for="flt-acao-sessao-finalizada">Finalizou leitura de saída</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-saida-confirmada" value="saida_confirmada">
+                                  <label class="form-check-label small" for="flt-acao-saida-confirmada">Confirmou início da entrega</label>
+                                </div>
+                                <div class="form-check form-switch">
                                   <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-scan" value="scan">
                                   <label class="form-check-label small" for="flt-acao-scan">Escaneou pedido</label>
                                 </div>
@@ -200,7 +212,7 @@
                                 </div>
                                 <div class="form-check form-switch">
                                   <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-nova-saida-mesmo-entregador" value="nova_saida_mesmo_entregador">
-                                  <label class="form-check-label small" for="flt-acao-nova-saida-mesmo-entregador">Nova saída confirmada (mesmo motoboy)</label>
+                                  <label class="form-check-label small" for="flt-acao-nova-saida-mesmo-entregador">Pacote incluído em novo lote de saída</label>
                                 </div>
                                 <div class="form-check form-switch">
                                   <input class="form-check-input filtro-toggle-item" type="checkbox" id="flt-acao-desatribuido" value="desatribuido">
@@ -1048,6 +1060,10 @@
             <div class="form-check">
               <input class="form-check-input export-col-item" type="checkbox" id="export-col-status" value="status" checked>
               <label class="form-check-label" for="export-col-status">Status</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input export-col-item" type="checkbox" id="export-col-situacao" value="situacao" checked>
+              <label class="form-check-label" for="export-col-situacao">Situação</label>
             </div>
             <div class="form-check">
               <input class="form-check-input export-col-item" type="checkbox" id="export-col-acao" value="acao" checked>

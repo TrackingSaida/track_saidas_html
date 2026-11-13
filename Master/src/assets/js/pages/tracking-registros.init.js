@@ -542,16 +542,15 @@ function augmentEntregadoresFromRows(rows){
       r.executadoPor ||
       "—";
     var seller = r.base || r.seller || "-";
-    var acaoRaw = r.acao || r.action || "";
+    var acaoRaw = r.acao_label || r.acao || r.action || "";
     var acao = String(acaoRaw || "").trim();
     if (!acao || acao === "Sem ação" || acao === "—") {
-      var stRaw = String(r.status || "").toLowerCase();
+      var stRaw = String(r.status || r.situacao || "").toLowerCase();
       if (stRaw === "etiquetado") acao = "Emitiu etiqueta";
-      else acao = acao || "Sem ação";
+      else acao = "Histórico anterior à atualização";
     }
 
-    var rawSt = String(r.status || "").toLowerCase();
-    var statusUI = formatStatusForDisplay(r.status);
+    var statusUI = r.situacao_label || formatStatusForDisplay(r.situacao || r.status);
 
     return {
       ...r,
@@ -645,8 +644,16 @@ function augmentEntregadoresFromRows(rows){
     scan: "Pedido adicionado",
     lido: "Pedido adicionado",
     leitura: "Pedido adicionado",
+    leitura_saida: "Leu pacote para saída",
+    sessao_leitura_finalizada: "Finalizou leitura de saída",
+    saida_confirmada: "Confirmou início da entrega",
+    saida_removida_antes_confirmacao: "Removeu antes de começar entrega",
     lancar_avulso: "Pedido adicionado",
     em_rota: "Saiu para entrega",
+    preparacao_rota_iniciada: "Preparação de rota iniciada",
+    rota_preparada: "Rota preparada",
+    rota_iniciada: "Rota iniciada",
+    item_removido_sessao: "Pacote removido da sessão",
     saiu: "Saiu para entrega",
     entregue: "Entrega realizada",
     entregue_lote: "Entrega realizada",
@@ -665,7 +672,7 @@ function augmentEntregadoresFromRows(rows){
     assumir: "Entregador reatribuído",
     assumido: "Entregador reatribuído",
     reatribuido_em_rota: "Entregador reatribuído em rota",
-    nova_saida_mesmo_entregador: "Nova saída confirmada",
+    nova_saida_mesmo_entregador: "Pacote incluído em novo lote de saída",
     desatribuido: "Pacote desatribuído",
     removido_sem_inicio: "Removido antes de iniciar rota",
     endereco_atualizado: "Endereço atualizado",
@@ -740,6 +747,14 @@ function augmentEntregadoresFromRows(rows){
 
   var ACTION_BADGE_MAP = {
     "Leu pedido": { category: "neutral", className: "action-neutral" },
+    "Leu pacote para saída": { category: "neutral", className: "action-neutral" },
+    "Finalizou leitura de saída": { category: "neutral", className: "action-neutral" },
+    "Confirmou início da entrega": { category: "confirmation", className: "action-confirmation" },
+    "Pacote incluído em novo lote de saída": { category: "movement", className: "action-movement" },
+    "Removeu antes de começar entrega": { category: "exception", className: "action-exception" },
+    "Preparação de rota iniciada": { category: "movement", className: "action-movement" },
+    "Rota preparada": { category: "movement", className: "action-movement" },
+    "Rota iniciada": { category: "movement", className: "action-movement" },
     "Escaneou pedido": { category: "neutral", className: "action-neutral" },
     "Nova saída": { category: "movement", className: "action-movement" },
     "Iniciou rota": { category: "movement", className: "action-movement" },
@@ -1946,8 +1961,16 @@ function setupPagerEvents() {
       if (detailTitleCodigo) detailTitleCodigo.textContent = saida.codigo_exibicao || saida.codigo || idSaida;
 
       var d = saida.detail || {};
-      var statusClass = getStatusClass(saida.status);
-      var statusText = formatStatusForDisplay(saida.status);
+      var statusClass = getStatusClass(saida.situacao_label || saida.status);
+      var statusText = formatStatusForDisplay(saida.situacao_label || saida.status);
+      var acaoDetalhe = String(saida.acao_label || "").trim();
+      if (!acaoDetalhe) {
+        var codigoAcao = String(saida.acao || "").trim().toLowerCase();
+        acaoDetalhe = EVENTO_HISTORICO_LABELS[codigoAcao] || "";
+      }
+      if (!acaoDetalhe || acaoDetalhe === "Sem ação" || acaoDetalhe === "—") {
+        acaoDetalhe = "Histórico anterior à atualização";
+      }
       var statusLower = (saida.status || "").toLowerCase();
       var isAusente = statusLower === "ausente";
       var bloqueadoAusencias = !!saida.bloqueado_ausencias;
@@ -2205,6 +2228,7 @@ function setupPagerEvents() {
           '<div class="d-flex flex-wrap align-items-center gap-2 mb-2">' +
             '<span class="status-badge ' + statusClass + '">' + escapeHtml(statusText) + "</span>" +
             bloqueioBadgeHtml +
+            '<span class="small text-muted">Ação: ' + escapeHtml(acaoDetalhe) + "</span>" +
             (relativoTxt ? '<span class="small text-muted">' + escapeHtml(relativoTxt) + "</span>" : "") +
           "</div>" +
           acoesHtml +

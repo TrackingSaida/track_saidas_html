@@ -24,6 +24,165 @@
     return coletaOn || entradaOn;
   }
 
+  function rotuloSituacaoSaida(status) {
+    var raw = String(status || "").trim();
+    var key = raw.toLowerCase().replace(/_/g, " ");
+    if (!raw) return "Saiu para entrega";
+    if (key === "aguardando confirmacao saida" || key === "aguardando confirmação de saída") {
+      return "Aguardando confirmação de saída";
+    }
+    if (key === "saiu" || key === "saiu para entrega" || key === "saiu pra entrega") return "Saiu para entrega";
+    if (key === "em rota") return "Em rota";
+    if (key === "entregue") return "Entregue";
+    if (key === "ausente") return "Ausente";
+    if (key === "cancelado") return "Cancelado";
+    return raw;
+  }
+
+  const sessaoServidor = { id: null, status: null, total: 0, versao: null, carregando: false, erro: "" };
+  let finalizandoLeitura = false;
+
+  function fluxoConfirmacaoSessoes() {
+    return window.__USER__?.confirmacao_saida_sessoes_habilitada === true;
+  }
+
+  function dataOperacionalLocal() {
+    const agora = new Date();
+    const mes = String(agora.getMonth() + 1).padStart(2, "0");
+    const dia = String(agora.getDate()).padStart(2, "0");
+    return `${agora.getFullYear()}-${mes}-${dia}`;
+  }
+
+  function pintarSessaoAberta() {
+    const btn = $("btnFinalizarLeitura");
+    const info = $("sessaoAbertaInfo");
+    const link = $("linkConferenciaSaida");
+    const fluxo = fluxoConfirmacaoSessoes();
+    const aberta = fluxo && sessaoServidor.status === "ABERTA" && sessaoServidor.id && sessaoServidor.total > 0;
+    if (btn) {
+      btn.classList.toggle("d-none", !aberta);
+      btn.disabled = finalizandoLeitura || sessaoServidor.carregando;
+    }
+    if (link) link.classList.toggle("d-none", !fluxo);
+    if (!info) return;
+    info.classList.remove("d-none");
+    if (!fluxo) {
+      info.classList.add("d-none");
+      info.textContent = "";
+      return;
+    }
+    if (!selEnt?.value) {
+      info.textContent = "Selecione o motoboy para recuperar a leitura em aberto.";
+      return;
+    }
+    if (sessaoServidor.carregando) {
+      info.textContent = "Buscando a leitura em aberto…";
+      return;
+    }
+    if (sessaoServidor.erro) {
+      info.textContent = sessaoServidor.erro;
+      return;
+    }
+    info.textContent = aberta
+      ? `Leitura em aberto no servidor: ${sessaoServidor.total} pacote(s). A finalização usa esta sessão.`
+      : "Não há leitura em aberto para este motoboy.";
+  }
+
+  function aplicarSessaoServidor(data) {
+    if (!data || data.sessao_id == null) return;
+    sessaoServidor.id = data.sessao_id;
+    sessaoServidor.status = data.sessao_status || "ABERTA";
+    sessaoServidor.total = Number(data.sessao_total ?? 0);
+    if (data.sessao_versao != null) sessaoServidor.versao = Number(data.sessao_versao);
+    else if (data.versao != null) sessaoServidor.versao = Number(data.versao);
+    sessaoServidor.carregando = false;
+    sessaoServidor.erro = "";
+    pintarSessaoAberta();
+  }
+
+  function limparSessaoServidor() {
+    sessaoServidor.id = null;
+    sessaoServidor.status = null;
+    sessaoServidor.total = 0;
+    sessaoServidor.versao = null;
+    sessaoServidor.carregando = false;
+    sessaoServidor.erro = "";
+    pintarSessaoAberta();
+  }
+
+  async function recuperarSessaoAbertaDoServidor() {
+    if (!fluxoConfirmacaoSessoes() || !window.TrackAPI?.recuperarSessaoSaidaAberta) {
+      limparSessaoServidor();
+      return false;
+    }
+    const motoboyId = parseInt(selEnt?.value || "", 10);
+    if (!motoboyId) {
+      limparSessaoServidor();
+      return false;
+    }
+    sessaoServidor.carregando = true;
+    sessaoServidor.erro = "";
+    pintarSessaoAberta();
+    const res = await window.TrackAPI.recuperarSessaoSaidaAberta(motoboyId);
+    sessaoServidor.carregando = false;
+    if (res?.status === 0) {
+      sessaoServidor.erro = "Sem conexão para recuperar a leitura em aberto.";
+      pintarSessaoAberta();
+      return false;
+    }
+    if (!res?.ok) {
+      sessaoServidor.erro = res?.error || "Não foi possível recuperar a leitura em aberto.";
+      pintarSessaoAberta();
+      return false;
+    }
+    if (!res.data?.fluxo_confirmacao_ativo || !res.data?.sessao_id || res.data?.sessao_status !== "ABERTA") {
+      limparSessaoServidor();
+      return false;
+    }
+    aplicarSessaoServidor(res.data);
+    return true;
+  }
+
+  async function finalizarLeituraDaSessao() {
+    if (finalizandoLeitura) return;
+    const motoboyId = parseInt(selEnt?.value || "", 10);
+    if (!motoboyId) {
+      showMsgIcon("alerta", "Selecione o motoboy para finalizar a leitura.");
+      return;
+    }
+    finalizandoLeitura = true;
+    const btn = $("btnFinalizarLeitura");
+    if (btn) btn.disabled = true;
+    try {
+      await recuperarSessaoAbertaDoServidor();
+      if (!sessaoServidor.id) {
+        showMsgIcon("alerta", "Não há leitura em aberto no servidor para finalizar.");
+        return;
+      }
+      const res = await window.TrackAPI.confirmarLeituraSessao({
+        motoboy_id: motoboyId,
+        data_ref: dataOperacionalLocal(),
+        sessao_id: sessaoServidor.id,
+        versao: sessaoServidor.versao
+      });
+      if (res?.status === 409 && res.code === "SESSAO_VERSAO_CONFLITO") {
+        await recuperarSessaoAbertaDoServidor();
+        showMsgIcon("alerta", "A leitura mudou. Atualizamos a sessão. Tente finalizar de novo.");
+        return;
+      }
+      if (!res?.ok) {
+        showMsgIcon("erro", res?.error || "Não foi possível finalizar a leitura.");
+        return;
+      }
+      limparSessaoServidor();
+      showMsgIcon("info", "Leitura finalizada. Os pacotes aguardam a confirmação do motoboy.");
+    } finally {
+      finalizandoLeitura = false;
+      if (btn) btn.disabled = false;
+      pintarSessaoAberta();
+    }
+  }
+
   function podeLancarAvulso() {
     const u = window.__USER__ || {};
     const role = Number(u.role);
@@ -828,7 +987,7 @@ function createRow(row){
       const apiRow = (res && typeof res === 'object' && typeof res.data === 'object') ? res.data : {};
       const novoServico = apiRow.servico ?? p.servico ?? '';
       const duplicado   = !!apiRow.duplicado;
-      const novoStatus  = duplicado ? 'Duplicado' : (apiRow.status ?? 'Saiu');
+      const novoStatus  = duplicado ? 'Duplicado' : rotuloSituacaoSaida(apiRow.situacao_label || apiRow.status || 'Saiu');
       if (duplicado) {
         // Se o backend sinalizar duplicado na resposta OK, não exibe a linha
         if (tr) tr.remove();
@@ -1125,7 +1284,7 @@ async function registrar() {
       // 200 ou 201 — sucesso ou idempotente [ja_saiu mesmo entregador]
       const apiRow = res.data || {};
       const novoServico = apiRow.servico ?? servico ?? "";
-      const novoStatus = apiRow.status ?? "Saiu";
+      const novoStatus = rotuloSituacaoSaida(apiRow.situacao_label || apiRow.status || "Saiu");
       appendOrUpdateRow({
         tsFmt: new Date().toLocaleString("pt-BR"),
         entregador,
@@ -1138,6 +1297,7 @@ async function registrar() {
       });
       codigosLidosSessao.add(codigoFinal);
       updateSummary();
+      aplicarSessaoServidor(apiRow);
       showMsgIcon("info", `Registrado ✓ ${codigoFinal}${novoServico ? " • " + novoServico : ""}`);
       Sound.play("ok");
       if (inpCod) { inpCod.value = ""; inpCod.focus(); }
@@ -1167,7 +1327,7 @@ async function registrar() {
           <p>Deseja reatribuir para <strong>${entregador}</strong> e colocar <strong>Em rota</strong>?</p>
         `
           : `
-          <p>O pacote <strong>${codigoFinal}</strong> já foi registrado como <strong>Saiu para entrega.</strong></p>
+          <p>O pacote <strong>${codigoFinal}</strong> já foi registrado como <strong>${rotuloSituacaoSaida(res.data?.status_atual || "Saiu para entrega")}.</strong></p>
           <p>Registrado por: <strong>${usuarioRegistro}</strong></p>
           <p>Entregador atual: <strong>${entregadorAtual}</strong></p>
           <hr>
@@ -1204,7 +1364,9 @@ async function registrar() {
         if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
         return { ok:false, tipo:"erro_patch_troca_entregador", detalhe:msg, backend_processing_ms };
       }
-      const statusLinha = pedidoEntregue ? "Em rota" : "Saiu para entrega";
+      const statusLinha = pedidoEntregue
+        ? "Em rota"
+        : rotuloSituacaoSaida((patchResp.data && (patchResp.data.situacao_label || patchResp.data.status)) || "Saiu para entrega");
       appendOrUpdateRow({
         tsFmt: new Date().toLocaleString("pt-BR"),
         entregador,
@@ -1279,7 +1441,7 @@ async function registrar() {
         entregador,
         codigo: codigoFinal,
         servico: dataConf.servico ?? servico,
-        status: dataConf.status ?? "Saiu para entrega",
+        status: rotuloSituacaoSaida(dataConf.situacao_label || dataConf.status || "Saiu para entrega"),
         id_saida: dataConf.id_saida ?? idSaida,
         is_grande: !!dataConf.is_grande,
         duplicado: false
@@ -1591,7 +1753,15 @@ loadMotoboys().then(() => {
   atualizarVistaMonitorLeituras();
 
   // Atualiza o nome do entregador no Modo Monitor sempre que o select mudar
-  selEnt?.addEventListener("change", atualizarVistaMonitorLeituras);
+  selEnt?.addEventListener("change", () => {
+    atualizarVistaMonitorLeituras();
+    recuperarSessaoAbertaDoServidor();
+  });
+  recuperarSessaoAbertaDoServidor();
+  $("btnFinalizarLeitura")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    finalizarLeituraDaSessao();
+  });
 });
 
 // tenta reenviar pendentes (somente técnicos)

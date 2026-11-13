@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    @@include("partials/title-meta.html", {"title": "Conferência de saída"})
+    @@include("partials/head-css.html")
+  </head>
+
+  <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
+    <div id="layout-wrapper">
+      @@include("partials/topbar.html")
+      @@include("partials/sidebar.html")
+
+      <div class="main-content">
+        <div class="page-content">
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-12">
+                <div class="page-title-box d-sm-flex align-items-center justify-content-between bg-galaxy-transparent">
+                  <h4 class="mb-sm-0">Conferência de saída</h4>
+                  <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="tracking-leitura.html">Operação</a></li>
+                    <li class="breadcrumb-item active">Conferência</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            <div class="card mb-3">
+              <div class="card-body">
+                <div class="row g-3 align-items-end">
+                  <div class="col-md-3">
+                    <label class="form-label" for="conf-data">Data</label>
+                    <input id="conf-data" class="form-control" type="date">
+                  </div>
+                  <div class="col-md-5">
+                    <label class="form-label" for="conf-nome">Motoboy</label>
+                    <input id="conf-nome" class="form-control" type="search" placeholder="Filtrar pelo nome">
+                  </div>
+                  <div class="col-md-4">
+                    <button id="conf-atualizar" type="button" class="btn btn-outline-primary">Atualizar</button>
+                  </div>
+                </div>
+                <div class="btn-group mt-3" role="group" aria-label="Status da conferência">
+                  <button type="button" class="btn btn-outline-secondary active" data-aba="pendente">Pendentes</button>
+                  <button type="button" class="btn btn-outline-secondary" data-aba="reconferir">Reconferir</button>
+                  <button type="button" class="btn btn-outline-secondary" data-aba="conferida">Concluídas</button>
+                </div>
+                <p id="conf-status" class="small text-muted mb-0 mt-3" role="status"></p>
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-lg-5">
+                <div class="card">
+                  <div class="card-header">
+                    <h5 class="mb-0">Lotes</h5>
+                  </div>
+                  <div class="card-body">
+                    <div id="conf-lista" class="d-flex flex-column gap-2"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-7">
+                <div class="card">
+                  <div class="card-header">
+                    <h5 class="mb-0">Detalhe</h5>
+                  </div>
+                  <div class="card-body" id="conf-detalhe">
+                    <p class="text-muted mb-0">Selecione um lote para ver a quantidade operacional e o registro da finalização.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        @@include("partials/footer.html")
+      </div>
+    </div>
+
+    @@include("partials/customizer.html")
+    @@include("partials/vendor-scripts.html")
+    <script src="assets/js/pages/tracking-api-leitura-registros.init.js"></script>
+    <script src="assets/js/pages/tracking-conferencia-saida.init.js"></script>
+    <script src="assets/js/app.js"></script>
+  </body>
+</html>
