@@ -559,8 +559,15 @@ function toggleMotoboySection() {
     const entradaOn = !!(CURRENT_USER && CURRENT_USER.entrada_obrigatoria_habilitada);
     document.getElementById("coletaPermissaoFormGroup")?.classList.toggle("d-none", ignorarColeta);
     document.getElementById("coletaPermissaoDetailGroup")?.classList.toggle("d-none", ignorarColeta);
-    document.getElementById("entradaPermissaoFormGroup")?.classList.toggle("d-none", !entradaOn);
-    document.getElementById("entradaPermissaoDetailGroup")?.classList.toggle("d-none", !entradaOn);
+    // Entrada fica sempre visível no cadastro do motoboy; só desabilita sem Controle de entrada.
+    document.getElementById("entradaPermissaoFormGroup")?.classList.remove("d-none");
+    document.getElementById("entradaPermissaoDetailGroup")?.classList.remove("d-none");
+    const entradaHint = document.getElementById("podeRealizarEntradaHint");
+    if (entradaHint) {
+      entradaHint.textContent = entradaOn
+        ? "Exceção em relação ao padrão da base (Políticas gerais)."
+        : "Disponível somente com Controle de entrada ativo nas Políticas gerais.";
+    }
 
     // Username obrigatório para staff (não motoboy). E-mail é sempre opcional.
     const usernameRequired = (role !== 4);

@@ -196,6 +196,7 @@
       bloquear: !!qs("#bloquearSaidaSemColeta")?.checked,
       entrada: !!qs("#entradaHabilitada")?.checked,
       conferencia: !!qs("#conferenciaHabilitada")?.checked,
+      confirmacaoSaida: !!qs("#confirmacaoSaidaSessoesHabilitada")?.checked,
       devolucao: !!qs("#devolucaoHabilitada")?.checked,
       pix: (qs("#pixReceber")?.value || "").trim(),
       pixTipo: qs("#pixReceberTipo")?.value || "",
