@@ -138,7 +138,7 @@
       if (status === "em_coleta") resumo.em_coleta += 1;
       else if (status === "sem_volume") resumo.sem_volume += 1;
       else if (status === "coletado") resumo.coletadas += 1;
-      else resumo.pendentes += 1;
+      else if (status === "pendente") resumo.pendentes += 1;
     });
     return resumo;
   }
@@ -200,6 +200,20 @@
     };
   }
 
+  function isoWeekdayYmd(ymd) {
+    const [y, m, d] = String(ymd || "").slice(0, 10).split("-").map(Number);
+    if (!y || !m || !d) return 0;
+    const js = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+    return js === 0 ? 7 : js;
+  }
+
+  function baseProgramadaNoDia(base, dia) {
+    if (!base?.agenda_coleta_confirmada) return true;
+    const dias = Array.isArray(base.dias_coleta) ? base.dias_coleta.map(Number) : [];
+    if (!dias.length) return true;
+    return dias.includes(isoWeekdayYmd(dia));
+  }
+
   function completarPendentes(itens, bases, ini, fim) {
     if (!usuarioOperacao()) return itens;
     const dias = diasAteHoje(ini, fim);
@@ -212,6 +226,7 @@
       const id = Number(base.id_base);
       if (!id) return;
       dias.forEach((dia) => {
+        if (!baseProgramadaNoDia(base, dia)) return;
         const chave = `${id}|${dia}`;
         if (chaves.has(chave)) return;
         chaves.add(chave);
@@ -244,7 +259,8 @@
     if (status === "em_coleta") return "em_coleta";
     if (status === "sem_volume") return "sem_volume";
     if (status === "coletado") return "coletado";
-    return status || "pendente";
+    if (status === "pendente" || !status) return "pendente";
+    return status;
   }
 
   function statusBadge(status) {
@@ -258,7 +274,10 @@
     if (normal === "coletado") {
       return '<span class="badge-coleta-status badge-coleta-coletada">Coletada</span>';
     }
-    return '<span class="badge-coleta-status badge-coleta-pendente">Pendente</span>';
+    if (normal === "pendente") {
+      return '<span class="badge-coleta-status badge-coleta-pendente">Pendente</span>';
+    }
+    return '<span class="badge-coleta-status badge-coleta-sem-volume">Fora da agenda</span>';
   }
 
   function modoLabel(modo) {
