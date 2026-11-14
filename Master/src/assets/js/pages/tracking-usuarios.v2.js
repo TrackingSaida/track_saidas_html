@@ -167,10 +167,21 @@ function gerarLinkWhatsapp(contatoRaw) {
 // =====================================================================
 // SOMENTE ADMIN (role 0 ou 1).
 // =====================================================================
+async function refreshCurrentUserFlags() {
+    try {
+        const me = await fetch(`${API}/me`, { credentials: "include" })
+            .then((r) => (r.ok ? r.json() : null));
+        if (!me) return null;
+        window.CURRENT_USER = { ...(window.CURRENT_USER || {}), ...me };
+        return me;
+    } catch (_) {
+        return null;
+    }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
 
-    const me = await fetch(`${API}/me`, { credentials: "include" })
-        .then(r => r.ok ? r.json() : null);
+    const me = await refreshCurrentUserFlags();
 
     if (!me || ![0,1].includes(me.role)) {
         Swal.fire({
@@ -181,7 +192,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
 
-    window.CURRENT_USER = me;
     ensureRootRoleOptions();
 
     initUsers();
@@ -977,6 +987,7 @@ async function applyPadroesMotoboyDefaults() {
 }
 
 async function openCreate() {
+    await refreshCurrentUserFlags();
     document.getElementById("ocLabel").textContent = "Novo Usuário";
     document.getElementById("userId").value = "";
 
@@ -1034,6 +1045,7 @@ function openEditFromSelection() {
 }
 
 async function openEdit(id) {
+    await refreshCurrentUserFlags();
     const data = await fetch(`${API}/${id}`, { credentials: "include" })
         .then(r => r.json());
 

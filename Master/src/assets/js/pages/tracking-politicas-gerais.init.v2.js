@@ -368,28 +368,44 @@
   function syncUiDeps() {
     const coletaOn = !!qs("#coletaHabilitada")?.checked;
     const entradaOn = !!qs("#entradaHabilitada")?.checked;
+
     const modoWrap = qs("#modoOperacaoWrap");
     if (modoWrap) modoWrap.classList.toggle("d-none", !coletaOn);
+
     const participantesWrap = qs("#coletaParticipantesWrap");
     if (participantesWrap) participantesWrap.classList.toggle("d-none", !coletaOn);
+
     const bloquearWrap = qs("#bloquearSaidaSemColetaWrap");
     if (bloquearWrap) bloquearWrap.classList.toggle("d-none", !coletaOn);
+
     const hint = qs("#hintColetaEntrada");
     if (hint) hint.classList.toggle("d-none", !(coletaOn && entradaOn));
-    const defEntrada = qs("#defPodeEntrada");
-    const defEntradaWrap = qs("#defPodeEntradaWrap");
-    if (defEntrada) {
-      defEntrada.disabled = !entradaOn;
-      if (!entradaOn && !hydrating) defEntrada.checked = false;
+
+    // Variáveis dedicadas: evita que o uglify reaproveite o mesmo binding e
+    // aplique disabled/opacity no elemento errado.
+    const podeEntradaEl = qs("#defPodeEntrada");
+    const podeEntradaWrapEl = qs("#defPodeEntradaWrap");
+    const podeEntradaHintEl = qs("#defPodeEntradaHint");
+    if (podeEntradaEl) {
+      podeEntradaEl.disabled = !entradaOn;
+      if (!entradaOn && !hydrating) podeEntradaEl.checked = false;
     }
-    if (defEntradaWrap) defEntradaWrap.classList.toggle("opacity-50", !entradaOn);
+    if (podeEntradaWrapEl) {
+      podeEntradaWrapEl.classList.toggle("opacity-50", !entradaOn);
+    }
+    if (podeEntradaHintEl) {
+      podeEntradaHintEl.textContent = entradaOn
+        ? "Permite registrar entrada no app. Exceção ao padrão fica no cadastro de Usuários."
+        : "Disponível somente com Controle de entrada ativo.";
+    }
+
     const avulsoOn =
       !!qs("#defCriarAvulsoColeta")?.checked || !!qs("#defCriarAvulsoSaida")?.checked;
-    const foto = qs("#defAvulsoFoto");
-    if (foto) {
-      foto.disabled = !avulsoOn;
+    const fotoEl = qs("#defAvulsoFoto");
+    if (fotoEl) {
+      fotoEl.disabled = !avulsoOn;
       // Só zera foto em interação do usuário (não durante hydrate/save).
-      if (!avulsoOn && !hydrating) foto.checked = false;
+      if (!avulsoOn && !hydrating) fotoEl.checked = false;
     }
   }
 
