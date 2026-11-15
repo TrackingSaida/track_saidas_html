@@ -27,11 +27,15 @@ document.addEventListener("DOMContentLoaded", () => {
     PAGO: { label: "Pago", cls: "pago" },
   };
 
+  const API_BASE_REPASSE = `${API_URL}/base-repasse`;
+
   const state = {
     items: [],
     filtro: "A_PAGAR",
     selecionados: new Set(),
     pagando: false,
+    basesItems: [],
+    basesPendentes: [],
   };
 
   const fltDataInicio = qs("#flt-data-inicio");
@@ -273,6 +277,148 @@ document.addEventListener("DOMContentLoaded", () => {
     return data;
   }
 
+  function renderBasesRepasse() {
+    const tbodyBr = qs("#tbody-bases-repasse");
+    const msgBr = qs("#brMsg");
+    if (!tbodyBr) return;
+    const inicio = (fltDataInicio?.value || "").trim();
+    const fim = (fltDataFim?.value || "").trim();
+    const fechados = state.basesItems || [];
+    const pendentes = state.basesPendentes || [];
+    qs("#br-total-a-pagar") && (qs("#br-total-a-pagar").textContent = moeda(
+      fechados.filter((i) => ["GERADO", "REAJUSTADO"].includes(statusDe(i))).reduce((s, i) => s + num(i.valor_final), 0)
+      + pendentes.reduce((s, i) => s + num(i.valor_base), 0)
+    ));
+    qs("#br-total-pago") && (qs("#br-total-pago").textContent = moeda(
+      fechados.filter((i) => statusDe(i) === "PAGO").reduce((s, i) => s + num(i.valor_final), 0)
+    ));
+    if (msgBr) msgBr.innerHTML = "";
+    const linhas = [];
+    fechados.forEach((item) => {
+      const st = STATUS[statusDe(item)] || { label: statusDe(item) || "—", cls: "pendente" };
+      const pagavel = ["GERADO", "REAJUSTADO"].includes(statusDe(item));
+      const btnPago = pagavel
+        ? `<button type="button" class="btn btn-sm btn-outline-success btn-br-pago" data-id="${item.id_fechamento}">Marcar pago</button>`
+        : "";
+      linhas.push(
+        `<tr data-id="${item.id_fechamento}">` +
+        `<td><div class="fw-semibold">${esc(item.base || "—")}</div></td>` +
+        `<td>${esc(periodoTexto(item.periodo_inicio, item.periodo_fim))}</td>` +
+        `<td class="text-end fw-semibold fm-num">${moeda(item.valor_final)}</td>` +
+        `<td><span class="fm-status fm-status--${st.cls}">${esc(st.label)}</span></td>` +
+        `<td class="text-end">${btnPago}</td>` +
+        `</tr>`
+      );
+    });
+    pendentes.forEach((p) => {
+      const podeGerar = num(p.valor_base) > 0 || num(p.totais?.total) > 0;
+      linhas.push(
+        `<tr data-base="${p.id_base}">` +
+        `<td><div class="fw-semibold">${esc(p.base || "—")}</div><div class="fm-linha-sub">Sem fechamento neste período</div></td>` +
+        `<td>${esc(periodoTexto(inicio, fim))}</td>` +
+        `<td class="text-end fw-semibold fm-num">${moeda(p.valor_base)}</td>` +
+        `<td><span class="fm-status fm-status--pendente">Pendente</span></td>` +
+        `<td class="text-end">${podeGerar
+          ? `<button type="button" class="btn btn-sm btn-fm-primary btn-br-gerar" data-id-base="${p.id_base}">Gerar</button>`
+          : `<span class="text-muted small">Sem volume</span>`}</td>` +
+        `</tr>`
+      );
+    });
+    if (!linhas.length) {
+      tbodyBr.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">Nenhuma base que entrega neste período.</td></tr>`;
+      return;
+    }
+    tbodyBr.innerHTML = linhas.join("");
+  }
+
+  async function carregarBasesRepasse() {
+    const inicio = (fltDataInicio?.value || "").trim();
+    const fim = (fltDataFim?.value || "").trim();
+    const tbodyBr = qs("#tbody-bases-repasse");
+    if (!inicio || !fim || !API_URL) {
+      if (tbodyBr) tbodyBr.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">Informe o período.</td></tr>`;
+      return;
+    }
+    if (tbodyBr) tbodyBr.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">Carregando…</td></tr>`;
+    try {
+      const data = await api(`${API_BASE_REPASSE}/fechamentos?${new URLSearchParams({ periodo_inicio: inicio, periodo_fim: fim })}`);
+      state.basesItems = Array.isArray(data.items) ? data.items : [];
+      const fechadosIds = new Set(state.basesItems.map((i) => Number(i.id_base)));
+      const bases = await api(`${API_BASE_REPASSE}/bases`);
+      const listaBases = Array.isArray(bases) ? bases : [];
+      const pendentes = [];
+      for (const b of listaBases) {
+        if (fechadosIds.has(Number(b.id_base))) continue;
+        try {
+          const calc = await api(
+            `${API_BASE_REPASSE}/fechamentos/calcular?${new URLSearchParams({
+              id_base: String(b.id_base),
+              periodo_inicio: inicio,
+              periodo_fim: fim,
+            })}`
+          );
+          pendentes.push(calc);
+        } catch (_) {
+          // Período em aberto ou sem permissão: ignora a prévia.
+        }
+      }
+      state.basesPendentes = pendentes;
+    } catch (err) {
+      console.error("A Pagar — bases repasse:", err);
+      state.basesItems = [];
+      state.basesPendentes = [];
+      if (tbodyBr) {
+        tbodyBr.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">${esc(err.message || "Não foi possível carregar as bases.")}</td></tr>`;
+      }
+      return;
+    }
+    renderBasesRepasse();
+  }
+
+  async function gerarRepasseBase(idBase) {
+    const inicio = (fltDataInicio?.value || "").trim();
+    const fim = (fltDataFim?.value || "").trim();
+    if (!inicio || !fim || !idBase) return;
+    try {
+      await api(`${API_BASE_REPASSE}/fechamentos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id_base: Number(idBase),
+          periodo_inicio: inicio,
+          periodo_fim: fim,
+          valor_adicao: 0,
+          valor_subtracao: 0,
+        }),
+      });
+      if (qs("#brMsg")) qs("#brMsg").innerHTML = `<span class="text-success">Fechamento da base gerado.</span>`;
+      await carregarBasesRepasse();
+    } catch (err) {
+      if (qs("#brMsg")) qs("#brMsg").innerHTML = `<span class="text-danger">${esc(err.message || "Falha ao gerar.")}</span>`;
+    }
+  }
+
+  async function marcarRepassePago(idFechamento) {
+    const inicio = (fltDataInicio?.value || "").trim();
+    const fim = (fltDataFim?.value || "").trim();
+    if (!inicio || !fim || !idFechamento) return;
+    try {
+      await api(`${API_BASE_REPASSE}/fechamentos/marcar-pago`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          periodo_inicio: inicio,
+          periodo_fim: fim,
+          ids_fechamento: [Number(idFechamento)],
+        }),
+      });
+      if (qs("#brMsg")) qs("#brMsg").innerHTML = `<span class="text-success">Pagamento da base registrado.</span>`;
+      await carregarBasesRepasse();
+    } catch (err) {
+      if (qs("#brMsg")) qs("#brMsg").innerHTML = `<span class="text-danger">${esc(err.message || "Falha ao marcar pago.")}</span>`;
+    }
+  }
+
   async function carregarLista() {
     const inicio = (fltDataInicio?.value || "").trim();
     const fim = (fltDataFim?.value || "").trim();
@@ -294,9 +440,11 @@ document.addEventListener("DOMContentLoaded", () => {
       linhaMensagem(`<span class="text-danger">${esc(err.message || "Não foi possível carregar.")}</span>`);
       renderSelecao();
       if (btnExportar) btnExportar.disabled = true;
+      carregarBasesRepasse();
       return;
     }
     render();
+    carregarBasesRepasse();
   }
 
   // ====== Marcar como pago ======
@@ -503,6 +651,16 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   btnMarcarPago?.addEventListener("click", marcarSelecionados);
   btnExportar?.addEventListener("click", exportarCsv);
+
+  qs("#tbody-bases-repasse")?.addEventListener("click", (ev) => {
+    const gerar = ev.target.closest(".btn-br-gerar");
+    if (gerar) {
+      gerarRepasseBase(gerar.dataset.idBase);
+      return;
+    }
+    const pago = ev.target.closest(".btn-br-pago");
+    if (pago) marcarRepassePago(pago.dataset.id);
+  });
 
   // ====== Período ======
   function atualizarRotuloPeriodo(start, end) {

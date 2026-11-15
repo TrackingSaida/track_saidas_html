@@ -109,9 +109,81 @@
     ["cob-valor-fechado", "cob-pendentes", "cob-strip-faturavel", "cob-strip-cancelados", "cob-strip-desconsiderados"].forEach(function (id) {
       $(id).innerHTML = "<span class='cob-skel'></span>";
     });
-    var linha = "<tr>" + [1, 2, 3, 4, 5, 6, 7].map(function () { return "<td><span class='cob-skel'></span></td>"; }).join("") + "</tr>";
+    var linha = "<tr>" + [1, 2, 3, 4, 5, 6, 7, 8].map(function () { return "<td><span class='cob-skel'></span></td>"; }).join("") + "</tr>";
     $("cob-tbody").innerHTML = linha + linha + linha;
     $("cob-vazio").classList.add("d-none");
+  }
+
+  function celulaFaturarEm(l) {
+    var f = l.faturar_em || {};
+    var rotulo = f.rotulo || "—";
+    var estado = f.estado || "";
+    var tag = "";
+    if (estado === "atrasado") tag = " <span class='cob-tag cob-tag--bloqueio'>Atrasado</span>";
+    else if (estado === "faturar_hoje") tag = " <span class='cob-tag cob-tag--atencao'>Faturar hoje</span>";
+    else if (estado === "agendado") tag = " <span class='cob-tag'>Agendado</span>";
+    else if (estado === "gerado") tag = " <span class='cob-tag'>Gerado</span>";
+    return "<div>" + C.escapeHtml(rotulo) + tag + "</div>";
+  }
+
+  function textoParceriaLista(criadoEm) {
+    if (!criadoEm) return "";
+    var parts = String(criadoEm).slice(0, 10).split("-");
+    if (parts.length !== 3) return "";
+    var y = Number(parts[0]);
+    var m = Number(parts[1]);
+    var d = Number(parts[2]);
+    var meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+    var hoje = new Date();
+    var anos = hoje.getFullYear() - y - ((hoje.getMonth() + 1 < m || (hoje.getMonth() + 1 === m && hoje.getDate() < d)) ? 1 : 0);
+    if (anos >= 1 && (hoje.getMonth() + 1) === m) {
+      return anos === 1 ? "1 ano de parceria" : anos + " anos de parceria";
+    }
+    return "Parceiro desde " + d + " de " + meses[m - 1] + " de " + y;
+  }
+
+  function botaoGerarLista(l) {
+    if (l.fechamento_id || l.fonte === "snapshot") {
+      return "<a class='btn btn-sm btn-outline-secondary' href='" + linkDetalhe(l.owner.id_owner) + "'>Ver</a>";
+    }
+    if (l.pode_gerar) {
+      return "<button type='button' class='btn btn-sm btn-primary cob-gerar' data-owner='" + l.owner.id_owner + "'>Gerar cobrança</button>" +
+        " <a class='btn btn-sm btn-outline-secondary' href='" + linkDetalhe(l.owner.id_owner) + "'>Ver</a>";
+    }
+    var motivo = l.motivo_bloqueio_gerar ? " title='" + C.escapeHtml(l.motivo_bloqueio_gerar) + "'" : "";
+    return "<button type='button' class='btn btn-sm btn-primary' disabled" + motivo + ">Gerar cobrança</button>" +
+      " <a class='btn btn-sm btn-outline-secondary' href='" + linkDetalhe(l.owner.id_owner) + "'>Ver</a>";
+  }
+
+  async function gerarCobrancaLista(ownerId, btn) {
+    if (!ownerId || !state.inicio || !state.fim) return;
+    var label = btn ? btn.innerHTML : "";
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Gerando…";
+    }
+    try {
+      var r = await C.post("/apuracoes/" + ownerId + "/gerar", {
+        data_inicio: state.inicio,
+        data_fim: state.fim
+      });
+      var fechId = r && r.fechamento && r.fechamento.id;
+      if (fechId) {
+        try {
+          await C.download(
+            "/fechamentos/" + fechId + "/demonstrativo.pdf",
+            "demonstrativo-" + fechId + ".pdf"
+          );
+        } catch (_) {}
+      }
+      await carregar();
+    } catch (err) {
+      mostrarErro(err && err.message);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = label;
+      }
+    }
   }
 
   function renderResumo(resumo) {
@@ -159,15 +231,22 @@
         avisos.push("<span class='cob-tag cob-tag--atencao'><i class='ri-alert-line' aria-hidden='true'></i>Atenção</span>");
       }
       var modelo = C.escapeHtml(l.modelo_label) + (l.config_confirmada || l.fonte === "snapshot" ? "" : " <span class='cob-muted small'>(a confirmar)</span>");
+      var precoCel = l.dois_precos
+        ? "<div class='small'>Sellers " + C.preco((l.sellers && l.sellers.preco_unitario) || null) +
+          "<br>Bases " + C.preco((l.bases && l.bases.preco_unitario) || null) + "</div>"
+        : C.preco(l.preco_unitario);
+      var parceria = textoParceriaLista(o.criado_em);
       return "<tr>" +
         "<td><div class='fw-medium'>" + C.escapeHtml(o.nome) + "</div>" +
-          "<div class='cob-muted small'>" + C.escapeHtml(o.sub_base) + (o.teste ? " · teste" : "") + "</div></td>" +
+          "<div class='cob-muted small'>" + C.escapeHtml(o.sub_base) + (o.teste ? " · teste" : "") + "</div>" +
+          (parceria ? "<div class='cob-muted small'>" + C.escapeHtml(parceria) + "</div>" : "") + "</td>" +
         "<td>" + modelo + "</td>" +
         "<td class='text-end'>" + C.int(l.pacotes) + "</td>" +
-        "<td class='text-end'>" + C.preco(l.preco_unitario) + "</td>" +
+        "<td class='text-end'>" + precoCel + "</td>" +
         "<td class='text-end fw-semibold'>" + C.money(l.valor_total) + "</td>" +
+        "<td>" + celulaFaturarEm(l) + "</td>" +
         "<td><div class='d-flex flex-wrap gap-1'>" + C.statusTag(l.status, l.status_label) + avisos.join("") + "</div></td>" +
-        "<td class='text-end'><a class='btn btn-sm btn-outline-secondary' href='" + linkDetalhe(o.id_owner) + "'>Ver</a></td>" +
+        "<td class='text-end text-nowrap'>" + botaoGerarLista(l) + "</td>" +
         "</tr>";
     }).join("");
   }
@@ -266,6 +345,11 @@
       state.soDivergencia = false;
       $("cob-so-divergencia").checked = false;
       carregar();
+    });
+    $("cob-tbody").addEventListener("click", function (ev) {
+      var btn = ev.target.closest && ev.target.closest(".cob-gerar");
+      if (!btn) return;
+      gerarCobrancaLista(btn.getAttribute("data-owner"), btn);
     });
   }
 

@@ -287,6 +287,7 @@ function basesParaSeletorColeta(bases, situacaoItens) {
         raw: b,
         nome,
         id_base: idBase,
+        papel: (b && b.papel) || null,
         statusSeletor,
         totais: situacao
           ? {
@@ -308,8 +309,10 @@ function basesParaSeletorColeta(bases, situacaoItens) {
 
 const BASE_PICKER_STATE = {
   list: [],
+  listAll: [],
   comGrupos: false,
   open: false,
+  papelFiltro: "todos",
   expanded: {
     pendente: true,
     em_coleta: true,
@@ -317,6 +320,23 @@ const BASE_PICKER_STATE = {
     coletado: false,
   },
 };
+
+function isOwnerTipoBaseColeta() {
+  const t = (window.TIPO_OWNER || (window.__USER__ && window.__USER__.tipo_owner) || "subbase").toLowerCase();
+  return t === "base";
+}
+
+function seloPapelColeta(papel) {
+  if (papel === "base_parceira") return '<span class="badge bg-secondary-subtle text-secondary ms-1">Base</span>';
+  if (papel === "seller") return '<span class="badge bg-primary-subtle text-primary ms-1">Seller</span>';
+  return "";
+}
+
+function filtrarListaPorPapel(list) {
+  const filtro = BASE_PICKER_STATE.papelFiltro || "todos";
+  if (!isOwnerTipoBaseColeta() || filtro === "todos") return list;
+  return (list || []).filter((i) => (i.papel || "seller") === filtro);
+}
 
 function labelGrupoSeletor(status) {
   if (status === "em_coleta") return "Em coleta";
@@ -365,21 +385,33 @@ function renderBasePickerPanel(sel) {
   const panel = qs("#basePickerPanel");
   if (!panel) return;
 
-  const list = BASE_PICKER_STATE.list || [];
+  const list = filtrarListaPorPapel(BASE_PICKER_STATE.listAll || BASE_PICKER_STATE.list || []);
+  BASE_PICKER_STATE.list = list;
   const selected = (sel && sel.value) || "";
+  const showPapel = isOwnerTipoBaseColeta();
 
   if (!list.length) {
-    panel.innerHTML = '<div class="base-picker-empty">Nenhuma base disponível.</div>';
+    panel.innerHTML = '<div class="base-picker-empty">Nenhum cliente disponível.</div>';
     return;
   }
 
+  const itemHtml = (item) => {
+    const active = item.nome === selected ? " is-selected" : "";
+    const selo = showPapel ? seloPapelColeta(item.papel) : "";
+    const meta =
+      item.statusSeletor === "em_coleta"
+        ? '<span class="base-picker-item-meta">Em coleta</span>'
+        : item.statusSeletor === "sem_volume"
+          ? '<span class="base-picker-item-meta">Sem volume</span>'
+          : item.statusSeletor === "coletado"
+            ? '<span class="base-picker-item-meta">Coletada</span>'
+            : "";
+    const hint = showPapel ? '<span class="base-picker-item-meta">Esta coleta entra em A receber.</span>' : "";
+    return `<button type="button" class="base-picker-item${active}" data-base-nome="${escAttr(item.nome)}" role="option" aria-selected="${item.nome === selected ? "true" : "false"}"><span>${escAttr(item.nome)}${selo}</span>${meta}${hint}</button>`;
+  };
+
   if (!BASE_PICKER_STATE.comGrupos) {
-    panel.innerHTML = list
-      .map((item) => {
-        const active = item.nome === selected ? " is-selected" : "";
-        return `<button type="button" class="base-picker-item${active}" data-base-nome="${escAttr(item.nome)}" role="option" aria-selected="${item.nome === selected ? "true" : "false"}">${escAttr(item.nome)}</button>`;
-      })
-      .join("");
+    panel.innerHTML = list.map(itemHtml).join("");
     return;
   }
 
@@ -397,20 +429,7 @@ function renderBasePickerPanel(sel) {
       const label = labelGrupoSeletor(group.status);
       const badgeClass = classeBadgeGrupoSeletor(group.status);
       const body = expanded
-        ? `<div class="base-picker-group-body">${group.items
-            .map((item) => {
-              const active = item.nome === selected ? " is-selected" : "";
-              const meta =
-                item.statusSeletor === "em_coleta"
-                  ? '<span class="base-picker-item-meta">Em coleta</span>'
-                  : item.statusSeletor === "sem_volume"
-                    ? '<span class="base-picker-item-meta">Sem volume</span>'
-                    : item.statusSeletor === "coletado"
-                      ? '<span class="base-picker-item-meta">Coletada</span>'
-                      : "";
-              return `<button type="button" class="base-picker-item${active}" data-base-nome="${escAttr(item.nome)}" role="option" aria-selected="${item.nome === selected ? "true" : "false"}"><span>${escAttr(item.nome)}</span>${meta}</button>`;
-            })
-            .join("")}</div>`
+        ? `<div class="base-picker-group-body">${group.items.map(itemHtml).join("")}</div>`
         : "";
       return `<div class="base-picker-group" data-group-status="${group.status}">
         <button type="button" class="base-picker-group-toggle" data-group-toggle="${group.status}" aria-expanded="${expanded ? "true" : "false"}">
@@ -440,7 +459,7 @@ function selecionarBaseNoPicker(sel, nome) {
 }
 
 function montarSeletorBases(sel, list, { comGrupos, placeholder }) {
-  BASE_PICKER_STATE.list = Array.isArray(list) ? list : [];
+  BASE_PICKER_STATE.listAll = Array.isArray(list) ? list : [];
   BASE_PICKER_STATE.comGrupos = Boolean(comGrupos);
   BASE_PICKER_STATE.expanded = {
     pendente: true,
@@ -448,9 +467,17 @@ function montarSeletorBases(sel, list, { comGrupos, placeholder }) {
     sem_volume: false,
     coletado: false,
   };
-  syncSelectOptionsFromList(sel, BASE_PICKER_STATE.list, placeholder);
+  const filtrada = filtrarListaPorPapel(BASE_PICKER_STATE.listAll);
+  BASE_PICKER_STATE.list = filtrada;
+  syncSelectOptionsFromList(sel, filtrada, placeholder);
   atualizarLabelPickerBase(sel);
   renderBasePickerPanel(sel);
+  const tabs = qs("#coletaPapelTabs");
+  const hint = qs("#coletaHintReceber");
+  const lbl = qs("#lblSelecioneCliente");
+  if (tabs) tabs.classList.toggle("d-none", !isOwnerTipoBaseColeta());
+  if (hint) hint.classList.toggle("d-none", !isOwnerTipoBaseColeta());
+  if (lbl && isOwnerTipoBaseColeta()) lbl.textContent = "Selecione o cliente";
 }
 
 function initBasePicker(sel) {
@@ -458,6 +485,17 @@ function initBasePicker(sel) {
   const toggle = qs("#basePickerToggle");
   const panel = qs("#basePickerPanel");
   if (!root || !toggle || !panel || !sel) return;
+
+  qs("#coletaPapelTabs")?.addEventListener("click", (ev) => {
+    const btn = ev.target.closest("[data-papel-filtro]");
+    if (!btn) return;
+    BASE_PICKER_STATE.papelFiltro = btn.getAttribute("data-papel-filtro") || "todos";
+    qsa("#coletaPapelTabs .nav-link").forEach((el) => el.classList.toggle("active", el === btn));
+    const filtrada = filtrarListaPorPapel(BASE_PICKER_STATE.listAll);
+    BASE_PICKER_STATE.list = filtrada;
+    syncSelectOptionsFromList(sel, filtrada, sel.options[0]?.textContent || "Selecione");
+    renderBasePickerPanel(sel);
+  });
 
   toggle.addEventListener("click", (e) => {
     e.preventDefault();

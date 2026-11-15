@@ -597,6 +597,7 @@ function augmentEntregadoresFromRows(rows){
     if (lower === "saiu" || lower === "saiu para entrega" || lower === "em rota" || lower === "em_rota") {
       return "Saiu para entrega";
     }
+    if (lower === "enviado para base" || lower === "enviado para a base") return "Enviado para a base";
     if (lower === "aguardando confirmacao saida" || lower === "aguardando confirmação de saída") return "Aguardando confirmação de saída";
     if (lower === "encerrado sistema" || lower === "encerrado pelo sistema" || lower === "encerrado_sistema" || lower === "encerrado") {
       return "Encerrado";
@@ -2675,6 +2676,7 @@ function setupPagerEvents() {
       var s = (row.status || "").toLowerCase().replace(/_/g, " ");
       if (s === "saiu" || s === "saiu para entrega") return "Saiu para entrega";
       if (s === "em rota" || s === "em_rota") return "Saiu para entrega";
+      if (s === "enviado para base" || s === "enviado para a base") return "Enviado para a base";
       if (s === "coletado") return "Coletado";
       if (s === "nao coletado" || s === "não coletado") return "Não Coletado";
       if (s === "cancelado") return "Cancelado";
@@ -2685,14 +2687,14 @@ function setupPagerEvents() {
     })();
 
     if (eSta) {
-      // Encerrado não é escolhível; só aparece se for o status atual (exibição).
-      if (uiStatus === "Encerrado") {
-        var hasEnc = Array.from(eSta.options || []).some(function(o){ return o.value === uiStatus; });
-        if (!hasEnc) {
-          var optEnc = document.createElement("option");
-          optEnc.value = "Encerrado";
-          optEnc.textContent = "Encerrado";
-          eSta.insertBefore(optEnc, eSta.firstChild);
+      // Encerrado / Enviado para a base: só no status atual (salvar não troca o destino).
+      if (uiStatus === "Encerrado" || uiStatus === "Enviado para a base") {
+        var hasEsp = Array.from(eSta.options || []).some(function(o){ return o.value === uiStatus; });
+        if (!hasEsp) {
+          var optEsp = document.createElement("option");
+          optEsp.value = uiStatus;
+          optEsp.textContent = uiStatus;
+          eSta.insertBefore(optEsp, eSta.firstChild);
         }
         eSta.value = uiStatus;
       } else {
@@ -2891,6 +2893,7 @@ function setupPagerEvents() {
       function mapStatusToApi(v){
         return (
           v === "Saiu para entrega" ? "saiu" :
+          v === "Enviado para a base" ? "ENVIADO_PARA_BASE" :
           v === "Coletado"          ? "coletado" :
           v === "Não Coletado"      ? "Nao Coletado" :
           v === "Cancelado"         ? "cancelado" :
@@ -2909,8 +2912,8 @@ function setupPagerEvents() {
         if (eMotoboy?.value) payload.motoboy_id = Number(eMotoboy.value);
       } else {
         payload.status = mapStatusToApi(eSta.value);
-        // Ao cancelar, não enviar motoboy_id (evita reabertura/reatribuição indevida).
-        if (eSta.value !== "Cancelado" && eMotoboy?.value) {
+        // Ao cancelar ou manter repasse, não enviar motoboy_id (evita reabertura/reatribuição indevida).
+        if (eSta.value !== "Cancelado" && eSta.value !== "Enviado para a base" && eMotoboy?.value) {
           payload.motoboy_id = Number(eMotoboy.value);
         }
       }

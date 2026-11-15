@@ -637,6 +637,52 @@ async function readApiError(resp, fallback) {
     return fallback || "Não foi possível concluir a operação. Tente novamente.";
 }
 
+function formatarDataLongaPt(iso) {
+    if (!iso) return "";
+    const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
+    if (!y || !m || !d) return "";
+    const meses = [
+        "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+        "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+    ];
+    return `${d} de ${meses[m - 1]} de ${y}`;
+}
+
+function textoParceria(criadoEm, hoje) {
+    if (!criadoEm) return null;
+    const [y, m, d] = String(criadoEm).slice(0, 10).split("-").map(Number);
+    if (!y || !m || !d) return null;
+    const ref = hoje || new Date();
+    const anos = ref.getFullYear() - y - (
+        (ref.getMonth() + 1 < m || (ref.getMonth() + 1 === m && ref.getDate() < d)) ? 1 : 0
+    );
+    if (anos >= 1 && (ref.getMonth() + 1) === m) {
+        return anos === 1 ? "1 ano de parceria" : `${anos} anos de parceria`;
+    }
+    return `Parceiro desde ${formatarDataLongaPt(criadoEm)}`;
+}
+
+function preencherParceria(o) {
+    const textoEl = document.getElementById("ownerParceriaTexto");
+    const campoEl = document.getElementById("ownerParceriaCampo");
+    const input = document.getElementById("ownerCriadoEm");
+    if (!textoEl || !campoEl || !input) return;
+    const criado = o.criado_em || null;
+    if (criado) {
+        textoEl.textContent = textoParceria(criado) || `Parceiro desde ${formatarDataLongaPt(criado)}`;
+        textoEl.classList.remove("d-none");
+        campoEl.classList.add("d-none");
+        input.value = String(criado).slice(0, 10);
+        input.disabled = true;
+    } else {
+        textoEl.classList.add("d-none");
+        textoEl.textContent = "";
+        campoEl.classList.remove("d-none");
+        input.disabled = false;
+        input.value = "";
+    }
+}
+
 function openEdit(o) {
     document.getElementById("ownerId").value = o.id_owner;
     document.getElementById("ownerSubBase").value = o.sub_base;
@@ -646,6 +692,7 @@ function openEdit(o) {
     document.getElementById("ownerEmail").value = o.email;
     document.getElementById("ownerContato").value = maskCellphone(o.contato || "");
     document.getElementById("ownerValor").value = Number(o.valor).toFixed(2);
+    preencherParceria(o);
 
     document.getElementById("ownerColetaHabilitadaToggle").checked = !o.ignorar_coleta;
     document.getElementById("ownerBloquearSaidaSemColetaToggle").checked = !!o.bloquear_saida_sem_coleta;
@@ -711,6 +758,10 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
         ativo: document.getElementById("ownerAtivoToggle").checked,
         tipo_owner: (document.getElementById("ownerTipo").value || "subbase").toLowerCase()
     };
+    const criadoInput = document.getElementById("ownerCriadoEm");
+    if (criadoInput && !criadoInput.disabled && criadoInput.value) {
+        body.criado_em = criadoInput.value;
+    }
 
     try {
         const resp = await fetch(`${API}/${id}`, {

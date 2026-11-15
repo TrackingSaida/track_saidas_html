@@ -32,11 +32,58 @@
       return "Aguardando confirmação de saída";
     }
     if (key === "saiu" || key === "saiu para entrega" || key === "saiu pra entrega") return "Saiu para entrega";
+    if (key === "enviado para base" || key === "enviado para a base") return "Enviado para a base";
     if (key === "em rota") return "Em rota";
     if (key === "entregue") return "Entregue";
     if (key === "ausente") return "Ausente";
     if (key === "cancelado") return "Cancelado";
     return raw;
+  }
+
+  // Destino da leitura: motoboy (`m:ID`) ou base que entrega (`b:ID`).
+  let basesRepasseMap = new Map(); // id_base -> nome
+
+  function parseDestinoLeitura(raw) {
+    const v = String(raw || "").trim();
+    if (!v) return { tipo: null, id: null, nome: "" };
+    if (v.startsWith("b:")) {
+      const id = parseInt(v.slice(2), 10);
+      return {
+        tipo: "base",
+        id: Number.isFinite(id) ? id : null,
+        nome: basesRepasseMap.get(String(id)) || "",
+      };
+    }
+    const idRaw = v.startsWith("m:") ? v.slice(2) : v;
+    const id = parseInt(idRaw, 10);
+    const nome = entregadoresMap.get(String(id)) || "";
+    return {
+      tipo: Number.isFinite(id) ? "motoboy" : null,
+      id: Number.isFinite(id) ? id : null,
+      nome,
+    };
+  }
+
+  function destinoAtual() {
+    const opt = selEnt?.options?.[selEnt.selectedIndex];
+    const parsed = parseDestinoLeitura(selEnt?.value);
+    if (opt && opt.text && parsed.tipo) {
+      parsed.nome = opt.text.trim() || parsed.nome;
+    }
+    return parsed;
+  }
+
+  function atualizarHintRepasse() {
+    const hint = $("hintRepasseBase");
+    if (!hint) return;
+    const d = destinoAtual();
+    if (d.tipo === "base" && d.nome) {
+      hint.textContent = `Este volume vai para A pagar de ${d.nome}.`;
+      hint.classList.remove("d-none");
+    } else {
+      hint.textContent = "";
+      hint.classList.add("d-none");
+    }
   }
 
   const sessaoServidor = { id: null, status: null, total: 0, versao: null, carregando: false, erro: "" };
@@ -119,11 +166,12 @@
       limparSessaoServidor();
       return false;
     }
-    const motoboyId = parseInt(selEnt?.value || "", 10);
-    if (!motoboyId) {
+    const destino = destinoAtual();
+    if (destino.tipo !== "motoboy" || !destino.id) {
       limparSessaoServidor();
       return false;
     }
+    const motoboyId = destino.id;
     sessaoServidor.carregando = true;
     sessaoServidor.erro = "";
     pintarSessaoAberta();
@@ -149,11 +197,12 @@
 
   async function finalizarLeituraDaSessao() {
     if (finalizandoLeitura) return;
-    const motoboyId = parseInt(selEnt?.value || "", 10);
-    if (!motoboyId) {
+    const destino = destinoAtual();
+    if (destino.tipo !== "motoboy" || !destino.id) {
       showMsgIcon("alerta", "Selecione o motoboy para finalizar a leitura.");
       return;
     }
+    const motoboyId = destino.id;
     finalizandoLeitura = true;
     const btn = $("btnFinalizarLeitura");
     if (btn) btn.disabled = true;
@@ -831,9 +880,9 @@ function createRow(row){
       : Promise.reject(new Error("TrackAPI.getMotoboys não disponível"));
   }
   // Leitura otimizada de saída: usa POST /saidas/ler (1 SELECT + INSERT/UPDATE no backend).
-  function apiLerSaida({ entregador_id, entregador, motoboy_id, codigo, servico, registrar_nao_coletado, qr_payload_raw }){
+  function apiLerSaida({ entregador_id, entregador, motoboy_id, repasse_base_id, codigo, servico, registrar_nao_coletado, qr_payload_raw }){
     return window.TrackAPI?.lerSaida
-      ? TrackAPI.lerSaida({ entregador_id, entregador, motoboy_id, codigo, servico, registrar_nao_coletado, qr_payload_raw })
+      ? TrackAPI.lerSaida({ entregador_id, entregador, motoboy_id, repasse_base_id, codigo, servico, registrar_nao_coletado, qr_payload_raw })
       : Promise.reject(new Error("TrackAPI.lerSaida não disponível"));
   }
   function apiConfirmarNovaSaidaMesmoEntregador({ id_saida, motoboy_id, entregador_id, entregador, origem }){
@@ -846,9 +895,9 @@ function createRow(row){
       ? TrackAPI.registerSaida({ entregador_id, entregador, codigo, servico })
       : Promise.reject(new Error("TrackAPI.registerSaida não disponível"));
   }
-  function apiLancarAvulso({ motoboy_id, entregador, identificacao, quantidade, foto_object_key, photo_id, campos, motivo_excepcional }){
+  function apiLancarAvulso({ motoboy_id, entregador, repasse_base_id, identificacao, quantidade, foto_object_key, photo_id, campos, motivo_excepcional }){
     return window.TrackAPI?.lancarAvulso
-      ? TrackAPI.lancarAvulso({ motoboy_id, entregador, identificacao, quantidade, foto_object_key, photo_id, campos, motivo_excepcional })
+      ? TrackAPI.lancarAvulso({ motoboy_id, entregador, repasse_base_id, identificacao, quantidade, foto_object_key, photo_id, campos, motivo_excepcional })
       : Promise.reject(new Error("TrackAPI.lancarAvulso não disponível"));
   }
   function apiListAvulsosPendentes(opts){
@@ -1033,12 +1082,35 @@ function createRow(row){
     }
   }
 
-  // ---------- carregar motoboys (users role=4) ----------
+  // ---------- carregar motoboys (users role=4) + bases que entregam ----------
   // Cache id_motoboy -> nome para lookups; meta inclui avulso_exige_foto quando a API retornar.
   let entregadoresMap = new Map(); // id_motoboy -> nome (mantido para compat.)
   let motoboysMetaMap = new Map(); // id_motoboy -> { avulso_exige_foto }
+
+  async function loadBasesQueEntregam() {
+    basesRepasseMap = new Map();
+    try {
+      const baseUrl = (typeof window.getTrackApiUrl === "function" ? window.getTrackApiUrl() : window.TRACK_API_URL || "").replace(/\/+$/, "");
+      const r = await fetch(`${baseUrl}/base-repasse/bases`, { credentials: "include" });
+      if (!r.ok) return [];
+      const data = await r.json();
+      const rows = Array.isArray(data) ? data : [];
+      return rows
+        .filter((b) => b && b.id_base != null)
+        .map((b) => {
+          const id = b.id_base;
+          const nome = String(b.base || id).trim() || String(id);
+          basesRepasseMap.set(String(id), nome);
+          return { id, nome };
+        })
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    } catch (_) {
+      return [];
+    }
+  }
+
   function loadMotoboys(){
-    return apiGetMotoboys().then(res => {
+    return Promise.all([apiGetMotoboys(), loadBasesQueEntregam()]).then(([res, bases]) => {
       const raw = Array.isArray(res) ? res : (res?.data ?? []);
       entregadoresMap = new Map();
       motoboysMetaMap = new Map();
@@ -1072,9 +1144,16 @@ function createRow(row){
           }) === idx;
         });
       if (!selEnt) return;
-      selEnt.innerHTML =
-        '<option value="" selected disabled>Motoboy obrigatório</option>' +
-        opts.map(o => `<option value="${o.id}">${o.nome}</option>`).join("");
+      let html = '<option value="" selected disabled>Selecione o destino</option>';
+      html += "<optgroup label=\"Motoboys\">" +
+        opts.map((o) => `<option value="m:${o.id}">${o.nome}</option>`).join("") +
+        "</optgroup>";
+      if (bases.length) {
+        html += "<optgroup label=\"Bases que entregam\">" +
+          bases.map((b) => `<option value="b:${b.id}">${b.nome}</option>`).join("") +
+          "</optgroup>";
+      }
+      selEnt.innerHTML = html;
       selEnt.selectedIndex = 0; // não lembrar último
       onEntregadorChange();
     }).catch(() => { showMsgIcon("erro","Falha ao carregar motoboys."); Sound.play("err"); });
@@ -1082,9 +1161,20 @@ function createRow(row){
 
   function onEntregadorChange(){
     clearUltimos();
-    const entNow = selEnt?.value || "";
+    const destino = destinoAtual();
+    atualizarHintRepasse();
     atualizarVistaMonitorLeituras(); // atualiza "Entregador selecionado" no Modo Monitor
-    if (!entNow) return;
+    if (!destino.tipo) return;
+    if (destino.tipo === "base") {
+      // Repasse à base não abre sessão de confirmação do motoboy.
+      sessaoServidor.id = null;
+      sessaoServidor.status = null;
+      sessaoServidor.total = 0;
+      sessaoServidor.versao = null;
+      pintarSessaoAberta();
+      return;
+    }
+    const entNow = String(destino.id);
     // renderiza pendentes deste entregador (ficam como "Enviando…")
     const pend = loadPending().filter(p =>
       String(p.motoboy_id || p.entregador_id) === String(entNow) || (p.entregador_id == null && p.motoboy_id == null && p.entregador === entregadoresMap.get(entNow))
@@ -1166,14 +1256,15 @@ async function registrar() {
   let timeoutProcessando = null; // 🔹 limpa ao receber resposta; usado para botão "Tentar novamente"
 
   try {
-    const motoboyIdRaw = selEnt?.value?.trim() || "";
-    if (!motoboyIdRaw) {
-      showMsgIcon("erro", "Selecione o motoboy.");
+    const destino = destinoAtual();
+    if (!destino.tipo || !destino.id) {
+      showMsgIcon("erro", "Selecione o motoboy ou a base que entrega.");
       Sound.play("err");
       return { ok:false, tipo:"sem_entregador" };
     }
-    const motoboyId = parseInt(motoboyIdRaw, 10);
-    const entregador = selEnt?.options[selEnt.selectedIndex]?.text?.trim() || entregadoresMap.get(motoboyIdRaw) || "";
+    const motoboyId = destino.tipo === "motoboy" ? destino.id : null;
+    const repasseBaseId = destino.tipo === "base" ? destino.id : null;
+    const entregador = destino.nome || "";
 
     const rawInput = inpCod?.value || "";
     if (!rawInput.trim()) {
@@ -1269,7 +1360,8 @@ async function registrar() {
     // POST /saidas/ler — 1 request leve (sem GET listar). Backend: 1 SELECT + 1 INSERT/UPDATE.
     const res = await apiLerSaida({
       motoboy_id: motoboyId,
-      entregador,
+      repasse_base_id: repasseBaseId,
+      entregador: repasseBaseId ? undefined : entregador,
       codigo: codigoFinal,
       servico,
       qr_payload_raw: cls.qr_payload_raw || undefined
@@ -1347,9 +1439,11 @@ async function registrar() {
         if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
         return { ok:false, tipo:"ja_saiu", backend_processing_ms };
       }
-      const patchBody = pedidoEntregue
-        ? { motoboy_id: motoboyId, entregador }
-        : { status: "Saiu para entrega", motoboy_id: motoboyId, entregador };
+      const patchBody = repasseBaseId
+        ? { repasse_base_id: repasseBaseId }
+        : (pedidoEntregue
+          ? { motoboy_id: motoboyId, entregador }
+          : { status: "Saiu para entrega", motoboy_id: motoboyId, entregador });
       const patchResp = window.TrackAPI?.updateSaida
         ? await TrackAPI.updateSaida(idSaida, patchBody)
         : { ok: false, error: "TrackAPI.updateSaida não disponível" };
@@ -1496,7 +1590,15 @@ async function registrar() {
         return { ok:false, tipo:"nao_coletado_cancelado", backend_processing_ms };
       }
       const postResp = window.TrackAPI?.lerSaida
-        ? await TrackAPI.lerSaida({ codigo: codigoFinal, motoboy_id: motoboyId, entregador, servico, registrar_nao_coletado: true, qr_payload_raw: cls.qr_payload_raw || undefined })
+        ? await TrackAPI.lerSaida({
+            codigo: codigoFinal,
+            motoboy_id: motoboyId,
+            repasse_base_id: repasseBaseId,
+            entregador: repasseBaseId ? undefined : entregador,
+            servico,
+            registrar_nao_coletado: true,
+            qr_payload_raw: cls.qr_payload_raw || undefined,
+          })
         : { ok: false, data: null, error: "TrackAPI.lerSaida não disponível" };
       if (!postResp.ok) {
         showMsgIcon("erro", postResp.error || "Erro ao registrar.");
@@ -1858,14 +1960,15 @@ async function loadSchemaCamposAvulso(contexto) {
 
 btnSelecionarAvulso?.addEventListener("click", async (e) => {
   e.preventDefault();
-  const motoboyIdRaw = selEnt?.value?.trim() || "";
-  if (!motoboyIdRaw) {
-    showMsgIcon("erro", "Selecione o motoboy.");
+  const destino = destinoAtual();
+  if (!destino.tipo || !destino.id) {
+    showMsgIcon("erro", "Selecione o motoboy ou a base que entrega.");
     Sound.play("err");
     return;
   }
-  const motoboyId = parseInt(motoboyIdRaw, 10);
-  const entregador = selEnt?.options[selEnt.selectedIndex]?.text?.trim() || entregadoresMap.get(motoboyIdRaw) || "";
+  const motoboyId = destino.tipo === "motoboy" ? destino.id : null;
+  const repasseBaseId = destino.tipo === "base" ? destino.id : null;
+  const entregador = destino.nome || "";
 
   let itemsCache = [];
 
@@ -1935,7 +2038,7 @@ btnSelecionarAvulso?.addEventListener("click", async (e) => {
       </div>
     `,
     showCancelButton: true,
-    confirmButtonText: "Atribuir ao motoboy",
+    confirmButtonText: repasseBaseId ? "Atribuir à base" : "Atribuir ao motoboy",
     cancelButtonText: "Cancelar",
     focusConfirm: false,
     didOpen: () => {
@@ -1966,7 +2069,8 @@ btnSelecionarAvulso?.addEventListener("click", async (e) => {
   const item = modal.value;
   const res = await apiLerSaida({
     motoboy_id: motoboyId,
-    entregador,
+    repasse_base_id: repasseBaseId,
+    entregador: repasseBaseId ? undefined : entregador,
     codigo: item.codigo,
     servico: "Avulso",
   });
@@ -2006,18 +2110,21 @@ btnSelecionarAvulso?.addEventListener("click", async (e) => {
 
 btnLancarAvulso?.addEventListener("click", async (e) => {
   e.preventDefault();
-  const motoboyIdRaw = selEnt?.value?.trim() || "";
-  if (!motoboyIdRaw) {
-    showMsgIcon("erro", "Selecione o motoboy.");
+  const destino = destinoAtual();
+  if (!destino.tipo || !destino.id) {
+    showMsgIcon("erro", "Selecione o motoboy ou a base que entrega.");
     Sound.play("err");
     return;
   }
-  const motoboyId = parseInt(motoboyIdRaw, 10);
-  const entregador = selEnt?.options[selEnt.selectedIndex]?.text?.trim() || entregadoresMap.get(motoboyIdRaw) || "";
+  const motoboyId = destino.tipo === "motoboy" ? destino.id : null;
+  const repasseBaseId = destino.tipo === "base" ? destino.id : null;
+  const entregador = destino.nome || "";
   const roleUser = Number(window.__USER__?.role);
   const isStaff = [0, 1, 2, 3].includes(roleUser);
   const exigeFotoGlobal = !!(window.__USER__?.avulso_exige_foto);
-  const exigeFotoMotoboy = !!(motoboysMetaMap.get(motoboyIdRaw)?.avulso_exige_foto);
+  const exigeFotoMotoboy = destino.tipo === "motoboy"
+    ? !!(motoboysMetaMap.get(String(destino.id))?.avulso_exige_foto)
+    : false;
   const exigeFoto = !!(exigeFotoGlobal || exigeFotoMotoboy);
   const mostrarFoto = exigeFoto || isStaff;
   const excepcional = ownerExigeSelecaoAvulso();
@@ -2120,7 +2227,8 @@ btnLancarAvulso?.addEventListener("click", async (e) => {
   }
   const res = await apiLancarAvulso({
     motoboy_id: motoboyId,
-    entregador,
+    repasse_base_id: repasseBaseId,
+    entregador: repasseBaseId ? undefined : entregador,
     identificacao: identificacao.trim() || null,
     quantidade,
     foto_object_key: fotoPayload.foto_object_key,

@@ -125,7 +125,29 @@
     brutos.forEach(function (c) { html += linhaLedger(c.label, c.quantidade, c.valor); });
     html += linhaLedger("Subtotal bruto", d.totais.bruto, subtotal.toFixed(2), "cob-ledger-sub");
     if (cancel) html += linhaLedger("(−) Cancelados", Math.abs(cancel.quantidade), cancel.valor);
-    html += linhaLedger("Pacotes faturáveis", d.totais.faturavel, d.totais.valor_pacotes, "fw-medium");
+    if (d.dois_precos || (d.totais && d.totais.dual)) {
+      var sellers = d.sellers || (d.totais && d.totais.sellers) || null;
+      var bases = d.bases || (d.totais && d.totais.bases) || null;
+      if (sellers) {
+        html += linhaLedger(
+          "Coletas em Sellers (" + C.int(sellers.quantidade) + " × " + C.preco(sellers.preco_unitario) + ")",
+          sellers.quantidade,
+          sellers.valor,
+          "fw-medium"
+        );
+      }
+      if (bases) {
+        html += linhaLedger(
+          "Bases (" + C.int(bases.quantidade) + " × " + C.preco(bases.preco_unitario) + ")",
+          bases.quantidade,
+          bases.valor,
+          "fw-medium"
+        );
+      }
+      html += linhaLedger("Pacotes faturáveis", d.totais.faturavel, d.totais.valor_pacotes, "fw-medium");
+    } else {
+      html += linhaLedger("Pacotes faturáveis", d.totais.faturavel, d.totais.valor_pacotes, "fw-medium");
+    }
     ajustes.forEach(function (c) { html += linhaLedger(c.label, null, c.valor); });
     html += linhaLedger("Total", null, d.totais.valor_total, "cob-ledger-total");
     $("cobd-composicao").innerHTML = html;
@@ -194,8 +216,16 @@
       "",
       "Segue o demonstrativo de utilização da ROTEVO referente a " + C.periodoLabel(d.periodo.inicio, d.periodo.fim) + ".",
       "",
-      "• Pacotes cobrados: " + C.int(d.totais.faturavel) + " × " + C.preco(d.totais.preco_unitario) + " = " + C.money(d.totais.valor_pacotes)
+      d.dois_precos || (d.totais && d.totais.dual)
+        ? "• Pacotes cobrados: " + C.int(d.totais.faturavel) + " = " + C.money(d.totais.valor_pacotes)
+        : "• Pacotes cobrados: " + C.int(d.totais.faturavel) + " × " + C.preco(d.totais.preco_unitario) + " = " + C.money(d.totais.valor_pacotes)
     ];
+    if (d.dois_precos || (d.totais && d.totais.dual)) {
+      var s = d.sellers || (d.totais && d.totais.sellers);
+      var b = d.bases || (d.totais && d.totais.bases);
+      if (s) linhas.push("  – Sellers: " + C.int(s.quantidade) + " × " + C.preco(s.preco_unitario) + " = " + C.money(s.valor));
+      if (b) linhas.push("  – Bases: " + C.int(b.quantidade) + " × " + C.preco(b.preco_unitario) + " = " + C.money(b.valor));
+    }
     (d.ajustes || []).forEach(function (a) {
       linhas.push("• " + a.tipo_label + ": " + C.money(a.valor) + (a.motivo ? " (" + a.motivo + ")" : ""));
     });
@@ -335,21 +365,17 @@
     var texto = "";
     var ajustar = d.pode_ajustar ? botao("act-ajustar", "Ajustar valor", "btn-outline-secondary", "ri-percent-line") : "";
     if (d.fonte === "previa") {
-      if (d.status === "em_apuracao") {
-        if (d.pode_conferir) html += botao("act-conferir", "Conferir", "btn-primary", "ri-check-double-line");
-        texto = d.pode_conferir
-          ? "Conferir grava o aceite destes números. Se a operação mudar, será preciso conferir de novo."
-          : "Resolva os bloqueios acima para conferir.";
-        if (d.motivo_bloqueio_fechar) texto += " " + d.motivo_bloqueio_fechar;
-      } else if (d.status === "conferido") {
-        if (d.pode_fechar) {
-          html += botao("act-fechar", "Fechar período", "btn-primary", "ri-lock-line");
-        } else {
-          html += "<button type='button' class='btn btn-sm btn-primary' disabled>Fechar período</button>";
-        }
-        texto = d.conferencia ? "Conferido em " + C.dmyHm(d.conferencia.conferido_em) +
-          (d.conferencia.conferido_por ? " por " + d.conferencia.conferido_por : "") + "." : "";
-        if (d.motivo_bloqueio_fechar) texto += " " + d.motivo_bloqueio_fechar;
+      if (d.pode_gerar) {
+        html += botao("act-gerar", "Gerar cobrança", "btn-primary", "ri-file-list-3-line");
+        texto = "Gera a cobrança deste período e abre o demonstrativo. Não exige Conferir.";
+      } else {
+        html += "<button type='button' class='btn btn-sm btn-primary' disabled title='" +
+          C.escapeHtml(d.motivo_bloqueio_gerar || "") + "'>Gerar cobrança</button>";
+        texto = d.motivo_bloqueio_gerar || "Resolva os bloqueios acima para gerar a cobrança.";
+      }
+      if (d.faturar_em && d.faturar_em.rotulo) {
+        texto += " Faturar em " + d.faturar_em.rotulo +
+          (d.faturar_em.estado_label ? " (" + d.faturar_em.estado_label + ")." : ".");
       }
       html += ajustar;
     } else if (d.fechamento) {
@@ -507,12 +533,26 @@
     $("cfg-modelo").value = cfg.modelo;
     $("cfg-periodicidade").value = cfg.periodicidade;
     $("cfg-confirmar").checked = !!cfg.confirmado;
+    if ($("cfg-dias-faturamento")) {
+      $("cfg-dias-faturamento").value = cfg.dias_faturamento != null ? String(cfg.dias_faturamento) : "";
+    }
     var sug = (r.modelos || []).find(function (m) { return m.id === cfg.modelo_sugerido; });
     $("cfg-sugestao").textContent = cfg.confirmado
       ? "Confirmado em " + C.dmyHm(cfg.confirmado_em) + "."
-      : (sug ? "Sugestão pelas regras de operação: " + sug.label + ". Confirme antes de fechar." : "");
+      : (sug ? "Sugestão pelas regras de operação: " + sug.label + ". Confirme na configuração antes de gerar." : "");
     $("cfg-obs").value = cfg.observacao || "";
     $("cfg-preco-vigente").textContent = C.preco(r.preco_vigente);
+    var wrapSellers = $("cfg-preco-sellers-wrap");
+    if (wrapSellers) {
+      wrapSellers.classList.toggle("d-none", !r.dois_precos);
+      if ($("cfg-preco-vigente-sellers")) {
+        $("cfg-preco-vigente-sellers").textContent = C.preco(r.preco_vigente_sellers);
+      }
+    }
+    if ($("preco-escopo")) {
+      $("preco-escopo").disabled = !r.dois_precos;
+      if (!r.dois_precos) $("preco-escopo").value = "bases";
+    }
     if (!$("preco-inicio").value && r.periodo_atual) {
       var hoje = new Date();
       var prox = new Date(r.periodo_atual.fim + "T12:00:00");
@@ -520,7 +560,9 @@
       $("preco-inicio").value = prox > hoje ? prox.toISOString().slice(0, 10) : "";
     }
     $("cfg-precos").innerHTML = (r.precos || []).map(function (p) {
-      return "<li class='d-flex justify-content-between py-1 border-bottom'><span>" + C.dmy(p.inicio) + " a " +
+      var escopo = p.escopo_label || (p.escopo === "sellers" ? "Sellers" : "Bases");
+      return "<li class='d-flex justify-content-between py-1 border-bottom'><span>" +
+        "<span class='cob-muted'>" + C.escapeHtml(escopo) + "</span> · " + C.dmy(p.inicio) + " a " +
         (p.fim ? C.dmy(p.fim) : "hoje") + (p.motivo ? "<div class='cob-muted'>" + C.escapeHtml(p.motivo) + "</div>" : "") +
         "</span><span class='cob-num fw-medium'>" + C.preco(p.valor) + "</span></li>";
     }).join("") || "<li class='cob-muted'>Nenhum preço cadastrado.</li>";
@@ -682,6 +724,18 @@
       var d = state.data;
       var fid = d.fechamento && d.fechamento.id;
       switch (btn.id) {
+        case "act-gerar":
+          comBotao(btn, async function () {
+            var r = await C.post(base() + "/gerar", periodoParams());
+            aplicar(r, "Cobrança gerada");
+            var fidNovo = r && r.fechamento && r.fechamento.id;
+            if (fidNovo) {
+              try {
+                await C.download("/fechamentos/" + fidNovo + "/demonstrativo.pdf", "demonstrativo.pdf");
+              } catch (_) {}
+            }
+          });
+          break;
         case "act-conferir":
           comBotao(btn, async function () {
             aplicar(await C.post(base() + "/conferir", periodoParams()), "Período conferido");
@@ -793,12 +847,18 @@
 
     $("cobd-form-config").addEventListener("submit", function (ev) {
       ev.preventDefault();
+      var diasRaw = $("cfg-dias-faturamento") ? $("cfg-dias-faturamento").value.trim() : "";
       var payload = {
         modelo: $("cfg-modelo").value,
         periodicidade: $("cfg-periodicidade").value,
         confirmar: $("cfg-confirmar").checked,
-        observacao: $("cfg-obs").value.trim()
+        observacao: $("cfg-obs").value.trim(),
+        dias_faturamento: diasRaw === "" ? null : Number(diasRaw)
       };
+      if (diasRaw !== "" && (!Number.isInteger(payload.dias_faturamento) || payload.dias_faturamento < 0)) {
+        C.alertError({ message: "Informe um número inteiro de dias maior ou igual a zero." });
+        return;
+      }
       comBotao($("cfg-salvar"), async function () {
         var r = await C.put("/owners/" + state.ownerId + "/configuracao", payload);
         state.config = r;
@@ -812,11 +872,12 @@
       ev.preventDefault();
       var valor = parseValor($("preco-valor").value);
       var inicio = $("preco-inicio").value;
+      var escopo = ($("preco-escopo") && $("preco-escopo").value) || "bases";
       if (valor === null || Number(valor) < 0) { C.alertError({ message: "Informe um preço válido, por exemplo 0,50." }); return; }
       if (!inicio) { C.alertError({ message: "Informe a data de início do preço." }); return; }
       comBotao($("preco-salvar"), async function () {
         var r = await C.post("/owners/" + state.ownerId + "/precos", {
-          valor: valor, inicio: inicio, motivo: $("preco-motivo").value.trim() || null
+          valor: valor, inicio: inicio, motivo: $("preco-motivo").value.trim() || null, escopo: escopo
         });
         state.config = r;
         $("preco-valor").value = "";

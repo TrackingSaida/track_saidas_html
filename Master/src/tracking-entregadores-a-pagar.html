@@ -95,6 +95,38 @@
                     </div>
                   </div>
                 </div>
+
+                <div class="card mt-3" id="card-bases-repasse">
+                  <div class="card-body">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                      <div>
+                        <h5 class="mb-1">Bases que entregam</h5>
+                        <p class="text-muted small mb-0">Documento separado do motoboy. Só volume enviado à base, sem diária, apps ou pacote G.</p>
+                      </div>
+                      <div class="text-end small text-muted">
+                        <div>A pagar: <strong class="fm-num" id="br-total-a-pagar">R$ 0,00</strong></div>
+                        <div>Pago: <strong class="fm-num" id="br-total-pago">R$ 0,00</strong></div>
+                      </div>
+                    </div>
+                    <div id="brMsg" class="mb-2" role="status" aria-live="polite"></div>
+                    <div class="table-responsive">
+                      <table class="table align-middle mb-0 fm-tabela" id="tbl-bases-repasse">
+                        <thead class="table-light">
+                          <tr>
+                            <th>Base</th>
+                            <th>Período</th>
+                            <th class="text-end">Valor</th>
+                            <th>Situação</th>
+                            <th class="text-end">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody id="tbody-bases-repasse">
+                          <tr><td colspan="5" class="text-center text-muted py-3">Carregando…</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
