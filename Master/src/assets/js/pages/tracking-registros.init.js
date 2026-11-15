@@ -594,7 +594,9 @@ function augmentEntregadoresFromRows(rows){
     var lower = s.toLowerCase();
     if (lower === "na base") return "Na Base";
     if (lower === "etiquetado") return "Etiqueta gerada";
-    if (lower === "saiu" || lower === "saiu para entrega") return "SAIU PARA ENTREGA";
+    if (lower === "saiu" || lower === "saiu para entrega" || lower === "em rota" || lower === "em_rota") {
+      return "Saiu para entrega";
+    }
     if (lower === "aguardando confirmacao saida" || lower === "aguardando confirmação de saída") return "Aguardando confirmação de saída";
     if (lower === "encerrado sistema" || lower === "encerrado pelo sistema" || lower === "encerrado_sistema" || lower === "encerrado") {
       return "Encerrado";
@@ -649,7 +651,7 @@ function augmentEntregadoresFromRows(rows){
     saida_confirmada: "Confirmou início da entrega",
     saida_removida_antes_confirmacao: "Removeu antes de começar entrega",
     lancar_avulso: "Pedido adicionado",
-    em_rota: "Saiu para entrega",
+    em_rota: "Iniciou rota",
     preparacao_rota_iniciada: "Preparação de rota iniciada",
     rota_preparada: "Rota preparada",
     rota_iniciada: "Rota iniciada",
