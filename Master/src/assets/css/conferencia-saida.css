@@ -1,0 +1,182 @@
+/* Conferência de saída — master/detail operacional */
+
+.conf-toolbar .form-label {
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+}
+
+.conf-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.conf-tabs .btn {
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0.4rem 0.9rem;
+}
+
+.conf-tabs .btn .conf-tab-count {
+  display: inline-block;
+  min-width: 1.35rem;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(15, 23, 42, 0.08);
+  color: inherit;
+}
+
+.conf-tabs .btn.active {
+  color: #fff;
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.conf-tabs .btn.active .conf-tab-count {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.conf-tabs .btn[data-aba="reconferir"].active {
+  background-color: #dc3545;
+  border-color: #dc3545;
+}
+
+.conf-tabs .btn[data-aba="conferida"].active {
+  background-color: #198754;
+  border-color: #198754;
+}
+
+.conf-split {
+  min-height: min(70vh, 720px);
+}
+
+.conf-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: min(68vh, 680px);
+  overflow: auto;
+  padding-right: 0.15rem;
+}
+
+.conf-lote {
+  display: block;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.75rem;
+  background: var(--bs-body-bg);
+  padding: 0.85rem 1rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.conf-lote:hover,
+.conf-lote:focus-visible {
+  border-color: rgba(13, 110, 253, 0.45);
+  outline: none;
+}
+
+.conf-lote.is-selected {
+  border-color: #0d6efd;
+  background: rgba(13, 110, 253, 0.06);
+  box-shadow: 0 0 0 1px rgba(13, 110, 253, 0.25);
+}
+
+.conf-lote__nome {
+  display: block;
+  font-weight: 700;
+  color: var(--bs-body-color);
+  margin-bottom: 0.15rem;
+}
+
+.conf-lote__meta {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--bs-secondary-color);
+  line-height: 1.35;
+}
+
+.conf-lote__badge {
+  margin-top: 0.55rem;
+}
+
+.conf-detalhe {
+  display: flex;
+  flex-direction: column;
+  min-height: min(68vh, 680px);
+}
+
+.conf-detalhe__body {
+  flex: 1 1 auto;
+}
+
+.conf-detalhe__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.conf-detalhe__nome {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.conf-detalhe__sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.875rem;
+  color: var(--bs-secondary-color);
+}
+
+.conf-detalhe__footer {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--bs-border-color);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.conf-detalhe__footer .btn {
+  min-width: 11rem;
+  font-weight: 700;
+}
+
+.conf-empty {
+  color: var(--bs-secondary-color);
+  margin: 0;
+  padding: 1.25rem 0.25rem;
+}
+
+.conf-pacotes {
+  margin-top: 0.75rem;
+  margin-bottom: 0;
+}
+
+.conf-pacotes th,
+.conf-pacotes td {
+  font-size: 0.875rem;
+  vertical-align: middle;
+}
+
+@media (max-width: 767.98px) {
+  .conf-split,
+  .conf-detalhe,
+  .conf-list {
+    min-height: 0;
+    max-height: none;
+  }
+}
