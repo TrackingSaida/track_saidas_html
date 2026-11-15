@@ -192,13 +192,16 @@
     return JSON.stringify({
       coleta: !!qs("#coletaHabilitada")?.checked,
       modo: qs("#modoOperacao")?.value || "",
+      participantes: qs("#coletaParticipantesModo")?.value || "n",
       bloquear: !!qs("#bloquearSaidaSemColeta")?.checked,
       entrada: !!qs("#entradaHabilitada")?.checked,
       conferencia: !!qs("#conferenciaHabilitada")?.checked,
+      confirmacaoSaida: !!qs("#confirmacaoSaidaSessoesHabilitada")?.checked,
       devolucao: !!qs("#devolucaoHabilitada")?.checked,
       pix: (qs("#pixReceber")?.value || "").trim(),
       pixTipo: qs("#pixReceberTipo")?.value || "",
       podeColeta: !!qs("#defPodeColeta")?.checked,
+      podeEntrada: !!qs("#defPodeEntrada")?.checked,
       podeSaida: !!qs("#defPodeSaida")?.checked,
       digitar: !!qs("#defDigitarManual")?.checked,
       avulsoColeta: !!qs("#defCriarAvulsoColeta")?.checked,
@@ -365,19 +368,44 @@
   function syncUiDeps() {
     const coletaOn = !!qs("#coletaHabilitada")?.checked;
     const entradaOn = !!qs("#entradaHabilitada")?.checked;
+
     const modoWrap = qs("#modoOperacaoWrap");
     if (modoWrap) modoWrap.classList.toggle("d-none", !coletaOn);
+
+    const participantesWrap = qs("#coletaParticipantesWrap");
+    if (participantesWrap) participantesWrap.classList.toggle("d-none", !coletaOn);
+
     const bloquearWrap = qs("#bloquearSaidaSemColetaWrap");
     if (bloquearWrap) bloquearWrap.classList.toggle("d-none", !coletaOn);
+
     const hint = qs("#hintColetaEntrada");
     if (hint) hint.classList.toggle("d-none", !(coletaOn && entradaOn));
+
+    // Variáveis dedicadas: evita que o uglify reaproveite o mesmo binding e
+    // aplique disabled/opacity no elemento errado.
+    const podeEntradaEl = qs("#defPodeEntrada");
+    const podeEntradaWrapEl = qs("#defPodeEntradaWrap");
+    const podeEntradaHintEl = qs("#defPodeEntradaHint");
+    if (podeEntradaEl) {
+      podeEntradaEl.disabled = !entradaOn;
+      if (!entradaOn && !hydrating) podeEntradaEl.checked = false;
+    }
+    if (podeEntradaWrapEl) {
+      podeEntradaWrapEl.classList.toggle("opacity-50", !entradaOn);
+    }
+    if (podeEntradaHintEl) {
+      podeEntradaHintEl.textContent = entradaOn
+        ? "Permite registrar entrada no app. Exceção ao padrão fica no cadastro de Usuários."
+        : "Disponível somente com Controle de entrada ativo.";
+    }
+
     const avulsoOn =
       !!qs("#defCriarAvulsoColeta")?.checked || !!qs("#defCriarAvulsoSaida")?.checked;
-    const foto = qs("#defAvulsoFoto");
-    if (foto) {
-      foto.disabled = !avulsoOn;
+    const fotoEl = qs("#defAvulsoFoto");
+    if (fotoEl) {
+      fotoEl.disabled = !avulsoOn;
       // Só zera foto em interação do usuário (não durante hydrate/save).
-      if (!avulsoOn && !hydrating) foto.checked = false;
+      if (!avulsoOn && !hydrating) fotoEl.checked = false;
     }
   }
 
@@ -386,9 +414,14 @@
     const pad = data?.padroes_motoboy || {};
     qs("#coletaHabilitada").checked = !!op.coleta_habilitada;
     qs("#modoOperacao").value = op.modo_operacao || "codigo";
+    const modoPart = (op.coleta_participantes_modo || "n").toString().trim().toLowerCase();
+    if (qs("#coletaParticipantesModo")) {
+      qs("#coletaParticipantesModo").value = modoPart === "um" ? "um" : "n";
+    }
     qs("#bloquearSaidaSemColeta").checked = !!op.bloquear_saida_sem_coleta;
     qs("#entradaHabilitada").checked = !!op.entrada_habilitada;
     qs("#conferenciaHabilitada").checked = !!op.conferencia_saida_habilitada;
+    qs("#confirmacaoSaidaSessoesHabilitada").checked = !!op.confirmacao_saida_sessoes_habilitada;
     qs("#devolucaoHabilitada").checked = !!op.devolucao_sub_base_habilitada;
     if (window.PixChave) {
       PixChave.preencher(qs("#pixReceberTipo"), qs("#pixReceber"), op.pix_receber_tipo, op.pix_receber);
@@ -396,6 +429,9 @@
       qs("#pixReceber").value = op.pix_receber || "";
     }
     qs("#defPodeColeta").checked = !!pad.pode_realizar_coleta;
+    if (qs("#defPodeEntrada")) {
+      qs("#defPodeEntrada").checked = !!pad.pode_realizar_entrada && !!op.entrada_habilitada;
+    }
     qs("#defPodeSaida").checked = pad.pode_ler_saida !== false;
     qs("#defDigitarManual").checked = !!pad.pode_digitar_codigo_manual;
     fillAvulsoFlags(pad);
@@ -524,19 +560,23 @@
     }
     if (window.PixChave) PixChave.mostrarErro(qs("#pixReceber"), "#pixReceberErro", "");
 
+    const modoPartRaw = (qs("#coletaParticipantesModo")?.value || "n").toString().trim().toLowerCase();
     const payload = {
       operacao: {
         coleta_habilitada: !!qs("#coletaHabilitada").checked,
         modo_operacao: qs("#modoOperacao").value,
+        coleta_participantes_modo: modoPartRaw === "um" ? "um" : "n",
         bloquear_saida_sem_coleta: !!qs("#bloquearSaidaSemColeta").checked,
         entrada_habilitada: !!qs("#entradaHabilitada").checked,
         conferencia_saida_habilitada: !!qs("#conferenciaHabilitada").checked,
+        confirmacao_saida_sessoes_habilitada: !!qs("#confirmacaoSaidaSessoesHabilitada").checked,
         devolucao_sub_base_habilitada: !!qs("#devolucaoHabilitada").checked,
         pix_receber: pix.chave,
         pix_receber_tipo: pix.tipo,
       },
       padroes_motoboy: {
         pode_realizar_coleta: !!qs("#defPodeColeta").checked,
+        pode_realizar_entrada: !!qs("#entradaHabilitada")?.checked && !!qs("#defPodeEntrada")?.checked,
         pode_ler_saida: !!qs("#defPodeSaida").checked,
         pode_digitar_codigo_manual: !!qs("#defDigitarManual").checked,
         pode_criar_avulso_coleta: !!qs("#defCriarAvulsoColeta").checked,

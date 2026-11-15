@@ -48,14 +48,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     return ini && fim ? `${dm(ini)} a ${dmy(fim)}` : "—";
   }
 
-  function hojeYmd() {
-    const d = new Date();
-    const p = (n) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-  }
-
-  const periodoAberto = (fim) => !fim || fim >= hojeYmd();
-
   function mensagemErro(data, status) {
     const d = data && data.detail;
     if (typeof d === "string") return d;
@@ -115,7 +107,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     SEM_COLETAS: "Sem coletas no período.",
     JA_GERADO: "Já tem fechamento neste período.",
     PERIODO_FECHAMENTO: "O período escolhido não corresponde ao fechamento desta base.",
+    PERIODO_ABERTO: "Ainda há dia de coleta neste período.",
   };
+  const ORDEM_CICLO = ["semanal", "quinzenal", "mensal", "nenhum"];
+  const ROTULO_CICLO = { nenhum: "Nenhum", semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
 
   function motivoDeFora(r) {
     if (r.motivo_bloqueio === "PERIODO_FECHAMENTO") {
@@ -138,6 +133,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     filtro: "",
     base: "",
     ciclo: "",
+    agruparCiclo: false,
+    gruposExpandidos: new Set(),
     expandidos: new Set(),
     gerandoLote: false,
     excluindo: false,
@@ -270,7 +267,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       ? `<button type="button" class="btn btn-sm btn-link text-secondary px-1" data-acao="pdf" data-id="${esc(id)}" title="Baixar PDF" aria-label="Baixar PDF de ${esc(r.base)}"><i class="ri-file-pdf-line fs-5"></i></button>`
       : "";
     if (st === "PENDENTE") {
-      const motivo = state.periodoAberto ? "Período ainda em aberto: escolha um período que termine antes de hoje." : "";
+      const bloqueada = r.pode_gerar_lote === false;
+      const motivo = bloqueada ? motivoDeFora(r) || "Não é possível gerar esta base neste período." : "";
       const btn = `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="gerar" data-base="${esc(r.base)}"${motivo ? " disabled" : ""}>Revisar e gerar</button>`;
       return motivo ? `<span class="d-inline-block" tabindex="0" title="${esc(motivo)}">${btn}</span>` : btn;
     }
@@ -317,6 +315,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     return html;
   }
 
+  function linhaBaseHtml(r) {
+    const k = String(r.base);
+    const aberto = state.expandidos.has(k);
+    const st = String(r.situacao || "PENDENTE").toUpperCase();
+    const coletas = num(r.shopee) + num(r.mercado_livre) + num(r.avulso);
+    const valor = st === "PENDENTE" ? r.valor_atual : r.fechamento?.valor_final;
+    let subValor = "";
+    if (r.precisa_reajuste && r.valor_final_recalculado != null) {
+      subValor = `<div class="fm-sub fm-num">valor atual ${moeda(r.valor_final_recalculado)}</div>`;
+    } else if (st === "PENDENTE" && num(r.valor_g) > 0) {
+      subValor = `<div class="fm-sub fm-num">inclui ${moeda(r.valor_g)} de pacotes G</div>`;
+    }
+    const idDias = `fm-dias-${esc(k.replace(/[^\w-]/g, "_"))}`;
+    return (
+      `<tr class="${r.precisa_reajuste ? "fm-linha--revisao" : ""}">` +
+      `<td><button type="button" class="fm-expandir" data-acao="expandir" data-base="${esc(k)}" aria-expanded="${aberto}" aria-controls="${idDias}" aria-label="Ver dias de ${esc(r.base)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
+      `<td><div class="fw-semibold">${esc(r.base)}</div>${r.cnpj ? `<div class="fm-sub">${esc(r.cnpj)}</div>` : ""}</td>` +
+      `<td>${badgePeriodo(r)}</td>` +
+      `<td class="text-end"><div class="fm-num fw-semibold">${coletas}</div>${servicosHtml(r)}</td>` +
+      `<td class="text-end fm-num">${num(r.pacotes_g)}</td>` +
+      `<td class="text-end fm-num">${num(r.cancelados)}</td>` +
+      `<td class="text-end"><div class="fw-semibold fm-num">${moeda(valor)}</div>${subValor}</td>` +
+      `<td>${statusHtml(r)}</td>` +
+      `<td class="text-end text-nowrap">${acoesHtml(r)}</td>` +
+      "</tr>" +
+      `<tr class="fm-dias${aberto ? "" : " d-none"}" id="${idDias}"><td colspan="${colunas()}">${diasHtml(r)}</td></tr>`
+    );
+  }
+
   function renderTabela() {
     if (!tbody) return;
     if (!state.items.length) {
@@ -336,36 +363,31 @@ document.addEventListener("DOMContentLoaded", async () => {
       linhaMensagem(esc(state.base || state.ciclo ? "Nenhuma base com esses filtros." : vazio[state.filtro] || "Nada para mostrar."));
       return;
     }
-    tbody.innerHTML = items
-      .map((r) => {
-        const k = String(r.base);
-        const aberto = state.expandidos.has(k);
-        const st = String(r.situacao || "PENDENTE").toUpperCase();
-        const coletas = num(r.shopee) + num(r.mercado_livre) + num(r.avulso);
-        const valor = st === "PENDENTE" ? r.valor_atual : r.fechamento?.valor_final;
-        let subValor = "";
-        if (r.precisa_reajuste && r.valor_final_recalculado != null) {
-          subValor = `<div class="fm-sub fm-num">valor atual ${moeda(r.valor_final_recalculado)}</div>`;
-        } else if (st === "PENDENTE" && num(r.valor_g) > 0) {
-          subValor = `<div class="fm-sub fm-num">inclui ${moeda(r.valor_g)} de pacotes G</div>`;
-        }
-        const idDias = `fm-dias-${esc(k.replace(/[^\w-]/g, "_"))}`;
-        return (
-          `<tr class="${r.precisa_reajuste ? "fm-linha--revisao" : ""}">` +
-          `<td><button type="button" class="fm-expandir" data-acao="expandir" data-base="${esc(k)}" aria-expanded="${aberto}" aria-controls="${idDias}" aria-label="Ver dias de ${esc(r.base)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
-          `<td><div class="fw-semibold">${esc(r.base)}</div>${r.cnpj ? `<div class="fm-sub">${esc(r.cnpj)}</div>` : ""}</td>` +
-          `<td>${badgePeriodo(r)}</td>` +
-          `<td class="text-end"><div class="fm-num fw-semibold">${coletas}</div>${servicosHtml(r)}</td>` +
-          `<td class="text-end fm-num">${num(r.pacotes_g)}</td>` +
-          `<td class="text-end fm-num">${num(r.cancelados)}</td>` +
-          `<td class="text-end"><div class="fw-semibold fm-num">${moeda(valor)}</div>${subValor}</td>` +
-          `<td>${statusHtml(r)}</td>` +
-          `<td class="text-end text-nowrap">${acoesHtml(r)}</td>` +
-          "</tr>" +
-          `<tr class="fm-dias${aberto ? "" : " d-none"}" id="${idDias}"><td colspan="${colunas()}">${diasHtml(r)}</td></tr>`
-        );
-      })
-      .join("");
+    if (!state.agruparCiclo) {
+      tbody.innerHTML = items.map(linhaBaseHtml).join("");
+      return;
+    }
+    const porCiclo = new Map();
+    items.forEach((r) => {
+      const codigo = cicloDe(r);
+      if (!porCiclo.has(codigo)) porCiclo.set(codigo, []);
+      porCiclo.get(codigo).push(r);
+    });
+    const html = [];
+    ORDEM_CICLO.forEach((codigo) => {
+      const grupo = porCiclo.get(codigo);
+      if (!grupo || !grupo.length) return;
+      const aberto = state.gruposExpandidos.has(codigo);
+      const rotulo = ROTULO_CICLO[codigo] || codigo;
+      html.push(
+        `<tr class="fm-grupo">` +
+          `<td><button type="button" class="fm-expandir" data-acao="expandir-grupo" data-ciclo="${esc(codigo)}" aria-expanded="${aberto}" aria-label="Expandir ${esc(rotulo)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
+          `<td colspan="${colunas() - 1}"><span>${esc(rotulo)}</span> <span class="fm-grupo-meta">${esc(plural(grupo.length, "base", "bases"))}</span></td>` +
+          `</tr>`
+      );
+      if (aberto) html.push(...grupo.map(linhaBaseHtml));
+    });
+    tbody.innerHTML = html.join("");
   }
 
   function renderCards() {
@@ -397,14 +419,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!btn || !wrap) return;
     const n = elegiveisLote().length;
     let motivo = "";
-    if (state.periodoAberto) motivo = "Período ainda em aberto: escolha um período que termine antes de hoje.";
-    else if (n === 0) motivo = "Nenhuma pendente pode ser gerada de uma vez neste período.";
+    if (n === 0) motivo = "Nenhuma pendente pode ser gerada de uma vez neste período.";
     if (label) label.textContent = n > 0 ? `Gerar todos os pendentes (${n})` : "Gerar todos os pendentes";
     btn.disabled = !!motivo || state.gerandoLote;
     wrap.title = motivo;
   }
 
-  const ROTULO_CICLO = { nenhum: "Nenhum", semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
   const ROTULO_SITUACAO = {
     PENDENTE: "Pendente",
     A_RECEBER: "Gerados, a receber",
@@ -487,8 +507,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       linhaMensagem(`<span class="text-danger">${esc(err.message || "Não foi possível carregar.")}</span>`);
       return;
     }
-    if (msgEl && state.periodoAberto) {
-      msgEl.innerHTML = '<div class="fm-sub">O período ainda está em aberto. Você pode conferir as coletas, mas só gera o fechamento depois que o período terminar.</div>';
+    if (msgEl) {
+      const abertas = state.items.filter(
+        (r) => String(r.situacao || "").toUpperCase() === "PENDENTE" && r.motivo_bloqueio === "PERIODO_ABERTO"
+      );
+      if (state.periodoAberto && abertas.length) {
+        msgEl.innerHTML =
+          '<div class="fm-sub">Algumas bases ainda têm dia de coleta neste período. As demais com agenda encerrada já podem ser geradas.</div>';
+      } else {
+        msgEl.innerHTML = "";
+      }
     }
     renderTudo();
   }
@@ -1294,8 +1322,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ====== Gerar individual (escolher base) ======
   async function gerarIndividual() {
     const { ini, fim } = periodo();
-    if (periodoAberto(fim)) {
-      Swal.fire({ icon: "info", title: "Período em aberto", text: "Escolha um período que termine antes de hoje para gerar o fechamento.", confirmButtonColor: COR_PRIMARIA });
+    if (!ini || !fim) {
+      Swal.fire({ icon: "info", title: "Selecione um período", confirmButtonColor: COR_PRIMARIA });
       return;
     }
     let bases;
@@ -1369,6 +1397,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ====== Eventos ======
   qs("#btnGerarTodos")?.addEventListener("click", gerarTodosPendentes);
   qs("#btnGerarIndividual")?.addEventListener("click", gerarIndividual);
+  qs("#chkAgruparCiclo")?.addEventListener("change", (e) => {
+    state.agruparCiclo = !!e.target.checked;
+    if (!state.agruparCiclo) state.gruposExpandidos.clear();
+    renderTabela();
+  });
 
   document.querySelectorAll("#fm-cards .fm-card").forEach((card) => {
     card.addEventListener("click", () => {
@@ -1412,7 +1445,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const btn = e.target.closest("[data-acao]");
     if (!btn) return;
     const acao = btn.dataset.acao;
-    if (acao === "expandir") {
+    if (acao === "expandir-grupo") {
+      const ciclo = btn.dataset.ciclo;
+      if (state.gruposExpandidos.has(ciclo)) state.gruposExpandidos.delete(ciclo);
+      else state.gruposExpandidos.add(ciclo);
+      renderTabela();
+    } else if (acao === "expandir") {
       const k = btn.dataset.base;
       if (state.expandidos.has(k)) state.expandidos.delete(k);
       else state.expandidos.add(k);

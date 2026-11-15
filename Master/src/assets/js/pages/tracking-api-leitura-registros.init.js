@@ -255,6 +255,126 @@
     }
   };
 
+  function mensagemApi(data, fallback) {
+    if (!data) return fallback;
+    if (typeof data.detail === "string") return data.detail;
+    if (data.detail && typeof data.detail === "object") {
+      return data.detail.message || data.detail.code || fallback;
+    }
+    return data.message || data.error || fallback;
+  }
+
+  window.TrackAPI.recuperarSessaoSaidaAberta = async function (motoboyId) {
+    try {
+      const res = await req(`/sessoes-saida/aberta?motoboy_id=${encodeURIComponent(motoboyId)}`);
+      let data = null;
+      try { data = await res.json(); } catch (_) {}
+      return {
+        ok: res.ok,
+        status: res.status,
+        data,
+        error: res.ok ? null : mensagemApi(data, "Não foi possível recuperar a leitura em aberto.")
+      };
+    } catch (err) {
+      return { ok: false, status: 0, error: String(err?.message || err) };
+    }
+  };
+
+  window.TrackAPI.confirmarLeituraSessao = async function ({ motoboy_id, data_ref, sessao_id, versao }) {
+    try {
+      const body = { motoboy_id, data_ref };
+      if (sessao_id != null) body.sessao_id = sessao_id;
+      if (versao != null) body.versao = versao;
+      const res = await req("/conferencias-saida/confirmar-leitura", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      let data = null;
+      try { data = await res.json(); } catch (_) {}
+      const code = data?.code || data?.detail?.code || null;
+      return {
+        ok: res.ok,
+        status: res.status,
+        data,
+        code,
+        error: res.ok ? null : mensagemApi(data, "Não foi possível finalizar a leitura.")
+      };
+    } catch (err) {
+      return { ok: false, status: 0, error: String(err?.message || err) };
+    }
+  };
+
+  window.TrackAPI.listarConferenciasSaida = async function ({ data_inicio, data_fim, aba, motoboy_id }) {
+    try {
+      const q = new URLSearchParams({
+        data_inicio: data_inicio,
+        data_fim: data_fim,
+        aba: aba || "pendente"
+      });
+      if (motoboy_id != null) q.set("motoboy_id", String(motoboy_id));
+      const res = await req("/conferencias-saida?" + q.toString());
+      let data = null;
+      try { data = await res.json(); } catch (_) {}
+      return {
+        ok: res.ok,
+        status: res.status,
+        data,
+        code: data?.code || data?.detail?.code || null,
+        error: res.ok ? null : mensagemApi(data, "Não foi possível carregar as conferências.")
+      };
+    } catch (err) {
+      return { ok: false, status: 0, error: String(err?.message || err) };
+    }
+  };
+
+  window.TrackAPI.detalheConferenciaSaida = async function ({ motoboy_id, data_ref, sessao_id }) {
+    try {
+      const path = sessao_id != null
+        ? "/conferencias-saida/sessoes/" + encodeURIComponent(sessao_id)
+        : "/conferencias-saida/" + encodeURIComponent(motoboy_id) + "?data_ref=" + encodeURIComponent(data_ref);
+      const res = await req(path);
+      let data = null;
+      try { data = await res.json(); } catch (_) {}
+      return {
+        ok: res.ok,
+        status: res.status,
+        data,
+        code: data?.code || data?.detail?.code || null,
+        error: res.ok ? null : mensagemApi(data, "Não foi possível abrir a conferência.")
+      };
+    } catch (err) {
+      return { ok: false, status: 0, error: String(err?.message || err) };
+    }
+  };
+
+  window.TrackAPI.conferirSaida = async function ({ motoboy_id, data_ref, sessao_id }) {
+    try {
+      const porSessao = sessao_id != null;
+      const res = await req(
+        porSessao
+          ? "/conferencias-saida/sessoes/" + encodeURIComponent(sessao_id) + "/conferir"
+          : "/conferencias-saida/" + encodeURIComponent(motoboy_id) + "/conferir",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: porSessao ? "{}" : JSON.stringify({ data_ref: data_ref })
+        }
+      );
+      let data = null;
+      try { data = await res.json(); } catch (_) {}
+      return {
+        ok: res.ok,
+        status: res.status,
+        data,
+        code: data?.code || data?.detail?.code || null,
+        error: res.ok ? null : mensagemApi(data, "Não foi possível concluir a conferência.")
+      };
+    } catch (err) {
+      return { ok: false, status: 0, error: String(err?.message || err) };
+    }
+  };
+
   window.TrackAPI.confirmarNovaSaidaMesmoEntregador = async function ({ id_saida, motoboy_id, entregador_id, entregador, origem }) {
     try {
       const body = { id_saida };

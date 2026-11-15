@@ -3,7 +3,7 @@
   <head>
     @@include("partials/title-meta.html", {"title":"Fechamento de Bases"})
     @@include("partials/head-css.html")
-    <link href="assets/css/fechamento-motoboys.css?v=8" rel="stylesheet" type="text/css" />
+    <link href="assets/css/fechamento-motoboys.css?v=9" rel="stylesheet" type="text/css" />
   </head>
 
   <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
@@ -88,6 +88,11 @@
                     </div>
 
                     <div id="fm-filtros-ativos" class="fm-filtros-ativos d-none" aria-live="polite"></div>
+
+                    <div class="form-check form-switch mb-2">
+                      <input class="form-check-input" type="checkbox" id="chkAgruparCiclo" />
+                      <label class="form-check-label" for="chkAgruparCiclo">Agrupar por período de fechamento</label>
+                    </div>
 
                     <div id="resumoMsg" class="mb-3" role="status" aria-live="polite"></div>
 

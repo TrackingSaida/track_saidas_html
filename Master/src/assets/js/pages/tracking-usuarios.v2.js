@@ -167,10 +167,21 @@ function gerarLinkWhatsapp(contatoRaw) {
 // =====================================================================
 // SOMENTE ADMIN (role 0 ou 1).
 // =====================================================================
+async function refreshCurrentUserFlags() {
+    try {
+        const me = await fetch(`${API}/me`, { credentials: "include" })
+            .then((r) => (r.ok ? r.json() : null));
+        if (!me) return null;
+        window.CURRENT_USER = { ...(window.CURRENT_USER || {}), ...me };
+        return me;
+    } catch (_) {
+        return null;
+    }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
 
-    const me = await fetch(`${API}/me`, { credentials: "include" })
-        .then(r => r.ok ? r.json() : null);
+    const me = await refreshCurrentUserFlags();
 
     if (!me || ![0,1].includes(me.role)) {
         Swal.fire({
@@ -181,7 +192,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
 
-    window.CURRENT_USER = me;
     ensureRootRoleOptions();
 
     initUsers();
@@ -556,8 +566,18 @@ function toggleMotoboySection() {
     const colUser = document.getElementById("colUser");
     const colMotoboy = document.getElementById("colMotoboy");
     const ignorarColeta = (CURRENT_USER && CURRENT_USER.ignorar_coleta) || false;
+    const entradaOn = !!(CURRENT_USER && CURRENT_USER.entrada_obrigatoria_habilitada);
     document.getElementById("coletaPermissaoFormGroup")?.classList.toggle("d-none", ignorarColeta);
     document.getElementById("coletaPermissaoDetailGroup")?.classList.toggle("d-none", ignorarColeta);
+    // Entrada fica sempre visível no cadastro do motoboy; só desabilita sem Controle de entrada.
+    document.getElementById("entradaPermissaoFormGroup")?.classList.remove("d-none");
+    document.getElementById("entradaPermissaoDetailGroup")?.classList.remove("d-none");
+    const entradaHint = document.getElementById("podeRealizarEntradaHint");
+    if (entradaHint) {
+      entradaHint.textContent = entradaOn
+        ? "Exceção em relação ao padrão da base (Políticas gerais)."
+        : "Disponível somente com Controle de entrada ativo nas Políticas gerais.";
+    }
 
     // Username obrigatório para staff (não motoboy). E-mail é sempre opcional.
     const usernameRequired = (role !== 4);
@@ -594,6 +614,11 @@ function toggleMotoboySection() {
         colMotoboy.classList.remove("d-none");
         document.getElementById("podeLerColeta").disabled = ignorarColeta;
         if (ignorarColeta) document.getElementById("podeLerColeta").checked = false;
+        const podeEntradaEl = document.getElementById("podeRealizarEntrada");
+        if (podeEntradaEl) {
+            podeEntradaEl.disabled = !entradaOn;
+            if (!entradaOn) podeEntradaEl.checked = false;
+        }
         toggleAvulsoExigeFotoVisibility();
     } else {
         colUser.classList.remove("col-6");
@@ -651,6 +676,7 @@ let cachedPadroesMotoboy = null;
 
 const PRESET_PADROES_MOTOBOY = {
     pode_realizar_coleta: false,
+    pode_realizar_entrada: false,
     pode_ler_saida: true,
     pode_digitar_codigo_manual: false,
     pode_criar_avulso_coleta: true,
@@ -944,6 +970,9 @@ function goToPage(n) {
 async function applyPadroesMotoboyDefaults() {
     const pad = await ensurePadroesMotoboyCached();
     document.getElementById("podeLerColeta").checked = !!pad.pode_realizar_coleta;
+    const entradaOnPad = !!(CURRENT_USER && CURRENT_USER.entrada_obrigatoria_habilitada);
+    const podeEntradaPad = document.getElementById("podeRealizarEntrada");
+    if (podeEntradaPad) podeEntradaPad.checked = !!pad.pode_realizar_entrada && entradaOnPad;
     document.getElementById("podeLerSaida").checked = pad.pode_ler_saida !== false;
     document.getElementById("podeDigitarCodigoManual").checked = !!pad.pode_digitar_codigo_manual;
     const podeAvulsoColetaCreate = document.getElementById("podeCriarAvulsoColeta");
@@ -958,6 +987,7 @@ async function applyPadroesMotoboyDefaults() {
 }
 
 async function openCreate() {
+    await refreshCurrentUserFlags();
     document.getElementById("ocLabel").textContent = "Novo Usuário";
     document.getElementById("userId").value = "";
 
@@ -1015,6 +1045,7 @@ function openEditFromSelection() {
 }
 
 async function openEdit(id) {
+    await refreshCurrentUserFlags();
     const data = await fetch(`${API}/${id}`, { credentials: "include" })
         .then(r => r.json());
 
@@ -1046,6 +1077,9 @@ async function openEdit(id) {
     document.getElementById("cidade").value = m.cidade || "";
     document.getElementById("estado").value = m.estado || "";
     document.getElementById("podeLerColeta").checked = !!(m.pode_realizar_coleta ?? m.pode_ler_coleta);
+    const entradaOnEdit = !!(CURRENT_USER && CURRENT_USER.entrada_obrigatoria_habilitada);
+    const podeEntradaEdit = document.getElementById("podeRealizarEntrada");
+    if (podeEntradaEdit) podeEntradaEdit.checked = !!m.pode_realizar_entrada && entradaOnEdit;
     document.getElementById("podeLerSaida").checked = m.pode_ler_saida !== false;
     document.getElementById("podeDigitarCodigoManual").checked = !!m.pode_digitar_codigo_manual;
     const podeAvulsoColetaEdit = document.getElementById("podeCriarAvulsoColeta");
@@ -1102,6 +1136,7 @@ function renderMotoboyDetail(data) {
     assign("d-cidade", m.cidade);
     assign("d-cep", m.cep);
     assign("d-pode-coleta", (m.pode_realizar_coleta ?? m.pode_ler_coleta) ? "Sim" : "Não");
+    assign("d-pode-entrada", m.pode_realizar_entrada ? "Sim" : "Não");
     assign("d-pode-saida", m.pode_ler_saida !== false ? "Sim" : "Não");
     assign("d-pode-codigo-manual", m.pode_digitar_codigo_manual ? "Sim" : "Não");
     assign("d-pode-criar-avulso-coleta", flagAvulsoNovo(m, "pode_criar_avulso_coleta") ? "Sim" : "Não");
@@ -1237,6 +1272,8 @@ async function saveUser(ev) {
         payload.cep = (document.getElementById("cep").value || "").replace(/\D/g, "");
         payload.pode_realizar_coleta = document.getElementById("podeLerColeta").checked;
         payload.pode_ler_coleta = payload.pode_realizar_coleta;
+        const entradaOnSave = !!(CURRENT_USER && CURRENT_USER.entrada_obrigatoria_habilitada);
+        payload.pode_realizar_entrada = entradaOnSave && !!document.getElementById("podeRealizarEntrada")?.checked;
         payload.pode_ler_saida = document.getElementById("podeLerSaida").checked;
         payload.pode_digitar_codigo_manual = document.getElementById("podeDigitarCodigoManual").checked;
         const podeAvulsoColetaEl = document.getElementById("podeCriarAvulsoColeta");
