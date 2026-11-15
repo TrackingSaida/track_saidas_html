@@ -46,6 +46,10 @@
     return window.__USER__?.confirmacao_saida_sessoes_habilitada === true;
   }
 
+  function conferenciaSaidaHabilitada() {
+    return window.__USER__?.conferencia_saida_habilitada === true;
+  }
+
   function dataOperacionalLocal() {
     const agora = new Date();
     const mes = String(agora.getMonth() + 1).padStart(2, "0");
@@ -63,7 +67,7 @@
       btn.classList.toggle("d-none", !aberta);
       btn.disabled = finalizandoLeitura || sessaoServidor.carregando;
     }
-    if (link) link.classList.toggle("d-none", !fluxo);
+    if (link) link.classList.toggle("d-none", !conferenciaSaidaHabilitada());
     if (!info) return;
     info.classList.remove("d-none");
     if (!fluxo) {
