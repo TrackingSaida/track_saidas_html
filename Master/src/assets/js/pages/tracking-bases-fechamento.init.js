@@ -267,10 +267,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       ? `<button type="button" class="btn btn-sm btn-link text-secondary px-1" data-acao="pdf" data-id="${esc(id)}" title="Baixar PDF" aria-label="Baixar PDF de ${esc(r.base)}"><i class="ri-file-pdf-line fs-5"></i></button>`
       : "";
     if (st === "PENDENTE") {
-      const bloqueada = r.pode_gerar_lote === false;
-      const motivo = bloqueada ? motivoDeFora(r) || "Não é possível gerar esta base neste período." : "";
-      const btn = `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="gerar" data-base="${esc(r.base)}"${motivo ? " disabled" : ""}>Revisar e gerar</button>`;
-      return motivo ? `<span class="d-inline-block" tabindex="0" title="${esc(motivo)}">${btn}</span>` : btn;
+      // Só agenda ainda aberta impede abrir o painel. DIAS_PENDENTES/PACOTES_G
+      // ficam fora do lote, mas o atalho Revisar e gerar deve abrir a revisão.
+      const bloqueada = r.motivo_bloqueio === "PERIODO_ABERTO";
+      const motivoBloqueio = bloqueada
+        ? motivoDeFora(r) || "Não é possível gerar esta base neste período."
+        : "";
+      const hintRevisao =
+        !bloqueada && (r.motivo_bloqueio === "DIAS_PENDENTES" || r.motivo_bloqueio === "PACOTES_G")
+          ? "Fora do lote automático; revise e justifique no painel."
+          : "";
+      const title = motivoBloqueio || hintRevisao;
+      const btn = `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="gerar" data-base="${esc(r.base)}"${bloqueada ? " disabled" : ""}${title ? ` title="${esc(title)}"` : ""}>Revisar e gerar</button>`;
+      return bloqueada
+        ? `<span class="d-inline-block" tabindex="0" title="${esc(motivoBloqueio)}">${btn}</span>`
+        : btn;
     }
     if (st === "RECEBIDO") return pdf;
     const classe = r.precisa_reajuste ? "btn-fm-primary" : "btn-outline-secondary";

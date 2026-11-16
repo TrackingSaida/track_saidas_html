@@ -1354,7 +1354,33 @@ async function registrar() {
         ? await TrackAPI.updateSaida(idSaida, patchBody)
         : { ok: false, error: "TrackAPI.updateSaida não disponível" };
       if (!patchResp.ok) {
-        const patchCode = patchResp?.data?.code || patchResp?.data?.detail?.code;
+        const patchCode = patchResp?.code || patchResp?.data?.code || patchResp?.data?.detail?.code;
+        if (patchResp.status === 409 && patchCode === "TRANSFERENCIA_AGUARDANDO_ACEITE") {
+          const tid = patchResp.transferencia_id || patchResp?.data?.detail?.transferencia_id;
+          const msgAguardar =
+            patchResp.error ||
+            patchResp?.data?.detail?.message ||
+            "A transferência aguarda o aceite do entregador atual.";
+          const sw = await Swal.fire({
+            icon: "info",
+            title: "Aguardando aceite",
+            text: msgAguardar,
+            showCancelButton: !!tid,
+            confirmButtonText: "Entendi",
+            cancelButtonText: "Cancelar solicitação",
+            allowOutsideClick: false
+          });
+          if (tid && sw.isDismissed && sw.dismiss === Swal.DismissReason.cancel) {
+            const cr = await TrackAPI.cancelarTransferencia?.(tid);
+            if (cr?.ok) showMsgIcon("info", "Solicitação de transferência cancelada.");
+            else showMsgIcon("erro", cr?.error || "Não foi possível cancelar.");
+          } else {
+            showMsgIcon("info", msgAguardar);
+          }
+          Sound.play("warn");
+          if (wasActiveOverlay) { try { window.leituraStartScanner?.(); } catch (_) { overlay.style.display = "block"; } }
+          return { ok:false, tipo:"transferencia_aguardando_aceite", detalhe:msgAguardar, backend_processing_ms };
+        }
         if (patchResp.status === 422 && patchCode === "STATUS_FINALIZADO") {
           const statusAtual = String(patchResp?.data?.status_atual || patchResp?.data?.detail?.status_atual || "FINALIZADO");
           showMsgIcon("alerta", `Pedido bloqueado: status ${statusAtual}.`);
