@@ -2992,8 +2992,36 @@ function setupPagerEvents() {
           if (r.status === 404)
             return notify("Saída não encontrada.", "error");
 
-          if (r.status === 409)
+          if (r.status === 409) {
+            var code409 = r.code || r.data?.detail?.code || r.data?.code;
+            var tid409 = r.transferencia_id || r.data?.detail?.transferencia_id;
+            if (code409 === "TRANSFERENCIA_AGUARDANDO_ACEITE") {
+              var msg409 =
+                r.error ||
+                r.data?.detail?.message ||
+                "A transferência aguarda o aceite do entregador atual.";
+              if (window.Swal && tid409) {
+                return Swal.fire({
+                  icon: "info",
+                  title: "Aguardando aceite",
+                  text: msg409,
+                  showCancelButton: true,
+                  confirmButtonText: "Entendi",
+                  cancelButtonText: "Cancelar solicitação"
+                }).then(function (sw) {
+                  if (sw.isDismissed && sw.dismiss === Swal.DismissReason.cancel) {
+                    return TrackAPI.cancelarTransferencia(tid409).then(function (cr) {
+                      if (cr.ok) notify("Solicitação de transferência cancelada.", "success");
+                      else notify(cr.error || "Não foi possível cancelar.", "error");
+                    });
+                  }
+                  notify(msg409, "info");
+                });
+              }
+              return notify(msg409, "info");
+            }
             return notify("Conflito: código já existe para outra saída.", "warning");
+          }
 
           if (r.status === 422){
             var msg = (r.data?.detail || r.data?.message || r.error || "");

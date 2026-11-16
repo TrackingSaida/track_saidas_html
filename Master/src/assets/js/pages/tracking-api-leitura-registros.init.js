@@ -544,7 +544,34 @@
       body: JSON.stringify(payload || {})
     });
     let data = null; try { data = await res.json(); } catch {}
-    return { ok: res.ok, status: res.status, data, error: data?.error };
+    var detail = data?.detail;
+    var errorMsg = data?.error || null;
+    if (typeof detail === "string") errorMsg = detail;
+    else if (detail && typeof detail === "object" && detail.message) errorMsg = detail.message;
+    return {
+      ok: res.ok,
+      status: res.status,
+      data,
+      error: errorMsg,
+      code: (detail && typeof detail === "object" && detail.code) || data?.code || null,
+      transferencia_id:
+        (detail && typeof detail === "object" && detail.transferencia_id) ||
+        data?.transferencia_id ||
+        null
+    };
+  };
+
+  window.TrackAPI.cancelarTransferencia = async function (transferenciaId) {
+    const res = await req(
+      "/saidas/transferencias/" + encodeURIComponent(transferenciaId) + "/cancelar",
+      { method: "POST" }
+    );
+    let data = null; try { data = await res.json(); } catch {}
+    var detail = data?.detail;
+    var errorMsg = null;
+    if (typeof detail === "string") errorMsg = detail;
+    else if (detail && typeof detail === "object" && detail.message) errorMsg = detail.message;
+    return { ok: res.ok, status: res.status, data, error: errorMsg };
   };
 
   // ============================================================
