@@ -268,7 +268,10 @@
 
     function showLoading(show) {
       var loading = document.getElementById("admin-dash-loading");
-      if (loading) loading.classList.toggle("d-none", !show);
+      if (!loading) return;
+      loading.classList.toggle("d-none", !show);
+      if (show) loading.style.removeProperty("display");
+      else loading.style.setProperty("display", "none", "important");
     }
 
     async function load() {
@@ -286,12 +289,21 @@
         var data = await loadDashboard(from, to, subBase);
         renderOwnerFilter(data.owners);
         renderCards(data);
-        renderChart(data);
         renderReceitaPorOwner(data);
         renderPerformancePorOwner(data);
         window._adminDashData = data;
         var footer = document.getElementById("admin-dash-footer");
         if (footer) footer.textContent = "Atualizado há poucos segundos";
+        showLoading(false);
+        setTimeout(function () {
+          try {
+            renderChart(data);
+          } catch (chartErr) {
+            console.error("[Dashboard Admin] Gráfico:", chartErr);
+            var chartEl = document.getElementById("chart-volume-owner");
+            if (chartEl) chartEl.innerHTML = "<p class='text-muted text-center py-4 mb-0'>Não foi possível desenhar o gráfico.</p>";
+          }
+        }, 0);
       } catch (err) {
         console.error("[Dashboard Admin] Erro:", err);
         var footer = document.getElementById("admin-dash-footer");
