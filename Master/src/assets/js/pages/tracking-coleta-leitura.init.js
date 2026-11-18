@@ -227,6 +227,34 @@ function hojeOperacaoLocal() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+const MSG_FORA_AGENDA =
+  "Este dia está fora da agenda de coleta da base. Se precisar coletar, cadastre Coleta extra no calendário.";
+
+function isoWeekdayYmd(ymd) {
+  const [y, m, d] = String(ymd || "").slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return 0;
+  const js = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return js === 0 ? 7 : js;
+}
+
+function baseProgramadaNoDia(base, dia) {
+  if (!base?.agenda_coleta_confirmada) return true;
+  const dias = Array.isArray(base.dias_coleta) ? base.dias_coleta.map(Number) : [];
+  if (!dias.length) return true;
+  return dias.includes(isoWeekdayYmd(dia));
+}
+
+function mensagemDetailApi(data, fallback) {
+  const detail = data && data.detail;
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (detail && typeof detail === "object") {
+    if (typeof detail.mensagem === "string" && detail.mensagem.trim()) return detail.mensagem;
+    if (typeof detail.message === "string" && detail.message.trim()) return detail.message;
+  }
+  if (typeof data?.mensagem === "string" && data.mensagem.trim()) return data.mensagem;
+  return fallback;
+}
+
 function statusColetaNormalizado(status) {
   if (status === "em_coleta") return "em_coleta";
   if (status === "sem_volume") return "sem_volume";
@@ -262,7 +290,7 @@ function escAttr(value) {
 }
 
 /** Agrupa por status: pendentes → em coleta → sem volume → coletadas; A–Z em cada grupo. */
-function basesParaSeletorColeta(bases, situacaoItens) {
+function basesParaSeletorColeta(bases, situacaoItens, dataOperacao) {
   const porId = {};
   const porNome = {};
   (Array.isArray(situacaoItens) ? situacaoItens : []).forEach((item) => {
@@ -275,6 +303,7 @@ function basesParaSeletorColeta(bases, situacaoItens) {
     if (status === "sem_volume") return 2;
     return 3;
   };
+  const dia = String(dataOperacao || dataOperacaoAtual() || hojeOperacaoLocal()).slice(0, 10);
 
   return (Array.isArray(bases) ? bases : [])
     .map((b) => {
@@ -296,9 +325,15 @@ function basesParaSeletorColeta(bases, situacaoItens) {
               avulso: Number(situacao.avulso) || 0,
             }
           : null,
+        _situacao: situacao,
       };
     })
-    .filter((item) => item.nome.length > 0)
+    .filter((item) => {
+      if (!item.nome.length) return false;
+      if (item._situacao && item._situacao.status) return true;
+      return baseProgramadaNoDia(item.raw, dia);
+    })
+    .map(({ _situacao, ...item }) => item)
     .sort((a, b) => {
       const byStatus = rank(a.statusSeletor) - rank(b.statusSeletor);
       if (byStatus !== 0) return byStatus;
@@ -592,7 +627,7 @@ async function enviarColetaUnica(item, entregadorId = null) {
       Sound.play("ok");
     } else {
       const data = await r.json().catch(() => ({}));
-      const detail = typeof data.detail === "string" ? data.detail : (data.detail?.message || data.message || "");
+      const detail = mensagemDetailApi(data, "");
       if (r.status === 409 && detail) {
         item.status = "recusado";
         item.motivo = detail;
@@ -601,12 +636,20 @@ async function enviarColetaUnica(item, entregadorId = null) {
         avisarColetaRecusada(item, detail, entregadorId);
         return;
       }
-      throw new Error(`Status ${r.status}`);
+      if (r.status === 422) {
+        item.status = "erro";
+        item.motivo = detail || MSG_FORA_AGENDA;
+        salvarColetasLocais();
+        toast(detail || MSG_FORA_AGENDA, false);
+        Sound.play("error");
+        return;
+      }
+      throw new Error(detail || `Status ${r.status}`);
     }
   } catch (err) {
     console.error("Falha no envio imediato:", err);
     item.status = "erro";
-    toast("Erro ao enviar coleta.", false);
+    toast(err?.message || "Erro ao enviar coleta.", false);
     Sound.play("error");
   } finally {
     renderTabela();
@@ -1191,12 +1234,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let list;
     let comGrupos = false;
+    const diaSeletor = hojeOperacaoLocal();
     if (situacaoPayload && Array.isArray(situacaoPayload.itens)) {
-      list = basesParaSeletorColeta(basesRaw, situacaoPayload.itens);
+      list = basesParaSeletorColeta(basesRaw, situacaoPayload.itens, diaSeletor);
       comGrupos = true;
     } else {
       if (situacaoPayload === null) {
-        toast("Não foi possível agrupar por status. Mostrando todas as bases ativas.", false);
+        toast("Não foi possível agrupar por status. Mostrando bases da agenda de hoje.", false);
       }
       list = basesRaw
         .map((b) => ({
@@ -1206,7 +1250,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           statusSeletor: "pendente",
           totais: null,
         }))
-        .filter((item) => item.nome.length > 0)
+        .filter((item) => item.nome.length > 0 && baseProgramadaNoDia(item.raw, diaSeletor))
         .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" }));
     }
 
@@ -1352,6 +1396,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   })();
 
   async function ativarModoRetroativoLeitura(dataOp, baseNome, baseId) {
+    const baseRaw =
+      (BASE_PICKER_STATE.list || []).map((i) => i.raw).find((b) => b && Number(b.id_base) === Number(baseId)) ||
+      (BASE_PICKER_STATE.list || []).map((i) => i.raw).find((b) => b && nomeBaseItem(b) === baseNome) ||
+      null;
+    if (baseRaw && !baseProgramadaNoDia(baseRaw, dataOp)) {
+      toast(MSG_FORA_AGENDA, false);
+      return;
+    }
     DATA_OPERACAO = dataOp;
     BASE_ATUAL = baseNome;
     STORAGE_KEY = `coletasPendentes_${BASE_ATUAL}`;
@@ -1363,12 +1415,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     try {
       if (baseId) {
-        await fetch(`${getBaseUrl()}/coletas/operacionais/bases/${encodeURIComponent(baseId)}/iniciar`, {
+        const r = await fetch(`${getBaseUrl()}/coletas/operacionais/bases/${encodeURIComponent(baseId)}/iniciar`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({ metodo: "codigo", ajudar: true, data_operacao: dataOp }),
         });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok && r.status !== 409) {
+          toast(mensagemDetailApi(data, r.status === 422 ? MSG_FORA_AGENDA : "Não foi possível iniciar a coleta nesta data."), false);
+          return;
+        }
       }
     } catch (_) {}
     atualizarBannerRetroativo();
@@ -1725,6 +1782,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const total = Number(resumo?.total) || 0;
+    const baseRaw =
+      (BASE_PICKER_STATE.list || []).map((i) => i.raw).find((b) => b && Number(b.id_base) === Number(baseId)) || null;
+    if (baseRaw && !baseProgramadaNoDia(baseRaw, dataOp)) {
+      toast(MSG_FORA_AGENDA, false);
+      return;
+    }
     if (total > 0) {
       const confirma = await Swal.fire({
         title: "Já existe quantidade lançada",
@@ -1762,7 +1825,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const situacao = await carregarSituacaoColetas(hojeOperacaoLocal());
       if (situacao && Array.isArray(situacao.itens)) {
         const basesRaw = (BASE_PICKER_STATE.list || []).map((i) => i.raw).filter(Boolean);
-        const list = basesParaSeletorColeta(basesRaw, situacao.itens);
+        const list = basesParaSeletorColeta(basesRaw, situacao.itens, hojeOperacaoLocal());
         if (list.length) montarSeletorBases(qs("#selBase"), list, { comGrupos: true, placeholder: "Selecione..." });
       }
     } catch (_) {}

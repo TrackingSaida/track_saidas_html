@@ -1,8 +1,12 @@
 (function () {
   "use strict";
 
+  const MSG_FORA_AGENDA =
+    "Este dia está fora da agenda de coleta da base. Se precisar coletar, cadastre Coleta extra no calendário.";
+
   const state = {
     itens: [],
+    bases: [],
     podeCorrigir: false,
     correcao: null,
     manual: null,
@@ -212,6 +216,30 @@
     const dias = Array.isArray(base.dias_coleta) ? base.dias_coleta.map(Number) : [];
     if (!dias.length) return true;
     return dias.includes(isoWeekdayYmd(dia));
+  }
+
+  function agendaBasePorId(baseId) {
+    return (state.bases || []).find((base) => Number(base.id_base) === Number(baseId)) || null;
+  }
+
+  /** Pré-check local: sintético só nasce em dia programado; item da situação pode ser Coleta extra. */
+  function clientePermiteLancamento(baseId, dia, item) {
+    if (item && !item.sintetico) return true;
+    const base = agendaBasePorId(baseId);
+    if (!base) return true;
+    return baseProgramadaNoDia(base, dia);
+  }
+
+  function avisarForaAgenda(alvoErro) {
+    if (alvoErro) {
+      alvoErro.textContent = MSG_FORA_AGENDA;
+      alvoErro.classList.remove("d-none");
+      return;
+    }
+    const alert = $("coletas-operacao-alert");
+    if (!alert) return;
+    alert.textContent = MSG_FORA_AGENDA;
+    alert.classList.remove("d-none");
   }
 
   function completarPendentes(itens, bases, ini, fim) {
@@ -701,6 +729,10 @@
       (candidato) => Number(candidato.base_id) === Number(baseId) && String(candidato.data_operacao || "").slice(0, 10) === dia
     );
     if (!podeRegistrarManual(item)) return;
+    if (!clientePermiteLancamento(baseId, dia, item)) {
+      avisarForaAgenda();
+      return;
+    }
     state.manual = { baseId: Number(item.base_id), data: dia, base: item.base || "" };
     $("man-meta").textContent = `${item.base} · ${fmtDMY(dia)}`;
     $("man-flex").value = "";
@@ -720,6 +752,15 @@
     const erro = $("man-erro");
     const btn = $("man-salvar");
     erro.classList.add("d-none");
+    const item = state.itens.find(
+      (candidato) =>
+        Number(candidato.base_id) === Number(ctx.baseId) &&
+        String(candidato.data_operacao || "").slice(0, 10) === String(ctx.data || "").slice(0, 10)
+    );
+    if (!clientePermiteLancamento(ctx.baseId, ctx.data, item)) {
+      avisarForaAgenda(erro);
+      return;
+    }
     if (flex === null || shopee === null || avulso === null) {
       erro.textContent = "Use apenas números inteiros a partir de zero.";
       erro.classList.remove("d-none");
@@ -752,7 +793,14 @@
         return;
       }
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(mensagemApi(payload, "Não foi possível registrar a coleta."));
+      if (!response.ok) {
+        throw new Error(
+          mensagemApi(
+            payload,
+            response.status === 422 ? MSG_FORA_AGENDA : "Não foi possível registrar a coleta."
+          )
+        );
+      }
       state.manual = null;
       bootstrap.Modal.getOrCreateInstance($("modal-registrar-manual")).hide();
       await carregar({ manterExpandidos: true });
@@ -782,8 +830,16 @@
         $("coletas-operacao-status").value = "";
       }
       await garantirTipoOwner();
+      const urlBases = `${window.TRACK_API_URL}/base/?status=ativo`;
       if (!state.multiDia) {
-        const payload = await apiGet(`${window.TRACK_API_URL}/coletas/operacionais/situacao?data_operacao=${encodeURIComponent(ini)}`);
+        const pedidos = [
+          apiGet(`${window.TRACK_API_URL}/coletas/operacionais/situacao?data_operacao=${encodeURIComponent(ini)}`),
+        ];
+        if (usuarioOperacao() || ownerPermiteManual()) {
+          pedidos.push(apiGet(urlBases).catch(() => null));
+        }
+        const [payload, bases] = await Promise.all(pedidos);
+        state.bases = Array.isArray(bases) ? bases : [];
         state.itens = Array.isArray(payload.itens) ? payload.itens : [];
         state.podeCorrigir = Boolean(payload.pode_corrigir_quantidades);
         aplicarResumo(payload.resumo);
@@ -794,10 +850,11 @@
             `${window.TRACK_API_URL}/coletas/operacionais/?data_inicio=${encodeURIComponent(ini)}&data_fim=${encodeURIComponent(fim)}`
           ),
         ];
-        if (usuarioOperacao()) {
-          pedidos.push(apiGet(`${window.TRACK_API_URL}/base/?status=ativo`));
+        if (usuarioOperacao() || ownerPermiteManual()) {
+          pedidos.push(apiGet(urlBases).catch(() => null));
         }
         const [rows, bases] = await Promise.all(pedidos);
+        state.bases = Array.isArray(bases) ? bases : [];
         let itens = (Array.isArray(rows) ? rows : []).map(normalizarExecucao);
         state.podeCorrigir = false;
         const dia = hoje();
@@ -808,7 +865,7 @@
             state.podeCorrigir = Boolean(hojePayload.pode_corrigir_quantidades);
           } catch (_) {}
         }
-        if (Array.isArray(bases)) itens = completarPendentes(itens, bases, ini, fim);
+        if (state.bases.length) itens = completarPendentes(itens, state.bases, ini, fim);
         state.itens = itens;
         aplicarResumo(resumoDeItens(itens));
         renderResumoAColetar(null);
