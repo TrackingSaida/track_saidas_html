@@ -107,7 +107,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     SEM_COLETAS: "Sem coletas no período.",
     JA_GERADO: "Já tem fechamento neste período.",
     PERIODO_FECHAMENTO: "O período escolhido não corresponde ao fechamento desta base.",
-    PERIODO_ABERTO: "Ainda há dia de coleta neste período.",
+    PERIODO_ABERTO: "Ainda há dia de coleta futuro neste período. Abra Revisar e justifique (feriado, sem coleta) antes de gerar.",
   };
   const ORDEM_CICLO = ["semanal", "quinzenal", "mensal", "nenhum"];
   const ROTULO_CICLO = { nenhum: "Nenhum", semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
@@ -267,21 +267,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       ? `<button type="button" class="btn btn-sm btn-link text-secondary px-1" data-acao="pdf" data-id="${esc(id)}" title="Baixar PDF" aria-label="Baixar PDF de ${esc(r.base)}"><i class="ri-file-pdf-line fs-5"></i></button>`
       : "";
     if (st === "PENDENTE") {
-      // Só agenda ainda aberta impede abrir o painel. DIAS_PENDENTES/PACOTES_G
-      // ficam fora do lote, mas o atalho Revisar e gerar deve abrir a revisão.
-      const bloqueada = r.motivo_bloqueio === "PERIODO_ABERTO";
-      const motivoBloqueio = bloqueada
-        ? motivoDeFora(r) || "Não é possível gerar esta base neste período."
-        : "";
+      // PERIODO_ABERTO / DIAS_PENDENTES / PACOTES_G ficam fora do lote, mas o
+      // atalho Revisar e gerar abre o painel para justificar dias futuros.
       const hintRevisao =
-        !bloqueada && (r.motivo_bloqueio === "DIAS_PENDENTES" || r.motivo_bloqueio === "PACOTES_G")
-          ? "Fora do lote automático; revise e justifique no painel."
+        r.motivo_bloqueio === "PERIODO_ABERTO" ||
+        r.motivo_bloqueio === "DIAS_PENDENTES" ||
+        r.motivo_bloqueio === "PACOTES_G"
+          ? motivoDeFora(r) || "Fora do lote automático; revise e justifique no painel."
           : "";
-      const title = motivoBloqueio || hintRevisao;
-      const btn = `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="gerar" data-base="${esc(r.base)}"${bloqueada ? " disabled" : ""}${title ? ` title="${esc(title)}"` : ""}>Revisar e gerar</button>`;
-      return bloqueada
-        ? `<span class="d-inline-block" tabindex="0" title="${esc(motivoBloqueio)}">${btn}</span>`
-        : btn;
+      const title = hintRevisao;
+      return `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="gerar" data-base="${esc(r.base)}"${title ? ` title="${esc(title)}"` : ""}>Revisar e gerar</button>`;
     }
     if (st === "RECEBIDO") return pdf;
     const classe = r.precisa_reajuste ? "btn-fm-primary" : "btn-outline-secondary";
@@ -685,6 +680,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   function errosValidacao(c) {
     const p = state.painel;
     const erros = [];
+    if (p.modo === "gerar" && p.periodoAberto) {
+      erros.push(
+        "Ainda há dia de coleta futuro neste período. Justifique os dias restantes (feriado, sem coleta) antes de gerar."
+      );
+    }
     if (p.modo === "gerar" && p.pendentes.length) erros.push("Resolva os dias de coleta sem lançamento.");
     if (p.modo === "gerar" && p.avisoCiclo) erros.push(p.avisoCiclo);
     if (c.total < 0) erros.push("O total não pode ficar negativo. Revise os descontos.");
@@ -940,6 +940,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           ajusteG: null,
           avisoG: "",
           avisoCiclo: calc.aviso_ciclo || "",
+          periodoAberto: !!calc.periodo_aberto,
         });
       } else {
         const fech = await api(`${API_FECH}/${encodeURIComponent(opts.idFech)}`);
@@ -1009,6 +1010,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       const calc = await calcularBase(p.base, p.ini, p.fim);
       p.pendentes = (calc.calendario?.dias_pendentes || []).map((d) => d.data);
+      p.avisoCiclo = calc.aviso_ciclo || "";
+      p.periodoAberto = !!calc.periodo_aberto;
       const sig = JSON.parse(p.assinaturaInicial);
       if (JSON.stringify(p.itens) === JSON.stringify(sig[0])) {
         p.itens = (calc.itens || []).map(normalizarItem);
