@@ -127,9 +127,9 @@
   }
 
   function textoParceriaLista(criadoEm) {
-    if (!criadoEm) return "";
+    if (!criadoEm) return "Data de parceria não registrada";
     var parts = String(criadoEm).slice(0, 10).split("-");
-    if (parts.length !== 3) return "";
+    if (parts.length !== 3) return "Data de parceria não registrada";
     var y = Number(parts[0]);
     var m = Number(parts[1]);
     var d = Number(parts[2]);

@@ -79,11 +79,29 @@
   // Cabeçalho e composição
   // -------------------------------------------------------------------------
 
+  function textoParceriaCabecalho(criadoEm) {
+    if (!criadoEm) return "Data de parceria não registrada";
+    var parts = String(criadoEm).slice(0, 10).split("-");
+    if (parts.length !== 3) return "Data de parceria não registrada";
+    var y = Number(parts[0]);
+    var m = Number(parts[1]);
+    var d = Number(parts[2]);
+    var meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+    var hoje = new Date();
+    var anos = hoje.getFullYear() - y - ((hoje.getMonth() + 1 < m || (hoje.getMonth() + 1 === m && hoje.getDate() < d)) ? 1 : 0);
+    if (anos >= 1 && (hoje.getMonth() + 1) === m) {
+      return anos === 1 ? "1 ano de parceria" : anos + " anos de parceria";
+    }
+    return "Parceiro desde " + d + " de " + meses[m - 1] + " de " + y;
+  }
+
   function renderCabecalho(d) {
     $("cobd-nome").textContent = d.owner.nome;
     document.title = "Cobrança · " + d.owner.nome + " | ROTEVO";
+    var parceria = textoParceriaCabecalho(d.owner && d.owner.criado_em);
     var meta = [
-      "<span>" + C.escapeHtml(C.periodoLabel(d.periodo.inicio, d.periodo.fim)) + "</span>",
+      "<span>" + C.escapeHtml(parceria) + "</span>",
+      "<span aria-hidden='true'>·</span><span>" + C.escapeHtml(C.periodoLabel(d.periodo.inicio, d.periodo.fim)) + "</span>",
       "<span aria-hidden='true'>·</span><span>" + C.escapeHtml(d.modelo_label) +
         (d.fonte === "previa" && !d.config.confirmado ? " (a confirmar)" : "") + "</span>",
       "<span aria-hidden='true'>·</span><span class='cob-num'>" + C.preco(d.totais.preco_unitario) + " por pacote</span>",
@@ -548,6 +566,12 @@
       if ($("cfg-preco-vigente-sellers")) {
         $("cfg-preco-vigente-sellers").textContent = C.preco(r.preco_vigente_sellers);
       }
+    }
+    var hintDual = $("cfg-preco-dual-hint");
+    if (hintDual) {
+      var tipo = (r.owner && r.owner.tipo_owner) || r.tipo_owner || "";
+      var ownerBase = String(tipo).toLowerCase() === "base";
+      hintDual.classList.toggle("d-none", !(ownerBase && !r.dois_precos));
     }
     if ($("preco-escopo")) {
       $("preco-escopo").disabled = !r.dois_precos;

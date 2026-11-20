@@ -234,7 +234,7 @@ function syncTipoOwner() {
     const base = isOwnerBase();
     document.querySelectorAll("#oc-owner .of-req-base").forEach((el) => el.classList.toggle("d-none", !base));
     document.getElementById("ownerEnderecoHelp").textContent = base
-        ? "Base (Seller) exige CNPJ e endereço completo. Usados no demonstrativo de cobrança e na mensagem ao Owner."
+        ? "Owner Base: menu Clientes com papéis Seller e Base. CNPJ e endereço do Owner vão ao demonstrativo de cobrança."
         : "Opcionais para Subbase. Usados no demonstrativo de cobrança e na mensagem ao Owner; campo vazio sai em branco.";
 }
 
@@ -421,7 +421,7 @@ function renderTable() {
         `;
     })()}
 </td>
-
+            <td class="small">${escapeHtml(textoParceriaLista(o.criado_em))}</td>
             <td>R$ ${Number(o.valor).toFixed(2)}</td>
             <td>${o.ignorar_coleta ? "Sem coleta" : o.modo_operacao === "coleta_manual" ? "Manual" : o.modo_operacao === "ambos" ? "Leitura e manual" : "Leitura"}</td>
             <td>${o.ignorar_coleta ? "Não" : "Sim"}</td>
@@ -662,6 +662,11 @@ function textoParceria(criadoEm, hoje) {
     return `Parceiro desde ${formatarDataLongaPt(criadoEm)}`;
 }
 
+function textoParceriaLista(criadoEm) {
+    if (!criadoEm) return "Data de parceria não registrada";
+    return textoParceria(criadoEm) || `Parceiro desde ${formatarDataLongaPt(criadoEm)}`;
+}
+
 function preencherParceria(o) {
     const textoEl = document.getElementById("ownerParceriaTexto");
     const campoEl = document.getElementById("ownerParceriaCampo");
@@ -675,8 +680,8 @@ function preencherParceria(o) {
         input.value = String(criado).slice(0, 10);
         input.disabled = true;
     } else {
-        textoEl.classList.add("d-none");
-        textoEl.textContent = "";
+        textoEl.textContent = "Data de parceria não registrada";
+        textoEl.classList.remove("d-none");
         campoEl.classList.remove("d-none");
         input.disabled = false;
         input.value = "";

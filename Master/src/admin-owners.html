@@ -58,6 +58,7 @@
                                     <th>Username</th>
                                     <th>E-mail</th>
                                     <th>Contato</th>
+                                    <th>Parceria</th>
                                     <th>Valor (R$)</th>
                                     <th>Modo</th>
                                     <th>Controle de coleta</th>
@@ -147,9 +148,9 @@
                     <label class="form-label" for="ownerTipo">Tipo do owner</label>
                     <select id="ownerTipo" class="form-select" aria-describedby="ownerTipoHelp">
                       <option value="subbase">Subbase</option>
-                      <option value="base">Base (Seller)</option>
+                      <option value="base">Base</option>
                     </select>
-                    <div class="form-text" id="ownerTipoHelp">Base mostra &quot;Seller&quot; no menu e exige CNPJ e endereço.</div>
+                    <div class="form-text" id="ownerTipoHelp">Base mostra &quot;Clientes&quot; no menu (papéis Seller e Base). Cadastro de Clientes com CNPJ conforme o papel.</div>
                   </div>
                   <div class="col-md-6">
                     <label class="form-label" for="ownerUsername">Username <span class="text-danger">*</span></label>
@@ -166,7 +167,7 @@
                     <div id="ownerParceriaCampo" class="d-none">
                       <label class="form-label" for="ownerCriadoEm">Data de parceria</label>
                       <input type="date" id="ownerCriadoEm" class="form-control" style="max-width: 14rem;">
-                      <div class="form-text">Legado sem data: informe uma vez. Depois não pode alterar.</div>
+                      <div class="form-text">Data de parceria não registrada. Informe uma vez; depois não pode alterar.</div>
                     </div>
                   </div>
                 </div>

@@ -182,12 +182,36 @@ async function apiDelete(id) {
   // Renderização da Tabela
   // =======================================================
   let PAPEL_TAB = "seller";
+  let PAPEL_TAB_USER_SET = false;
   let DATA_ALL = [];
 
   function seloPapel(papel) {
     if (papel === "base_parceira") return '<span class="badge bg-secondary-subtle text-secondary">Base</span>';
     if (papel === "seller") return '<span class="badge bg-primary-subtle text-primary">Seller</span>';
     return "";
+  }
+
+  function countByPapel(papel) {
+    return DATA_ALL.filter((b) => (b.papel || "seller") === papel).length;
+  }
+
+  function syncPapelTabsActive() {
+    qsa("#clientesPapelTabs .nav-link").forEach((el) => {
+      el.classList.toggle("active", el.getAttribute("data-papel-tab") === PAPEL_TAB);
+    });
+  }
+
+  /** Pós-promote: só bases → abre Bases. Se o usuário já clicou numa aba, respeita. */
+  function escolherAbaPapelInicial() {
+    if (!isOwnerTipoBase() || PAPEL_TAB_USER_SET) return;
+    const nSeller = countByPapel("seller");
+    const nBase = countByPapel("base_parceira");
+    if (nSeller === 0 && nBase > 0) {
+      PAPEL_TAB = "base_parceira";
+    } else if (nSeller > 0) {
+      PAPEL_TAB = "seller";
+    }
+    syncPapelTabsActive();
   }
 
   function buildRow(b) {
@@ -494,7 +518,8 @@ async function apiDelete(id) {
   function atualizarBadgePrecoPagar(campo, origem) {
     const el = qs(`#lblPagar${campo}`);
     if (!el) return;
-    const proprio = origem === "excecao";
+    const key = String(origem || "").toLowerCase();
+    const proprio = key === "proprio" || key === "excecao";
     el.textContent = proprio ? "Preço próprio" : "Padrão";
     el.className = proprio ? "badge bg-warning-subtle text-warning" : "badge bg-light text-muted";
   }
@@ -564,6 +589,7 @@ async function apiDelete(id) {
       const data = await apiList();
       DATA_ALL = Array.isArray(data) ? data : [];
       atualizarUiClientesOwnerBase();
+      escolherAbaPapelInicial();
       aplicarFiltroPapelEBusca();
       CURRENT_PAGE = 1;
       renderPage();
@@ -607,7 +633,10 @@ async function apiDelete(id) {
 
     const cards = qs("#papelCards");
     if (cards) cards.classList.toggle("d-none", !isOwnerTipoBase());
-    const papelInicial = data?.papel || (isOwnerTipoBase() ? PAPEL_TAB : "");
+    let papelInicial = data?.papel || "";
+    if (!papelInicial && isOwnerTipoBase()) {
+      papelInicial = PAPEL_TAB === "base_parceira" ? "base_parceira" : "seller";
+    }
     if (qs("#entregaPedidos")) qs("#entregaPedidos").checked = !!data?.entrega_pedidos;
     selecionarPapelForm(papelInicial);
     limparPrecoPagarForm();
@@ -1213,8 +1242,9 @@ async function apiDelete(id) {
     qs("#clientesPapelTabs")?.addEventListener("click", (ev) => {
       const btn = ev.target.closest("[data-papel-tab]");
       if (!btn) return;
+      PAPEL_TAB_USER_SET = true;
       PAPEL_TAB = btn.getAttribute("data-papel-tab") || "seller";
-      qsa("#clientesPapelTabs .nav-link").forEach((el) => el.classList.toggle("active", el === btn));
+      syncPapelTabsActive();
       CURRENT_PAGE = 1;
       aplicarFiltroPapelEBusca();
       renderPage();
