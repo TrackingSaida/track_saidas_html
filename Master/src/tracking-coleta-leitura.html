@@ -168,7 +168,12 @@
                 </div>
                 <div class="row g-3 align-items-end">
                   <div class="col-md-3">
-                    <label class="form-label" data-owner-term="selecione_a_base">Selecione a Base</label>
+                    <label class="form-label" id="lblSelecioneCliente" data-owner-term="selecione_a_base">Selecione a Base</label>
+                    <ul class="nav nav-pills gap-1 mb-2 d-none" id="coletaPapelTabs">
+                      <li class="nav-item"><button type="button" class="nav-link active py-1 px-2" data-papel-filtro="todos">Todos</button></li>
+                      <li class="nav-item"><button type="button" class="nav-link py-1 px-2" data-papel-filtro="seller">Sellers</button></li>
+                      <li class="nav-item"><button type="button" class="nav-link py-1 px-2" data-papel-filtro="base_parceira">Bases</button></li>
+                    </ul>
                     <div class="base-picker" id="basePicker">
                       <select id="selBase" class="d-none" aria-hidden="true" tabindex="-1">
                         <option value="" selected disabled data-owner-term="base_obrigatoria">Base obrigatória</option>
@@ -186,6 +191,7 @@
                       </button>
                       <div id="basePickerPanel" class="base-picker-panel d-none" role="listbox" hidden></div>
                     </div>
+                    <div class="form-text small d-none" id="coletaHintReceber">Esta coleta entra em A receber.</div>
                   </div>
 
                   <div class="col-md-5" id="colCodigoLeitura">

@@ -210,7 +210,11 @@ async function loadSellers() {
 
         const mlIntList = await mlIntRes.json();
         const shopeeList = shopeeRes.ok ? await shopeeRes.json() : [];
-        state.bases = basesRes.ok ? await basesRes.json() : [];
+        const basesRaw = basesRes.ok ? await basesRes.json() : [];
+        // PRD-011: Base parceira não aparece no vínculo de autenticação.
+        state.bases = Array.isArray(basesRaw)
+          ? basesRaw.filter((b) => (b.papel || "seller") !== "base_parceira")
+          : [];
 
         state.contas = [
             ...mlIntList.map(x => ({ ...x, platform: "mercado_livre" })),

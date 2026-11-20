@@ -181,6 +181,39 @@ async function apiDelete(id) {
   // =======================================================
   // Renderização da Tabela
   // =======================================================
+  let PAPEL_TAB = "seller";
+  let PAPEL_TAB_USER_SET = false;
+  let DATA_ALL = [];
+
+  function seloPapel(papel) {
+    if (papel === "base_parceira") return '<span class="badge bg-secondary-subtle text-secondary">Base</span>';
+    if (papel === "seller") return '<span class="badge bg-primary-subtle text-primary">Seller</span>';
+    return "";
+  }
+
+  function countByPapel(papel) {
+    return DATA_ALL.filter((b) => (b.papel || "seller") === papel).length;
+  }
+
+  function syncPapelTabsActive() {
+    qsa("#clientesPapelTabs .nav-link").forEach((el) => {
+      el.classList.toggle("active", el.getAttribute("data-papel-tab") === PAPEL_TAB);
+    });
+  }
+
+  /** Pós-promote: só bases → abre Bases. Se o usuário já clicou numa aba, respeita. */
+  function escolherAbaPapelInicial() {
+    if (!isOwnerTipoBase() || PAPEL_TAB_USER_SET) return;
+    const nSeller = countByPapel("seller");
+    const nBase = countByPapel("base_parceira");
+    if (nSeller === 0 && nBase > 0) {
+      PAPEL_TAB = "base_parceira";
+    } else if (nSeller > 0) {
+      PAPEL_TAB = "seller";
+    }
+    syncPapelTabsActive();
+  }
+
   function buildRow(b) {
     const ativoChecked = b.ativo ? "checked" : "";
     const id = b.id_base || b.id;
@@ -189,10 +222,14 @@ async function apiDelete(id) {
     const mlHtml = mlContas.length
       ? `<div class="small text-muted">Mercado Livre: ${mlNomes} · <a href="tracking-autenticacao.html">Gerenciar em Autenticação</a></div>`
       : "";
+    const papelCol = isOwnerTipoBase()
+      ? `<td class="text-center">${seloPapel(b.papel)}</td>`
+      : "";
     return `
-      <tr class="row-selectable" data-id="${id}">
+      <tr class="row-selectable" data-id="${id}" data-papel="${b.papel || ""}">
         <td class="text-center"><input class="form-check-input sel-row" type="radio" name="sel-base" value="${id}"></td>
         <td>${b.base || "-"}${mlHtml}</td>
+        ${papelCol}
         <td class="text-end">R$ ${Number(b.ml).toFixed(2).replace(".", ",")}</td>
         <td class="text-end">R$ ${Number(b.shopee).toFixed(2).replace(".", ",")}</td>
         <td class="text-end">R$ ${Number(b.avulso).toFixed(2).replace(".", ",")}</td>
@@ -447,14 +484,113 @@ async function apiDelete(id) {
     }
   }
 
+  function aplicarFiltroPapelEBusca() {
+    const term = (qs("#search")?.value || "").toLowerCase();
+    let rows = DATA_ALL.slice();
+    if (isOwnerTipoBase()) {
+      rows = rows.filter((b) => (b.papel || "seller") === PAPEL_TAB);
+    }
+    if (term) {
+      rows = rows.filter((b) => (b.base || "").toLowerCase().includes(term));
+    }
+    DATA_CACHE = rows;
+  }
+
+  function atualizarUiClientesOwnerBase() {
+    const tabs = qs("#clientesPapelTabs");
+    const thPapel = qs("#thPapel");
+    if (tabs) tabs.classList.toggle("d-none", !isOwnerTipoBase());
+    if (thPapel) thPapel.classList.toggle("d-none", !isOwnerTipoBase());
+    if (isOwnerTipoBase()) {
+      const title = document.querySelector("[data-owner-term='bases']");
+      if (title) title.textContent = "Clientes";
+      document.title = "Clientes | Tracking Saídas";
+    }
+  }
+
+  function formatMoedaInput(valor) {
+    if (valor == null || valor === "") return "";
+    const n = Number(valor);
+    if (!Number.isFinite(n)) return "";
+    return `R$ ${n.toFixed(2).replace(".", ",")}`;
+  }
+
+  function atualizarBadgePrecoPagar(campo, origem) {
+    const el = qs(`#lblPagar${campo}`);
+    if (!el) return;
+    const key = String(origem || "").toLowerCase();
+    const proprio = key === "proprio" || key === "excecao";
+    el.textContent = proprio ? "Preço próprio" : "Padrão";
+    el.className = proprio ? "badge bg-warning-subtle text-warning" : "badge bg-light text-muted";
+  }
+
+  function limparPrecoPagarForm() {
+    ["Shopee", "Ml", "Avulso"].forEach((c) => {
+      const inp = qs(`#pagar${c}`);
+      if (inp) inp.value = "";
+      atualizarBadgePrecoPagar(c, "global");
+    });
+  }
+
+  async function carregarPrecoPagar(idBase) {
+    limparPrecoPagarForm();
+    if (!idBase) return;
+    try {
+      const data = await http(`${API_URL}/base-repasse/bases/${encodeURIComponent(idBase)}/preco-pagar`);
+      const origem = data?.origem || {};
+      const efetivo = data?.efetivo || {};
+      const mapa = { Shopee: "shopee_valor", Ml: "ml_valor", Avulso: "avulso_valor" };
+      Object.entries(mapa).forEach(([label, key]) => {
+        const inp = qs(`#pagar${label}`);
+        if (inp) inp.value = formatMoedaInput(efetivo[key]);
+        atualizarBadgePrecoPagar(label, origem[key] || "global");
+      });
+    } catch (_) {
+      limparPrecoPagarForm();
+    }
+  }
+
+  async function salvarPrecoPagar(idBase) {
+    if (!idBase) return;
+    const body = {
+      shopee_valor: qs("#pagarShopee")?.value?.trim() ? parseMoeda(qs("#pagarShopee").value) : null,
+      ml_valor: qs("#pagarMl")?.value?.trim() ? parseMoeda(qs("#pagarMl").value) : null,
+      avulso_valor: qs("#pagarAvulso")?.value?.trim() ? parseMoeda(qs("#pagarAvulso").value) : null,
+    };
+    await http(`${API_URL}/base-repasse/bases/${encodeURIComponent(idBase)}/preco-pagar`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  }
+
+  function selecionarPapelForm(papel) {
+    const hid = qs("#basePapel");
+    if (hid) hid.value = papel || "";
+    qsa(".papel-card").forEach((btn) => {
+      const ativo = btn.getAttribute("data-papel") === papel;
+      btn.classList.toggle("btn-primary", ativo && papel === "seller");
+      btn.classList.toggle("btn-outline-primary", !(ativo && papel === "seller") && btn.getAttribute("data-papel") === "seller");
+      btn.classList.toggle("btn-secondary", ativo && papel === "base_parceira");
+      btn.classList.toggle("btn-outline-secondary", !(ativo && papel === "base_parceira") && btn.getAttribute("data-papel") === "base_parceira");
+    });
+    const blocoEntrega = qs("#blocoEntregaPedidos");
+    const blocoPagar = qs("#blocoPrecoPagar");
+    const isBase = papel === "base_parceira";
+    if (blocoEntrega) blocoEntrega.classList.toggle("d-none", !isBase);
+    if (blocoPagar) {
+      const ligado = !!qs("#entregaPedidos")?.checked;
+      blocoPagar.classList.toggle("d-none", !isBase || !ligado);
+    }
+    atualizarAjudaCamposSeller();
+  }
+
   async function listarBases() {
     try {
       const data = await apiList();
-      const term = (qs("#search")?.value || "").toLowerCase();
-      const filtrados = data.filter(b =>
-        b.base?.toLowerCase().includes(term)
-      );
-      DATA_CACHE = filtrados;
+      DATA_ALL = Array.isArray(data) ? data : [];
+      atualizarUiClientesOwnerBase();
+      escolherAbaPapelInicial();
+      aplicarFiltroPapelEBusca();
       CURRENT_PAGE = 1;
       renderPage();
       showSellerDetailEmpty();
@@ -471,6 +607,9 @@ async function apiDelete(id) {
     qs("#ocLabel").textContent = modo === "edit"
       ? (typeof window.ownerTerm === "function" ? window.ownerTerm("editar_base") : "Editar Base")
       : (typeof window.ownerTerm === "function" ? window.ownerTerm("nova_base") : "Nova Base");
+    if (isOwnerTipoBase()) {
+      qs("#ocLabel").textContent = modo === "edit" ? "Editar Cliente" : "Novo Cliente";
+    }
 
     qs("#baseId").value = data?.id_base || "";
     qs("#base").value = data?.base || "";
@@ -491,6 +630,19 @@ async function apiDelete(id) {
       delete periodoSelect.dataset.escolhido;
     }
     aplicarPeriodoFechamento(data?.periodo_fechamento);
+
+    const cards = qs("#papelCards");
+    if (cards) cards.classList.toggle("d-none", !isOwnerTipoBase());
+    let papelInicial = data?.papel || "";
+    if (!papelInicial && isOwnerTipoBase()) {
+      papelInicial = PAPEL_TAB === "base_parceira" ? "base_parceira" : "seller";
+    }
+    if (qs("#entregaPedidos")) qs("#entregaPedidos").checked = !!data?.entrega_pedidos;
+    selecionarPapelForm(papelInicial);
+    limparPrecoPagarForm();
+    if (data?.id_base && papelInicial === "base_parceira" && data?.entrega_pedidos) {
+      carregarPrecoPagar(data.id_base);
+    }
 
     atualizarAjudaCamposSeller();
     formModal.show();
@@ -516,24 +668,33 @@ async function apiDelete(id) {
     block.classList.toggle("d-none", !isOwnerTipoBase());
   }
 
+  function papelFormAtual() {
+    return (qs("#basePapel")?.value || "").trim();
+  }
+
   function atualizarAjudaCamposSeller() {
-    const isSeller = isOwnerTipoBase();
+    const papel = papelFormAtual();
+    const exigeSeller = isOwnerTipoBase() && papel !== "base_parceira";
     const cnpjHelp = qs("#sellerCnpjHelp");
     const cepHelp = qs("#sellerCepHelp");
     if (cnpjHelp) {
-      cnpjHelp.textContent = isSeller
-        ? "Obrigatório quando o owner for do tipo Base (Seller)."
-        : "Opcional quando o owner for do tipo Subbase.";
+      cnpjHelp.textContent = exigeSeller
+        ? "Obrigatório para Seller."
+        : isOwnerTipoBase()
+          ? "Opcional para Base parceira."
+          : "Opcional quando o owner for do tipo Subbase.";
     }
     if (cepHelp) {
-      cepHelp.textContent = isSeller
-        ? "Digite o CEP e saia do campo para preencher o endereço. Obrigatório para Base (Seller)."
+      cepHelp.textContent = exigeSeller
+        ? "Digite o CEP e saia do campo para preencher o endereço. Obrigatório para Seller."
         : "Opcional. Digite o CEP e saia do campo para preencher o endereço.";
     }
+    const portal = qs("#portal-seller-block");
+    if (portal) portal.classList.toggle("d-none", !exigeSeller);
   }
 
   function formPayload() {
-    return {
+    const payload = {
       base: normalizeNome(qs("#base").value || ""),
       ml: parseMoeda(qs("#flex").value),
       shopee: parseMoeda(qs("#shopee").value),
@@ -543,6 +704,13 @@ async function apiDelete(id) {
       agenda_coleta_confirmada: qs("#agendaConfirmada").checked,
       periodo_fechamento: periodoFechamentoDoFormulario(),
     };
+    if (isOwnerTipoBase()) {
+      payload.papel = papelFormAtual() || null;
+      if (payload.papel === "base_parceira") {
+        payload.entrega_pedidos = !!qs("#entregaPedidos")?.checked;
+      }
+    }
+    return payload;
   }
 
   let PORTAL_ACCESS = null;
@@ -1064,12 +1232,27 @@ async function apiDelete(id) {
 
     qs("#search")?.addEventListener("input", () => {
       CURRENT_PAGE = 1;
-      listarBases();
+      aplicarFiltroPapelEBusca();
+      renderPage();
     });
     qs("#toggleAtivos")?.addEventListener("change", () => {
       CURRENT_PAGE = 1;
       listarBases();
     });
+    qs("#clientesPapelTabs")?.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("[data-papel-tab]");
+      if (!btn) return;
+      PAPEL_TAB_USER_SET = true;
+      PAPEL_TAB = btn.getAttribute("data-papel-tab") || "seller";
+      syncPapelTabsActive();
+      CURRENT_PAGE = 1;
+      aplicarFiltroPapelEBusca();
+      renderPage();
+    });
+    qsa(".papel-card").forEach((btn) => {
+      btn.addEventListener("click", () => selecionarPapelForm(btn.getAttribute("data-papel")));
+    });
+    qs("#entregaPedidos")?.addEventListener("change", () => selecionarPapelForm(papelFormAtual()));
 
     const pgPrev = qs("#pg-prev");
     const pgNext = qs("#pg-next");
@@ -1243,7 +1426,13 @@ async function apiDelete(id) {
         : { tipo: null, chave: (qs("#sellerPix")?.value || "").trim() || null, erro: "" };
 
       const errosSeller = [];
-      if (ownerTipo === "base") {
+      const papelSel = papelFormAtual();
+      if (ownerTipo === "base" && !papelSel) {
+        errosSeller.push("Escolha se o cliente é Seller ou Base.");
+      }
+      const exigeSeller = ownerTipo === "base" && papelSel !== "base_parceira";
+      const baseComCnpj = papelSel === "base_parceira" && !!cnpjDig;
+      if (exigeSeller || baseComCnpj) {
         const ot = (k) => (typeof window.ownerTerm === "function" ? window.ownerTerm(k) : k);
         if (!cnpjDig) errosSeller.push(ot("cnpj_obrigatorio_entidade"));
         if (cepDig.length !== 8) errosSeller.push(ot("cep_obrigatorio_entidade"));
@@ -1272,8 +1461,28 @@ async function apiDelete(id) {
           baseIdForSeller = created?.id_base || null;
         }
 
-        // Atualiza CNPJ/endereço do Seller para este owner/base (um registro por base)
-        if (OWNER_INFO && OWNER_INFO.id_owner && baseIdForSeller != null) {
+        if (
+          baseIdForSeller != null &&
+          payload.papel === "base_parceira" &&
+          payload.entrega_pedidos
+        ) {
+          try {
+            await salvarPrecoPagar(baseIdForSeller);
+          } catch (errPagar) {
+            toast(errPagar.message || "Cliente salvo, mas falhou o preço a pagar.", false);
+            formModal.hide();
+            await listarBases();
+            return;
+          }
+        }
+
+        // Atualiza CNPJ/endereço do Seller; Base parceira só grava se houver CNPJ/endereço.
+        const deveSalvarSellerDados =
+          OWNER_INFO &&
+          OWNER_INFO.id_owner &&
+          baseIdForSeller != null &&
+          (exigeSeller || baseComCnpj || pix.chave || (qs("#sellerPix")?.value || "").trim());
+        if (deveSalvarSellerDados) {
           const bodySeller = {
             base_id: baseIdForSeller,
             cnpj: cnpjDig || null,
@@ -1301,6 +1510,13 @@ async function apiDelete(id) {
               : (typeof window.ownerTerm === "function" ? window.ownerTerm("falha_salvar_dados") : "Falha ao salvar dados da Base.");
             if (window.PixChave && /chave PIX|CPF inválido|CNPJ inválido|Celular inválido|E-mail inválido|Chave aleatória/.test(msg)) {
               PixChave.mostrarErro(qs("#sellerPix"), "#sellerPixErro", msg);
+            }
+            // Seller novo: se CNPJ/endereço falhar, o cliente não permanece gravado.
+            if (!id && exigeSeller && baseIdForSeller != null) {
+              try {
+                await http(`${API_BASES}${encodeURIComponent(baseIdForSeller)}`, { method: "DELETE" });
+              } catch (_) {}
+              await listarBases();
             }
             toast(msg, false);
             return;
