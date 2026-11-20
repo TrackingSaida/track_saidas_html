@@ -194,19 +194,13 @@
               <input type="hidden" id="baseId" />
               <input type="hidden" id="basePapel" value="" />
 
-              <div id="papelCards" class="row g-3 mb-3 d-none">
-                <div class="col-md-6">
-                  <button type="button" class="btn btn-outline-primary w-100 text-start p-3 h-100 papel-card" data-papel="seller" id="cardPapelSeller">
-                    <div class="fw-semibold">Seller</div>
-                    <div class="small text-muted mt-1">Coletamos os pedidos dele e cobramos. Portal e autenticação disponíveis.</div>
-                  </button>
+              <div id="papelCards" class="mb-3 d-none">
+                <label class="form-label mb-1" id="lblTipoCliente">Tipo do cliente</label>
+                <div class="btn-group w-100" role="group" aria-labelledby="lblTipoCliente">
+                  <button type="button" class="btn btn-outline-primary papel-card" data-papel="seller" id="cardPapelSeller">Seller</button>
+                  <button type="button" class="btn btn-outline-primary papel-card" data-papel="base_parceira" id="cardPapelBase">Base</button>
                 </div>
-                <div class="col-md-6">
-                  <button type="button" class="btn btn-outline-secondary w-100 text-start p-3 h-100 papel-card" data-papel="base_parceira" id="cardPapelBase">
-                    <div class="fw-semibold">Base</div>
-                    <div class="small text-muted mt-1">Coletamos os pedidos dela e cobramos. Se estiver ligado abaixo, também enviamos pedidos para ela entregar.</div>
-                  </button>
-                </div>
+                <div class="form-text" id="papelHelp">Autenticação e portal disponíveis; CNPJ obrigatório.</div>
               </div>
 
               <div class="row g-3">
@@ -245,8 +239,8 @@
                           </div>
                         </div>
                         <div class="col-12">
-                          <div class="fw-semibold mb-2" id="lblBlocoPrecoReceber">Preço a receber</div>
-                          <div class="form-text small mb-2">Valor cobrado na coleta deste cliente (A receber).</div>
+                          <div class="fw-semibold mb-1" id="lblBlocoPrecoReceber">Preços na coleta</div>
+                          <div class="form-text small mb-2">Flex, Shopee e Avulso usados no fechamento A receber.</div>
                         </div>
                         <div class="col-md-6">
                           <label for="flex" class="form-label">Flex</label>
@@ -317,8 +311,9 @@
                         </div>
                         <div class="col-md-6">
                           <label for="sellerCep" class="form-label">CEP</label>
-                          <input type="text" id="sellerCep" class="form-control" placeholder="00000-000" maxlength="9" inputmode="numeric">
-                          <div class="form-text small" id="sellerCepHelp">Digite o CEP e saia do campo para preencher o endereço.</div>
+                          <input type="text" id="sellerCep" class="form-control" placeholder="00000-000" maxlength="9" inputmode="numeric" aria-describedby="sellerCepHelp sellerCepStatus">
+                          <div class="form-text small" id="sellerCepHelp">Digite o CEP completo (8 dígitos) para preencher o endereço.</div>
+                          <div class="small mt-1 d-none" id="sellerCepStatus" role="status" aria-live="polite"></div>
                         </div>
                         <div class="col-md-8">
                           <label for="sellerRua" class="form-label">Rua</label>

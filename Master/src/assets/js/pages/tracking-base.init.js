@@ -47,21 +47,29 @@
     return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2}).*/, "$1.$2.$3/$4-$5");
   }
 
+  async function lookupCepViaCep(cep) {
+    const direct = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    if (!direct.ok) throw new Error("Falha ao consultar CEP");
+    const data = await direct.json();
+    if (data && data.erro) throw new Error("CEP não encontrado");
+    return data;
+  }
+
   async function lookupCep(cepRaw) {
     const cep = (cepRaw || "").replace(/\D/g, "");
-    if (cep.length !== 8) throw new Error("CEP inválido");
-    const r = await fetch(`${API_URL}/cep/${cep}`, { credentials: "include" });
-    if (r.ok) return r.json();
-    // Se o proxy falhou (ex.: 502 no Render), tenta ViaCEP direto
-    if (r.status >= 500) {
-      const direct = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-      if (direct.ok) {
-        const data = await direct.json();
-        if (data && !data.erro) return data;
+    if (cep.length !== 8) throw new Error("CEP incompleto. Informe 8 dígitos.");
+    try {
+      const r = await fetch(`${API_URL}/cep/${cep}`, { credentials: "include" });
+      if (r.ok) {
+        const data = await r.json();
+        if (data && data.erro) throw new Error("CEP não encontrado");
+        return data;
       }
+    } catch (err) {
+      if (err && /não encontrado/i.test(String(err.message || ""))) throw err;
+      // Proxy indisponível ou resposta inválida: cai no ViaCEP.
     }
-    const err = await r.json().catch(() => ({}));
-    throw new Error(err.detail || "Falha ao consultar CEP");
+    return lookupCepViaCep(cep);
   }
 
   function parseMoeda(valorRaw = "") {
@@ -567,12 +575,22 @@ async function apiDelete(id) {
     const hid = qs("#basePapel");
     if (hid) hid.value = papel || "";
     qsa(".papel-card").forEach((btn) => {
-      const ativo = btn.getAttribute("data-papel") === papel;
-      btn.classList.toggle("btn-primary", ativo && papel === "seller");
-      btn.classList.toggle("btn-outline-primary", !(ativo && papel === "seller") && btn.getAttribute("data-papel") === "seller");
-      btn.classList.toggle("btn-secondary", ativo && papel === "base_parceira");
-      btn.classList.toggle("btn-outline-secondary", !(ativo && papel === "base_parceira") && btn.getAttribute("data-papel") === "base_parceira");
+      const ativo = !!papel && btn.getAttribute("data-papel") === papel;
+      btn.classList.toggle("active", ativo);
+      btn.classList.toggle("btn-primary", ativo);
+      btn.classList.toggle("btn-outline-primary", !ativo);
+      btn.setAttribute("aria-pressed", ativo ? "true" : "false");
     });
+    const help = qs("#papelHelp");
+    if (help) {
+      if (papel === "base_parceira") {
+        help.textContent = "Coleta parceira. Opcionalmente entrega pedidos nossos (interruptor abaixo).";
+      } else if (papel === "seller") {
+        help.textContent = "Autenticação e portal disponíveis; CNPJ obrigatório.";
+      } else {
+        help.textContent = "Escolha Seller ou Base.";
+      }
+    }
     const blocoEntrega = qs("#blocoEntregaPedidos");
     const blocoPagar = qs("#blocoPrecoPagar");
     const isBase = papel === "base_parceira";
@@ -640,6 +658,11 @@ async function apiDelete(id) {
     if (qs("#entregaPedidos")) qs("#entregaPedidos").checked = !!data?.entrega_pedidos;
     selecionarPapelForm(papelInicial);
     limparPrecoPagarForm();
+    const cepStatusEl = qs("#sellerCepStatus");
+    if (cepStatusEl) {
+      cepStatusEl.textContent = "";
+      cepStatusEl.className = "small mt-1 d-none";
+    }
     if (data?.id_base && papelInicial === "base_parceira" && data?.entrega_pedidos) {
       carregarPrecoPagar(data.id_base);
     }
@@ -686,8 +709,8 @@ async function apiDelete(id) {
     }
     if (cepHelp) {
       cepHelp.textContent = exigeSeller
-        ? "Digite o CEP e saia do campo para preencher o endereço. Obrigatório para Seller."
-        : "Opcional. Digite o CEP e saia do campo para preencher o endereço.";
+        ? "Digite o CEP completo (8 dígitos) para preencher o endereço. Obrigatório para Seller."
+        : "Opcional. Digite o CEP completo (8 dígitos) para preencher o endereço.";
     }
     const portal = qs("#portal-seller-block");
     if (portal) portal.classList.toggle("d-none", !exigeSeller);
@@ -1189,32 +1212,60 @@ async function apiDelete(id) {
     }
 
     const cepEl = qs("#sellerCep");
+    const cepStatus = qs("#sellerCepStatus");
+    function setCepStatus(msg, ok) {
+      if (!cepStatus) return;
+      if (!msg) {
+        cepStatus.textContent = "";
+        cepStatus.className = "small mt-1 d-none";
+        return;
+      }
+      cepStatus.textContent = msg;
+      cepStatus.className = ok
+        ? "small mt-1 text-success"
+        : "small mt-1 text-danger";
+    }
+
     if (cepEl) {
       cepEl.addEventListener("input", (ev) => {
         ev.target.value = maskCep(ev.target.value);
+        const digits = (ev.target.value || "").replace(/\D/g, "");
+        if (digits.length < 8) setCepStatus("");
       });
 
       async function buscarCepSeller() {
         const raw = (cepEl.value || "").replace(/\D/g, "");
-        if (raw.length === 8) {
-          try {
-            const data = await lookupCep(raw);
-            if (data && !data.erro) {
-              qs("#sellerRua").value = data.logradouro || "";
-              qs("#sellerBairro").value = data.bairro || "";
-              qs("#sellerCidade").value = data.localidade || "";
-              qs("#sellerEstado").value = data.uf || "";
-              qs("#sellerNumero").focus();
-            }
-          } catch (e) {
-            // falha silenciosa para não travar fluxo
+        if (!raw) {
+          setCepStatus("");
+          return;
+        }
+        if (raw.length !== 8) {
+          setCepStatus("CEP incompleto. Informe 8 dígitos.", false);
+          return;
+        }
+        setCepStatus("Buscando endereço…", true);
+        try {
+          const data = await lookupCep(raw);
+          if (data && !data.erro) {
+            qs("#sellerRua").value = data.logradouro || "";
+            qs("#sellerBairro").value = data.bairro || "";
+            qs("#sellerCidade").value = data.localidade || "";
+            qs("#sellerEstado").value = data.uf || "";
+            setCepStatus("Endereço preenchido. Confira e informe o número.", true);
+            qs("#sellerNumero")?.focus();
+          } else {
+            setCepStatus("CEP não encontrado. Preencha o endereço manualmente.", false);
           }
+        } catch (e) {
+          setCepStatus(e?.message || "Não foi possível consultar o CEP. Preencha o endereço manualmente.", false);
         }
       }
 
       cepEl.addEventListener("blur", buscarCepSeller);
-      cepEl.addEventListener("keyup", function () {
-        if ((this.value || "").replace(/\D/g, "").length === 8) buscarCepSeller();
+      cepEl.addEventListener("keyup", function (ev) {
+        if (ev.key === "Enter" || (this.value || "").replace(/\D/g, "").length === 8) {
+          buscarCepSeller();
+        }
       });
     }
 
