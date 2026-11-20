@@ -13,11 +13,17 @@
   const qs = (s) => document.querySelector(s);
   const qsa = (s) => Array.from(document.querySelectorAll(s));
 
+  const escapeToast = (msg) => String(msg == null ? "" : msg)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
   const toast = (msg, ok = true) => {
     const el = document.createElement("div");
     el.className = `toast align-items-center text-bg-${ok ? "primary" : "danger"} border-0 position-fixed bottom-0 end-0 m-3`;
     el.innerHTML = `<div class="d-flex">
-        <div class="toast-body">${msg}</div>
+        <div class="toast-body">${escapeToast(msg)}</div>
         <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
       </div>`;
     el.style.zIndex = 1080;
@@ -222,22 +228,53 @@ async function apiDelete(id) {
     syncPapelTabsActive();
   }
 
+  function mostrarColunaAuth() {
+    return isOwnerTipoBase() && PAPEL_TAB === "seller";
+  }
+
+  function celulaAuth(b) {
+    if (!mostrarColunaAuth()) return "";
+    const id = b.id_base || b.id;
+    const mlContas = Array.isArray(b.ml_contas) ? b.ml_contas : [];
+    const shContas = Array.isArray(b.shopee_contas) ? b.shopee_contas : [];
+    const badges = [];
+    if (mlContas.length) {
+      badges.push('<span class="badge bg-warning-subtle text-warning">ML</span>');
+    }
+    if (shContas.length) {
+      badges.push('<span class="badge bg-danger-subtle text-danger">Shopee</span>');
+    }
+    const statusHtml = badges.length
+      ? `<div class="d-flex flex-wrap gap-1 justify-content-center mb-1">${badges.join("")}</div>`
+      : '<div class="small text-muted mb-1">Sem conta</div>';
+    return `
+      <td class="text-center align-middle" data-auth-cell>
+        ${statusHtml}
+        <div class="dropdown d-inline-block">
+          <button type="button" class="btn btn-soft-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" data-auth-gerar="${id}">
+            Gerar link
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><button type="button" class="dropdown-item" data-auth-platform="ml" data-auth-id="${id}">Mercado Livre</button></li>
+            <li><button type="button" class="dropdown-item" data-auth-platform="shopee" data-auth-id="${id}">Shopee</button></li>
+          </ul>
+        </div>
+      </td>`;
+  }
+
   function buildRow(b) {
     const ativoChecked = b.ativo ? "checked" : "";
     const id = b.id_base || b.id;
-    const mlContas = Array.isArray(b.ml_contas) ? b.ml_contas : [];
-    const mlNomes = mlContas.map(c => escapeHtmlPortal(c.nickname || String(c.user_id_ml || ""))).join(", ");
-    const mlHtml = mlContas.length
-      ? `<div class="small text-muted">Mercado Livre: ${mlNomes} · <a href="tracking-autenticacao.html">Gerenciar em Autenticação</a></div>`
-      : "";
     const papelCol = isOwnerTipoBase()
       ? `<td class="text-center">${seloPapel(b.papel)}</td>`
       : "";
+    const authCol = celulaAuth(b);
     return `
       <tr class="row-selectable" data-id="${id}" data-papel="${b.papel || ""}">
         <td class="text-center"><input class="form-check-input sel-row" type="radio" name="sel-base" value="${id}"></td>
-        <td>${b.base || "-"}${mlHtml}</td>
+        <td>${b.base || "-"}</td>
         ${papelCol}
+        ${authCol}
         <td class="text-end">R$ ${Number(b.ml).toFixed(2).replace(".", ",")}</td>
         <td class="text-end">R$ ${Number(b.shopee).toFixed(2).replace(".", ",")}</td>
         <td class="text-end">R$ ${Number(b.avulso).toFixed(2).replace(".", ",")}</td>
@@ -367,6 +404,8 @@ async function apiDelete(id) {
     if (content) content.classList.add("d-none");
     const nomeEl = qs("#seller-detail-nome");
     if (nomeEl) nomeEl.textContent = "";
+    const authBlock = qs("#auth-marketplace-block");
+    if (authBlock) authBlock.classList.add("d-none");
   }
 
   function renderSellerDetail(seller) {
@@ -405,6 +444,7 @@ async function apiDelete(id) {
     if (content) content.classList.remove("d-none");
     atualizarVisibilidadePortalSeller();
     if (isOwnerTipoBase()) loadPortalAcesso();
+    renderAuthMarketplaceBlock();
   }
 
   async function loadSellerDetail() {
@@ -507,8 +547,10 @@ async function apiDelete(id) {
   function atualizarUiClientesOwnerBase() {
     const tabs = qs("#clientesPapelTabs");
     const thPapel = qs("#thPapel");
+    const thAuth = qs("#thAuth");
     if (tabs) tabs.classList.toggle("d-none", !isOwnerTipoBase());
     if (thPapel) thPapel.classList.toggle("d-none", !isOwnerTipoBase());
+    if (thAuth) thAuth.classList.toggle("d-none", !mostrarColunaAuth());
     if (isOwnerTipoBase()) {
       const title = document.querySelector("[data-owner-term='bases']");
       if (title) title.textContent = "Clientes";
@@ -689,6 +731,195 @@ async function apiDelete(id) {
     // Portal de etiquetas só para Owner tipo Base (Seller).
     // Sub_base cadastra Bases normalmente, sem este bloco no detail.
     block.classList.toggle("d-none", !isOwnerTipoBase());
+  }
+
+  function selectedBaseRow() {
+    const id = SELECTED_ID ? Number(SELECTED_ID) : null;
+    if (id == null) return null;
+    return DATA_CACHE.find((b) => Number(b.id_base || b.id) === id)
+      || DATA_ALL.find((b) => Number(b.id_base || b.id) === id)
+      || null;
+  }
+
+  function isSellerSelecionado() {
+    if (!isOwnerTipoBase()) return false;
+    const row = selectedBaseRow();
+    return !!(row && (row.papel || "seller") === "seller");
+  }
+
+  function subBaseAtual() {
+    return String(OWNER_INFO?.sub_base || "").trim();
+  }
+
+  function authApi() {
+    return window.AuthMarketplace || null;
+  }
+
+  async function gerarLinkAuthParaSeller(platform, idBase, nomeBase) {
+    const AM = authApi();
+    if (!AM) {
+      toast("Módulo de autenticação indisponível.", false);
+      return;
+    }
+    const subBase = subBaseAtual();
+    if (!subBase && platform === "ml") {
+      toast("Sub-base não definida. Ajuste o cadastro do usuário.", false);
+      return;
+    }
+    try {
+      await AM.gerarECopiar(platform, subBase, {
+        context: {
+          id_base: Number(idBase),
+          nome: nomeBase || "",
+          platform: platform === "ml" ? "mercado_livre" : "shopee",
+        },
+      });
+      toast("Link copiado. Envie ao seller para autorizar a conta.");
+    } catch (err) {
+      toast(err.message || "Falha ao gerar link.", false);
+    }
+  }
+
+  function statusLabelConta(status, temDetalhe) {
+    if (!temDetalhe) return { texto: "Vinculada", classe: "bg-secondary-subtle text-secondary" };
+    if (status === "expirado") return { texto: "Sessão expirada", classe: "bg-warning-subtle text-warning" };
+    if (status === "requer_reautorizacao") return { texto: "Requer nova autorização", classe: "bg-danger-subtle text-danger" };
+    return { texto: "Conectada", classe: "bg-success-subtle text-success" };
+  }
+
+  function htmlContaAuthDetalhe(platKey, contaLeve, contaRica) {
+    const isMl = platKey === "ml";
+    const nome = isMl
+      ? (contaRica?.user_nickname_ml || contaLeve?.nickname || String(contaLeve?.user_id_ml || contaRica?.user_id_ml || ""))
+      : (contaRica?.user_nickname_shopee || contaRica?.shop_name || contaLeve?.shop_name || String(contaLeve?.shop_id || contaRica?.shop_id || ""));
+    const contaId = isMl
+      ? (contaRica?.user_id_ml ?? contaLeve?.user_id_ml)
+      : (contaRica?.shop_id ?? contaLeve?.shop_id);
+    const st = statusLabelConta(contaRica?.status, !!contaRica);
+    const podeSync = !contaRica || contaRica.status === "conectado";
+    const sigla = isMl ? "ML" : "Shopee";
+    const badgePlat = isMl
+      ? '<span class="badge bg-warning-subtle text-warning">ML</span>'
+      : '<span class="badge bg-danger-subtle text-danger">Shopee</span>';
+    const syncBtn = podeSync
+      ? `<button type="button" class="btn btn-soft-primary btn-sm" data-auth-sync="${platKey}" data-auth-conta-id="${contaId}">Sincronizar</button>`
+      : `<button type="button" class="btn btn-soft-secondary btn-sm" disabled title="Reautorize a conta para sincronizar">Sincronizar</button>`;
+    return `
+      <div class="border rounded p-2" data-auth-conta="${sigla}">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+          ${badgePlat}
+          <strong class="small">${escapeHtmlPortal(nome)}</strong>
+          <span class="badge ${st.classe}">${st.texto}</span>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          ${syncBtn}
+          <button type="button" class="btn btn-soft-danger btn-sm" data-auth-desvincular="${platKey}" data-auth-conta-id="${contaId}">Desvincular</button>
+        </div>
+      </div>`;
+  }
+
+  function htmlSemContaAuth(platKey) {
+    const label = platKey === "ml" ? "Gerar link ML" : "Gerar link Shopee";
+    return `
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border rounded p-2">
+        <span class="small text-muted">${platKey === "ml" ? "Mercado Livre" : "Shopee"}: sem conta</span>
+        <button type="button" class="btn btn-soft-primary btn-sm" data-auth-detail-gerar="${platKey}">${label}</button>
+      </div>`;
+  }
+
+  async function renderAuthMarketplaceBlock() {
+    const block = qs("#auth-marketplace-block");
+    const body = qs("#auth-marketplace-body");
+    const pending = qs("#auth-marketplace-pending");
+    if (!block || !body) return;
+
+    const show = isSellerSelecionado();
+    block.classList.toggle("d-none", !show);
+    if (!show) {
+      body.innerHTML = "";
+      if (pending) pending.classList.add("d-none");
+      return;
+    }
+
+    const row = selectedBaseRow();
+    const idBase = Number(row.id_base || row.id);
+    const mlContas = Array.isArray(row.ml_contas) ? row.ml_contas : [];
+    const shContas = Array.isArray(row.shopee_contas) ? row.shopee_contas : [];
+
+    let mlRica = null;
+    let shRica = null;
+    const AM = authApi();
+    if (AM) {
+      try {
+        const [mls, shs] = await Promise.all([
+          AM.listarContasPlataforma("ml"),
+          AM.listarContasPlataforma("shopee"),
+        ]);
+        mlRica = mls.find((c) => Number(c.id_base) === idBase) || null;
+        shRica = shs.find((c) => Number(c.id_base) === idBase) || null;
+      } catch (_) {}
+    }
+
+    const partes = [];
+    if (mlRica || mlContas[0]) {
+      partes.push(htmlContaAuthDetalhe("ml", mlContas[0], mlRica));
+    } else {
+      partes.push(htmlSemContaAuth("ml"));
+    }
+    if (shRica || shContas[0]) {
+      partes.push(htmlContaAuthDetalhe("shopee", shContas[0], shRica));
+    } else {
+      partes.push(htmlSemContaAuth("shopee"));
+    }
+    body.innerHTML = partes.join("");
+
+    await atualizarBannerVinculoPendente(idBase, row.base || "");
+  }
+
+  async function atualizarBannerVinculoPendente(idBase, nomeBase) {
+    const pending = qs("#auth-marketplace-pending");
+    if (!pending) return;
+    const AM = authApi();
+    if (!AM) {
+      pending.classList.add("d-none");
+      return;
+    }
+    const ctx = AM.getPendingSellerContext();
+    if (!ctx || Number(ctx.id_base) !== Number(idBase)) {
+      pending.classList.add("d-none");
+      pending.innerHTML = "";
+      return;
+    }
+    const platFiltro = ctx.platform === "shopee" ? "shopee" : "ml";
+    let contasLivres = [];
+    try {
+      contasLivres = await AM.listarContasSemSeller(platFiltro);
+    } catch (_) {}
+    if (!contasLivres.length) {
+      pending.classList.add("d-none");
+      return;
+    }
+    if (contasLivres.length > 1) {
+      pending.classList.remove("d-none");
+      pending.innerHTML = `
+        Há ${contasLivres.length} contas sem seller nesta plataforma.
+        <a href="tracking-autenticacao.html" class="alert-link ms-1">Escolher em Autenticação</a>`;
+      return;
+    }
+    const preferida = contasLivres[0];
+    const nick = preferida.user_nickname_ml || preferida.user_nickname_shopee || preferida.shop_name
+      || String(preferida.user_id_ml || preferida.shop_id || "");
+    const plat = preferida.platform === "shopee" ? "shopee" : "ml";
+    const contaId = preferida.user_id_ml != null ? preferida.user_id_ml : preferida.shop_id;
+    pending.classList.remove("d-none");
+    pending.innerHTML = `
+      Conta conectada (${escapeHtmlPortal(nick)}).
+      <button type="button" class="btn btn-sm btn-warning ms-2"
+        data-auth-vincular-pendente="${plat}"
+        data-auth-conta-id="${contaId}"
+        data-auth-id-base="${idBase}">
+        Vincular a ${escapeHtmlPortal(nomeBase || ctx.nome || "este seller")}
+      </button>`;
   }
 
   function papelFormAtual() {
@@ -1296,9 +1527,102 @@ async function apiDelete(id) {
       PAPEL_TAB_USER_SET = true;
       PAPEL_TAB = btn.getAttribute("data-papel-tab") || "seller";
       syncPapelTabsActive();
+      atualizarUiClientesOwnerBase();
       CURRENT_PAGE = 1;
       aplicarFiltroPapelEBusca();
       renderPage();
+      showSellerDetailEmpty();
+      SELECTED_ID = null;
+      qs("#btnHeaderEdit").disabled = true;
+      qs("#btnHeaderDel").disabled = true;
+    });
+
+    qs("#tbody-bases")?.addEventListener("click", async (ev) => {
+      const item = ev.target.closest("[data-auth-platform]");
+      if (!item) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const id = item.getAttribute("data-auth-id");
+      const platform = item.getAttribute("data-auth-platform");
+      const row = DATA_CACHE.find((b) => String(b.id_base || b.id) === String(id))
+        || DATA_ALL.find((b) => String(b.id_base || b.id) === String(id));
+      await gerarLinkAuthParaSeller(platform, id, row?.base || "");
+    });
+
+    qs("#auth-marketplace-block")?.addEventListener("click", async (ev) => {
+      const gerar = ev.target.closest("[data-auth-detail-gerar]");
+      if (gerar) {
+        const platform = gerar.getAttribute("data-auth-detail-gerar");
+        const row = selectedBaseRow();
+        if (!row) return;
+        await gerarLinkAuthParaSeller(platform, row.id_base || row.id, row.base || "");
+        return;
+      }
+      const syncBtn = ev.target.closest("[data-auth-sync]");
+      if (syncBtn) {
+        const AM = authApi();
+        if (!AM) return;
+        const platform = syncBtn.getAttribute("data-auth-sync");
+        const contaId = syncBtn.getAttribute("data-auth-conta-id");
+        syncBtn.disabled = true;
+        try {
+          const data = await AM.syncEnvios(platform, contaId);
+          const n = data?.novos != null ? data.novos : (data?.criados != null ? data.criados : null);
+          toast(n != null ? `Sincronização concluída (${n} novo(s)).` : "Sincronização concluída.");
+        } catch (err) {
+          toast(err.message || "Falha ao sincronizar.", false);
+        } finally {
+          syncBtn.disabled = false;
+        }
+        return;
+      }
+      const desv = ev.target.closest("[data-auth-desvincular]");
+      if (desv) {
+        const AM = authApi();
+        if (!AM) return;
+        const platform = desv.getAttribute("data-auth-desvincular");
+        const contaId = desv.getAttribute("data-auth-conta-id");
+        if (!window.confirm("Desvincular esta conta deste seller?")) return;
+        desv.disabled = true;
+        try {
+          await AM.patchVinculo(platform, contaId, null);
+          toast("Conta desvinculada.");
+          await listarBases();
+          if (SELECTED_ID) await loadSellerDetail();
+        } catch (err) {
+          toast(err.message || "Não foi possível desvincular.", false);
+        } finally {
+          desv.disabled = false;
+        }
+        return;
+      }
+      const vinc = ev.target.closest("[data-auth-vincular-pendente]");
+      if (vinc) {
+        const AM = authApi();
+        if (!AM) return;
+        const platform = vinc.getAttribute("data-auth-vincular-pendente");
+        const contaId = vinc.getAttribute("data-auth-conta-id");
+        const idBase = vinc.getAttribute("data-auth-id-base");
+        vinc.disabled = true;
+        try {
+          await AM.patchVinculo(platform, contaId, idBase);
+          AM.clearPendingSellerContext();
+          toast("Conta vinculada a este seller.");
+          await listarBases();
+          SELECTED_ID = String(idBase);
+          await loadSellerDetail();
+        } catch (err) {
+          const det = err.detalhe && err.detalhe.detail;
+          const code = det && det.code;
+          if (err.status === 409 || code === "seller_ja_vinculado") {
+            toast(err.message || "Este seller já possui outra conta nesta plataforma.", false);
+          } else {
+            toast(err.message || "Não foi possível vincular.", false);
+          }
+        } finally {
+          vinc.disabled = false;
+        }
+      }
     });
     qsa(".papel-card").forEach((btn) => {
       btn.addEventListener("click", () => selecionarPapelForm(btn.getAttribute("data-papel")));

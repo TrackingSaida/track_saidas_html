@@ -80,6 +80,7 @@
                           <th class="text-center" style="width:56px;">Sel.</th>
                           <th data-owner-term="base">Base</th>
                           <th class="text-center d-none" id="thPapel" style="width:110px;">Papel</th>
+                          <th class="text-center d-none" id="thAuth" style="width:150px;">Auth</th>
                           <th class="text-end">Flex</th>
                           <th class="text-end">Shopee</th>
                           <th class="text-end">Avulso</th>
@@ -167,6 +168,15 @@
                       <button type="button" class="btn btn-soft-danger btn-sm d-none" id="btnPortalDesativar">Desativar acesso</button>
                       <button type="button" class="btn btn-soft-secondary btn-sm" id="btnCopiarLinkPortal">Copiar dados de acesso</button>
                     </div>
+                  </div>
+                  <div class="col-12 border-top pt-3 mt-1 d-none" id="auth-marketplace-block">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                      <h6 class="fw-semibold mb-0">Autenticação marketplace</h6>
+                      <a href="tracking-autenticacao.html" class="small">Ver todas as contas</a>
+                    </div>
+                    <p class="text-muted small mb-2">O seller autoriza no marketplace; depois a conta aparece aqui.</p>
+                    <div id="auth-marketplace-pending" class="alert alert-warning py-2 px-3 d-none mb-2" role="status"></div>
+                    <div id="auth-marketplace-body" class="d-flex flex-column gap-2"></div>
                   </div>
                 </div>
               </div>
@@ -497,7 +507,8 @@
     </script>
 
     <script src="assets/js/components/pix-chave.js?v=3"></script>
-    <script src="assets/js/pages/tracking-base.init.js?v=7"></script>
+    <script src="assets/js/pages/auth-marketplace.js?v=1"></script>
+    <script src="assets/js/pages/tracking-base.init.js?v=8"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>
