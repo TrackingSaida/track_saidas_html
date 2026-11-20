@@ -687,5 +687,3 @@
     await Promise.all([loadCategorias(), loadExcecoes()]);
   });
 })();
-
-})();
