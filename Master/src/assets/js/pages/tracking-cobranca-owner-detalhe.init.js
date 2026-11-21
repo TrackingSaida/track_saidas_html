@@ -561,11 +561,27 @@
     $("cfg-obs").value = cfg.observacao || "";
     $("cfg-preco-vigente").textContent = C.preco(r.preco_vigente);
     var wrapSellers = $("cfg-preco-sellers-wrap");
+    var temSellers = !!(r.dois_precos || r.preco_vigente_sellers != null ||
+      (r.precos || []).some(function (p) { return p.escopo === "sellers"; }));
     if (wrapSellers) {
-      wrapSellers.classList.toggle("d-none", !r.dois_precos);
+      wrapSellers.classList.toggle("d-none", !temSellers);
       if ($("cfg-preco-vigente-sellers")) {
-        $("cfg-preco-vigente-sellers").textContent = C.preco(r.preco_vigente_sellers);
+        $("cfg-preco-vigente-sellers").textContent = temSellers ? C.preco(r.preco_vigente_sellers) : "—";
       }
+    }
+    function desdeDoEscopo(escopo) {
+      var abertos = (r.precos || []).filter(function (p) {
+        return (p.escopo || "bases") === escopo && !p.fim;
+      });
+      var lista = abertos.length ? abertos : (r.precos || []).filter(function (p) {
+        return (p.escopo || "bases") === escopo;
+      });
+      if (!lista.length || !lista[0].inicio) return "";
+      return "Desde " + C.dmy(lista[0].inicio);
+    }
+    if ($("cfg-preco-bases-desde")) $("cfg-preco-bases-desde").textContent = desdeDoEscopo("bases");
+    if ($("cfg-preco-sellers-desde")) {
+      $("cfg-preco-sellers-desde").textContent = temSellers ? desdeDoEscopo("sellers") : "";
     }
     var hintDual = $("cfg-preco-dual-hint");
     if (hintDual) {
@@ -573,9 +589,12 @@
       var ownerBase = String(tipo).toLowerCase() === "base";
       hintDual.classList.toggle("d-none", !(ownerBase && !r.dois_precos));
     }
-    if ($("preco-escopo")) {
-      $("preco-escopo").disabled = !r.dois_precos;
-      if (!r.dois_precos) $("preco-escopo").value = "bases";
+    if ($("preco-escopo") && !r.dois_precos) $("preco-escopo").value = "bases";
+    if ($("btn-alterar-preco-sellers")) {
+      $("btn-alterar-preco-sellers").disabled = !r.dois_precos;
+      $("btn-alterar-preco-sellers").title = r.dois_precos
+        ? ""
+        : "Disponível quando houver Sellers e Bases na operação";
     }
     if (!$("preco-inicio").value && r.periodo_atual) {
       var hoje = new Date();
@@ -584,12 +603,38 @@
       $("preco-inicio").value = prox > hoje ? prox.toISOString().slice(0, 10) : "";
     }
     $("cfg-precos").innerHTML = (r.precos || []).map(function (p) {
-      var escopo = p.escopo_label || (p.escopo === "sellers" ? "Sellers" : "Bases");
+      var escopo = p.escopo_label || (p.escopo === "sellers" ? "Coletas em Sellers" : "Coletas em Bases");
+      var vigente = !p.fim;
       return "<li class='d-flex justify-content-between py-1 border-bottom'><span>" +
-        "<span class='cob-muted'>" + C.escapeHtml(escopo) + "</span> · " + C.dmy(p.inicio) + " a " +
-        (p.fim ? C.dmy(p.fim) : "hoje") + (p.motivo ? "<div class='cob-muted'>" + C.escapeHtml(p.motivo) + "</div>" : "") +
+        "<span class='badge " + (p.escopo === "sellers" ? "bg-primary-subtle text-primary" : "bg-secondary-subtle text-secondary") + " me-1'>" +
+        C.escapeHtml(escopo) + "</span>" +
+        (vigente ? "<span class='badge bg-success-subtle text-success me-1'>Atual</span>" : "") +
+        C.dmy(p.inicio) + " → " +
+        (p.fim ? C.dmy(p.fim) : "hoje") +
+        (p.motivo ? "<div class='cob-muted'>" + C.escapeHtml(p.motivo) + "</div>" : "") +
         "</span><span class='cob-num fw-medium'>" + C.preco(p.valor) + "</span></li>";
     }).join("") || "<li class='cob-muted'>Nenhum preço cadastrado.</li>";
+  }
+
+  function abrirFormPreco(escopo) {
+    var wrap = $("cobd-form-preco-wrap");
+    if (!wrap) return;
+    var esc = escopo === "sellers" ? "sellers" : "bases";
+    if ($("preco-escopo")) $("preco-escopo").value = esc;
+    if ($("cobd-form-preco-titulo")) {
+      $("cobd-form-preco-titulo").textContent = esc === "sellers"
+        ? "Alterar preço — Coletas em Sellers"
+        : "Alterar preço — Coletas em Bases";
+    }
+    wrap.classList.remove("d-none");
+    if ($("preco-valor")) $("preco-valor").focus();
+  }
+
+  function fecharFormPreco() {
+    var wrap = $("cobd-form-preco-wrap");
+    if (wrap) wrap.classList.add("d-none");
+    if ($("preco-valor")) $("preco-valor").value = "";
+    if ($("preco-motivo")) $("preco-motivo").value = "";
   }
 
   function renderCadastro(d) {
@@ -892,6 +937,15 @@
       });
     });
 
+    document.querySelectorAll("[data-alterar-escopo]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        abrirFormPreco(btn.getAttribute("data-alterar-escopo"));
+      });
+    });
+    if ($("preco-cancelar")) {
+      $("preco-cancelar").addEventListener("click", function () { fecharFormPreco(); });
+    }
+
     $("cobd-form-preco").addEventListener("submit", function (ev) {
       ev.preventDefault();
       var valor = parseValor($("preco-valor").value);
@@ -904,8 +958,7 @@
           valor: valor, inicio: inicio, motivo: $("preco-motivo").value.trim() || null, escopo: escopo
         });
         state.config = r;
-        $("preco-valor").value = "";
-        $("preco-motivo").value = "";
+        fecharFormPreco();
         renderConfig(r);
         C.toast("Preço adicionado");
         await carregar();

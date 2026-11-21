@@ -443,7 +443,7 @@ async function apiDelete(id) {
     if (empty) empty.classList.add("d-none");
     if (content) content.classList.remove("d-none");
     atualizarVisibilidadePortalSeller();
-    if (isOwnerTipoBase()) loadPortalAcesso();
+    if (isSellerSelecionado()) loadPortalAcesso();
     renderAuthMarketplaceBlock();
   }
 
@@ -574,7 +574,12 @@ async function apiDelete(id) {
     el.className = proprio ? "badge bg-warning-subtle text-warning" : "badge bg-light text-muted";
   }
 
+  let PRECO_PAGAR_GLOBAL = { shopee_valor: null, ml_valor: null, avulso_valor: null };
+  let PRECO_PAGAR_CARREGADO = false;
+
   function limparPrecoPagarForm() {
+    PRECO_PAGAR_CARREGADO = false;
+    PRECO_PAGAR_GLOBAL = { shopee_valor: null, ml_valor: null, avulso_valor: null };
     ["Shopee", "Ml", "Avulso"].forEach((c) => {
       const inp = qs(`#pagar${c}`);
       if (inp) inp.value = "";
@@ -582,30 +587,65 @@ async function apiDelete(id) {
     });
   }
 
-  async function carregarPrecoPagar(idBase) {
-    limparPrecoPagarForm();
+  function aplicarPrecoPagarView(data, { soGlobal = false } = {}) {
+    const mapa = { Shopee: "shopee_valor", Ml: "ml_valor", Avulso: "avulso_valor" };
+    const global = data?.global || {};
+    PRECO_PAGAR_GLOBAL = {
+      shopee_valor: global.shopee_valor != null ? Number(global.shopee_valor) : null,
+      ml_valor: global.ml_valor != null ? Number(global.ml_valor) : null,
+      avulso_valor: global.avulso_valor != null ? Number(global.avulso_valor) : null,
+    };
+    const origem = soGlobal ? {} : (data?.origem || {});
+    const fonte = soGlobal ? global : (data?.efetivo || global);
+    Object.entries(mapa).forEach(([label, key]) => {
+      const inp = qs(`#pagar${label}`);
+      if (inp) inp.value = formatMoedaInput(fonte[key]);
+      const origemKey = origem[key] || "global";
+      atualizarBadgePrecoPagar(label, soGlobal ? "global" : origemKey);
+    });
+    PRECO_PAGAR_CARREGADO = true;
+  }
+
+  async function carregarPrecoPagar(idBase, opts = {}) {
     if (!idBase) return;
     try {
       const data = await http(`${API_URL}/base-repasse/bases/${encodeURIComponent(idBase)}/preco-pagar`);
-      const origem = data?.origem || {};
-      const efetivo = data?.efetivo || {};
-      const mapa = { Shopee: "shopee_valor", Ml: "ml_valor", Avulso: "avulso_valor" };
-      Object.entries(mapa).forEach(([label, key]) => {
-        const inp = qs(`#pagar${label}`);
-        if (inp) inp.value = formatMoedaInput(efetivo[key]);
-        atualizarBadgePrecoPagar(label, origem[key] || "global");
-      });
+      aplicarPrecoPagarView(data, opts);
     } catch (_) {
       limparPrecoPagarForm();
     }
   }
 
+  /** Carrega preço a pagar ao ligar entrega; para cadastro novo usa outra base parceira só para ler o global. */
+  async function garantirPrecoPagarNoFormulario() {
+    const idForm = qs("#baseId")?.value;
+    if (idForm) {
+      await carregarPrecoPagar(idForm);
+      return;
+    }
+    if (PRECO_PAGAR_CARREGADO) return;
+    const proxy = DATA_ALL.find((b) => (b.papel || "") === "base_parceira");
+    const proxyId = proxy ? (proxy.id_base || proxy.id) : null;
+    if (proxyId) {
+      await carregarPrecoPagar(proxyId, { soGlobal: true });
+    }
+  }
+
+  function valorCanalOuNullSePadrao(inputSel, globalKey) {
+    const raw = qs(inputSel)?.value?.trim();
+    if (!raw) return null;
+    const valor = parseMoeda(raw);
+    const padrao = PRECO_PAGAR_GLOBAL[globalKey];
+    if (padrao != null && Number(valor) === Number(padrao)) return null;
+    return valor;
+  }
+
   async function salvarPrecoPagar(idBase) {
     if (!idBase) return;
     const body = {
-      shopee_valor: qs("#pagarShopee")?.value?.trim() ? parseMoeda(qs("#pagarShopee").value) : null,
-      ml_valor: qs("#pagarMl")?.value?.trim() ? parseMoeda(qs("#pagarMl").value) : null,
-      avulso_valor: qs("#pagarAvulso")?.value?.trim() ? parseMoeda(qs("#pagarAvulso").value) : null,
+      shopee_valor: valorCanalOuNullSePadrao("#pagarShopee", "shopee_valor"),
+      ml_valor: valorCanalOuNullSePadrao("#pagarMl", "ml_valor"),
+      avulso_valor: valorCanalOuNullSePadrao("#pagarAvulso", "avulso_valor"),
     };
     await http(`${API_URL}/base-repasse/bases/${encodeURIComponent(idBase)}/preco-pagar`, {
       method: "PUT",
@@ -628,7 +668,7 @@ async function apiDelete(id) {
       if (papel === "base_parceira") {
         help.textContent = "Coleta parceira. Opcionalmente entrega pedidos nossos (interruptor abaixo).";
       } else if (papel === "seller") {
-        help.textContent = "Autenticação e portal disponíveis; CNPJ obrigatório.";
+        help.textContent = "Autenticação e Portal do Seller disponíveis; CNPJ obrigatório.";
       } else {
         help.textContent = "Escolha Seller ou Base.";
       }
@@ -728,9 +768,8 @@ async function apiDelete(id) {
   function atualizarVisibilidadePortalSeller() {
     const block = qs("#portal-seller-block");
     if (!block) return;
-    // Portal de etiquetas só para Owner tipo Base (Seller).
-    // Sub_base cadastra Bases normalmente, sem este bloco no detail.
-    block.classList.toggle("d-none", !isOwnerTipoBase());
+    // Portal do Seller: só papel seller no detalhe (nunca Base parceira).
+    block.classList.toggle("d-none", !isSellerSelecionado());
   }
 
   function selectedBaseRow() {
@@ -943,8 +982,8 @@ async function apiDelete(id) {
         ? "Digite o CEP completo (8 dígitos) para preencher o endereço. Obrigatório para Seller."
         : "Opcional. Digite o CEP completo (8 dígitos) para preencher o endereço.";
     }
-    const portal = qs("#portal-seller-block");
-    if (portal) portal.classList.toggle("d-none", !exigeSeller);
+    // Portal fica no detalhe (não no modal); visibilidade só via isSellerSelecionado.
+    atualizarVisibilidadePortalSeller();
   }
 
   function formPayload() {
@@ -1063,8 +1102,8 @@ async function apiDelete(id) {
     const btnReset = qs("#btnPortalReset");
     const btnOff = qs("#btnPortalDesativar");
     PORTAL_ACCESS = null;
-    if (!isOwnerTipoBase()) {
-      atualizarVisibilidadePortalSeller();
+    atualizarVisibilidadePortalSeller();
+    if (!isSellerSelecionado()) {
       return;
     }
     if (!SELECTED_ID || !statusEl) return;
@@ -1627,7 +1666,18 @@ async function apiDelete(id) {
     qsa(".papel-card").forEach((btn) => {
       btn.addEventListener("click", () => selecionarPapelForm(btn.getAttribute("data-papel")));
     });
-    qs("#entregaPedidos")?.addEventListener("change", () => selecionarPapelForm(papelFormAtual()));
+    qs("#entregaPedidos")?.addEventListener("change", async () => {
+      selecionarPapelForm(papelFormAtual());
+      const ligado = !!qs("#entregaPedidos")?.checked;
+      if (ligado && papelFormAtual() === "base_parceira") {
+        // Não sobrescreve se já carregou preço próprio nesta abertura do form.
+        if (!PRECO_PAGAR_CARREGADO) {
+          await garantirPrecoPagarNoFormulario();
+        } else if (!qs("#pagarShopee")?.value?.trim() && !qs("#pagarMl")?.value?.trim() && !qs("#pagarAvulso")?.value?.trim()) {
+          await garantirPrecoPagarNoFormulario();
+        }
+      }
+    });
 
     const pgPrev = qs("#pg-prev");
     const pgNext = qs("#pg-next");

@@ -301,11 +301,23 @@ async function carregarCobrancaOwner(idOwner, seq) {
         if (!r.ok || seq !== OWNER_EDIT_SEQ) return;
         const c = await r.json();
         if (seq !== OWNER_EDIT_SEQ) return;
+        const fmt = (v) => Number(v).toLocaleString("pt-BR", {
+            style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 4
+        });
         if (c.preco_vigente !== null && c.preco_vigente !== undefined) {
-            const n = Number(c.preco_vigente);
-            preco.textContent = n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 4 });
+            preco.textContent = `Bases: ${fmt(c.preco_vigente)}`;
         } else {
-            preco.textContent = "Sem preço cadastrado";
+            preco.textContent = "Bases: sem preço cadastrado";
+        }
+        const linhaSellers = document.getElementById("ownerPrecoSellersLinha");
+        if (linhaSellers) {
+            if (c.dois_precos && c.preco_vigente_sellers != null) {
+                linhaSellers.textContent = `Sellers: ${fmt(c.preco_vigente_sellers)}`;
+            } else if (c.dois_precos) {
+                linhaSellers.textContent = "Sellers: sem preço cadastrado";
+            } else {
+                linhaSellers.textContent = "Sellers: usa preço de Bases";
+            }
         }
         const cfg = c.config || {};
         modelo.textContent = `${cfg.modelo_label || ""}${cfg.confirmado ? "" : " (a confirmar)"} · ${cfg.periodicidade === "mensal" ? "Mensal" : "Quinzenal"}`;
