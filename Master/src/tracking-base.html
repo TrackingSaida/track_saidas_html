@@ -423,7 +423,7 @@
           <div class="modal-body">
             <!-- Etapa 1: arquivo -->
             <div id="import-step-file">
-              <p class="text-muted mb-3">
+              <p class="text-muted mb-3" id="importHelpText">
                 Importe nome e valores (Flex, Shopee e Avulso). Se já existir, os preços serão atualizados.
                 CNPJ e endereço você completa depois no sistema.
               </p>
@@ -451,7 +451,8 @@
                   <thead class="table-light sticky-top">
                     <tr>
                       <th>Linha</th>
-                      <th data-owner-term="base">Base</th>
+                      <th id="importThNome" data-owner-term="base">Base</th>
+                      <th id="importThTipo" class="d-none">Tipo</th>
                       <th class="text-end">Flex</th>
                       <th class="text-end">Shopee</th>
                       <th class="text-end">Avulso</th>
@@ -476,7 +477,7 @@
                   <thead class="table-light sticky-top">
                     <tr>
                       <th>Linha</th>
-                      <th data-owner-term="base">Base</th>
+                      <th id="importResThNome" data-owner-term="base">Base</th>
                       <th>Status</th>
                       <th>Detalhe</th>
                     </tr>
@@ -510,7 +511,7 @@
 
     <script src="assets/js/components/pix-chave.js?v=3"></script>
     <script src="assets/js/pages/auth-marketplace.js?v=1"></script>
-    <script src="assets/js/pages/tracking-base.init.js?v=8"></script>
+    <script src="assets/js/pages/tracking-base.init.js?v=9"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>

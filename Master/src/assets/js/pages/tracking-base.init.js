@@ -1205,6 +1205,21 @@ async function apiDelete(id) {
     setImportStep("file");
   }
 
+  function syncImportModalLabels() {
+    const ownerBase = isOwnerTipoBase();
+    const help = qs("#importHelpText");
+    if (help) {
+      help.textContent = ownerBase
+        ? "Importe cliente, tipo (seller ou base) e valores (Flex, Shopee e Avulso). Se já existir, os preços e o tipo serão atualizados. CNPJ e endereço você completa depois no sistema."
+        : "Importe nome e valores (Flex, Shopee e Avulso). Se já existir, os preços serão atualizados. CNPJ e endereço você completa depois no sistema.";
+    }
+    const thNome = qs("#importThNome");
+    if (thNome) thNome.textContent = ownerBase ? "Cliente" : "Base";
+    const thRes = qs("#importResThNome");
+    if (thRes) thRes.textContent = ownerBase ? "Cliente" : "Base";
+    qs("#importThTipo")?.classList.toggle("d-none", !ownerBase);
+  }
+
   function openImportModal() {
     if (!importModal) {
       const el = qs("#modalImportBases");
@@ -1213,6 +1228,7 @@ async function apiDelete(id) {
       el.addEventListener("hidden.bs.modal", () => resetImportModal());
     }
     resetImportModal();
+    syncImportModalLabels();
     importModal.show();
   }
 
@@ -1229,9 +1245,11 @@ async function apiDelete(id) {
 
     const tbody = qs("#import-preview-tbody");
     if (!tbody) return;
+    const ownerBase = isOwnerTipoBase();
+    const colSpan = ownerBase ? 8 : 7;
     const linhas = data?.linhas || [];
     if (!linhas.length) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-muted text-center py-3">Nenhuma linha encontrada na planilha.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-muted text-center py-3">Nenhuma linha encontrada na planilha.</td></tr>`;
       return;
     }
 
@@ -1258,10 +1276,15 @@ async function apiDelete(id) {
           detalhe = "Nova";
         }
 
+        const tipoCell = ownerBase
+          ? `<td>${escapeHtmlImport(l.tipo || (l.papel === "base_parceira" ? "base" : l.papel) || "—")}</td>`
+          : "";
+
         return (
           `<tr>` +
           `<td>${escapeHtmlImport(l.linha)}</td>` +
           `<td>${escapeHtmlImport(l.base || "—")}</td>` +
+          tipoCell +
           `<td class="text-end">${acao === "erro" ? "—" : formatMoedaImport(l.flex)}</td>` +
           `<td class="text-end">${acao === "erro" ? "—" : formatMoedaImport(l.shopee)}</td>` +
           `<td class="text-end">${acao === "erro" ? "—" : formatMoedaImport(l.avulso)}</td>` +
@@ -1331,7 +1354,9 @@ async function apiDelete(id) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "modelo-importacao-bases.xlsx";
+      a.download = isOwnerTipoBase()
+        ? "modelo-importacao-clientes.xlsx"
+        : "modelo-importacao-bases.xlsx";
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1397,13 +1422,18 @@ async function apiDelete(id) {
     }
     try {
       const payload = {
-        linhas: validas.map((l) => ({
-          linha: l.linha,
-          base: l.base,
-          flex: l.flex,
-          shopee: l.shopee,
-          avulso: l.avulso,
-        })),
+        linhas: validas.map((l) => {
+          const row = {
+            linha: l.linha,
+            base: l.base,
+            flex: l.flex,
+            shopee: l.shopee,
+            avulso: l.avulso,
+          };
+          if (l.papel) row.papel = l.papel;
+          else if (l.tipo) row.tipo = l.tipo;
+          return row;
+        }),
       };
       const data = await http(`${API_URL}/base/import/confirmar`, {
         method: "POST",
