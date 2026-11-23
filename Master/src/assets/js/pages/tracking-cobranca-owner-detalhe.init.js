@@ -42,6 +42,32 @@
     return s;
   }
 
+  function ehDual(d) {
+    if (!d) return false;
+    if (d.dois_precos || (d.totais && (d.totais.dois_precos || d.totais.dual))) return true;
+    return !!(d.sellers || (d.totais && d.totais.sellers));
+  }
+
+  function ladoSellers(d) {
+    return (d && d.sellers) || (d && d.totais && d.totais.sellers) || null;
+  }
+
+  function ladoBases(d) {
+    return (d && d.bases) || (d && d.totais && d.totais.bases) || null;
+  }
+
+  function atualizarChipsDual(dual) {
+    document.querySelectorAll(".cob-chip-dual").forEach(function (el) {
+      el.classList.toggle("d-none", !dual);
+    });
+    if (!dual && (state.itens.filtro === "sellers" || state.itens.filtro === "bases")) {
+      state.itens.filtro = "";
+      document.querySelectorAll("#cobd-chips .cob-chip").forEach(function (b) {
+        b.classList.toggle("active", (b.getAttribute("data-filtro") || "") === "");
+      });
+    }
+  }
+
   async function comBotao(btn, fn) {
     if (btn && btn.disabled) return;
     var original = btn ? btn.innerHTML : "";
@@ -99,16 +125,26 @@
     $("cobd-nome").textContent = d.owner.nome;
     document.title = "Cobrança · " + d.owner.nome + " | ROTEVO";
     var parceria = textoParceriaCabecalho(d.owner && d.owner.criado_em);
+    var precoMeta;
+    if (ehDual(d)) {
+      var sMeta = ladoSellers(d);
+      var bMeta = ladoBases(d);
+      precoMeta = "Sellers " + C.preco(sMeta && sMeta.preco_unitario) +
+        " · Bases " + C.preco(bMeta && bMeta.preco_unitario);
+    } else {
+      precoMeta = C.preco(d.totais.preco_unitario) + " por pacote";
+    }
     var meta = [
       "<span>" + C.escapeHtml(parceria) + "</span>",
       "<span aria-hidden='true'>·</span><span>" + C.escapeHtml(C.periodoLabel(d.periodo.inicio, d.periodo.fim)) + "</span>",
       "<span aria-hidden='true'>·</span><span>" + C.escapeHtml(d.modelo_label) +
         (d.fonte === "previa" && !d.config.confirmado ? " (a confirmar)" : "") + "</span>",
-      "<span aria-hidden='true'>·</span><span class='cob-num'>" + C.preco(d.totais.preco_unitario) + " por pacote</span>",
+      "<span aria-hidden='true'>·</span><span class='cob-num'>" + precoMeta + "</span>",
       C.statusTag(d.status, d.status_label)
     ];
     $("cobd-meta").innerHTML = meta.join(" ");
     $("cobd-total").textContent = C.money(d.totais.valor_total);
+    atualizarChipsDual(ehDual(d));
     if (d.fonte === "snapshot" && d.fechamento) {
       $("cobd-fonte").textContent = "Fechamento v" + d.fechamento.versao + " · " + C.dmyHm(d.fechamento.fechado_em) +
         (d.fechamento.fechado_por ? " · " + d.fechamento.fechado_por : "");
@@ -143,9 +179,9 @@
     brutos.forEach(function (c) { html += linhaLedger(c.label, c.quantidade, c.valor); });
     html += linhaLedger("Subtotal bruto", d.totais.bruto, subtotal.toFixed(2), "cob-ledger-sub");
     if (cancel) html += linhaLedger("(−) Cancelados", Math.abs(cancel.quantidade), cancel.valor);
-    if (d.dois_precos || (d.totais && d.totais.dual)) {
-      var sellers = d.sellers || (d.totais && d.totais.sellers) || null;
-      var bases = d.bases || (d.totais && d.totais.bases) || null;
+    if (ehDual(d)) {
+      var sellers = ladoSellers(d);
+      var bases = ladoBases(d);
       if (sellers) {
         html += linhaLedger(
           "Coletas em Sellers (" + C.int(sellers.quantidade) + " × " + C.preco(sellers.preco_unitario) + ")",
@@ -156,16 +192,14 @@
       }
       if (bases) {
         html += linhaLedger(
-          "Bases (" + C.int(bases.quantidade) + " × " + C.preco(bases.preco_unitario) + ")",
+          "Coletas em Bases (" + C.int(bases.quantidade) + " × " + C.preco(bases.preco_unitario) + ")",
           bases.quantidade,
           bases.valor,
           "fw-medium"
         );
       }
-      html += linhaLedger("Pacotes faturáveis", d.totais.faturavel, d.totais.valor_pacotes, "fw-medium");
-    } else {
-      html += linhaLedger("Pacotes faturáveis", d.totais.faturavel, d.totais.valor_pacotes, "fw-medium");
     }
+    html += linhaLedger("Pacotes faturáveis", d.totais.faturavel, d.totais.valor_pacotes, "fw-medium");
     ajustes.forEach(function (c) { html += linhaLedger(c.label, null, c.valor); });
     html += linhaLedger("Total", null, d.totais.valor_total, "cob-ledger-total");
     $("cobd-composicao").innerHTML = html;
@@ -234,13 +268,13 @@
       "",
       "Segue o demonstrativo de utilização da ROTEVO referente a " + C.periodoLabel(d.periodo.inicio, d.periodo.fim) + ".",
       "",
-      d.dois_precos || (d.totais && d.totais.dual)
+      ehDual(d)
         ? "• Pacotes cobrados: " + C.int(d.totais.faturavel) + " = " + C.money(d.totais.valor_pacotes)
         : "• Pacotes cobrados: " + C.int(d.totais.faturavel) + " × " + C.preco(d.totais.preco_unitario) + " = " + C.money(d.totais.valor_pacotes)
     ];
-    if (d.dois_precos || (d.totais && d.totais.dual)) {
-      var s = d.sellers || (d.totais && d.totais.sellers);
-      var b = d.bases || (d.totais && d.totais.bases);
+    if (ehDual(d)) {
+      var s = ladoSellers(d);
+      var b = ladoBases(d);
       if (s) linhas.push("  – Sellers: " + C.int(s.quantidade) + " × " + C.preco(s.preco_unitario) + " = " + C.money(s.valor));
       if (b) linhas.push("  – Bases: " + C.int(b.quantidade) + " × " + C.preco(b.preco_unitario) + " = " + C.money(b.valor));
     }
@@ -508,7 +542,14 @@
           var ident = it.tipo === "manual"
             ? "<span class='fw-medium'>Coleta manual nº " + it.id_coleta + "</span>"
             : "<span class='fw-medium cob-num'>" + C.escapeHtml(it.codigo) + "</span>";
-          return "<tr><td>" + ident + "</td>" +
+          var papelBadge = "";
+          if (it.papel_preco_label) {
+            var badgeCls = it.papel_preco === "sellers"
+              ? "bg-primary-subtle text-primary"
+              : "bg-secondary-subtle text-secondary";
+            papelBadge = " <span class='badge " + badgeCls + "'>" + C.escapeHtml(it.papel_preco_label) + "</span>";
+          }
+          return "<tr><td>" + ident + papelBadge + "</td>" +
             "<td class='cob-num'>" + C.dmy(it.data) + "</td>" +
             "<td>" + C.escapeHtml(it.origem_label) + "</td>" +
             "<td>" + C.escapeHtml(it.servico_label) + "</td>" +
