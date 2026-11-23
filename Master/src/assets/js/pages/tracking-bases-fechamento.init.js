@@ -337,6 +337,48 @@ document.addEventListener("DOMContentLoaded", async () => {
     return html;
   }
 
+  function chipCiclo(ciclo) {
+    return (
+      { semanal: "fm-chip--semanal", quinzenal: "fm-chip--quinzenal", mensal: "fm-chip--mensal" }[ciclo] || "fm-chip--info"
+    );
+  }
+
+  function cabecalhoGrupoUi(codigo) {
+    let ciclo = null;
+    let papel = null;
+    String(codigo || "")
+      .split("|")
+      .forEach((p) => {
+        if (p.startsWith("c:")) ciclo = p.slice(2);
+        if (p.startsWith("p:")) papel = p.slice(2);
+      });
+    if (ciclo && papel) {
+      return {
+        pill: ROTULO_CICLO[ciclo] || ciclo,
+        pillClass: chipCiclo(ciclo),
+        titulo: ROTULO_PAPEL[papel] || papel,
+        rail: papel === "base_parceira" ? "muted" : "accent",
+        aria: `${ROTULO_CICLO[ciclo] || ciclo} · ${ROTULO_PAPEL[papel] || papel}`,
+      };
+    }
+    if (ciclo) {
+      return {
+        pill: "Período",
+        pillClass: chipCiclo(ciclo),
+        titulo: ROTULO_CICLO[ciclo] || ciclo,
+        rail: "accent",
+        aria: ROTULO_CICLO[ciclo] || ciclo,
+      };
+    }
+    return {
+      pill: "Papel",
+      pillClass: papel === "base_parceira" ? "fm-chip--info" : "fm-chip--quinzenal",
+      titulo: ROTULO_PAPEL[papel] || papel || "",
+      rail: papel === "base_parceira" ? "muted" : "accent",
+      aria: ROTULO_PAPEL[papel] || papel || "",
+    };
+  }
+
   function linhaBaseHtml(r) {
     const k = String(r.base);
     const aberto = state.expandidos.has(k);
@@ -350,8 +392,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       subValor = `<div class="fm-sub fm-num">inclui ${moeda(r.valor_g)} de pacotes G</div>`;
     }
     const idDias = `fm-dias-${esc(k.replace(/[^\w-]/g, "_"))}`;
+    const emGrupo = state.agruparCiclo || state.agruparPapel;
+    const classesLinha = [r.precisa_reajuste ? "fm-linha--revisao" : "", emGrupo ? "fm-linha--em-grupo" : ""]
+      .filter(Boolean)
+      .join(" ");
     return (
-      `<tr class="${r.precisa_reajuste ? "fm-linha--revisao" : ""}">` +
+      `<tr class="${classesLinha}">` +
       `<td><button type="button" class="fm-expandir" data-acao="expandir" data-base="${esc(k)}" aria-expanded="${aberto}" aria-controls="${idDias}" aria-label="Ver dias de ${esc(r.base)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
       `<td><div class="fw-semibold">${esc(r.base)}${seloPapel(papelDe(r))}</div>${r.cnpj ? `<div class="fm-sub">${esc(r.cnpj)}</div>` : ""}</td>` +
       `<td>${badgePeriodo(r)}</td>` +
@@ -397,15 +443,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       return partes.join("|");
     }
 
-    function rotuloGrupo(chave) {
-      const partes = [];
-      chave.split("|").forEach((p) => {
-        if (p.startsWith("c:")) partes.push(ROTULO_CICLO[p.slice(2)] || p.slice(2));
-        if (p.startsWith("p:")) partes.push(ROTULO_PAPEL[p.slice(2)] || p.slice(2));
-      });
-      return partes.join(" · ");
-    }
-
     function ordemChaves() {
       const chaves = [];
       const ciclos = state.agruparCiclo ? ORDEM_CICLO : [null];
@@ -432,11 +469,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       const grupo = porGrupo.get(codigo);
       if (!grupo || !grupo.length) return;
       const aberto = state.gruposExpandidos.has(codigo);
-      const rotulo = rotuloGrupo(codigo);
+      const ui = cabecalhoGrupoUi(codigo);
+      const railClass = ui.rail === "muted" ? " fm-grupo--muted" : "";
       html.push(
-        `<tr class="fm-grupo">` +
-          `<td><button type="button" class="fm-expandir" data-acao="expandir-grupo" data-ciclo="${esc(codigo)}" aria-expanded="${aberto}" aria-label="Expandir ${esc(rotulo)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
-          `<td colspan="${colunas() - 1}"><span>${esc(rotulo)}</span> <span class="fm-grupo-meta">${esc(pluralBase(grupo.length))}</span></td>` +
+        `<tr class="fm-grupo${railClass}">` +
+          `<td><button type="button" class="fm-expandir" data-acao="expandir-grupo" data-ciclo="${esc(codigo)}" aria-expanded="${aberto}" aria-label="Expandir ${esc(ui.aria)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
+          `<td colspan="${colunas() - 1}"><span class="fm-grupo-label">` +
+          `<span class="fm-chip ${ui.pillClass}">${esc(ui.pill)}</span>` +
+          `<span class="fm-grupo-titulo">${esc(ui.titulo)}</span>` +
+          `<span class="fm-grupo-meta">${esc(pluralBase(grupo.length))}</span>` +
+          `</span></td>` +
           `</tr>`
       );
       if (aberto) html.push(...grupo.map(linhaBaseHtml));

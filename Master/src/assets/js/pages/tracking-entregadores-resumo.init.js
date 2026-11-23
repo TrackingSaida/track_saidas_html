@@ -497,8 +497,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         : `<tr class="fm-dias${aberto ? "" : " d-none"}" id="${idDias}"><td colspan="${colunas()}">${
             tipoLinha(r) === "base" ? diasHtmlBase(r) : diasHtml(r)
           }</td></tr>`;
+    const classesLinha = [r.pode_reajustar ? "fm-linha--revisao" : "", state.agruparTipo ? "fm-linha--em-grupo" : ""]
+      .filter(Boolean)
+      .join(" ");
     return (
-      `<tr class="${r.pode_reajustar ? "fm-linha--revisao" : ""}">` +
+      `<tr class="${classesLinha}">` +
       expandir +
       `<td><div class="fw-semibold">${esc(r.nome)}${seloTipo(r)}</div>${subNome}</td>` +
       `<td class="text-end fm-num">${num(r.total_feitos)}</td>` +
@@ -562,17 +565,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const html = [];
     [
-      { key: "motoboy", rotulo: "Motoboys", rows: motoboys },
-      { key: "base", rotulo: "Bases", rows: bases },
+      { key: "motoboy", rotulo: "Motoboys", rows: motoboys, rail: "accent", pillClass: "fm-chip--quinzenal" },
+      { key: "base", rotulo: "Bases", rows: bases, rail: "muted", pillClass: "fm-chip--info" },
     ].forEach((g) => {
       if (!g.rows.length) return;
       const aberto = state.gruposExpandidos.has(g.key);
+      const meta = plural(g.rows.length, g.key === "base" ? "base" : "motoboy", g.key === "base" ? "bases" : "motoboys");
+      const railClass = g.rail === "muted" ? " fm-grupo--muted" : "";
       html.push(
-        `<tr class="fm-grupo">` +
+        `<tr class="fm-grupo${railClass}">` +
           `<td><button type="button" class="fm-expandir" data-acao="expandir-grupo" data-grupo="${esc(g.key)}" aria-expanded="${aberto}" aria-label="Expandir ${esc(g.rotulo)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
-          `<td colspan="${colunas() - 1}"><span>${esc(g.rotulo)}</span> <span class="fm-grupo-meta">${esc(
-            plural(g.rows.length, g.key === "base" ? "base" : "motoboy", g.key === "base" ? "bases" : "motoboys")
-          )}</span></td>` +
+          `<td colspan="${colunas() - 1}"><span class="fm-grupo-label">` +
+          `<span class="fm-chip ${g.pillClass}">Tipo</span>` +
+          `<span class="fm-grupo-titulo">${esc(g.rotulo)}</span>` +
+          `<span class="fm-grupo-meta">${esc(meta)}</span>` +
+          `</span></td>` +
           `</tr>`
       );
       if (aberto) html.push(...g.rows.map(linhaResumoHtml));
