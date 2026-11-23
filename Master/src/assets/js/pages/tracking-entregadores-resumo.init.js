@@ -311,8 +311,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       const linhas = fechados.map((f) => normalizarLinhaBase(f, { pendente: false }));
       const bases = await api(`${API_BASE_REPASSE}/bases`);
       const listaBases = Array.isArray(bases) ? bases : [];
+      let falhasPreview = 0;
+      let candidatosPreview = 0;
       for (const b of listaBases) {
         if (fechadosIds.has(Number(b.id_base))) continue;
+        candidatosPreview += 1;
         try {
           const calc = await api(
             `${API_BASE_REPASSE}/fechamentos/calcular?${new URLSearchParams({
@@ -324,12 +327,18 @@ document.addEventListener("DOMContentLoaded", async () => {
           const temVolume = num(calc.valor_base) > 0 || volumeCanais(calc.totais) > 0;
           if (!temVolume) continue;
           linhas.push(normalizarLinhaBase(calc, { pendente: true }));
-        } catch (_) {
-          /* período aberto ou sem permissão */
+        } catch (err) {
+          falhasPreview += 1;
+          console.warn("Fechamento Motoboys — preview base repasse:", b?.base || b?.id_base, err?.message || err);
         }
       }
       linhas.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR", { sensitivity: "base" }));
       state.basesLinhas = linhas;
+      const temPendenteBase = linhas.some((r) => String(r.fechamento_status || "").toUpperCase() === "PENDENTE");
+      if (!temPendenteBase && candidatosPreview && falhasPreview === candidatosPreview && msgEl && !msgEl.innerHTML) {
+        msgEl.innerHTML =
+          '<div class="fm-sub text-warning-emphasis">Não foi possível pré-calcular o repasse das bases neste período. Verifique se há bases com “entrega pedidos” e tente novamente.</div>';
+      }
     } catch (err) {
       console.error("Fechamento Motoboys — bases repasse:", err);
       state.basesLinhas = [];

@@ -358,8 +358,8 @@ document.addEventListener("DOMContentLoaded", () => {
             })}`
           );
           pendentes.push(calc);
-        } catch (_) {
-          // Período em aberto ou sem permissão: ignora a prévia.
+        } catch (err) {
+          console.warn("A Pagar — preview base repasse:", b?.base || b?.id_base, err?.message || err);
         }
       }
       state.basesPendentes = pendentes;
