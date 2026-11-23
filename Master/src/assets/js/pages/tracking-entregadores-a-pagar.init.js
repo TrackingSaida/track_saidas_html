@@ -302,7 +302,7 @@ document.addEventListener("DOMContentLoaded", () => {
         : "";
       linhas.push(
         `<tr data-id="${item.id_fechamento}">` +
-        `<td><div class="fw-semibold">${esc(item.base || "—")}</div></td>` +
+        `<td><div class="fw-semibold">${esc(item.base || "—")}<span class="badge bg-secondary-subtle text-secondary ms-1">Base</span></div></td>` +
         `<td>${esc(periodoTexto(item.periodo_inicio, item.periodo_fim))}</td>` +
         `<td class="text-end fw-semibold fm-num">${moeda(item.valor_final)}</td>` +
         `<td><span class="fm-status fm-status--${st.cls}">${esc(st.label)}</span></td>` +
@@ -314,7 +314,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const podeGerar = num(p.valor_base) > 0 || num(p.totais?.total) > 0;
       linhas.push(
         `<tr data-base="${p.id_base}">` +
-        `<td><div class="fw-semibold">${esc(p.base || "—")}</div><div class="fm-linha-sub">Sem fechamento neste período</div></td>` +
+        `<td><div class="fw-semibold">${esc(p.base || "—")}<span class="badge bg-secondary-subtle text-secondary ms-1">Base</span></div><div class="fm-linha-sub">Sem fechamento neste período</div></td>` +
         `<td>${esc(periodoTexto(inicio, fim))}</td>` +
         `<td class="text-end fw-semibold fm-num">${moeda(p.valor_base)}</td>` +
         `<td><span class="fm-status fm-status--pendente">Pendente</span></td>` +

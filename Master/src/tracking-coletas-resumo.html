@@ -66,6 +66,14 @@
                                 <option value="mensal">Mensal</option>
                               </select>
                             </div>
+                            <div class="mb-2 d-none" id="wrapFltPapel">
+                              <label class="form-label small mb-1" for="flt-papel">Papel</label>
+                              <select id="flt-papel" class="form-select form-select-sm">
+                                <option value="">Todos</option>
+                                <option value="seller">Seller</option>
+                                <option value="base_parceira">Base</option>
+                              </select>
+                            </div>
                             <div class="mb-3">
                               <label class="form-label small mb-1" for="flt-status">Situação</label>
                               <select id="flt-status" class="form-select form-select-sm">
@@ -89,9 +97,15 @@
 
                     <div id="fm-filtros-ativos" class="fm-filtros-ativos d-none" aria-live="polite"></div>
 
-                    <div class="form-check form-switch mb-2">
-                      <input class="form-check-input" type="checkbox" id="chkAgruparCiclo" />
-                      <label class="form-check-label" for="chkAgruparCiclo">Agrupar por período de fechamento</label>
+                    <div class="d-flex flex-wrap gap-3 mb-2">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="chkAgruparCiclo" />
+                        <label class="form-check-label" for="chkAgruparCiclo">Agrupar por período de fechamento</label>
+                      </div>
+                      <div class="form-check form-switch d-none" id="wrapAgruparPapel">
+                        <input class="form-check-input" type="checkbox" id="chkAgruparPapel" />
+                        <label class="form-check-label" for="chkAgruparPapel">Agrupar por papel</label>
+                      </div>
                     </div>
 
                     <div id="resumoMsg" class="mb-3" role="status" aria-live="polite"></div>

@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const API_RESUMO = API_URL + "/entregadores/resumo";
   const API_ENTREGADORES = API_URL + "/entregadores";
   const API_FECHAMENTOS = API_URL + "/entregadores/fechamentos";
+  const API_BASE_REPASSE = API_URL + "/base-repasse";
   const COR_PRIMARIA = "#0B1F3A";
 
   const qs = (s) => document.querySelector(s);
@@ -135,9 +136,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     total: 0,
     totalPages: 0,
     items: [],
+    basesLinhas: [],
     totais: {},
     conferenciaHabilitada: false,
     expandidos: new Set(),
+    gruposExpandidos: new Set(["motoboy", "base"]),
+    agruparTipo: false,
     gerandoLote: false,
     excluindo: false,
     painel: null,
@@ -150,10 +154,24 @@ document.addEventListener("DOMContentLoaded", async () => {
   const fltEntregador = qs("#flt-entregador");
   const fltStatus = qs("#flt-status");
   const fltBase = qs("#flt-base");
+  const fltTipo = qs("#flt-tipo");
   const tbody = qs("#tbody-resumo");
   const msgEl = qs("#resumoMsg");
   const painelEl = qs("#painelRevisao");
   const painel = painelEl && typeof bootstrap !== "undefined" ? bootstrap.Offcanvas.getOrCreateInstance(painelEl) : null;
+
+  function tipoLinha(r) {
+    return r && r.linha_tipo === "base" ? "base" : "motoboy";
+  }
+
+  function seloTipo(r) {
+    if (tipoLinha(r) === "base") return '<span class="badge bg-secondary-subtle text-secondary ms-1">Base</span>';
+    return '<span class="badge bg-primary-subtle text-primary ms-1">Motoboy</span>';
+  }
+
+  function filtroTipoAtual() {
+    return String(fltTipo?.value || "").trim().toLowerCase();
+  }
 
   function parseExecutorVal(val) {
     const v = String(val || "").trim();
@@ -194,7 +212,152 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function chaveLinha(r) {
+    if (tipoLinha(r) === "base") return `b_${r.id_base || r.executor_id}`;
     return `${r.executor_tipo}_${r.executor_id}`;
+  }
+
+  function volumeCanais(totais) {
+    const t = totais || {};
+    return num(t.shopee) + num(t.ml) + num(t.avulso);
+  }
+
+  function normalizarLinhaBase(calcOuFech, { pendente }) {
+    const { ini, fim } = periodoFiltro();
+    if (pendente) {
+      const totais = calcOuFech.totais || {};
+      const volume =
+        volumeCanais(totais) ||
+        (Array.isArray(calcOuFech.itens)
+          ? calcOuFech.itens.reduce((s, i) => s + num(i.shopee) + num(i.ml) + num(i.avulso), 0)
+          : 0);
+      const dias = (Array.isArray(calcOuFech.itens) ? calcOuFech.itens : []).map((it) => ({
+        data: it.data,
+        flex: { qtde: num(it.ml || 0) },
+        shopee: { qtde: num(it.shopee || 0) },
+        avulso: { qtde: num(it.avulso || 0) },
+        g_total: 0,
+        total_cancelado: num(it.cancelados || 0),
+        valor_feitos: it.valor_dia != null ? it.valor_dia : it.valor,
+        fechamento_status: "PENDENTE",
+      }));
+      return {
+        linha_tipo: "base",
+        id_base: Number(calcOuFech.id_base),
+        executor_tipo: "b",
+        executor_id: Number(calcOuFech.id_base),
+        nome: calcOuFech.base || "—",
+        total_feitos: volume,
+        total_cancelado: num(totais.cancelados),
+        g_total: 0,
+        qtd_dias_coleta: 0,
+        valor_base: calcOuFech.valor_base,
+        valor_final: calcOuFech.valor_base,
+        fechamento_status: "PENDENTE",
+        id_fechamento: null,
+        dias,
+        pode_reajustar: false,
+        periodo_inicio: calcOuFech.periodo_inicio || ini,
+        periodo_fim: calcOuFech.periodo_fim || fim,
+      };
+    }
+    const st = String(calcOuFech.status || "GERADO").toUpperCase();
+    return {
+      linha_tipo: "base",
+      id_base: Number(calcOuFech.id_base),
+      executor_tipo: "b",
+      executor_id: Number(calcOuFech.id_base),
+      nome: calcOuFech.base || "—",
+      total_feitos: volumeCanais(calcOuFech.totais),
+      total_cancelado: num(calcOuFech.totais?.cancelados),
+      g_total: 0,
+      qtd_dias_coleta: 0,
+      valor_base: calcOuFech.valor_final,
+      valor_final: calcOuFech.valor_final,
+      fechamento_status: st === "REAJUSTADO" ? "REAJUSTADO" : st === "PAGO" ? "PAGO" : "GERADO",
+      id_fechamento: calcOuFech.id_fechamento,
+      dias: [],
+      pode_reajustar: false,
+      periodo_inicio: calcOuFech.periodo_inicio || ini,
+      periodo_fim: calcOuFech.periodo_fim || fim,
+    };
+  }
+
+  function basesVisiveis() {
+    const tipo = filtroTipoAtual();
+    if (tipo === "motoboy") return [];
+    let rows = state.basesLinhas || [];
+    const status = (fltStatus?.value || "").trim().toUpperCase();
+    if (status === "REVISAO") return [];
+    if (status) rows = rows.filter((r) => String(r.fechamento_status || "").toUpperCase() === status);
+    const baseNome = (fltBase?.value || "").trim();
+    if (baseNome) rows = rows.filter((r) => String(r.nome || "") === baseNome);
+    return rows;
+  }
+
+  function motoboysVisiveis() {
+    const tipo = filtroTipoAtual();
+    if (tipo === "base") return [];
+    return state.items || [];
+  }
+
+  async function carregarBasesLinhas() {
+    const { ini, fim } = periodoFiltro();
+    state.basesLinhas = [];
+    if (!ini || !fim || !API_URL) return;
+    try {
+      const data = await api(`${API_BASE_REPASSE}/fechamentos?${new URLSearchParams({ periodo_inicio: ini, periodo_fim: fim })}`);
+      const fechados = Array.isArray(data.items) ? data.items : [];
+      const fechadosIds = new Set(fechados.map((i) => Number(i.id_base)));
+      const linhas = fechados.map((f) => normalizarLinhaBase(f, { pendente: false }));
+      const bases = await api(`${API_BASE_REPASSE}/bases`);
+      const listaBases = Array.isArray(bases) ? bases : [];
+      for (const b of listaBases) {
+        if (fechadosIds.has(Number(b.id_base))) continue;
+        try {
+          const calc = await api(
+            `${API_BASE_REPASSE}/fechamentos/calcular?${new URLSearchParams({
+              id_base: String(b.id_base),
+              periodo_inicio: ini,
+              periodo_fim: fim,
+            })}`
+          );
+          const temVolume = num(calc.valor_base) > 0 || volumeCanais(calc.totais) > 0;
+          if (!temVolume) continue;
+          linhas.push(normalizarLinhaBase(calc, { pendente: true }));
+        } catch (_) {
+          /* período aberto ou sem permissão */
+        }
+      }
+      linhas.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR", { sensitivity: "base" }));
+      state.basesLinhas = linhas;
+    } catch (err) {
+      console.error("Fechamento Motoboys — bases repasse:", err);
+      state.basesLinhas = [];
+    }
+  }
+
+  async function gerarRepasseBase(idBase) {
+    const { ini, fim } = periodoFiltro();
+    if (!ini || !fim || !idBase) return;
+    try {
+      await api(`${API_BASE_REPASSE}/fechamentos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id_base: Number(idBase),
+          periodo_inicio: ini,
+          periodo_fim: fim,
+          valor_adicao: 0,
+          valor_subtracao: 0,
+        }),
+      });
+      if (msgEl) msgEl.innerHTML = '<span class="text-success">Fechamento da base gerado. Baixa em A Pagar.</span>';
+      await carregarBasesLinhas();
+      renderTabela();
+      renderCards();
+    } catch (err) {
+      avisoErro("Não foi possível gerar o fechamento da base", err);
+    }
   }
 
   function rotuloPeriodoCurto(ini, fim) {
@@ -233,6 +396,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function acoesHtml(r) {
     const st = String(r.fechamento_status || "PENDENTE").toUpperCase();
+    if (tipoLinha(r) === "base") {
+      if (st === "PENDENTE") {
+        const { fim } = periodoFiltro();
+        let motivo = "";
+        if (periodoAberto(fim)) motivo = "Período ainda em aberto: escolha um período que termine antes de hoje.";
+        const btn = `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="gerar-base" data-id-base="${esc(r.id_base)}"${motivo ? " disabled" : ""}>Revisar e gerar</button>`;
+        return motivo ? `<span class="d-inline-block" tabindex="0" title="${esc(motivo)}">${btn}</span>` : btn;
+      }
+      return `<a class="btn btn-sm btn-outline-secondary" href="tracking-entregadores-a-pagar.html">Ver em A Pagar</a>`;
+    }
     const k = esc(chaveLinha(r));
     const pdf = r.id_fechamento
       ? `<button type="button" class="btn btn-sm btn-link text-secondary px-1" data-acao="pdf" data-id="${esc(r.id_fechamento)}" title="Baixar PDF" aria-label="Baixar PDF de ${esc(r.nome)}"><i class="ri-file-pdf-line fs-5"></i></button>`
@@ -288,61 +461,168 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
   }
 
+  function linhaResumoHtml(r) {
+    const k = chaveLinha(r);
+    const aberto = state.expandidos.has(k);
+    const st = String(r.fechamento_status || "PENDENTE").toUpperCase();
+    const valor = st === "PENDENTE" ? r.valor_base : r.valor_final;
+    const subValor =
+      r.pode_reajustar && r.valor_base_atual != null
+        ? `<div class="fm-sub fm-num">valor atual ${moeda(num(r.valor_base_atual) + num(r.valor_final) - num(r.valor_base_fechado))}</div>`
+        : "";
+    const { ini, fim } = periodoFiltro();
+    const subNome =
+      tipoLinha(r) === "base"
+        ? '<div class="fm-sub">Repasse — saídas enviadas à base</div>'
+        : r.periodo_inicio && (r.periodo_inicio !== ini || r.periodo_fim !== fim)
+          ? `<div class="fm-sub">Fechamento de ${esc(periodoTexto(r.periodo_inicio, r.periodo_fim))}</div>`
+          : "";
+    const idDias = `fm-dias-${esc(k)}`;
+    const expandir =
+      tipoLinha(r) === "base" && !(r.dias || []).length
+        ? `<td></td>`
+        : `<td><button type="button" class="fm-expandir" data-acao="expandir" data-k="${esc(k)}" aria-expanded="${aberto}" aria-controls="${idDias}" aria-label="Ver dias de ${esc(r.nome)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>`;
+    const diasRow =
+      tipoLinha(r) === "base" && !(r.dias || []).length
+        ? ""
+        : `<tr class="fm-dias${aberto ? "" : " d-none"}" id="${idDias}"><td colspan="${colunas()}">${
+            tipoLinha(r) === "base" ? diasHtmlBase(r) : diasHtml(r)
+          }</td></tr>`;
+    return (
+      `<tr class="${r.pode_reajustar ? "fm-linha--revisao" : ""}">` +
+      expandir +
+      `<td><div class="fw-semibold">${esc(r.nome)}${seloTipo(r)}</div>${subNome}</td>` +
+      `<td class="text-end fm-num">${num(r.total_feitos)}</td>` +
+      `<td class="text-end fm-num">${tipoLinha(r) === "base" ? "—" : num(r.total_cancelado)}</td>` +
+      `<td class="text-end fm-num">${tipoLinha(r) === "base" ? "—" : num(r.g_total)}</td>` +
+      `<td class="text-end fm-num">${tipoLinha(r) === "base" ? "—" : r.qtd_dias_coleta ? esc(plural(r.qtd_dias_coleta, "dia", "dias")) : "—"}</td>` +
+      `<td class="text-end"><div class="fw-semibold fm-num">${moeda(valor)}</div>${subValor}</td>` +
+      `<td>${statusHtml(r)}</td>` +
+      `<td class="text-end text-nowrap">${acoesHtml(r)}</td>` +
+      "</tr>" +
+      diasRow
+    );
+  }
+
+  function diasHtmlBase(r) {
+    const dias = Array.isArray(r.dias) ? r.dias : [];
+    if (!dias.length) return '<div class="fm-sub py-1">Sem volume enviado à base neste período.</div>';
+    const linhas = dias
+      .map(
+        (d) =>
+          "<tr>" +
+          `<td>${esc(dmy(d.data))}</td>` +
+          `<td class="text-end fm-num">${num(d.flex?.qtde)}</td>` +
+          `<td class="text-end fm-num">${num(d.shopee?.qtde)}</td>` +
+          `<td class="text-end fm-num">${num(d.avulso?.qtde)}</td>` +
+          `<td class="text-end fm-num">—</td>` +
+          `<td class="text-end fm-num">—</td>` +
+          `<td class="text-end fm-num">${moeda(d.valor_feitos)}</td>` +
+          `<td><span class="fm-status fm-status--pendente">Pendente</span></td>` +
+          "</tr>"
+      )
+      .join("");
+    return (
+      '<table class="table table-sm"><thead><tr>' +
+      '<th>Dia</th><th class="text-end">Mercado Livre</th><th class="text-end">Shopee</th><th class="text-end">Avulso</th>' +
+      '<th class="text-end">Pacotes G</th><th class="text-end">Cancelados</th><th class="text-end">Valor</th><th>Situação</th>' +
+      `</tr></thead><tbody>${linhas}</tbody></table>`
+    );
+  }
+
   function renderTabela() {
     if (!tbody) return;
-    const items = state.items;
-    if (!items.length) {
-      const filtrado = (fltStatus?.value || "").trim() || parseExecutorVal(fltEntregador?.value).id > 0;
-      linhaMensagem(filtrado ? "Nenhum motoboy encontrado com esses filtros." : "Nenhum motoboy com movimento neste período.");
+    const motoboys = motoboysVisiveis();
+    const bases = basesVisiveis();
+    if (!motoboys.length && !bases.length) {
+      const filtrado =
+        (fltStatus?.value || "").trim() ||
+        parseExecutorVal(fltEntregador?.value).id > 0 ||
+        !!filtroTipoAtual() ||
+        !!(fltBase?.value || "").trim();
+      linhaMensagem(
+        filtrado ? "Nenhum responsável encontrado com esses filtros." : "Nenhum motoboy ou base com movimento neste período."
+      );
       return;
     }
-    tbody.innerHTML = items
-      .map((r) => {
-        const k = chaveLinha(r);
-        const aberto = state.expandidos.has(k);
-        const st = String(r.fechamento_status || "PENDENTE").toUpperCase();
-        const valor = st === "PENDENTE" ? r.valor_base : r.valor_final;
-        const subValor =
-          r.pode_reajustar && r.valor_base_atual != null
-            ? `<div class="fm-sub fm-num">valor atual ${moeda(num(r.valor_base_atual) + num(r.valor_final) - num(r.valor_base_fechado))}</div>`
-            : "";
-        const { ini, fim } = periodoFiltro();
-        const subNome =
-          r.periodo_inicio && (r.periodo_inicio !== ini || r.periodo_fim !== fim)
-            ? `<div class="fm-sub">Fechamento de ${esc(periodoTexto(r.periodo_inicio, r.periodo_fim))}</div>`
-            : "";
-        const idDias = `fm-dias-${esc(k)}`;
-        return (
-          `<tr class="${r.pode_reajustar ? "fm-linha--revisao" : ""}">` +
-          `<td><button type="button" class="fm-expandir" data-acao="expandir" data-k="${esc(k)}" aria-expanded="${aberto}" aria-controls="${idDias}" aria-label="Ver dias de ${esc(r.nome)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
-          `<td><div class="fw-semibold">${esc(r.nome)}</div>${subNome}</td>` +
-          `<td class="text-end fm-num">${num(r.total_feitos)}</td>` +
-          `<td class="text-end fm-num">${num(r.total_cancelado)}</td>` +
-          `<td class="text-end fm-num">${num(r.g_total)}</td>` +
-          `<td class="text-end fm-num">${r.qtd_dias_coleta ? esc(plural(r.qtd_dias_coleta, "dia", "dias")) : "—"}</td>` +
-          `<td class="text-end"><div class="fw-semibold fm-num">${moeda(valor)}</div>${subValor}</td>` +
-          `<td>${statusHtml(r)}</td>` +
-          `<td class="text-end text-nowrap">${acoesHtml(r)}</td>` +
-          "</tr>" +
-          `<tr class="fm-dias${aberto ? "" : " d-none"}" id="${idDias}"><td colspan="${colunas()}">${diasHtml(r)}</td></tr>`
-        );
-      })
-      .join("");
+
+    if (!state.agruparTipo) {
+      tbody.innerHTML = [...motoboys, ...bases].map(linhaResumoHtml).join("");
+      return;
+    }
+
+    const html = [];
+    [
+      { key: "motoboy", rotulo: "Motoboys", rows: motoboys },
+      { key: "base", rotulo: "Bases", rows: bases },
+    ].forEach((g) => {
+      if (!g.rows.length) return;
+      const aberto = state.gruposExpandidos.has(g.key);
+      html.push(
+        `<tr class="fm-grupo">` +
+          `<td><button type="button" class="fm-expandir" data-acao="expandir-grupo" data-grupo="${esc(g.key)}" aria-expanded="${aberto}" aria-label="Expandir ${esc(g.rotulo)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
+          `<td colspan="${colunas() - 1}"><span>${esc(g.rotulo)}</span> <span class="fm-grupo-meta">${esc(
+            plural(g.rows.length, g.key === "base" ? "base" : "motoboy", g.key === "base" ? "bases" : "motoboys")
+          )}</span></td>` +
+          `</tr>`
+      );
+      if (aberto) html.push(...g.rows.map(linhaResumoHtml));
+    });
+    tbody.innerHTML = html.join("");
+  }
+
+  function qtdTextoCards(nMoto, nBase) {
+    const tipo = filtroTipoAtual();
+    if (tipo === "base") return plural(nBase, "base", "bases");
+    if (tipo === "motoboy") return plural(nMoto, "motoboy", "motoboys");
+    if (nMoto && nBase) return `${plural(nMoto, "motoboy", "motoboys")} · ${plural(nBase, "base", "bases")}`;
+    if (nBase) return plural(nBase, "base", "bases");
+    return plural(nMoto, "motoboy", "motoboys");
+  }
+
+  function totaisBasesLocais() {
+    const rows = state.basesLinhas || [];
+    const out = { pendentes_qtd: 0, pendentes_valor: 0, gerados_qtd: 0, gerados_valor: 0, pagos_qtd: 0, pagos_valor: 0 };
+    rows.forEach((r) => {
+      const st = String(r.fechamento_status || "PENDENTE").toUpperCase();
+      const valor = st === "PENDENTE" ? num(r.valor_base) : num(r.valor_final);
+      if (st === "PENDENTE") {
+        out.pendentes_qtd += 1;
+        out.pendentes_valor += valor;
+      } else if (st === "PAGO") {
+        out.pagos_qtd += 1;
+        out.pagos_valor += valor;
+      } else {
+        out.gerados_qtd += 1;
+        out.gerados_valor += valor;
+      }
+    });
+    return out;
   }
 
   function renderCards() {
     const t = state.totais || {};
+    const tb = totaisBasesLocais();
+    const tipo = filtroTipoAtual();
+    const useM = tipo !== "base";
+    const useB = tipo !== "motoboy";
     const set = (id, txt) => {
       const el = qs(id);
       if (el) el.textContent = txt;
     };
-    set("#card-pendentes-valor", moeda(t.pendentes_valor));
-    set("#card-pendentes-qtd", plural(num(t.pendentes_qtd), "motoboy", "motoboys"));
-    set("#card-gerados-valor", moeda(t.gerados_valor));
-    set("#card-gerados-qtd", plural(num(t.gerados_qtd), "motoboy", "motoboys"));
-    set("#card-pagos-valor", moeda(t.pagos_valor));
-    set("#card-pagos-qtd", plural(num(t.pagos_qtd), "motoboy", "motoboys"));
-    set("#card-revisao-qtd", String(num(t.revisao_qtd)));
+    const pendV = (useM ? num(t.pendentes_valor) : 0) + (useB ? tb.pendentes_valor : 0);
+    const gerV = (useM ? num(t.gerados_valor) : 0) + (useB ? tb.gerados_valor : 0);
+    const pagV = (useM ? num(t.pagos_valor) : 0) + (useB ? tb.pagos_valor : 0);
+    set("#card-pendentes-valor", moeda(pendV));
+    set(
+      "#card-pendentes-qtd",
+      qtdTextoCards(useM ? num(t.pendentes_qtd) : 0, useB ? tb.pendentes_qtd : 0)
+    );
+    set("#card-gerados-valor", moeda(gerV));
+    set("#card-gerados-qtd", qtdTextoCards(useM ? num(t.gerados_qtd) : 0, useB ? tb.gerados_qtd : 0));
+    set("#card-pagos-valor", moeda(pagV));
+    set("#card-pagos-qtd", qtdTextoCards(useM ? num(t.pagos_qtd) : 0, useB ? tb.pagos_qtd : 0));
+    set("#card-revisao-qtd", String(useM ? num(t.revisao_qtd) : 0));
     const filtro = (fltStatus?.value || "").trim().toUpperCase();
     document.querySelectorAll("#fm-cards .fm-card").forEach((c) => {
       c.setAttribute("aria-pressed", String(c.dataset.status === filtro));
@@ -406,16 +686,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     if (msgEl) msgEl.innerHTML = "";
     linhaMensagem("Carregando…");
+    const tipo = filtroTipoAtual();
     try {
-      const data = await api(`${API_RESUMO}?${paramsResumo()}`);
-      state.items = Array.isArray(data.items) ? data.items : [];
-      state.totais = data.totais || {};
-      state.conferenciaHabilitada = !!data.conferencia_habilitada;
-      state.total = num(data.totalItems);
-      state.totalPages = num(data.totalPages);
+      const tasks = [];
+      if (tipo !== "base") {
+        tasks.push(
+          api(`${API_RESUMO}?${paramsResumo()}`).then((data) => {
+            state.items = Array.isArray(data.items) ? data.items : [];
+            state.totais = data.totais || {};
+            state.conferenciaHabilitada = !!data.conferencia_habilitada;
+            state.total = num(data.totalItems);
+            state.totalPages = num(data.totalPages);
+          })
+        );
+      } else {
+        state.items = [];
+        state.totais = {};
+        state.total = 0;
+        state.totalPages = 1;
+      }
+      if (tipo !== "motoboy") tasks.push(carregarBasesLinhas());
+      else state.basesLinhas = [];
+      await Promise.all(tasks);
     } catch (err) {
       console.error("Fechamento de Motoboys — carregarResumo:", err);
       state.items = [];
+      state.basesLinhas = [];
       state.totais = {};
       state.total = 0;
       state.totalPages = 0;
@@ -1204,7 +1500,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const btn = ev.target.closest("[data-acao]");
     if (!btn || btn.disabled) return;
     const acao = btn.dataset.acao;
-    if (acao === "expandir") {
+    if (acao === "expandir-grupo") {
+      const g = btn.dataset.grupo;
+      if (state.gruposExpandidos.has(g)) state.gruposExpandidos.delete(g);
+      else state.gruposExpandidos.add(g);
+      renderTabela();
+    } else if (acao === "expandir") {
       const k = btn.dataset.k;
       const aberto = !state.expandidos.has(k);
       if (aberto) state.expandidos.add(k);
@@ -1214,6 +1515,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else if (acao === "pdf") {
       const id = Number(btn.dataset.id);
       if (id && window.TrackSaidasFechamentoPdf?.gerar) window.TrackSaidasFechamentoPdf.gerar(id);
+    } else if (acao === "gerar-base") {
+      gerarRepasseBase(Number(btn.dataset.idBase));
     } else if (acao === "gerar") {
       const r = state.items.find((i) => chaveLinha(i) === btn.dataset.k);
       const { ini, fim } = periodoFiltro();
@@ -1225,6 +1528,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else if (acao === "excluir") {
       excluirFechamento(Number(btn.dataset.id), btn.dataset.k);
     }
+  });
+
+  qs("#chkAgruparTipo")?.addEventListener("change", (e) => {
+    state.agruparTipo = !!e.target.checked;
+    if (!state.agruparTipo) state.gruposExpandidos = new Set(["motoboy", "base"]);
+    renderTabela();
   });
 
   document.querySelectorAll("#fm-cards .fm-card").forEach((card) => {
@@ -1291,6 +1600,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (parseExecutorVal(fltEntregador?.value).id > 0) n++;
     if ((fltStatus?.value || "").trim()) n++;
     if ((fltBase?.value || "").trim()) n++;
+    if (filtroTipoAtual()) n++;
     filtrosContador.textContent = String(n);
     filtrosContador.classList.toggle("d-none", n === 0);
   }
@@ -1309,6 +1619,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (fltEntregador) fltEntregador.value = "";
     if (fltStatus) fltStatus.value = "";
     if (fltBase) fltBase.value = "";
+    if (fltTipo) fltTipo.value = "";
     state.page = 1;
     fecharDropdownFiltros();
     carregarResumo();

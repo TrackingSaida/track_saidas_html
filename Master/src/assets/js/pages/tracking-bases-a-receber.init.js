@@ -128,6 +128,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     return "Nenhum fechamento neste período.";
   }
 
+  function isOwnerTipoBase() {
+    const t = window.TIPO_OWNER || (window.__USER__ && window.__USER__.tipo_owner) || "subbase";
+    return String(t).toLowerCase() === "base";
+  }
+
+  function seloPapelReceber(papel) {
+    if (!isOwnerTipoBase()) return "";
+    const p = String(papel || "").toLowerCase();
+    if (p === "base_parceira") return '<span class="badge bg-secondary-subtle text-secondary ms-1">Base</span>';
+    if (p === "seller") return '<span class="badge bg-primary-subtle text-primary ms-1">Seller</span>';
+    return "";
+  }
+
   function renderTabela() {
     const lista = itensVisiveis();
     const visiveisIds = new Set(lista.filter(aReceber).map((i) => Number(i.id_fechamento)));
@@ -158,7 +171,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           return (
             `<tr class="${classes}" data-id="${id}">` +
             `<td>${chk}</td>` +
-            `<td><div class="fw-semibold">${esc(item.base || "—")}</div><div class="fm-linha-sub">${esc(subLinha(item))}</div></td>` +
+            `<td><div class="fw-semibold">${esc(item.base || "—")}${seloPapelReceber(item.papel)}</div><div class="fm-linha-sub">${esc(subLinha(item))}</div></td>` +
             `<td class="text-end"><span class="fw-semibold fm-num">${moeda(item.valor_final)}</span>${valorSub}</td>` +
             `<td>${celulaSituacao(item)}</td>` +
             `<td class="text-end text-nowrap">${btnRevisar} ${btnPdf}</td>` +
