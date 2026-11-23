@@ -371,7 +371,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       };
     }
     return {
-      pill: "Papel",
+      pill: "Tipo",
       pillClass: papel === "base_parceira" ? "fm-chip--info" : "fm-chip--quinzenal",
       titulo: ROTULO_PAPEL[papel] || papel || "",
       rail: papel === "base_parceira" ? "muted" : "accent",
@@ -571,7 +571,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const itens = [];
     if (state.base) itens.push(["base", TERMO_BASE, state.base]);
     if (state.ciclo) itens.push(["ciclo", "Período", ROTULO_CICLO[state.ciclo] || state.ciclo]);
-    if (state.papel) itens.push(["papel", "Papel", ROTULO_PAPEL[state.papel] || state.papel]);
+    if (state.papel) itens.push(["papel", "Tipo", ROTULO_PAPEL[state.papel] || state.papel]);
     if (state.filtro) itens.push(["filtro", "Situação", ROTULO_SITUACAO[state.filtro] || state.filtro]);
     if (faixa) {
       faixa.innerHTML = itens
