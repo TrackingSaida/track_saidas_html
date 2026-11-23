@@ -684,6 +684,7 @@ function augmentEntregadoresFromRows(rows){
     encerrado_sistema: "Encerrado pelo sistema",
     rota_cancelada: "Rota cancelada",
     entrada_base: "Entrada na base",
+    enviado_para_base: "Enviado para a base",
     saida_conferida: "Saída conferida",
     saida_reconferida: "Saída reconferida",
     base_transferida: "Transferiu base da coleta",
@@ -953,7 +954,7 @@ function augmentEntregadoresFromRows(rows){
               ${acaoTexto ? '<span class="reg-sub">' + escapeHtml(acaoTexto) + "</span>" : ""}
             </td>
             <td class="reg-col-responsavel" data-col="responsavel">
-              <span class="reg-pessoa">${escapeHtml(formatPersonNameOrDash(r.entregador))}</span>
+              <span class="reg-pessoa">${escapeHtml(formatPersonNameOrDash(r.repasse_base_nome || r.entregador))}</span>
               ${porOutro}
             </td>
             <td class="reg-col-base reg-base" data-col="base">${escapeHtml(r.seller || "-")}</td>
@@ -2204,8 +2205,12 @@ function setupPagerEvents() {
           "</div>";
       }
 
+      var ehRepasseBase = saida.repasse_base_id != null && saida.repasse_base_id !== "";
+      var nomeBaseParceira = formatPersonName(saida.repasse_base_nome || (ehRepasseBase ? saida.entregador : ""));
       var entregaMeta = [
-        { label: "Entregador", value: entregador || "—" },
+        ehRepasseBase
+          ? { label: "Base parceira", value: nomeBaseParceira || "—" }
+          : { label: "Entregador", value: entregador || "—" },
         { label: dataLabel, value: dataEntrega || "—" }
       ];
       if (tipoRecebedor) {
