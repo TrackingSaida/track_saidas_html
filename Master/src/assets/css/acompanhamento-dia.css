@@ -1,0 +1,606 @@
+/* Acompanhamento do Dia — skin alinhada ao protótipo v2 (dentro do Velzon) */
+#acom-dia {
+  --acom-ink: #12233f;
+  --acom-muted: #6c7a91;
+  --acom-line: #e1e7ef;
+  --acom-panel: #ffffff;
+  --acom-chip: #f0f3f8;
+  color: var(--acom-ink);
+}
+
+#acom-dia .acom-apoio {
+  color: var(--acom-muted);
+  margin: 0 0 1rem;
+  max-width: 42rem;
+}
+
+#acom-dia .acom-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+#acom-dia .acom-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#acom-dia .acom-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+#acom-dia .acom-metric {
+  background: var(--acom-panel);
+  border: 1px solid var(--acom-line);
+  border-radius: 10px;
+  padding: 1rem 1.05rem;
+  min-height: 112px;
+  position: relative;
+}
+
+#acom-dia .acom-metric::before {
+  content: "";
+  position: absolute;
+  width: 3px;
+  height: 37px;
+  left: 0;
+  top: 17px;
+  border-radius: 0 4px 4px 0;
+  background: var(--accent, #2a83d3);
+}
+
+#acom-dia .acom-metric label {
+  font-size: 0.7rem;
+  color: #697991;
+  display: block;
+  font-weight: 600;
+  margin: 0;
+}
+
+#acom-dia .acom-metric strong {
+  font-size: 1.8rem;
+  display: block;
+  margin-top: 0.55rem;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-weight: 700;
+}
+
+#acom-dia .acom-metric footer {
+  font-size: 0.7rem;
+  color: #8a98aa;
+  margin-top: 0.6rem;
+}
+
+#acom-dia .acom-flowbox {
+  background: var(--acom-panel);
+  border: 1px solid var(--acom-line);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+#acom-dia .acom-flowtop,
+#acom-dia .acom-flowlabels {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.7rem;
+  color: #667990;
+}
+
+#acom-dia .acom-flowtop {
+  margin-bottom: 0.75rem;
+  align-items: center;
+}
+
+#acom-dia .acom-flowtop b {
+  color: var(--acom-ink);
+  font-size: 0.85rem;
+}
+
+#acom-dia .acom-flowbar {
+  height: 10px;
+  background: #e9edf3;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 0.7rem;
+}
+
+#acom-dia .acom-flowbar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #15ae9d, #2284d2);
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+#acom-dia .acom-hint {
+  display: block;
+  color: #8a96a7;
+  font-size: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+#acom-dia .acom-priorityhead {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+#acom-dia .acom-eyebrow {
+  color: #677991;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+#acom-dia .acom-priorityhead h2 {
+  font-size: 1.1rem;
+  margin: 0.2rem 0 0;
+}
+
+#acom-dia .acom-prioritygrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+#acom-dia .acom-priority {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid var(--acom-line);
+  border-radius: 10px;
+  color: #1b314e;
+  min-height: 86px;
+  width: 100%;
+}
+
+#acom-dia .acom-priority:hover {
+  border-color: #4b9dd4;
+  box-shadow: 0 3px 14px rgba(35, 71, 104, 0.07);
+}
+
+#acom-dia .acom-priority > span:nth-child(2) {
+  flex: 1;
+}
+
+#acom-dia .acom-priority b {
+  font-size: 0.8rem;
+  display: block;
+}
+
+#acom-dia .acom-priority small {
+  display: block;
+  color: #7c8ba0;
+  margin-top: 0.35rem;
+  font-size: 0.7rem;
+}
+
+#acom-dia .acom-priority > strong {
+  font-size: 0.7rem;
+  color: #2372ba;
+  font-weight: 700;
+}
+
+#acom-dia .acom-priorityicon {
+  width: 33px;
+  height: 33px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  font-weight: 900;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+#acom-dia .acom-priorityicon.danger {
+  background: #ffedf0;
+  color: #c83b53;
+}
+
+#acom-dia .acom-priorityicon.warning {
+  background: #fff3df;
+  color: #b87b14;
+}
+
+#acom-dia .acom-priorityicon.info {
+  background: #e9f4fc;
+  color: #2d7fb8;
+}
+
+#acom-dia .acom-operationsnote {
+  background: #eff7fa;
+  color: #53738b;
+  border-radius: 7px;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 1.15rem;
+  font-size: 0.7rem;
+}
+
+#acom-dia .acom-workspace {
+  background: var(--acom-panel);
+  border: 1px solid #dee6ef;
+  border-radius: 11px;
+  overflow: hidden;
+  box-shadow: 0 3px 17px rgba(23, 52, 94, 0.02);
+}
+
+#acom-dia .acom-worktop {
+  padding: 1.1rem 1.2rem 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+#acom-dia .acom-toggle {
+  display: flex;
+  gap: 3px;
+  background: var(--acom-chip);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+#acom-dia .acom-toggle button {
+  border: 0;
+  background: transparent;
+  padding: 0.55rem 1rem;
+  border-radius: 6px;
+  color: #63728a;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+#acom-dia .acom-toggle button.chosen {
+  background: #fff;
+  color: #123c67;
+  box-shadow: 0 1px 4px rgba(17, 34, 58, 0.12);
+}
+
+#acom-dia .acom-filters {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0 1.2rem 1rem;
+}
+
+#acom-dia .acom-filters input,
+#acom-dia .acom-filters select {
+  border: 1px solid #d7e0ec;
+  border-radius: 7px;
+  padding: 0.55rem 0.7rem;
+  color: #465973;
+  background: #fff;
+  min-width: 155px;
+  font-size: 0.85rem;
+}
+
+#acom-dia .acom-filters input {
+  min-width: 255px;
+  flex: 1 1 220px;
+}
+
+#acom-dia .acom-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 1.2rem 1rem;
+  flex-wrap: wrap;
+}
+
+#acom-dia .acom-chip {
+  background: #fff;
+  border: 1px solid #d8e1eb;
+  color: #506481;
+  font-size: 0.7rem;
+  border-radius: 6px;
+  padding: 0.45rem 0.7rem;
+  font-weight: 650;
+}
+
+#acom-dia .acom-chip.on {
+  background: #e8f5fc;
+  color: #096a9e;
+  border-color: #a9d7f3;
+}
+
+#acom-dia .acom-sectiontitle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid #e7edf3;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+#acom-dia .acom-sectiontitle h2 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+#acom-dia .acom-muted {
+  color: #8794a6;
+  font-size: 0.7rem;
+}
+
+#acom-dia .acom-tablewrap {
+  overflow: auto;
+}
+
+#acom-dia .acom-table {
+  border-collapse: collapse;
+  width: 100%;
+  white-space: nowrap;
+  margin: 0;
+}
+
+#acom-dia .acom-table th {
+  text-align: left;
+  background: #f4f6f9;
+  color: #61718b;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  padding: 0.8rem 0.9rem;
+  border-bottom: 1px solid #e8edf4;
+  font-weight: 700;
+}
+
+#acom-dia .acom-table td {
+  padding: 0.9rem;
+  border-bottom: 1px solid #edf0f5;
+  color: #34425d;
+  vertical-align: middle;
+}
+
+#acom-dia .acom-table tbody tr[data-row-key]:hover {
+  background: #f6fafd;
+}
+
+#acom-dia .acom-table tbody tr[data-row-key] {
+  cursor: pointer;
+}
+
+#acom-dia .acom-table td strong {
+  color: #182e4b;
+}
+
+#acom-dia .acom-secondary {
+  color: #8a9aad;
+  font-size: 0.7rem;
+  margin-top: 0.25rem;
+}
+
+#acom-dia .acom-status {
+  display: inline-block;
+  border-radius: 15px;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+#acom-dia .acom-status.red {
+  background: #ffedf0;
+  color: #c93c52;
+}
+
+#acom-dia .acom-status.amber {
+  background: #fff4df;
+  color: #bb7810;
+}
+
+#acom-dia .acom-status.green {
+  background: #e5f9f0;
+  color: #16865b;
+}
+
+#acom-dia .acom-status.blue {
+  background: #e8f4fd;
+  color: #2474a8;
+}
+
+#acom-dia .acom-progress {
+  height: 7px;
+  border-radius: 8px;
+  background: #e8edf4;
+  overflow: hidden;
+  width: 110px;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.5rem;
+}
+
+#acom-dia .acom-progress > b {
+  display: block;
+  height: 100%;
+  background: #0ca99c;
+  border-radius: 8px;
+}
+
+#acom-dia .acom-pct {
+  font-weight: 750;
+}
+
+#acom-dia .acom-detailrow {
+  background: #f7fafe !important;
+  cursor: default !important;
+}
+
+#acom-dia .acom-detailrow td {
+  padding: 0.9rem 1.25rem 1.1rem;
+  white-space: normal;
+}
+
+#acom-dia .acom-detailgrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.65rem;
+  margin: 0 0 0.75rem;
+}
+
+#acom-dia .acom-micro {
+  border: 1px solid #e3e9f1;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #fff;
+}
+
+#acom-dia .acom-micro label {
+  display: block;
+  color: #6f8197;
+  font-size: 0.7rem;
+  margin: 0;
+}
+
+#acom-dia .acom-micro b {
+  font-size: 1.25rem;
+  color: #243955;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+#acom-dia .acom-minirows {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+#acom-dia .acom-minirows span {
+  background: #eaf2f9;
+  color: #345773;
+  padding: 0.45rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+}
+
+#acom-dia .acom-foot {
+  padding: 0.8rem 1.25rem;
+  color: #8898ad;
+  font-size: 0.7rem;
+}
+
+#acom-dia .acom-btn-ghost {
+  border: 1px solid #cdd7e5;
+  border-radius: 7px;
+  background: #fff;
+  color: #344b6b;
+  padding: 0.55rem 0.85rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+#acom-dia .acom-btn-ghost:hover {
+  background: #f1f8ff;
+}
+
+#acom-dia .acom-btn-primary {
+  border: 1px solid #152d52;
+  border-radius: 7px;
+  background: #152d52;
+  color: #fff;
+  padding: 0.55rem 0.85rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+#acom-dia .acom-date-input {
+  border: 1px solid #d5deea;
+  border-radius: 7px;
+  padding: 0.5rem 0.65rem;
+  color: #455c77;
+  background: #fff;
+}
+
+/* Drawer reusa offcanvas; reforça tipografia do protótipo */
+#ocAcomDetail .acom-notice {
+  padding: 0.65rem 0.75rem;
+  background: #f0f8fd;
+  border-radius: 8px;
+  color: #3d607f;
+  font-size: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+#ocAcomDetail .acom-block {
+  border: 1px solid #e0e7ef;
+  border-radius: 9px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+#ocAcomDetail .acom-block h3 {
+  margin: 0 0 0.85rem;
+  font-size: 0.85rem;
+}
+
+#ocAcomDetail .acom-item {
+  padding: 0.55rem 0;
+  border-bottom: 1px solid #f1f3f6;
+}
+
+#ocAcomDetail .acom-item:last-child {
+  border: 0;
+}
+
+#ocAcomDetail .acom-item label {
+  display: block;
+  color: #7d8ba0;
+  font-size: 0.7rem;
+  margin-bottom: 0.25rem;
+}
+
+#ocAcomDetail .acom-item b {
+  font-size: 0.85rem;
+}
+
+@media (max-width: 1150px) {
+  #acom-dia .acom-summary {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1000px) {
+  #acom-dia .acom-prioritygrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 750px) {
+  #acom-dia .acom-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  #acom-dia .acom-metric strong {
+    font-size: 1.45rem;
+  }
+
+  #acom-dia .acom-filters input {
+    min-width: 100%;
+  }
+
+  #acom-dia .acom-detailgrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
