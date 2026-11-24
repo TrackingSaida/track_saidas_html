@@ -430,6 +430,7 @@ function augmentEntregadoresFromRows(rows){
   const acoesSelecionadas = (f.acaoToggles || []).filter(el => el.checked).map(el => el.value);
   const tamanho     = f.tamanho?.value || "";
   const localizar   = (f.localizar?.value || "").trim();
+  const regiaoRaw   = (document.getElementById("flt-regiao")?.value || "").replace(/\D/g, "").slice(0, 3);
   const sort        = f.sort?.value || "-ts";
 
   // Envio direto YYYY-MM-DD do input (evita timezone com Date/toISOString)
@@ -451,6 +452,7 @@ function augmentEntregadoresFromRows(rows){
     status: statusSelecionados,
     acao: acoesSelecionadas,
     localizar: localizar || undefined,
+    regiao: regiaoRaw.length === 3 ? regiaoRaw : undefined,
     sort,
     limit: parseInt(f.pageSize?.value || "200", 10)
   };
@@ -597,6 +599,7 @@ function augmentEntregadoresFromRows(rows){
     if (lower === "saiu" || lower === "saiu para entrega" || lower === "em rota" || lower === "em_rota") {
       return "Saiu para entrega";
     }
+    if (lower === "enviado para base" || lower === "enviado para a base") return "Enviado para a base";
     if (lower === "aguardando confirmacao saida" || lower === "aguardando confirmação de saída") return "Aguardando confirmação de saída";
     if (lower === "encerrado sistema" || lower === "encerrado pelo sistema" || lower === "encerrado_sistema" || lower === "encerrado") {
       return "Encerrado";
@@ -683,6 +686,7 @@ function augmentEntregadoresFromRows(rows){
     encerrado_sistema: "Encerrado pelo sistema",
     rota_cancelada: "Rota cancelada",
     entrada_base: "Entrada na base",
+    enviado_para_base: "Enviado para a base",
     saida_conferida: "Saída conferida",
     saida_reconferida: "Saída reconferida",
     base_transferida: "Transferiu base da coleta",
@@ -944,7 +948,11 @@ function augmentEntregadoresFromRows(rows){
           <tr data-id="${attr(rid)}" class="${rowClass}">
             <td class="reg-col-chk"><input type="checkbox" class="rowchk form-check-input" aria-label="Selecionar ${attr(r.codigo_exibicao || r.codigo)}" /></td>
             <td class="reg-col-pacote">
-              <span class="reg-codigo">${escapeHtml(r.codigo_exibicao || r.codigo || "-")}</span>
+              <span class="reg-codigo">${escapeHtml(r.codigo_exibicao || r.codigo || "-")}</span>${
+                r.regiao
+                  ? ' <span class="reg-regiao-badge" title="Região (CEP)">' + escapeHtml(r.regiao) + "</span>"
+                  : ""
+              }
               <div class="reg-linha2">${servicoBadgeHtml(r.servico)}${chipTamanho(r, podeTamanho)}</div>
             </td>
             <td class="reg-col-situacao">
@@ -952,7 +960,7 @@ function augmentEntregadoresFromRows(rows){
               ${acaoTexto ? '<span class="reg-sub">' + escapeHtml(acaoTexto) + "</span>" : ""}
             </td>
             <td class="reg-col-responsavel" data-col="responsavel">
-              <span class="reg-pessoa">${escapeHtml(formatPersonNameOrDash(r.entregador))}</span>
+              <span class="reg-pessoa">${escapeHtml(formatPersonNameOrDash(r.repasse_base_nome || r.entregador))}</span>
               ${porOutro}
             </td>
             <td class="reg-col-base reg-base" data-col="base">${escapeHtml(r.seller || "-")}</td>
@@ -2109,10 +2117,16 @@ function setupPagerEvents() {
       var destNome = (d.dest_nome && String(d.dest_nome).trim()) ? d.dest_nome.trim() : "";
       var temEndereco = endParts.length > 0 || (d.endereco_formatado && String(d.endereco_formatado).trim());
       var destinoBlock = "";
-      if (destNome || temEndereco || destContato) {
+      if (destNome || temEndereco || destContato || d.regiao) {
+        var regiaoBadge = d.regiao
+          ? '<p class="pedido-dest-regiao"><span class="reg-regiao-badge reg-regiao-badge--lg" title="Região (3 dígitos do CEP)">' +
+            escapeHtml(d.regiao) +
+            "</span> <span class=\"text-muted small\">Região</span></p>"
+          : "";
         destinoBlock =
           '<div class="pedido-section">' +
             '<p class="section-title">Destinatário</p>' +
+            regiaoBadge +
             (destNome ? '<p class="pedido-dest-nome">' + escapeHtml(destNome) + "</p>" : "") +
             (temEndereco ? '<p class="pedido-dest-endereco">' + escapeHtml(enderecoCompleto) + "</p>" : "") +
             (destContato ? '<p class="pedido-dest-sub">Telefone: ' + escapeHtml(destContato) + "</p>" : "") +
@@ -2203,8 +2217,12 @@ function setupPagerEvents() {
           "</div>";
       }
 
+      var ehRepasseBase = saida.repasse_base_id != null && saida.repasse_base_id !== "";
+      var nomeBaseParceira = formatPersonName(saida.repasse_base_nome || (ehRepasseBase ? saida.entregador : ""));
       var entregaMeta = [
-        { label: "Entregador", value: entregador || "—" },
+        ehRepasseBase
+          ? { label: "Base parceira", value: nomeBaseParceira || "—" }
+          : { label: "Entregador", value: entregador || "—" },
         { label: dataLabel, value: dataEntrega || "—" }
       ];
       if (tipoRecebedor) {
@@ -2675,6 +2693,7 @@ function setupPagerEvents() {
       var s = (row.status || "").toLowerCase().replace(/_/g, " ");
       if (s === "saiu" || s === "saiu para entrega") return "Saiu para entrega";
       if (s === "em rota" || s === "em_rota") return "Saiu para entrega";
+      if (s === "enviado para base" || s === "enviado para a base") return "Enviado para a base";
       if (s === "coletado") return "Coletado";
       if (s === "nao coletado" || s === "não coletado") return "Não Coletado";
       if (s === "cancelado") return "Cancelado";
@@ -2685,14 +2704,14 @@ function setupPagerEvents() {
     })();
 
     if (eSta) {
-      // Encerrado não é escolhível; só aparece se for o status atual (exibição).
-      if (uiStatus === "Encerrado") {
-        var hasEnc = Array.from(eSta.options || []).some(function(o){ return o.value === uiStatus; });
-        if (!hasEnc) {
-          var optEnc = document.createElement("option");
-          optEnc.value = "Encerrado";
-          optEnc.textContent = "Encerrado";
-          eSta.insertBefore(optEnc, eSta.firstChild);
+      // Encerrado / Enviado para a base: só no status atual (salvar não troca o destino).
+      if (uiStatus === "Encerrado" || uiStatus === "Enviado para a base") {
+        var hasEsp = Array.from(eSta.options || []).some(function(o){ return o.value === uiStatus; });
+        if (!hasEsp) {
+          var optEsp = document.createElement("option");
+          optEsp.value = uiStatus;
+          optEsp.textContent = uiStatus;
+          eSta.insertBefore(optEsp, eSta.firstChild);
         }
         eSta.value = uiStatus;
       } else {
@@ -2891,6 +2910,7 @@ function setupPagerEvents() {
       function mapStatusToApi(v){
         return (
           v === "Saiu para entrega" ? "saiu" :
+          v === "Enviado para a base" ? "ENVIADO_PARA_BASE" :
           v === "Coletado"          ? "coletado" :
           v === "Não Coletado"      ? "Nao Coletado" :
           v === "Cancelado"         ? "cancelado" :
@@ -2909,8 +2929,8 @@ function setupPagerEvents() {
         if (eMotoboy?.value) payload.motoboy_id = Number(eMotoboy.value);
       } else {
         payload.status = mapStatusToApi(eSta.value);
-        // Ao cancelar, não enviar motoboy_id (evita reabertura/reatribuição indevida).
-        if (eSta.value !== "Cancelado" && eMotoboy?.value) {
+        // Ao cancelar ou manter repasse, não enviar motoboy_id (evita reabertura/reatribuição indevida).
+        if (eSta.value !== "Cancelado" && eSta.value !== "Enviado para a base" && eMotoboy?.value) {
           payload.motoboy_id = Number(eMotoboy.value);
         }
       }
@@ -3446,6 +3466,7 @@ function setupPagerEvents() {
     if (!filtrosContadorEl) return;
     let n = 0;
     if ((document.getElementById("flt-base")?.value || "").trim()) n++;
+    if (((document.getElementById("flt-regiao")?.value || "").replace(/\D/g, "").length) === 3) n++;
     if ((f.entregador?.value || "").trim()) n++;
     var ativosServico = (f.servicoToggles || []).filter(el => el.checked).length;
     var ativosStatus = (f.statusToggles || []).filter(el => el.checked).length;
@@ -3485,6 +3506,8 @@ function setupPagerEvents() {
       const fltBase = document.getElementById("flt-base");
       if (fltBase) fltBase.value = "";
       if (f.entregador) f.entregador.value = "";
+      var fltRegiao = document.getElementById("flt-regiao");
+      if (fltRegiao) fltRegiao.value = "";
       limparFiltrosSelecao();
       if (f.tamanho) f.tamanho.value = "";
       if (datePickerInstance && datePickerInstance.applyPreset) {
@@ -3512,6 +3535,14 @@ function setupPagerEvents() {
       });
     });
     if (f.tamanho) f.tamanho.addEventListener("change", atualizarContadorFiltros);
+    var fltRegiao = document.getElementById("flt-regiao");
+    if (fltRegiao) {
+      fltRegiao.addEventListener("input", function () {
+        var digits = String(fltRegiao.value || "").replace(/\D/g, "").slice(0, 3);
+        if (fltRegiao.value !== digits) fltRegiao.value = digits;
+        atualizarContadorFiltros();
+      });
+    }
   }
 
   function limparFiltrosSelecao(){

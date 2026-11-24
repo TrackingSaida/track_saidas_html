@@ -210,7 +210,11 @@ async function loadSellers() {
 
         const mlIntList = await mlIntRes.json();
         const shopeeList = shopeeRes.ok ? await shopeeRes.json() : [];
-        state.bases = basesRes.ok ? await basesRes.json() : [];
+        const basesRaw = basesRes.ok ? await basesRes.json() : [];
+        // PRD-011: Base parceira não aparece no vínculo de autenticação.
+        state.bases = Array.isArray(basesRaw)
+          ? basesRaw.filter((b) => (b.papel || "seller") !== "base_parceira")
+          : [];
 
         state.contas = [
             ...mlIntList.map(x => ({ ...x, platform: "mercado_livre" })),
@@ -619,8 +623,10 @@ function checkReturnFromAuth() {
         { chave: "ml", texto: "A conta foi autorizada. Agora escolha o seller cadastrado dela na lista abaixo." },
         { chave: "shopee", texto: "A loja Shopee foi autorizada. Agora escolha o seller cadastrado dela na lista abaixo." },
     ];
+    let veioDoOauth = false;
     retornos.forEach(({ chave, texto }) => {
         if (params.get(chave) !== "ok") return;
+        veioDoOauth = true;
         if (typeof Swal !== "undefined") {
             Swal.fire({ icon: "success", title: "Conta conectada", text: texto, timer: 3500, showConfirmButton: false });
         }
@@ -630,6 +636,58 @@ function checkReturnFromAuth() {
             window.history.replaceState({}, "", url.toString());
         } catch (_) {}
     });
+    if (veioDoOauth) {
+        setTimeout(() => oferecerVinculoPendenteClientes(), 600);
+    } else {
+        oferecerVinculoPendenteClientes();
+    }
+}
+
+async function oferecerVinculoPendenteClientes() {
+    const AM = window.AuthMarketplace;
+    if (!AM) return;
+    const ctx = AM.getPendingSellerContext();
+    if (!ctx || !ctx.id_base) return;
+    const nome = ctx.nome || nomeDaBase(ctx.id_base) || `#${ctx.id_base}`;
+    const platFiltro = ctx.platform === "shopee" ? "shopee" : "ml";
+    let livres = [];
+    try {
+        livres = await AM.listarContasSemSeller(platFiltro);
+    } catch (_) {
+        return;
+    }
+    if (!livres.length) return;
+    if (livres.length > 1) {
+        notificar(
+            "info",
+            "Contas sem seller",
+            `Há ${livres.length} contas livres em ${platFiltro === "shopee" ? "Shopee" : "Mercado Livre"}. Escolha o seller na lista abaixo.`
+        );
+        return;
+    }
+    const preferida = livres[0];
+    const nick = nickDaConta(preferida);
+    const plat = preferida.platform === "shopee" ? "shopee" : "ml";
+    const contaId = idDaConta(preferida);
+
+    if (typeof Swal === "undefined") return;
+    const result = await Swal.fire({
+        icon: "question",
+        title: "Conta conectada",
+        html: `Vincular <strong>${escapeHtml(nick)}</strong> a <strong>${escapeHtml(nome)}</strong>?`,
+        showCancelButton: true,
+        confirmButtonText: `Vincular a ${nome}`,
+        cancelButtonText: "Agora não",
+    });
+    if (!result.isConfirmed) return;
+    try {
+        await AM.patchVinculo(plat, contaId, ctx.id_base);
+        AM.clearPendingSellerContext();
+        notificar("success", "Vinculado", `Conta vinculada a ${nome}.`);
+        await loadSellers();
+    } catch (e) {
+        notificar("error", "Não foi possível vincular", e.message || "Tente pela lista abaixo.");
+    }
 }
 
 async function gerarLink() {
@@ -640,8 +698,11 @@ async function gerarLink() {
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Gerando...';
     try {
         const subBase = (me && me.sub_base) ? String(me.sub_base).trim() : "";
+        const AM = window.AuthMarketplace;
         let authUrl;
-        if (platform === "ml") {
+        if (AM) {
+            authUrl = await AM.gerarAuthUrl(platform, subBase);
+        } else if (platform === "ml") {
             if (!subBase) {
                 notificar("warning", "Sub-base não definida", "Seu usuário não tem sub-base. Ajuste o cadastro do usuário antes de conectar contas.");
                 return;
@@ -651,7 +712,6 @@ async function gerarLink() {
             const data = await res.json();
             authUrl = data.auth_url || data.url || "";
         } else {
-            // O link assinado da Shopee expira em minutos; este endpoint assina na hora do clique do seller.
             const params = new URLSearchParams({ redirect: "1" });
             if (subBase) params.set("state", subBase);
             authUrl = new URL(`${API_BASE}/shopee/auth-url?${params.toString()}`, window.location.href).href;
@@ -677,6 +737,15 @@ function copiarLink() {
         btn.innerHTML = '<i class="ri-check-line align-bottom me-1"></i> Copiado';
         setTimeout(() => { btn.innerHTML = original; }, 1800);
     };
+    const AM = window.AuthMarketplace;
+    if (AM) {
+        AM.copiarTexto(url).then(feito).catch(() => {
+            input.select();
+            document.execCommand("copy");
+            feito();
+        });
+        return;
+    }
     navigator.clipboard.writeText(url).then(feito).catch(() => {
         input.select();
         document.execCommand("copy");

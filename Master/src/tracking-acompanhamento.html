@@ -3,6 +3,7 @@
   <head>
     @@include("partials/title-meta.html", {"title": "Acompanhamento do Dia"})
     @@include("partials/head-css.html")
+    <link href="assets/css/acompanhamento-dia.css" rel="stylesheet" type="text/css" />
   </head>
   <body data-layout="vertical" data-topbar="light" data-sidebar="dark">
     <div id="layout-wrapper">
@@ -10,227 +11,149 @@
 
       <div class="main-content">
         <div class="page-content">
-          <div class="container-fluid">
+          <div class="container-fluid" id="acom-dia">
 
             @@include("partials/page-title.html", {"pagetitle": "Operação", "title": "Acompanhamento do Dia", "withSubtitle": true, "ownerTerm": ""})
 
-            <div class="row">
-              <div class="col-12">
-                <div class="card">
-                  <div class="card-body">
-                    <!-- Alternância de visão -->
-                    <div class="d-flex align-items-center gap-2 mb-3">
-                      <span class="text-muted small fw-semibold">Visão</span>
-                      <div class="btn-group btn-group-sm" role="group" aria-label="Alternar visão">
-                        <button type="button" class="btn btn-primary" id="btnViewSaidasDia">Saídas do Dia</button>
-                        <button type="button" class="btn btn-outline-primary" id="btnViewAcompanhamento">Visão Atual</button>
-                      </div>
-                    </div>
+            <p class="acom-apoio">Acompanhe volumes, identifique riscos e investigue por entregador ou CEP de destino.</p>
 
-                    <!-- Toolbar: Data única + Filtros -->
-                    <div class="row g-3 align-items-center mb-3" id="toolbar-acompanhamento">
-                      <div class="col-md-auto d-flex gap-2 flex-wrap align-items-center" id="wrap-filtro-data">
-                        <label class="form-label mb-0 small text-muted">Data</label>
-                        <input type="date" id="flt-data" class="form-control form-control-sm" style="width: auto;" title="Selecione o dia" />
-                      </div>
-                      <div class="col-md-auto ms-auto d-flex gap-2 flex-wrap align-items-center">
-                        <div class="dropdown">
-                          <button class="btn btn-outline-secondary position-relative" id="btnFiltrosIcon" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                            <i class="ri-filter-3-line me-1"></i> Filtros
-                            <span id="filtrosContador" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary d-none">0</span>
-                          </button>
-                          <div class="dropdown-menu dropdown-menu-end p-3 filter-menu">
-                            <div class="mb-3">
-                              <label class="form-label small" id="flt-motoboy-label">Motoboy</label>
-                              <select id="flt-motoboy" class="form-select form-select-sm">
-                                <option value="">(Todos)</option>
-                              </select>
-                            </div>
-                            <div class="d-flex gap-2">
-                              <button type="button" id="btnFiltroAplicar" class="btn btn-primary flex-grow-1">Aplicar</button>
-                              <button type="button" id="btnFiltroLimpar" class="btn btn-outline-secondary flex-grow-1">Limpar</button>
-                              <button type="button" id="btnFiltroCancelar" class="btn btn-outline-secondary">Cancelar</button>
-                            </div>
-                          </div>
-                        </div>
-                        <button type="button" id="btnAtualizar" class="btn btn-soft-primary">
-                          <i class="ri-refresh-line me-1"></i> Atualizar
-                        </button>
-                      </div>
-                    </div>
+            <div class="acom-toolbar">
+              <div class="acom-toolbar-actions">
+                <label class="visually-hidden" for="flt-data">Data</label>
+                <input type="date" id="flt-data" class="acom-date-input" title="Selecione o dia" />
+              </div>
+              <div class="acom-toolbar-actions">
+                <button type="button" id="btnAtualizar" class="acom-btn-ghost">↻ Atualizar</button>
+                <button type="button" id="btnExportarAcomp" class="acom-btn-primary">⇩ Exportar</button>
+              </div>
+            </div>
 
-                    <div id="view-saidas-dia" class="mb-3">
-                      <div class="card mb-3">
-                        <div class="card-body">
-                          <div class="row g-3 align-items-end">
-                            <div class="col-md-4">
-                              <label class="form-label">Selecione Motoboy</label>
-                              <select id="flt-motoboy-monitor" class="form-select rounded-pill" aria-label="Selecionar motoboy">
-                                <option value="" selected>Motoboy obrigatório</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+            <div class="acom-summary" id="kpi-prototipo-row">
+              <div class="acom-metric" style="--accent:#3275ce">
+                <label>Entradas registradas</label>
+                <strong id="kpi-proto-entradas">0</strong>
+                <footer>Pacotes recebidos no dia</footer>
+              </div>
+              <div class="acom-metric" style="--accent:#d58a29">
+                <label>Aguardando saída*</label>
+                <strong id="kpi-proto-aguardando">0</strong>
+                <footer>Estimativa: entradas − saídas</footer>
+              </div>
+              <div class="acom-metric" style="--accent:#397ddd">
+                <label>Em rota</label>
+                <strong id="kpi-proto-em-rota">0</strong>
+                <footer>Pacotes em distribuição</footer>
+              </div>
+              <div class="acom-metric" style="--accent:#189c73">
+                <label>Entregues</label>
+                <strong id="kpi-proto-entregues">0</strong>
+                <footer id="kpi-proto-entregues-foot">0% dos 0 expedidos</footer>
+              </div>
+              <div class="acom-metric" style="--accent:#c85e51">
+                <label>Outras situações</label>
+                <strong id="kpi-proto-outras">0</strong>
+                <footer>Diferença a conciliar · não é ocorrência confirmada</footer>
+              </div>
+            </div>
 
-                      <div id="modo-monitor">
-                        <div class="d-flex flex-column align-items-center modo-monitor-inner py-4 px-2">
-                          <div class="text-center">
-                            <p class="text-muted text-uppercase modo-monitor-section-label mb-1">Entregador selecionado</p>
-                            <p id="monitor-entregador" class="modo-monitor-cliente-valor text-primary mb-0">—</p>
-                          </div>
-                          <div class="text-center">
-                            <p class="text-muted text-uppercase modo-monitor-section-label mb-2">Total de leituras</p>
-                            <p id="monitor-total" class="modo-monitor-total-num text-primary mb-0">0</p>
-                          </div>
-                          <div class="row g-3 g-md-4 w-100 justify-content-center" style="max-width: 1000px;">
-                            <div class="col-4">
-                              <div class="card card-shopee border-0 shadow-sm text-center py-4 modo-monitor-card">
-                                <span class="modo-monitor-card-label text-uppercase d-block">Shopee</span>
-                                <div id="monitor-shopee" class="modo-monitor-card-num mt-1">0</div>
-                              </div>
-                            </div>
-                            <div class="col-4">
-                              <div class="card card-ml border-0 shadow-sm text-center py-4 modo-monitor-card">
-                                <span class="modo-monitor-card-label text-uppercase d-block">Mercado Livre</span>
-                                <div id="monitor-ml" class="modo-monitor-card-num mt-1">0</div>
-                              </div>
-                            </div>
-                            <div class="col-4">
-                              <div class="card card-avulso border-0 shadow-sm text-center py-4 modo-monitor-card">
-                                <span class="modo-monitor-card-label text-uppercase d-block">Avulso</span>
-                                <div id="monitor-avulso" class="modo-monitor-card-num mt-1">0</div>
-                              </div>
-                            </div>
-                          </div>
-                          <div class="text-center text-muted mt-3 d-none" id="monitor-empty-state">
-                            Selecione um motoboy para visualizar os pendentes de hoje.
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+            <div class="acom-flowbox" id="flow-operacao">
+              <div class="acom-flowtop">
+                <b>Fluxo da operação</b>
+                <span id="flow-resumo">0 saídas · —% das entradas do dia</span>
+              </div>
+              <div class="acom-flowbar"><span id="flow-bar" style="width:0%"></span></div>
+              <div class="acom-flowlabels">
+                <span id="flow-recebidos">Recebidos 0</span>
+                <span id="flow-expedidos">Expedidos 0</span>
+                <span id="flow-em-rota">Em rota 0</span>
+                <span id="flow-entregues">Entregues 0</span>
+              </div>
+              <small class="acom-hint">*A diferença entre entradas e saídas não substitui a apuração real dos pacotes pendentes. SLA contratual e taxa de sucesso dependem de eventos e prazos válidos.</small>
+            </div>
 
-                    <div id="view-acompanhamento" class="d-none">
-                    <!-- Card Volume que entrou × Saídas (visível quando entrada obrigatória) -->
-                    <div id="card-entrada-saida" class="card mb-3 d-none">
-                      <div class="card-body">
-                        <div class="row g-2 text-center">
-                          <div class="col-md-4">
-                            <span class="small text-secondary fw-semibold d-block">Total que entrou</span>
-                            <span class="fs-4 fw-bold" id="kpi-entradas">0</span>
-                          </div>
-                          <div class="col-md-4">
-                            <span class="small text-secondary fw-semibold d-block">Saídas</span>
-                            <span class="fs-4 fw-bold" id="kpi-saidas-entrada">0</span>
-                          </div>
-                          <div class="col-md-4">
-                            <span class="small text-secondary fw-semibold d-block">% saída</span>
-                            <span class="fs-4 fw-bold text-primary" id="kpi-pct-entrada">—</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+            <div class="acom-priorityhead">
+              <div>
+                <div class="acom-eyebrow">Triagem operacional</div>
+                <h2>O que precisa de atenção</h2>
+              </div>
+              <span class="acom-muted">Clique em uma situação para investigar</span>
+            </div>
+            <div class="acom-prioritygrid" id="triagem-grid">
+              <button type="button" class="acom-priority" data-triagem="sem_entrega">
+                <span class="acom-priorityicon danger">!</span>
+                <span>
+                  <b id="triagem-sem-entrega-title">0 motoboys sem entrega</b>
+                  <small>Ver responsáveis e últimas atividades</small>
+                </span>
+                <strong>Ver →</strong>
+              </button>
+              <button type="button" class="acom-priority" data-triagem="carga">
+                <span class="acom-priorityicon warning">↗</span>
+                <span>
+                  <b id="triagem-carga-title">0 motoboys com carga elevada</b>
+                  <small>Mais de 50 pacotes em rota</small>
+                </span>
+                <strong>Ver →</strong>
+              </button>
+              <button type="button" class="acom-priority" data-triagem="regiao">
+                <span class="acom-priorityicon info">⌗</span>
+                <span>
+                  <b>Conferir concentração regional</b>
+                  <small>Comparar distribuição pelos prefixos de CEP</small>
+                </span>
+                <strong>Ver →</strong>
+              </button>
+            </div>
 
-                    <!-- KPIs totalizadores -->
-                    <div class="row g-2 mb-3 flex-nowrap kpi-row">
-                      <div class="col flex-fill" style="min-width: 0;">
-                        <div class="p-3 rounded text-center bg-light border">
-                          <span class="small text-secondary fw-semibold d-block">Total pedidos</span>
-                          <span class="fs-5 fw-bold" id="kpi-pedidos">0</span>
-                        </div>
-                      </div>
-                      <div class="col flex-fill" style="min-width: 0;">
-                        <div class="p-3 rounded text-center bg-success bg-opacity-10 border border-success border-opacity-25">
-                          <span class="small text-secondary fw-semibold d-block">Entregues</span>
-                          <span class="fs-5 fw-bold text-success" id="kpi-entregues">0</span>
-                        </div>
-                      </div>
-                      <div class="col flex-fill" style="min-width: 0;">
-                        <div class="p-3 rounded text-center bg-primary bg-opacity-10 border border-primary border-opacity-25">
-                          <span class="small text-secondary fw-semibold d-block">Em rota</span>
-                          <span class="fs-5 fw-bold text-primary" id="kpi-em-rota">0</span>
-                        </div>
-                      </div>
-                      <div class="col flex-fill" style="min-width: 0;">
-                        <div class="p-3 rounded text-center bg-warning bg-opacity-10 border border-warning border-opacity-25">
-                          <span class="small text-secondary fw-semibold d-block">Ausências/Ocorrências</span>
-                          <span class="fs-5 fw-bold text-warning" id="kpi-ausente">0</span>
-                        </div>
-                      </div>
-                      <div class="col flex-fill" style="min-width: 140px;">
-                        <div class="p-3 rounded bg-info bg-opacity-10 border border-info border-opacity-25 h-100">
-                          <span class="small text-secondary fw-semibold d-block text-center">SLA geral</span>
-                          <div class="small text-muted text-center mb-1" id="kpi-sla-ratio">0 / 0 entregues</div>
-                          <div class="acom-sla-bar mb-1">
-                            <div class="acom-sla-bar__fill acom-sla-bar__fill--neutral" id="kpi-sla-bar" style="width: 0%;"></div>
-                          </div>
-                          <div class="fw-bold text-info text-center" id="kpi-sla-pct">—</div>
-                        </div>
-                      </div>
-                    </div>
+            <div class="acom-operationsnote">
+              ◷ <b>Última atividade operacional</b> é diferente de última entrega. Sem um evento confiável, a interface exibirá “Não disponível” — nunca presumirá que o motoboy está parado.
+            </div>
 
-                    <!-- Alertas operacionais -->
-                    <div id="operational-alerts" class="mb-3"></div>
-
-                    <!-- Ranking compacto -->
-                    <div id="operational-ranking" class="row g-2 mb-3 d-none">
-                      <div class="col-md-6">
-                        <div class="acom-ranking-card border rounded p-3 h-100">
-                          <div class="acom-ranking-title text-success mb-2"><i class="ri-trophy-line me-1"></i> Top desempenho</div>
-                          <ul class="acom-ranking-list list-unstyled mb-0" id="ranking-top"></ul>
-                        </div>
-                      </div>
-                      <div class="col-md-6">
-                        <div class="acom-ranking-card border rounded p-3 h-100">
-                          <div class="acom-ranking-title text-warning mb-2"><i class="ri-alert-line me-1"></i> Atenção</div>
-                          <ul class="acom-ranking-list list-unstyled mb-0" id="ranking-attention"></ul>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Filtros rápidos -->
-                    <div class="d-flex flex-wrap gap-2 mb-3" id="quick-filters" role="group" aria-label="Filtros rápidos">
-                      <button type="button" class="btn btn-sm btn-primary acom-quick-filter" data-filter="todos">Todos</button>
-                      <button type="button" class="btn btn-sm btn-outline-secondary acom-quick-filter" data-filter="criticos">Críticos</button>
-                      <button type="button" class="btn btn-sm btn-outline-secondary acom-quick-filter" data-filter="sem_entrega">Sem entrega</button>
-                      <button type="button" class="btn btn-sm btn-outline-secondary acom-quick-filter" data-filter="finalizados">Finalizados</button>
-                      <button type="button" class="btn btn-sm btn-outline-secondary acom-quick-filter" data-filter="em_andamento">Em andamento</button>
-                    </div>
-
-                    <!-- Tabela -->
-                    <div class="table-responsive table-card">
-                      <table class="table align-middle table-nowrap mb-0" id="tbl-acompanhamento">
-                        <thead class="table-light">
-                          <tr>
-                            <th>Data</th>
-                            <th>Motoboy</th>
-                            <th class="text-center">Status</th>
-                            <th class="text-center">Pedidos</th>
-                            <th class="text-center">Entregues</th>
-                            <th class="text-center">Em rota</th>
-                            <th class="text-center">Ausências/Ocorrências</th>
-                            <th class="text-center">Rota</th>
-                            <th class="text-center">Distância / Tempo</th>
-                            <th class="text-center">Última entrega</th>
-                            <th class="text-center">SLA</th>
-                          </tr>
-                        </thead>
-                        <tbody id="tbody-acompanhamento">
-                          <tr>
-                            <td colspan="11" class="text-center text-muted py-4">Selecione uma data e clique em Atualizar.</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <!-- Info de registros -->
-                    <div class="d-flex justify-content-between align-items-center mt-3">
-                      <div id="pager-info" class="text-muted small">Exibindo 0 a 0 de 0 registros</div>
-                    </div>
-                    </div>
-                  </div>
+            <div class="acom-workspace">
+              <div class="acom-worktop">
+                <div class="acom-toggle" id="views" role="group" aria-label="Agrupar acompanhamento">
+                  <button type="button" class="chosen" id="btnAgruparMotoboy" data-agrupar="motoboy">◉ Por motoboy</button>
+                  <button type="button" id="btnAgruparRegiao" data-agrupar="regiao">▦ Por região (CEP)</button>
                 </div>
               </div>
+
+              <div class="acom-filters">
+                <input type="search" id="flt-busca" placeholder="⌕ Buscar motoboy ou prefixo do CEP" autocomplete="off" />
+                <select id="flt-regiao" aria-label="Filtrar região">
+                  <option value="">Todas as regiões</option>
+                </select>
+                <select id="flt-sort" aria-label="Ordenar">
+                  <option value="alerta">Ordenar: mais críticos</option>
+                  <option value="volume">Maior volume</option>
+                  <option value="sucesso">Melhor desempenho</option>
+                </select>
+                <button type="button" id="btnFiltroLimpar" class="acom-btn-ghost">Limpar filtros</button>
+              </div>
+
+              <div class="acom-chips" id="quick-filters" role="group" aria-label="Filtros rápidos">
+                <button type="button" class="acom-chip on acom-quick-filter" data-filter="todos">Todos</button>
+                <button type="button" class="acom-chip acom-quick-filter" data-filter="criticos">⚠ Críticos</button>
+                <button type="button" class="acom-chip acom-quick-filter" data-filter="sem_entrega">Sem entrega</button>
+                <button type="button" class="acom-chip acom-quick-filter" data-filter="em_andamento">Em andamento</button>
+                <button type="button" class="acom-chip acom-quick-filter" data-filter="finalizados">Finalizados</button>
+              </div>
+
+              <div class="acom-sectiontitle">
+                <h2 id="tbl-acompanhamento-title">Acompanhamento por motoboy</h2>
+                <span class="acom-muted" id="tbl-acompanhamento-hint">Clique em uma linha para ver o detalhamento</span>
+              </div>
+
+              <div class="acom-tablewrap">
+                <table class="acom-table" id="tbl-acompanhamento">
+                  <thead id="thead-acompanhamento"></thead>
+                  <tbody id="tbody-acompanhamento">
+                    <tr>
+                      <td colspan="8" class="text-center text-muted py-4">Selecione uma data e clique em Atualizar.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="acom-foot" id="pager-info">Exibindo 0 a 0 de 0 registros</div>
             </div>
 
           </div>
@@ -239,16 +162,18 @@
       </div>
     </div>
 
-    <!-- Detalhe do motoboy -->
-    <div class="offcanvas offcanvas-end offcanvas-form offcanvas-form--w480" tabindex="-1" id="ocMotoboyDetail" aria-labelledby="ocMotoboyDetailLabel">
+    <div class="offcanvas offcanvas-end offcanvas-form offcanvas-form--w480" tabindex="-1" id="ocAcomDetail" aria-labelledby="ocAcomDetailLabel">
       <div class="offcanvas-header border-bottom">
-        <h5 class="offcanvas-title" id="ocMotoboyDetailLabel">Detalhe do motoboy</h5>
+        <div>
+          <div class="acom-eyebrow" id="ocAcomDetailEyebrow">Detalhamento operacional</div>
+          <h5 class="offcanvas-title mb-0" id="ocAcomDetailLabel">Detalhe</h5>
+          <p class="text-muted small mb-0 mt-1" id="ocAcomDetailSub"></p>
+        </div>
         <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
       </div>
-      <div class="offcanvas-body" id="ocMotoboyDetailBody"></div>
+      <div class="offcanvas-body" id="ocAcomDetailBody"></div>
       <div class="offcanvas-footer d-flex justify-content-end gap-2 p-3 border-top bg-body">
         <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="offcanvas">Fechar</button>
-        <button type="button" class="btn btn-primary" id="btnDetailVerFiltro">Ver no filtro</button>
       </div>
     </div>
 
@@ -256,7 +181,7 @@
     @@include("partials/customizer.html")
     @@include("partials/vendor-scripts.html")
 
-<script src="assets/js/pages/acompanhamento-operational.utils.js"></script>
+    <script src="assets/js/pages/acompanhamento-operational.utils.js"></script>
     <script src="assets/js/pages/tracking-acompanhamento.init.js"></script>
     <script src="assets/js/app.js"></script>
   </body>

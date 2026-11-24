@@ -65,12 +65,22 @@
               </div>
 
               <div class="card-body">
+                <ul class="nav nav-tabs mb-3 d-none" id="clientesPapelTabs" role="tablist">
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link active" type="button" data-papel-tab="seller" id="tabSellers">Sellers</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link" type="button" data-papel-tab="base_parceira" id="tabBasesParceiras">Bases</button>
+                  </li>
+                </ul>
                 <div class="table-responsive table-card bases-table-wrap">
                     <table class="table align-middle table-nowrap mb-0" id="tbl-bases">
                       <thead class="table-light">
                         <tr>
                           <th class="text-center" style="width:56px;">Sel.</th>
                           <th data-owner-term="base">Base</th>
+                          <th class="text-center d-none" id="thPapel" style="width:110px;">Tipo</th>
+                          <th class="text-center d-none" id="thAuth" style="width:150px;">Auth</th>
                           <th class="text-end">Flex</th>
                           <th class="text-end">Shopee</th>
                           <th class="text-end">Avulso</th>
@@ -146,7 +156,8 @@
                     <div id="s-cidade-uf">—</div>
                   </div>
                   <div class="col-12 border-top pt-3 mt-1 d-none" id="portal-seller-block">
-                    <h6 class="fw-semibold mb-2">Portal de etiquetas</h6>
+                    <h6 class="fw-semibold mb-2">Portal do Seller</h6>
+                    <p class="text-muted small mb-1">Liberar acesso às etiquetas do seller.</p>
                     <p class="small mb-1">
                       Link do portal:
                       <a id="portal-seller-url" href="portal-login.html" target="_blank" rel="noopener">portal-login.html</a>
@@ -158,6 +169,15 @@
                       <button type="button" class="btn btn-soft-danger btn-sm d-none" id="btnPortalDesativar">Desativar acesso</button>
                       <button type="button" class="btn btn-soft-secondary btn-sm" id="btnCopiarLinkPortal">Copiar dados de acesso</button>
                     </div>
+                  </div>
+                  <div class="col-12 border-top pt-3 mt-1 d-none" id="auth-marketplace-block">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                      <h6 class="fw-semibold mb-0">Autenticação marketplace</h6>
+                      <a href="tracking-autenticacao.html" class="small">Ver todas as contas</a>
+                    </div>
+                    <p class="text-muted small mb-2">O seller autoriza no marketplace; depois a conta aparece aqui.</p>
+                    <div id="auth-marketplace-pending" class="alert alert-warning py-2 px-3 d-none mb-2" role="status"></div>
+                    <div id="auth-marketplace-body" class="d-flex flex-column gap-2"></div>
                   </div>
                 </div>
               </div>
@@ -183,6 +203,16 @@
           <form id="formBase" class="needs-validation" novalidate>
             <div class="modal-body">
               <input type="hidden" id="baseId" />
+              <input type="hidden" id="basePapel" value="" />
+
+              <div id="papelCards" class="mb-3 d-none">
+                <label class="form-label mb-1" id="lblTipoCliente">Tipo do cliente</label>
+                <div class="btn-group w-100" role="group" aria-labelledby="lblTipoCliente">
+                  <button type="button" class="btn btn-outline-primary papel-card" data-papel="seller" id="cardPapelSeller">Seller</button>
+                  <button type="button" class="btn btn-outline-primary papel-card" data-papel="base_parceira" id="cardPapelBase">Base</button>
+                </div>
+                <div class="form-text" id="papelHelp">Autenticação e portal disponíveis; CNPJ obrigatório.</div>
+              </div>
 
               <div class="row g-3">
                 <div class="col-lg-6">
@@ -194,6 +224,35 @@
                           <label for="base" class="form-label" data-owner-term="nome_da_base">Nome da Base</label>
                           <input type="text" id="base" class="form-control" required />
                           <div class="invalid-feedback" data-owner-term="informe_nome_base">Informe o nome da base.</div>
+                        </div>
+                        <div class="col-12 d-none" id="blocoEntregaPedidos">
+                          <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="entregaPedidos">
+                            <label class="form-check-label" for="entregaPedidos">Esta base entrega pedidos nossos</label>
+                          </div>
+                          <div class="form-text small">Os pedidos lidos para esta base entram em A pagar. A coleta dela continua em A receber.</div>
+                        </div>
+                        <div class="col-12 d-none" id="blocoPrecoPagar">
+                          <div class="fw-semibold mb-2">Preço a pagar</div>
+                          <div class="form-text small mb-2">Já vem o padrão da operação; altere só se for diferente.</div>
+                          <div class="row g-2">
+                            <div class="col-md-4">
+                              <label for="pagarShopee" class="form-label">Shopee <span class="badge bg-light text-muted" id="lblPagarShopee">Padrão</span></label>
+                              <input type="text" id="pagarShopee" class="form-control moeda" placeholder="Padrão da operação">
+                            </div>
+                            <div class="col-md-4">
+                              <label for="pagarMl" class="form-label">Mercado Livre <span class="badge bg-light text-muted" id="lblPagarMl">Padrão</span></label>
+                              <input type="text" id="pagarMl" class="form-control moeda" placeholder="Padrão da operação">
+                            </div>
+                            <div class="col-md-4">
+                              <label for="pagarAvulso" class="form-label">Avulso <span class="badge bg-light text-muted" id="lblPagarAvulso">Padrão</span></label>
+                              <input type="text" id="pagarAvulso" class="form-control moeda" placeholder="Padrão da operação">
+                            </div>
+                          </div>
+                        </div>
+                        <div class="col-12">
+                          <div class="fw-semibold mb-1" id="lblBlocoPrecoReceber">Preços na coleta</div>
+                          <div class="form-text small mb-2">Flex, Shopee e Avulso usados no fechamento A receber.</div>
                         </div>
                         <div class="col-md-6">
                           <label for="flex" class="form-label">Flex</label>
@@ -264,8 +323,9 @@
                         </div>
                         <div class="col-md-6">
                           <label for="sellerCep" class="form-label">CEP</label>
-                          <input type="text" id="sellerCep" class="form-control" placeholder="00000-000" maxlength="9" inputmode="numeric">
-                          <div class="form-text small" id="sellerCepHelp">Digite o CEP e saia do campo para preencher o endereço.</div>
+                          <input type="text" id="sellerCep" class="form-control" placeholder="00000-000" maxlength="9" inputmode="numeric" aria-describedby="sellerCepHelp sellerCepStatus">
+                          <div class="form-text small" id="sellerCepHelp">Digite o CEP completo (8 dígitos) para preencher o endereço.</div>
+                          <div class="small mt-1 d-none" id="sellerCepStatus" role="status" aria-live="polite"></div>
                         </div>
                         <div class="col-md-8">
                           <label for="sellerRua" class="form-label">Rua</label>
@@ -363,7 +423,7 @@
           <div class="modal-body">
             <!-- Etapa 1: arquivo -->
             <div id="import-step-file">
-              <p class="text-muted mb-3">
+              <p class="text-muted mb-3" id="importHelpText">
                 Importe nome e valores (Flex, Shopee e Avulso). Se já existir, os preços serão atualizados.
                 CNPJ e endereço você completa depois no sistema.
               </p>
@@ -391,7 +451,8 @@
                   <thead class="table-light sticky-top">
                     <tr>
                       <th>Linha</th>
-                      <th data-owner-term="base">Base</th>
+                      <th id="importThNome" data-owner-term="base">Base</th>
+                      <th id="importThTipo" class="d-none">Tipo</th>
                       <th class="text-end">Flex</th>
                       <th class="text-end">Shopee</th>
                       <th class="text-end">Avulso</th>
@@ -416,7 +477,7 @@
                   <thead class="table-light sticky-top">
                     <tr>
                       <th>Linha</th>
-                      <th data-owner-term="base">Base</th>
+                      <th id="importResThNome" data-owner-term="base">Base</th>
                       <th>Status</th>
                       <th>Detalhe</th>
                     </tr>
@@ -449,7 +510,8 @@
     </script>
 
     <script src="assets/js/components/pix-chave.js?v=3"></script>
-    <script src="assets/js/pages/tracking-base.init.js?v=7"></script>
+    <script src="assets/js/pages/auth-marketplace.js?v=1"></script>
+    <script src="assets/js/pages/tracking-base.init.js?v=9"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>

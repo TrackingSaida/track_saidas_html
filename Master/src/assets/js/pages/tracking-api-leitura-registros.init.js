@@ -203,12 +203,13 @@
   // - Sem GET /saidas/listar?codigo= antes de decidir POST/PATCH
   // - 200/201 tratam idempotência; 409 é reservado para troca de entregador.
   // - Timeout evita request pendurado; em caso de abort, front pode chamar revertOtimista e permitir rebipar.
-  window.TrackAPI.lerSaida = async function ({ entregador_id, entregador, motoboy_id, codigo, servico, registrar_nao_coletado, qr_payload_raw }) {
+  window.TrackAPI.lerSaida = async function ({ entregador_id, entregador, motoboy_id, repasse_base_id, codigo, servico, registrar_nao_coletado, qr_payload_raw }) {
     try {
       const body = {
         codigo,
         servico
       };
+      if (repasse_base_id != null) body.repasse_base_id = repasse_base_id;
       if (motoboy_id != null) body.motoboy_id = motoboy_id;
       if (entregador_id != null) body.entregador_id = entregador_id;
       if (entregador != null) body.entregador = entregador;
@@ -432,6 +433,7 @@
     motoboy_id,
     entregador_id,
     entregador,
+    repasse_base_id,
     foto_object_key,
     photo_id,
     campos,
@@ -440,6 +442,7 @@
     try {
       const body = { quantidade };
       if (identificacao != null) body.identificacao = identificacao;
+      if (repasse_base_id != null) body.repasse_base_id = repasse_base_id;
       if (motoboy_id != null) body.motoboy_id = motoboy_id;
       if (entregador_id != null) body.entregador_id = entregador_id;
       if (entregador != null) body.entregador = entregador;

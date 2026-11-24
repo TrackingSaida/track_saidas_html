@@ -43,6 +43,31 @@
   line-height: 1.5;
   letter-spacing: 0.02em;
 }
+
+.reg-regiao-badge {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  padding: 1px 7px;
+  border-radius: 6px;
+  border: 1px solid #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.reg-regiao-badge--lg {
+  font-size: 1.05rem;
+  padding: 0.2rem 0.55rem;
+}
+.pedido-dest-regiao {
+  margin: 0 0 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
 button.reg-g-chip { cursor: pointer; }
 button.reg-g-chip:hover,
 button.reg-g-chip:focus-visible { background: #fde68a; outline: none; }

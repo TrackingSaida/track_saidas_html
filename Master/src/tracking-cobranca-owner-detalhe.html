@@ -117,6 +117,8 @@
               <div class="px-3 pb-2 d-flex flex-wrap gap-2" id="cobd-chips" role="group" aria-label="Filtrar itens">
                 <button type="button" class="cob-chip active" data-filtro="">Todos</button>
                 <button type="button" class="cob-chip" data-filtro="faturavel">Faturáveis</button>
+                <button type="button" class="cob-chip cob-chip-dual d-none" data-filtro="sellers">Sellers</button>
+                <button type="button" class="cob-chip cob-chip-dual d-none" data-filtro="bases">Bases</button>
                 <button type="button" class="cob-chip" data-filtro="cancelado">Cancelados</button>
                 <button type="button" class="cob-chip" data-filtro="manual">Coleta manual</button>
                 <button type="button" class="cob-chip" data-filtro="duplicado">Duplicidade</button>
@@ -186,6 +188,11 @@
                     <option value="mensal">Mensal</option>
                   </select>
                 </div>
+                <div class="mb-3">
+                  <label for="cfg-dias-faturamento" class="form-label small mb-1">Faturar depois de (dias)</label>
+                  <input type="number" id="cfg-dias-faturamento" class="form-control form-control-sm" min="0" max="365" step="1" placeholder="Ex.: 15" style="max-width: 8rem;" />
+                  <div class="form-text">Dias após o fim do período. Vazio = prazo não definido. 0 fatura no próprio fim.</div>
+                </div>
                 <div class="form-check mb-3">
                   <input class="form-check-input" type="checkbox" id="cfg-confirmar" />
                   <label class="form-check-label small" for="cfg-confirmar">Confirmo o modelo e a periodicidade para cobrança</label>
@@ -208,25 +215,58 @@
 
               <hr />
 
-              <h3 class="h6 mb-1">Preço por pacote</h3>
-              <p class="small cob-muted mb-2">Vigente hoje: <strong id="cfg-preco-vigente">—</strong>. O período usa o preço vigente no dia inicial.</p>
-              <form id="cobd-form-preco" class="mb-2" novalidate>
-                <div class="row g-2">
-                  <div class="col-5">
-                    <label for="preco-valor" class="form-label small mb-1">Novo preço (R$) <span class="text-danger">*</span></label>
-                    <input id="preco-valor" class="form-control form-control-sm" inputmode="decimal" placeholder="0,50" required />
-                  </div>
-                  <div class="col-7">
-                    <label for="preco-inicio" class="form-label small mb-1">Vale a partir de <span class="text-danger">*</span></label>
-                    <input id="preco-inicio" type="date" class="form-control form-control-sm" required />
-                  </div>
-                  <div class="col-12">
-                    <label for="preco-motivo" class="form-label small mb-1">Motivo</label>
-                    <input id="preco-motivo" class="form-control form-control-sm" maxlength="300" />
+              <h3 class="h6 mb-2">Preços vigentes</h3>
+              <p class="small cob-muted mb-2">A apuração usa o preço vigente na data de cada pacote.</p>
+              <div class="d-flex flex-column gap-2 mb-2">
+                <div class="cob-surface p-2">
+                  <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                      <div class="cob-label">Coletas em Bases</div>
+                      <div class="cob-side-value" id="cfg-preco-vigente">—</div>
+                      <div class="small cob-muted" id="cfg-preco-bases-desde"></div>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="btn-alterar-preco-bases" data-alterar-escopo="bases">Alterar</button>
                   </div>
                 </div>
-                <button type="submit" class="btn btn-outline-secondary btn-sm mt-2" id="preco-salvar">Adicionar preço</button>
-              </form>
+                <div class="cob-surface p-2 d-none" id="cfg-preco-sellers-wrap">
+                  <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                      <div class="cob-label">Coletas em Sellers</div>
+                      <div class="cob-side-value" id="cfg-preco-vigente-sellers">—</div>
+                      <div class="small cob-muted" id="cfg-preco-sellers-desde"></div>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="btn-alterar-preco-sellers" data-alterar-escopo="sellers">Alterar</button>
+                  </div>
+                </div>
+              </div>
+              <p id="cfg-preco-dual-hint" class="small text-info mb-2 d-none">
+                Sem Sellers — usa preço de Bases. Cadastre Sellers em Clientes para configurar e apurar dois preços.
+              </p>
+              <div id="cobd-form-preco-wrap" class="cob-surface p-2 mb-2 d-none">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="small fw-semibold mb-0" id="cobd-form-preco-titulo">Alterar preço</span>
+                  <button type="button" class="btn btn-link btn-sm p-0" id="preco-cancelar">Cancelar</button>
+                </div>
+                <form id="cobd-form-preco" novalidate>
+                  <input type="hidden" id="preco-escopo" value="bases" />
+                  <div class="row g-2">
+                    <div class="col-5">
+                      <label for="preco-valor" class="form-label small mb-1">Novo preço (R$) <span class="text-danger">*</span></label>
+                      <input id="preco-valor" class="form-control form-control-sm" inputmode="decimal" placeholder="0,50" required />
+                    </div>
+                    <div class="col-7">
+                      <label for="preco-inicio" class="form-label small mb-1">Vale a partir de <span class="text-danger">*</span></label>
+                      <input id="preco-inicio" type="date" class="form-control form-control-sm" required />
+                    </div>
+                    <div class="col-12">
+                      <label for="preco-motivo" class="form-label small mb-1">Motivo</label>
+                      <input id="preco-motivo" class="form-control form-control-sm" maxlength="300" />
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-sm mt-2" id="preco-salvar">Salvar novo preço</button>
+                </form>
+              </div>
+              <h4 class="h6 mb-1">Histórico de vigência</h4>
               <ul class="list-unstyled small mb-0" id="cfg-precos"></ul>
 
               <hr />

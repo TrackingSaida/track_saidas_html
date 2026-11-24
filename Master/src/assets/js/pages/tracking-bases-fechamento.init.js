@@ -111,6 +111,25 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
   const ORDEM_CICLO = ["semanal", "quinzenal", "mensal", "nenhum"];
   const ROTULO_CICLO = { nenhum: "Nenhum", semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
+  const ORDEM_PAPEL = ["seller", "base_parceira"];
+  const ROTULO_PAPEL = { seller: "Seller", base_parceira: "Base" };
+
+  function isOwnerTipoBase() {
+    const t = window.TIPO_OWNER || (window.__USER__ && window.__USER__.tipo_owner) || "subbase";
+    return String(t).toLowerCase() === "base";
+  }
+
+  function papelDe(r) {
+    const p = String(r.papel || "").toLowerCase();
+    return p === "base_parceira" ? "base_parceira" : "seller";
+  }
+
+  function seloPapel(papel) {
+    if (!isOwnerTipoBase()) return "";
+    if (papel === "base_parceira") return '<span class="badge bg-secondary-subtle text-secondary ms-1">Base</span>';
+    if (papel === "seller") return '<span class="badge bg-primary-subtle text-primary ms-1">Seller</span>';
+    return "";
+  }
 
   function motivoDeFora(r) {
     if (r.motivo_bloqueio === "PERIODO_FECHAMENTO") {
@@ -133,7 +152,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     filtro: "",
     base: "",
     ciclo: "",
+    papel: "",
     agruparCiclo: false,
+    agruparPapel: false,
     gruposExpandidos: new Set(),
     expandidos: new Set(),
     gerandoLote: false,
@@ -181,6 +202,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function passaBaseCiclo(r) {
     if (state.base && String(r.base || "") !== state.base) return false;
     if (state.ciclo && cicloDe(r) !== state.ciclo) return false;
+    if (state.papel && papelDe(r) !== state.papel) return false;
     return true;
   }
 
@@ -321,6 +343,48 @@ document.addEventListener("DOMContentLoaded", async () => {
     return html;
   }
 
+  function chipCiclo(ciclo) {
+    return (
+      { semanal: "fm-chip--semanal", quinzenal: "fm-chip--quinzenal", mensal: "fm-chip--mensal" }[ciclo] || "fm-chip--info"
+    );
+  }
+
+  function cabecalhoGrupoUi(codigo) {
+    let ciclo = null;
+    let papel = null;
+    String(codigo || "")
+      .split("|")
+      .forEach((p) => {
+        if (p.startsWith("c:")) ciclo = p.slice(2);
+        if (p.startsWith("p:")) papel = p.slice(2);
+      });
+    if (ciclo && papel) {
+      return {
+        pill: ROTULO_CICLO[ciclo] || ciclo,
+        pillClass: chipCiclo(ciclo),
+        titulo: ROTULO_PAPEL[papel] || papel,
+        rail: papel === "base_parceira" ? "muted" : "accent",
+        aria: `${ROTULO_CICLO[ciclo] || ciclo} · ${ROTULO_PAPEL[papel] || papel}`,
+      };
+    }
+    if (ciclo) {
+      return {
+        pill: "Período",
+        pillClass: chipCiclo(ciclo),
+        titulo: ROTULO_CICLO[ciclo] || ciclo,
+        rail: "accent",
+        aria: ROTULO_CICLO[ciclo] || ciclo,
+      };
+    }
+    return {
+      pill: "Tipo",
+      pillClass: papel === "base_parceira" ? "fm-chip--info" : "fm-chip--quinzenal",
+      titulo: ROTULO_PAPEL[papel] || papel || "",
+      rail: papel === "base_parceira" ? "muted" : "accent",
+      aria: ROTULO_PAPEL[papel] || papel || "",
+    };
+  }
+
   function linhaBaseHtml(r) {
     const k = String(r.base);
     const aberto = state.expandidos.has(k);
@@ -334,10 +398,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       subValor = `<div class="fm-sub fm-num">inclui ${moeda(r.valor_g)} de pacotes G</div>`;
     }
     const idDias = `fm-dias-${esc(k.replace(/[^\w-]/g, "_"))}`;
+    const emGrupo = state.agruparCiclo || state.agruparPapel;
+    const classesLinha = [r.precisa_reajuste ? "fm-linha--revisao" : "", emGrupo ? "fm-linha--em-grupo" : ""]
+      .filter(Boolean)
+      .join(" ");
     return (
-      `<tr class="${r.precisa_reajuste ? "fm-linha--revisao" : ""}">` +
+      `<tr class="${classesLinha}">` +
       `<td><button type="button" class="fm-expandir" data-acao="expandir" data-base="${esc(k)}" aria-expanded="${aberto}" aria-controls="${idDias}" aria-label="Ver dias de ${esc(r.base)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
-      `<td><div class="fw-semibold">${esc(r.base)}</div>${r.cnpj ? `<div class="fm-sub">${esc(r.cnpj)}</div>` : ""}</td>` +
+      `<td><div class="fw-semibold">${esc(r.base)}${seloPapel(papelDe(r))}</div>${r.cnpj ? `<div class="fm-sub">${esc(r.cnpj)}</div>` : ""}</td>` +
       `<td>${badgePeriodo(r)}</td>` +
       `<td class="text-end"><div class="fm-num fw-semibold">${coletas}</div>${servicosHtml(r)}</td>` +
       `<td class="text-end fm-num">${num(r.pacotes_g)}</td>` +
@@ -366,29 +434,57 @@ document.addEventListener("DOMContentLoaded", async () => {
         GERADO: "Nenhum fechamento gerado neste período.",
         REAJUSTADO: "Nenhum fechamento reajustado neste período.",
       };
-      linhaMensagem(esc(state.base || state.ciclo ? "Nenhuma base com esses filtros." : vazio[state.filtro] || "Nada para mostrar."));
+      linhaMensagem(esc(state.base || state.ciclo || state.papel ? `Nenhum ${TERMO_BASE.toLowerCase()} com esses filtros.` : vazio[state.filtro] || "Nada para mostrar."));
       return;
     }
-    if (!state.agruparCiclo) {
+    if (!state.agruparCiclo && !state.agruparPapel) {
       tbody.innerHTML = items.map(linhaBaseHtml).join("");
       return;
     }
-    const porCiclo = new Map();
+
+    function chaveGrupo(r) {
+      const partes = [];
+      if (state.agruparCiclo) partes.push(`c:${cicloDe(r)}`);
+      if (state.agruparPapel) partes.push(`p:${papelDe(r)}`);
+      return partes.join("|");
+    }
+
+    function ordemChaves() {
+      const chaves = [];
+      const ciclos = state.agruparCiclo ? ORDEM_CICLO : [null];
+      const papeis = state.agruparPapel ? ORDEM_PAPEL : [null];
+      ciclos.forEach((c) => {
+        papeis.forEach((p) => {
+          const partes = [];
+          if (c != null) partes.push(`c:${c}`);
+          if (p != null) partes.push(`p:${p}`);
+          chaves.push(partes.join("|"));
+        });
+      });
+      return chaves;
+    }
+
+    const porGrupo = new Map();
     items.forEach((r) => {
-      const codigo = cicloDe(r);
-      if (!porCiclo.has(codigo)) porCiclo.set(codigo, []);
-      porCiclo.get(codigo).push(r);
+      const codigo = chaveGrupo(r);
+      if (!porGrupo.has(codigo)) porGrupo.set(codigo, []);
+      porGrupo.get(codigo).push(r);
     });
     const html = [];
-    ORDEM_CICLO.forEach((codigo) => {
-      const grupo = porCiclo.get(codigo);
+    ordemChaves().forEach((codigo) => {
+      const grupo = porGrupo.get(codigo);
       if (!grupo || !grupo.length) return;
       const aberto = state.gruposExpandidos.has(codigo);
-      const rotulo = ROTULO_CICLO[codigo] || codigo;
+      const ui = cabecalhoGrupoUi(codigo);
+      const railClass = ui.rail === "muted" ? " fm-grupo--muted" : "";
       html.push(
-        `<tr class="fm-grupo">` +
-          `<td><button type="button" class="fm-expandir" data-acao="expandir-grupo" data-ciclo="${esc(codigo)}" aria-expanded="${aberto}" aria-label="Expandir ${esc(rotulo)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
-          `<td colspan="${colunas() - 1}"><span>${esc(rotulo)}</span> <span class="fm-grupo-meta">${esc(plural(grupo.length, "base", "bases"))}</span></td>` +
+        `<tr class="fm-grupo${railClass}">` +
+          `<td><button type="button" class="fm-expandir" data-acao="expandir-grupo" data-ciclo="${esc(codigo)}" aria-expanded="${aberto}" aria-label="Expandir ${esc(ui.aria)}"><i class="ri-arrow-right-s-line fs-5"></i></button></td>` +
+          `<td colspan="${colunas() - 1}"><span class="fm-grupo-label">` +
+          `<span class="fm-chip ${ui.pillClass}">${esc(ui.pill)}</span>` +
+          `<span class="fm-grupo-titulo">${esc(ui.titulo)}</span>` +
+          `<span class="fm-grupo-meta">${esc(pluralBase(grupo.length))}</span>` +
+          `</span></td>` +
           `</tr>`
       );
       if (aberto) html.push(...grupo.map(linhaBaseHtml));
@@ -444,9 +540,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     const base = qs("#flt-base");
     const ciclo = qs("#flt-ciclo");
     const status = qs("#flt-status");
+    const papel = qs("#flt-papel");
     if (base) base.value = state.base;
     if (ciclo) ciclo.value = state.ciclo;
     if (status) status.value = state.filtro;
+    if (papel) papel.value = state.papel;
+  }
+
+  function aplicarVisibilidadePapel() {
+    const show = isOwnerTipoBase();
+    qs("#wrapFltPapel")?.classList.toggle("d-none", !show);
+    qs("#wrapAgruparPapel")?.classList.toggle("d-none", !show);
+    if (!show) {
+      state.papel = "";
+      state.agruparPapel = false;
+      const chk = qs("#chkAgruparPapel");
+      if (chk) chk.checked = false;
+    }
   }
 
   function preencherBases() {
@@ -467,6 +577,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const itens = [];
     if (state.base) itens.push(["base", TERMO_BASE, state.base]);
     if (state.ciclo) itens.push(["ciclo", "Período", ROTULO_CICLO[state.ciclo] || state.ciclo]);
+    if (state.papel) itens.push(["papel", "Tipo", ROTULO_PAPEL[state.papel] || state.papel]);
     if (state.filtro) itens.push(["filtro", "Situação", ROTULO_SITUACAO[state.filtro] || state.filtro]);
     if (faixa) {
       faixa.innerHTML = itens
@@ -1413,9 +1524,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   qs("#btnGerarIndividual")?.addEventListener("click", gerarIndividual);
   qs("#chkAgruparCiclo")?.addEventListener("change", (e) => {
     state.agruparCiclo = !!e.target.checked;
-    if (!state.agruparCiclo) state.gruposExpandidos.clear();
+    if (!state.agruparCiclo && !state.agruparPapel) state.gruposExpandidos.clear();
     renderTabela();
   });
+  qs("#chkAgruparPapel")?.addEventListener("change", (e) => {
+    state.agruparPapel = !!e.target.checked;
+    if (!state.agruparCiclo && !state.agruparPapel) state.gruposExpandidos.clear();
+    renderTabela();
+  });
+  aplicarVisibilidadePapel();
 
   document.querySelectorAll("#fm-cards .fm-card").forEach((card) => {
     card.addEventListener("click", () => {
@@ -1428,6 +1545,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function aplicarFiltros() {
     state.base = qs("#flt-base")?.value || "";
     state.ciclo = qs("#flt-ciclo")?.value || "";
+    state.papel = isOwnerTipoBase() ? qs("#flt-papel")?.value || "" : "";
     state.filtro = qs("#flt-status")?.value || "";
     if (typeof bootstrap !== "undefined") bootstrap.Dropdown.getInstance(qs("#btnFiltrosIcon"))?.hide();
     renderTudo();
@@ -1436,6 +1554,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function limparFiltros() {
     state.base = "";
     state.ciclo = "";
+    state.papel = "";
     state.filtro = "";
     sincronizarSelects();
     if (typeof bootstrap !== "undefined") bootstrap.Dropdown.getInstance(qs("#btnFiltrosIcon"))?.hide();
@@ -1450,6 +1569,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const chave = btn.dataset.limparFiltro;
     if (chave === "base") state.base = "";
     else if (chave === "ciclo") state.ciclo = "";
+    else if (chave === "papel") state.papel = "";
     else if (chave === "filtro") state.filtro = "";
     sincronizarSelects();
     renderTudo();

@@ -13,11 +13,17 @@
   const qs = (s) => document.querySelector(s);
   const qsa = (s) => Array.from(document.querySelectorAll(s));
 
+  const escapeToast = (msg) => String(msg == null ? "" : msg)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
   const toast = (msg, ok = true) => {
     const el = document.createElement("div");
     el.className = `toast align-items-center text-bg-${ok ? "primary" : "danger"} border-0 position-fixed bottom-0 end-0 m-3`;
     el.innerHTML = `<div class="d-flex">
-        <div class="toast-body">${msg}</div>
+        <div class="toast-body">${escapeToast(msg)}</div>
         <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
       </div>`;
     el.style.zIndex = 1080;
@@ -47,21 +53,29 @@
     return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2}).*/, "$1.$2.$3/$4-$5");
   }
 
+  async function lookupCepViaCep(cep) {
+    const direct = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    if (!direct.ok) throw new Error("Falha ao consultar CEP");
+    const data = await direct.json();
+    if (data && data.erro) throw new Error("CEP não encontrado");
+    return data;
+  }
+
   async function lookupCep(cepRaw) {
     const cep = (cepRaw || "").replace(/\D/g, "");
-    if (cep.length !== 8) throw new Error("CEP inválido");
-    const r = await fetch(`${API_URL}/cep/${cep}`, { credentials: "include" });
-    if (r.ok) return r.json();
-    // Se o proxy falhou (ex.: 502 no Render), tenta ViaCEP direto
-    if (r.status >= 500) {
-      const direct = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-      if (direct.ok) {
-        const data = await direct.json();
-        if (data && !data.erro) return data;
+    if (cep.length !== 8) throw new Error("CEP incompleto. Informe 8 dígitos.");
+    try {
+      const r = await fetch(`${API_URL}/cep/${cep}`, { credentials: "include" });
+      if (r.ok) {
+        const data = await r.json();
+        if (data && data.erro) throw new Error("CEP não encontrado");
+        return data;
       }
+    } catch (err) {
+      if (err && /não encontrado/i.test(String(err.message || ""))) throw err;
+      // Proxy indisponível ou resposta inválida: cai no ViaCEP.
     }
-    const err = await r.json().catch(() => ({}));
-    throw new Error(err.detail || "Falha ao consultar CEP");
+    return lookupCepViaCep(cep);
   }
 
   function parseMoeda(valorRaw = "") {
@@ -181,18 +195,86 @@ async function apiDelete(id) {
   // =======================================================
   // Renderização da Tabela
   // =======================================================
+  let PAPEL_TAB = "seller";
+  let PAPEL_TAB_USER_SET = false;
+  let DATA_ALL = [];
+
+  function seloPapel(papel) {
+    if (papel === "base_parceira") return '<span class="badge bg-secondary-subtle text-secondary">Base</span>';
+    if (papel === "seller") return '<span class="badge bg-primary-subtle text-primary">Seller</span>';
+    return "";
+  }
+
+  function countByPapel(papel) {
+    return DATA_ALL.filter((b) => (b.papel || "seller") === papel).length;
+  }
+
+  function syncPapelTabsActive() {
+    qsa("#clientesPapelTabs .nav-link").forEach((el) => {
+      el.classList.toggle("active", el.getAttribute("data-papel-tab") === PAPEL_TAB);
+    });
+  }
+
+  /** Pós-promote: só bases → abre Bases. Se o usuário já clicou numa aba, respeita. */
+  function escolherAbaPapelInicial() {
+    if (!isOwnerTipoBase() || PAPEL_TAB_USER_SET) return;
+    const nSeller = countByPapel("seller");
+    const nBase = countByPapel("base_parceira");
+    if (nSeller === 0 && nBase > 0) {
+      PAPEL_TAB = "base_parceira";
+    } else if (nSeller > 0) {
+      PAPEL_TAB = "seller";
+    }
+    syncPapelTabsActive();
+  }
+
+  function mostrarColunaAuth() {
+    return isOwnerTipoBase() && PAPEL_TAB === "seller";
+  }
+
+  function celulaAuth(b) {
+    if (!mostrarColunaAuth()) return "";
+    const id = b.id_base || b.id;
+    const mlContas = Array.isArray(b.ml_contas) ? b.ml_contas : [];
+    const shContas = Array.isArray(b.shopee_contas) ? b.shopee_contas : [];
+    const badges = [];
+    if (mlContas.length) {
+      badges.push('<span class="badge bg-warning-subtle text-warning">ML</span>');
+    }
+    if (shContas.length) {
+      badges.push('<span class="badge bg-danger-subtle text-danger">Shopee</span>');
+    }
+    const statusHtml = badges.length
+      ? `<div class="d-flex flex-wrap gap-1 justify-content-center mb-1">${badges.join("")}</div>`
+      : '<div class="small text-muted mb-1">Sem conta</div>';
+    return `
+      <td class="text-center align-middle" data-auth-cell>
+        ${statusHtml}
+        <div class="dropdown d-inline-block">
+          <button type="button" class="btn btn-soft-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" data-auth-gerar="${id}">
+            Gerar link
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><button type="button" class="dropdown-item" data-auth-platform="ml" data-auth-id="${id}">Mercado Livre</button></li>
+            <li><button type="button" class="dropdown-item" data-auth-platform="shopee" data-auth-id="${id}">Shopee</button></li>
+          </ul>
+        </div>
+      </td>`;
+  }
+
   function buildRow(b) {
     const ativoChecked = b.ativo ? "checked" : "";
     const id = b.id_base || b.id;
-    const mlContas = Array.isArray(b.ml_contas) ? b.ml_contas : [];
-    const mlNomes = mlContas.map(c => escapeHtmlPortal(c.nickname || String(c.user_id_ml || ""))).join(", ");
-    const mlHtml = mlContas.length
-      ? `<div class="small text-muted">Mercado Livre: ${mlNomes} · <a href="tracking-autenticacao.html">Gerenciar em Autenticação</a></div>`
+    const papelCol = isOwnerTipoBase()
+      ? `<td class="text-center">${seloPapel(b.papel)}</td>`
       : "";
+    const authCol = celulaAuth(b);
     return `
-      <tr class="row-selectable" data-id="${id}">
+      <tr class="row-selectable" data-id="${id}" data-papel="${b.papel || ""}">
         <td class="text-center"><input class="form-check-input sel-row" type="radio" name="sel-base" value="${id}"></td>
-        <td>${b.base || "-"}${mlHtml}</td>
+        <td>${b.base || "-"}</td>
+        ${papelCol}
+        ${authCol}
         <td class="text-end">R$ ${Number(b.ml).toFixed(2).replace(".", ",")}</td>
         <td class="text-end">R$ ${Number(b.shopee).toFixed(2).replace(".", ",")}</td>
         <td class="text-end">R$ ${Number(b.avulso).toFixed(2).replace(".", ",")}</td>
@@ -322,6 +404,8 @@ async function apiDelete(id) {
     if (content) content.classList.add("d-none");
     const nomeEl = qs("#seller-detail-nome");
     if (nomeEl) nomeEl.textContent = "";
+    const authBlock = qs("#auth-marketplace-block");
+    if (authBlock) authBlock.classList.add("d-none");
   }
 
   function renderSellerDetail(seller) {
@@ -359,7 +443,8 @@ async function apiDelete(id) {
     if (empty) empty.classList.add("d-none");
     if (content) content.classList.remove("d-none");
     atualizarVisibilidadePortalSeller();
-    if (isOwnerTipoBase()) loadPortalAcesso();
+    if (isSellerSelecionado()) loadPortalAcesso();
+    renderAuthMarketplaceBlock();
   }
 
   async function loadSellerDetail() {
@@ -447,14 +532,165 @@ async function apiDelete(id) {
     }
   }
 
+  function aplicarFiltroPapelEBusca() {
+    const term = (qs("#search")?.value || "").toLowerCase();
+    let rows = DATA_ALL.slice();
+    if (isOwnerTipoBase()) {
+      rows = rows.filter((b) => (b.papel || "seller") === PAPEL_TAB);
+    }
+    if (term) {
+      rows = rows.filter((b) => (b.base || "").toLowerCase().includes(term));
+    }
+    DATA_CACHE = rows;
+  }
+
+  function atualizarUiClientesOwnerBase() {
+    const tabs = qs("#clientesPapelTabs");
+    const thPapel = qs("#thPapel");
+    const thAuth = qs("#thAuth");
+    if (tabs) tabs.classList.toggle("d-none", !isOwnerTipoBase());
+    if (thPapel) thPapel.classList.toggle("d-none", !isOwnerTipoBase());
+    if (thAuth) thAuth.classList.toggle("d-none", !mostrarColunaAuth());
+    if (isOwnerTipoBase()) {
+      const title = document.querySelector("[data-owner-term='bases']");
+      if (title) title.textContent = "Clientes";
+      document.title = "Clientes | Tracking Saídas";
+    }
+  }
+
+  function formatMoedaInput(valor) {
+    if (valor == null || valor === "") return "";
+    const n = Number(valor);
+    if (!Number.isFinite(n)) return "";
+    return `R$ ${n.toFixed(2).replace(".", ",")}`;
+  }
+
+  function atualizarBadgePrecoPagar(campo, origem) {
+    const el = qs(`#lblPagar${campo}`);
+    if (!el) return;
+    const key = String(origem || "").toLowerCase();
+    const proprio = key === "proprio" || key === "excecao";
+    el.textContent = proprio ? "Preço próprio" : "Padrão";
+    el.className = proprio ? "badge bg-warning-subtle text-warning" : "badge bg-light text-muted";
+  }
+
+  let PRECO_PAGAR_GLOBAL = { shopee_valor: null, ml_valor: null, avulso_valor: null };
+  let PRECO_PAGAR_CARREGADO = false;
+
+  function limparPrecoPagarForm() {
+    PRECO_PAGAR_CARREGADO = false;
+    PRECO_PAGAR_GLOBAL = { shopee_valor: null, ml_valor: null, avulso_valor: null };
+    ["Shopee", "Ml", "Avulso"].forEach((c) => {
+      const inp = qs(`#pagar${c}`);
+      if (inp) inp.value = "";
+      atualizarBadgePrecoPagar(c, "global");
+    });
+  }
+
+  function aplicarPrecoPagarView(data, { soGlobal = false } = {}) {
+    const mapa = { Shopee: "shopee_valor", Ml: "ml_valor", Avulso: "avulso_valor" };
+    const global = data?.global || {};
+    PRECO_PAGAR_GLOBAL = {
+      shopee_valor: global.shopee_valor != null ? Number(global.shopee_valor) : null,
+      ml_valor: global.ml_valor != null ? Number(global.ml_valor) : null,
+      avulso_valor: global.avulso_valor != null ? Number(global.avulso_valor) : null,
+    };
+    const origem = soGlobal ? {} : (data?.origem || {});
+    const fonte = soGlobal ? global : (data?.efetivo || global);
+    Object.entries(mapa).forEach(([label, key]) => {
+      const inp = qs(`#pagar${label}`);
+      if (inp) inp.value = formatMoedaInput(fonte[key]);
+      const origemKey = origem[key] || "global";
+      atualizarBadgePrecoPagar(label, soGlobal ? "global" : origemKey);
+    });
+    PRECO_PAGAR_CARREGADO = true;
+  }
+
+  async function carregarPrecoPagar(idBase, opts = {}) {
+    if (!idBase) return;
+    try {
+      const data = await http(`${API_URL}/base-repasse/bases/${encodeURIComponent(idBase)}/preco-pagar`);
+      aplicarPrecoPagarView(data, opts);
+    } catch (_) {
+      limparPrecoPagarForm();
+    }
+  }
+
+  /** Carrega preço a pagar ao ligar entrega; para cadastro novo usa outra base parceira só para ler o global. */
+  async function garantirPrecoPagarNoFormulario() {
+    const idForm = qs("#baseId")?.value;
+    if (idForm) {
+      await carregarPrecoPagar(idForm);
+      return;
+    }
+    if (PRECO_PAGAR_CARREGADO) return;
+    const proxy = DATA_ALL.find((b) => (b.papel || "") === "base_parceira");
+    const proxyId = proxy ? (proxy.id_base || proxy.id) : null;
+    if (proxyId) {
+      await carregarPrecoPagar(proxyId, { soGlobal: true });
+    }
+  }
+
+  function valorCanalOuNullSePadrao(inputSel, globalKey) {
+    const raw = qs(inputSel)?.value?.trim();
+    if (!raw) return null;
+    const valor = parseMoeda(raw);
+    const padrao = PRECO_PAGAR_GLOBAL[globalKey];
+    if (padrao != null && Number(valor) === Number(padrao)) return null;
+    return valor;
+  }
+
+  async function salvarPrecoPagar(idBase) {
+    if (!idBase) return;
+    const body = {
+      shopee_valor: valorCanalOuNullSePadrao("#pagarShopee", "shopee_valor"),
+      ml_valor: valorCanalOuNullSePadrao("#pagarMl", "ml_valor"),
+      avulso_valor: valorCanalOuNullSePadrao("#pagarAvulso", "avulso_valor"),
+    };
+    await http(`${API_URL}/base-repasse/bases/${encodeURIComponent(idBase)}/preco-pagar`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  }
+
+  function selecionarPapelForm(papel) {
+    const hid = qs("#basePapel");
+    if (hid) hid.value = papel || "";
+    qsa(".papel-card").forEach((btn) => {
+      const ativo = !!papel && btn.getAttribute("data-papel") === papel;
+      btn.classList.toggle("active", ativo);
+      btn.classList.toggle("btn-primary", ativo);
+      btn.classList.toggle("btn-outline-primary", !ativo);
+      btn.setAttribute("aria-pressed", ativo ? "true" : "false");
+    });
+    const help = qs("#papelHelp");
+    if (help) {
+      if (papel === "base_parceira") {
+        help.textContent = "Coleta parceira. Opcionalmente entrega pedidos nossos (interruptor abaixo).";
+      } else if (papel === "seller") {
+        help.textContent = "Autenticação e Portal do Seller disponíveis; CNPJ obrigatório.";
+      } else {
+        help.textContent = "Escolha Seller ou Base.";
+      }
+    }
+    const blocoEntrega = qs("#blocoEntregaPedidos");
+    const blocoPagar = qs("#blocoPrecoPagar");
+    const isBase = papel === "base_parceira";
+    if (blocoEntrega) blocoEntrega.classList.toggle("d-none", !isBase);
+    if (blocoPagar) {
+      const ligado = !!qs("#entregaPedidos")?.checked;
+      blocoPagar.classList.toggle("d-none", !isBase || !ligado);
+    }
+    atualizarAjudaCamposSeller();
+  }
+
   async function listarBases() {
     try {
       const data = await apiList();
-      const term = (qs("#search")?.value || "").toLowerCase();
-      const filtrados = data.filter(b =>
-        b.base?.toLowerCase().includes(term)
-      );
-      DATA_CACHE = filtrados;
+      DATA_ALL = Array.isArray(data) ? data : [];
+      atualizarUiClientesOwnerBase();
+      escolherAbaPapelInicial();
+      aplicarFiltroPapelEBusca();
       CURRENT_PAGE = 1;
       renderPage();
       showSellerDetailEmpty();
@@ -471,6 +707,9 @@ async function apiDelete(id) {
     qs("#ocLabel").textContent = modo === "edit"
       ? (typeof window.ownerTerm === "function" ? window.ownerTerm("editar_base") : "Editar Base")
       : (typeof window.ownerTerm === "function" ? window.ownerTerm("nova_base") : "Nova Base");
+    if (isOwnerTipoBase()) {
+      qs("#ocLabel").textContent = modo === "edit" ? "Editar Cliente" : "Novo Cliente";
+    }
 
     qs("#baseId").value = data?.id_base || "";
     qs("#base").value = data?.base || "";
@@ -492,6 +731,24 @@ async function apiDelete(id) {
     }
     aplicarPeriodoFechamento(data?.periodo_fechamento);
 
+    const cards = qs("#papelCards");
+    if (cards) cards.classList.toggle("d-none", !isOwnerTipoBase());
+    let papelInicial = data?.papel || "";
+    if (!papelInicial && isOwnerTipoBase()) {
+      papelInicial = PAPEL_TAB === "base_parceira" ? "base_parceira" : "seller";
+    }
+    if (qs("#entregaPedidos")) qs("#entregaPedidos").checked = !!data?.entrega_pedidos;
+    selecionarPapelForm(papelInicial);
+    limparPrecoPagarForm();
+    const cepStatusEl = qs("#sellerCepStatus");
+    if (cepStatusEl) {
+      cepStatusEl.textContent = "";
+      cepStatusEl.className = "small mt-1 d-none";
+    }
+    if (data?.id_base && papelInicial === "base_parceira" && data?.entrega_pedidos) {
+      carregarPrecoPagar(data.id_base);
+    }
+
     atualizarAjudaCamposSeller();
     formModal.show();
   }
@@ -511,29 +768,226 @@ async function apiDelete(id) {
   function atualizarVisibilidadePortalSeller() {
     const block = qs("#portal-seller-block");
     if (!block) return;
-    // Portal de etiquetas só para Owner tipo Base (Seller).
-    // Sub_base cadastra Bases normalmente, sem este bloco no detail.
-    block.classList.toggle("d-none", !isOwnerTipoBase());
+    // Portal do Seller: só papel seller no detalhe (nunca Base parceira).
+    block.classList.toggle("d-none", !isSellerSelecionado());
+  }
+
+  function selectedBaseRow() {
+    const id = SELECTED_ID ? Number(SELECTED_ID) : null;
+    if (id == null) return null;
+    return DATA_CACHE.find((b) => Number(b.id_base || b.id) === id)
+      || DATA_ALL.find((b) => Number(b.id_base || b.id) === id)
+      || null;
+  }
+
+  function isSellerSelecionado() {
+    if (!isOwnerTipoBase()) return false;
+    const row = selectedBaseRow();
+    return !!(row && (row.papel || "seller") === "seller");
+  }
+
+  function subBaseAtual() {
+    return String(OWNER_INFO?.sub_base || "").trim();
+  }
+
+  function authApi() {
+    return window.AuthMarketplace || null;
+  }
+
+  async function gerarLinkAuthParaSeller(platform, idBase, nomeBase) {
+    const AM = authApi();
+    if (!AM) {
+      toast("Módulo de autenticação indisponível.", false);
+      return;
+    }
+    const subBase = subBaseAtual();
+    if (!subBase && platform === "ml") {
+      toast("Sub-base não definida. Ajuste o cadastro do usuário.", false);
+      return;
+    }
+    try {
+      await AM.gerarECopiar(platform, subBase, {
+        context: {
+          id_base: Number(idBase),
+          nome: nomeBase || "",
+          platform: platform === "ml" ? "mercado_livre" : "shopee",
+        },
+      });
+      toast("Link copiado. Envie ao seller para autorizar a conta.");
+    } catch (err) {
+      toast(err.message || "Falha ao gerar link.", false);
+    }
+  }
+
+  function statusLabelConta(status, temDetalhe) {
+    if (!temDetalhe) return { texto: "Vinculada", classe: "bg-secondary-subtle text-secondary" };
+    if (status === "expirado") return { texto: "Sessão expirada", classe: "bg-warning-subtle text-warning" };
+    if (status === "requer_reautorizacao") return { texto: "Requer nova autorização", classe: "bg-danger-subtle text-danger" };
+    return { texto: "Conectada", classe: "bg-success-subtle text-success" };
+  }
+
+  function htmlContaAuthDetalhe(platKey, contaLeve, contaRica) {
+    const isMl = platKey === "ml";
+    const nome = isMl
+      ? (contaRica?.user_nickname_ml || contaLeve?.nickname || String(contaLeve?.user_id_ml || contaRica?.user_id_ml || ""))
+      : (contaRica?.user_nickname_shopee || contaRica?.shop_name || contaLeve?.shop_name || String(contaLeve?.shop_id || contaRica?.shop_id || ""));
+    const contaId = isMl
+      ? (contaRica?.user_id_ml ?? contaLeve?.user_id_ml)
+      : (contaRica?.shop_id ?? contaLeve?.shop_id);
+    const st = statusLabelConta(contaRica?.status, !!contaRica);
+    const podeSync = !contaRica || contaRica.status === "conectado";
+    const sigla = isMl ? "ML" : "Shopee";
+    const badgePlat = isMl
+      ? '<span class="badge bg-warning-subtle text-warning">ML</span>'
+      : '<span class="badge bg-danger-subtle text-danger">Shopee</span>';
+    const syncBtn = podeSync
+      ? `<button type="button" class="btn btn-soft-primary btn-sm" data-auth-sync="${platKey}" data-auth-conta-id="${contaId}">Sincronizar</button>`
+      : `<button type="button" class="btn btn-soft-secondary btn-sm" disabled title="Reautorize a conta para sincronizar">Sincronizar</button>`;
+    return `
+      <div class="border rounded p-2" data-auth-conta="${sigla}">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+          ${badgePlat}
+          <strong class="small">${escapeHtmlPortal(nome)}</strong>
+          <span class="badge ${st.classe}">${st.texto}</span>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          ${syncBtn}
+          <button type="button" class="btn btn-soft-danger btn-sm" data-auth-desvincular="${platKey}" data-auth-conta-id="${contaId}">Desvincular</button>
+        </div>
+      </div>`;
+  }
+
+  function htmlSemContaAuth(platKey) {
+    const label = platKey === "ml" ? "Gerar link ML" : "Gerar link Shopee";
+    return `
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border rounded p-2">
+        <span class="small text-muted">${platKey === "ml" ? "Mercado Livre" : "Shopee"}: sem conta</span>
+        <button type="button" class="btn btn-soft-primary btn-sm" data-auth-detail-gerar="${platKey}">${label}</button>
+      </div>`;
+  }
+
+  async function renderAuthMarketplaceBlock() {
+    const block = qs("#auth-marketplace-block");
+    const body = qs("#auth-marketplace-body");
+    const pending = qs("#auth-marketplace-pending");
+    if (!block || !body) return;
+
+    const show = isSellerSelecionado();
+    block.classList.toggle("d-none", !show);
+    if (!show) {
+      body.innerHTML = "";
+      if (pending) pending.classList.add("d-none");
+      return;
+    }
+
+    const row = selectedBaseRow();
+    const idBase = Number(row.id_base || row.id);
+    const mlContas = Array.isArray(row.ml_contas) ? row.ml_contas : [];
+    const shContas = Array.isArray(row.shopee_contas) ? row.shopee_contas : [];
+
+    let mlRica = null;
+    let shRica = null;
+    const AM = authApi();
+    if (AM) {
+      try {
+        const [mls, shs] = await Promise.all([
+          AM.listarContasPlataforma("ml"),
+          AM.listarContasPlataforma("shopee"),
+        ]);
+        mlRica = mls.find((c) => Number(c.id_base) === idBase) || null;
+        shRica = shs.find((c) => Number(c.id_base) === idBase) || null;
+      } catch (_) {}
+    }
+
+    const partes = [];
+    if (mlRica || mlContas[0]) {
+      partes.push(htmlContaAuthDetalhe("ml", mlContas[0], mlRica));
+    } else {
+      partes.push(htmlSemContaAuth("ml"));
+    }
+    if (shRica || shContas[0]) {
+      partes.push(htmlContaAuthDetalhe("shopee", shContas[0], shRica));
+    } else {
+      partes.push(htmlSemContaAuth("shopee"));
+    }
+    body.innerHTML = partes.join("");
+
+    await atualizarBannerVinculoPendente(idBase, row.base || "");
+  }
+
+  async function atualizarBannerVinculoPendente(idBase, nomeBase) {
+    const pending = qs("#auth-marketplace-pending");
+    if (!pending) return;
+    const AM = authApi();
+    if (!AM) {
+      pending.classList.add("d-none");
+      return;
+    }
+    const ctx = AM.getPendingSellerContext();
+    if (!ctx || Number(ctx.id_base) !== Number(idBase)) {
+      pending.classList.add("d-none");
+      pending.innerHTML = "";
+      return;
+    }
+    const platFiltro = ctx.platform === "shopee" ? "shopee" : "ml";
+    let contasLivres = [];
+    try {
+      contasLivres = await AM.listarContasSemSeller(platFiltro);
+    } catch (_) {}
+    if (!contasLivres.length) {
+      pending.classList.add("d-none");
+      return;
+    }
+    if (contasLivres.length > 1) {
+      pending.classList.remove("d-none");
+      pending.innerHTML = `
+        Há ${contasLivres.length} contas sem seller nesta plataforma.
+        <a href="tracking-autenticacao.html" class="alert-link ms-1">Escolher em Autenticação</a>`;
+      return;
+    }
+    const preferida = contasLivres[0];
+    const nick = preferida.user_nickname_ml || preferida.user_nickname_shopee || preferida.shop_name
+      || String(preferida.user_id_ml || preferida.shop_id || "");
+    const plat = preferida.platform === "shopee" ? "shopee" : "ml";
+    const contaId = preferida.user_id_ml != null ? preferida.user_id_ml : preferida.shop_id;
+    pending.classList.remove("d-none");
+    pending.innerHTML = `
+      Conta conectada (${escapeHtmlPortal(nick)}).
+      <button type="button" class="btn btn-sm btn-warning ms-2"
+        data-auth-vincular-pendente="${plat}"
+        data-auth-conta-id="${contaId}"
+        data-auth-id-base="${idBase}">
+        Vincular a ${escapeHtmlPortal(nomeBase || ctx.nome || "este seller")}
+      </button>`;
+  }
+
+  function papelFormAtual() {
+    return (qs("#basePapel")?.value || "").trim();
   }
 
   function atualizarAjudaCamposSeller() {
-    const isSeller = isOwnerTipoBase();
+    const papel = papelFormAtual();
+    const exigeSeller = isOwnerTipoBase() && papel !== "base_parceira";
     const cnpjHelp = qs("#sellerCnpjHelp");
     const cepHelp = qs("#sellerCepHelp");
     if (cnpjHelp) {
-      cnpjHelp.textContent = isSeller
-        ? "Obrigatório quando o owner for do tipo Base (Seller)."
-        : "Opcional quando o owner for do tipo Subbase.";
+      cnpjHelp.textContent = exigeSeller
+        ? "Obrigatório para Seller."
+        : isOwnerTipoBase()
+          ? "Opcional para Base parceira."
+          : "Opcional quando o owner for do tipo Subbase.";
     }
     if (cepHelp) {
-      cepHelp.textContent = isSeller
-        ? "Digite o CEP e saia do campo para preencher o endereço. Obrigatório para Base (Seller)."
-        : "Opcional. Digite o CEP e saia do campo para preencher o endereço.";
+      cepHelp.textContent = exigeSeller
+        ? "Digite o CEP completo (8 dígitos) para preencher o endereço. Obrigatório para Seller."
+        : "Opcional. Digite o CEP completo (8 dígitos) para preencher o endereço.";
     }
+    // Portal fica no detalhe (não no modal); visibilidade só via isSellerSelecionado.
+    atualizarVisibilidadePortalSeller();
   }
 
   function formPayload() {
-    return {
+    const payload = {
       base: normalizeNome(qs("#base").value || ""),
       ml: parseMoeda(qs("#flex").value),
       shopee: parseMoeda(qs("#shopee").value),
@@ -543,6 +997,13 @@ async function apiDelete(id) {
       agenda_coleta_confirmada: qs("#agendaConfirmada").checked,
       periodo_fechamento: periodoFechamentoDoFormulario(),
     };
+    if (isOwnerTipoBase()) {
+      payload.papel = papelFormAtual() || null;
+      if (payload.papel === "base_parceira") {
+        payload.entrega_pedidos = !!qs("#entregaPedidos")?.checked;
+      }
+    }
+    return payload;
   }
 
   let PORTAL_ACCESS = null;
@@ -641,8 +1102,8 @@ async function apiDelete(id) {
     const btnReset = qs("#btnPortalReset");
     const btnOff = qs("#btnPortalDesativar");
     PORTAL_ACCESS = null;
-    if (!isOwnerTipoBase()) {
-      atualizarVisibilidadePortalSeller();
+    atualizarVisibilidadePortalSeller();
+    if (!isSellerSelecionado()) {
       return;
     }
     if (!SELECTED_ID || !statusEl) return;
@@ -744,6 +1205,21 @@ async function apiDelete(id) {
     setImportStep("file");
   }
 
+  function syncImportModalLabels() {
+    const ownerBase = isOwnerTipoBase();
+    const help = qs("#importHelpText");
+    if (help) {
+      help.textContent = ownerBase
+        ? "Importe cliente, tipo (seller ou base) e valores (Flex, Shopee e Avulso). Se já existir, os preços e o tipo serão atualizados. CNPJ e endereço você completa depois no sistema."
+        : "Importe nome e valores (Flex, Shopee e Avulso). Se já existir, os preços serão atualizados. CNPJ e endereço você completa depois no sistema.";
+    }
+    const thNome = qs("#importThNome");
+    if (thNome) thNome.textContent = ownerBase ? "Cliente" : "Base";
+    const thRes = qs("#importResThNome");
+    if (thRes) thRes.textContent = ownerBase ? "Cliente" : "Base";
+    qs("#importThTipo")?.classList.toggle("d-none", !ownerBase);
+  }
+
   function openImportModal() {
     if (!importModal) {
       const el = qs("#modalImportBases");
@@ -752,6 +1228,7 @@ async function apiDelete(id) {
       el.addEventListener("hidden.bs.modal", () => resetImportModal());
     }
     resetImportModal();
+    syncImportModalLabels();
     importModal.show();
   }
 
@@ -768,9 +1245,11 @@ async function apiDelete(id) {
 
     const tbody = qs("#import-preview-tbody");
     if (!tbody) return;
+    const ownerBase = isOwnerTipoBase();
+    const colSpan = ownerBase ? 8 : 7;
     const linhas = data?.linhas || [];
     if (!linhas.length) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-muted text-center py-3">Nenhuma linha encontrada na planilha.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-muted text-center py-3">Nenhuma linha encontrada na planilha.</td></tr>`;
       return;
     }
 
@@ -797,10 +1276,15 @@ async function apiDelete(id) {
           detalhe = "Nova";
         }
 
+        const tipoCell = ownerBase
+          ? `<td>${escapeHtmlImport(l.tipo || (l.papel === "base_parceira" ? "base" : l.papel) || "—")}</td>`
+          : "";
+
         return (
           `<tr>` +
           `<td>${escapeHtmlImport(l.linha)}</td>` +
           `<td>${escapeHtmlImport(l.base || "—")}</td>` +
+          tipoCell +
           `<td class="text-end">${acao === "erro" ? "—" : formatMoedaImport(l.flex)}</td>` +
           `<td class="text-end">${acao === "erro" ? "—" : formatMoedaImport(l.shopee)}</td>` +
           `<td class="text-end">${acao === "erro" ? "—" : formatMoedaImport(l.avulso)}</td>` +
@@ -870,7 +1354,9 @@ async function apiDelete(id) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "modelo-importacao-bases.xlsx";
+      a.download = isOwnerTipoBase()
+        ? "modelo-importacao-clientes.xlsx"
+        : "modelo-importacao-bases.xlsx";
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -936,13 +1422,18 @@ async function apiDelete(id) {
     }
     try {
       const payload = {
-        linhas: validas.map((l) => ({
-          linha: l.linha,
-          base: l.base,
-          flex: l.flex,
-          shopee: l.shopee,
-          avulso: l.avulso,
-        })),
+        linhas: validas.map((l) => {
+          const row = {
+            linha: l.linha,
+            base: l.base,
+            flex: l.flex,
+            shopee: l.shopee,
+            avulso: l.avulso,
+          };
+          if (l.papel) row.papel = l.papel;
+          else if (l.tipo) row.tipo = l.tipo;
+          return row;
+        }),
       };
       const data = await http(`${API_URL}/base/import/confirmar`, {
         method: "POST",
@@ -1021,32 +1512,60 @@ async function apiDelete(id) {
     }
 
     const cepEl = qs("#sellerCep");
+    const cepStatus = qs("#sellerCepStatus");
+    function setCepStatus(msg, ok) {
+      if (!cepStatus) return;
+      if (!msg) {
+        cepStatus.textContent = "";
+        cepStatus.className = "small mt-1 d-none";
+        return;
+      }
+      cepStatus.textContent = msg;
+      cepStatus.className = ok
+        ? "small mt-1 text-success"
+        : "small mt-1 text-danger";
+    }
+
     if (cepEl) {
       cepEl.addEventListener("input", (ev) => {
         ev.target.value = maskCep(ev.target.value);
+        const digits = (ev.target.value || "").replace(/\D/g, "");
+        if (digits.length < 8) setCepStatus("");
       });
 
       async function buscarCepSeller() {
         const raw = (cepEl.value || "").replace(/\D/g, "");
-        if (raw.length === 8) {
-          try {
-            const data = await lookupCep(raw);
-            if (data && !data.erro) {
-              qs("#sellerRua").value = data.logradouro || "";
-              qs("#sellerBairro").value = data.bairro || "";
-              qs("#sellerCidade").value = data.localidade || "";
-              qs("#sellerEstado").value = data.uf || "";
-              qs("#sellerNumero").focus();
-            }
-          } catch (e) {
-            // falha silenciosa para não travar fluxo
+        if (!raw) {
+          setCepStatus("");
+          return;
+        }
+        if (raw.length !== 8) {
+          setCepStatus("CEP incompleto. Informe 8 dígitos.", false);
+          return;
+        }
+        setCepStatus("Buscando endereço…", true);
+        try {
+          const data = await lookupCep(raw);
+          if (data && !data.erro) {
+            qs("#sellerRua").value = data.logradouro || "";
+            qs("#sellerBairro").value = data.bairro || "";
+            qs("#sellerCidade").value = data.localidade || "";
+            qs("#sellerEstado").value = data.uf || "";
+            setCepStatus("Endereço preenchido. Confira e informe o número.", true);
+            qs("#sellerNumero")?.focus();
+          } else {
+            setCepStatus("CEP não encontrado. Preencha o endereço manualmente.", false);
           }
+        } catch (e) {
+          setCepStatus(e?.message || "Não foi possível consultar o CEP. Preencha o endereço manualmente.", false);
         }
       }
 
       cepEl.addEventListener("blur", buscarCepSeller);
-      cepEl.addEventListener("keyup", function () {
-        if ((this.value || "").replace(/\D/g, "").length === 8) buscarCepSeller();
+      cepEl.addEventListener("keyup", function (ev) {
+        if (ev.key === "Enter" || (this.value || "").replace(/\D/g, "").length === 8) {
+          buscarCepSeller();
+        }
       });
     }
 
@@ -1064,11 +1583,130 @@ async function apiDelete(id) {
 
     qs("#search")?.addEventListener("input", () => {
       CURRENT_PAGE = 1;
-      listarBases();
+      aplicarFiltroPapelEBusca();
+      renderPage();
     });
     qs("#toggleAtivos")?.addEventListener("change", () => {
       CURRENT_PAGE = 1;
       listarBases();
+    });
+    qs("#clientesPapelTabs")?.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("[data-papel-tab]");
+      if (!btn) return;
+      PAPEL_TAB_USER_SET = true;
+      PAPEL_TAB = btn.getAttribute("data-papel-tab") || "seller";
+      syncPapelTabsActive();
+      atualizarUiClientesOwnerBase();
+      CURRENT_PAGE = 1;
+      aplicarFiltroPapelEBusca();
+      renderPage();
+      showSellerDetailEmpty();
+      SELECTED_ID = null;
+      qs("#btnHeaderEdit").disabled = true;
+      qs("#btnHeaderDel").disabled = true;
+    });
+
+    qs("#tbody-bases")?.addEventListener("click", async (ev) => {
+      const item = ev.target.closest("[data-auth-platform]");
+      if (!item) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const id = item.getAttribute("data-auth-id");
+      const platform = item.getAttribute("data-auth-platform");
+      const row = DATA_CACHE.find((b) => String(b.id_base || b.id) === String(id))
+        || DATA_ALL.find((b) => String(b.id_base || b.id) === String(id));
+      await gerarLinkAuthParaSeller(platform, id, row?.base || "");
+    });
+
+    qs("#auth-marketplace-block")?.addEventListener("click", async (ev) => {
+      const gerar = ev.target.closest("[data-auth-detail-gerar]");
+      if (gerar) {
+        const platform = gerar.getAttribute("data-auth-detail-gerar");
+        const row = selectedBaseRow();
+        if (!row) return;
+        await gerarLinkAuthParaSeller(platform, row.id_base || row.id, row.base || "");
+        return;
+      }
+      const syncBtn = ev.target.closest("[data-auth-sync]");
+      if (syncBtn) {
+        const AM = authApi();
+        if (!AM) return;
+        const platform = syncBtn.getAttribute("data-auth-sync");
+        const contaId = syncBtn.getAttribute("data-auth-conta-id");
+        syncBtn.disabled = true;
+        try {
+          const data = await AM.syncEnvios(platform, contaId);
+          const n = data?.novos != null ? data.novos : (data?.criados != null ? data.criados : null);
+          toast(n != null ? `Sincronização concluída (${n} novo(s)).` : "Sincronização concluída.");
+        } catch (err) {
+          toast(err.message || "Falha ao sincronizar.", false);
+        } finally {
+          syncBtn.disabled = false;
+        }
+        return;
+      }
+      const desv = ev.target.closest("[data-auth-desvincular]");
+      if (desv) {
+        const AM = authApi();
+        if (!AM) return;
+        const platform = desv.getAttribute("data-auth-desvincular");
+        const contaId = desv.getAttribute("data-auth-conta-id");
+        if (!window.confirm("Desvincular esta conta deste seller?")) return;
+        desv.disabled = true;
+        try {
+          await AM.patchVinculo(platform, contaId, null);
+          toast("Conta desvinculada.");
+          await listarBases();
+          if (SELECTED_ID) await loadSellerDetail();
+        } catch (err) {
+          toast(err.message || "Não foi possível desvincular.", false);
+        } finally {
+          desv.disabled = false;
+        }
+        return;
+      }
+      const vinc = ev.target.closest("[data-auth-vincular-pendente]");
+      if (vinc) {
+        const AM = authApi();
+        if (!AM) return;
+        const platform = vinc.getAttribute("data-auth-vincular-pendente");
+        const contaId = vinc.getAttribute("data-auth-conta-id");
+        const idBase = vinc.getAttribute("data-auth-id-base");
+        vinc.disabled = true;
+        try {
+          await AM.patchVinculo(platform, contaId, idBase);
+          AM.clearPendingSellerContext();
+          toast("Conta vinculada a este seller.");
+          await listarBases();
+          SELECTED_ID = String(idBase);
+          await loadSellerDetail();
+        } catch (err) {
+          const det = err.detalhe && err.detalhe.detail;
+          const code = det && det.code;
+          if (err.status === 409 || code === "seller_ja_vinculado") {
+            toast(err.message || "Este seller já possui outra conta nesta plataforma.", false);
+          } else {
+            toast(err.message || "Não foi possível vincular.", false);
+          }
+        } finally {
+          vinc.disabled = false;
+        }
+      }
+    });
+    qsa(".papel-card").forEach((btn) => {
+      btn.addEventListener("click", () => selecionarPapelForm(btn.getAttribute("data-papel")));
+    });
+    qs("#entregaPedidos")?.addEventListener("change", async () => {
+      selecionarPapelForm(papelFormAtual());
+      const ligado = !!qs("#entregaPedidos")?.checked;
+      if (ligado && papelFormAtual() === "base_parceira") {
+        // Não sobrescreve se já carregou preço próprio nesta abertura do form.
+        if (!PRECO_PAGAR_CARREGADO) {
+          await garantirPrecoPagarNoFormulario();
+        } else if (!qs("#pagarShopee")?.value?.trim() && !qs("#pagarMl")?.value?.trim() && !qs("#pagarAvulso")?.value?.trim()) {
+          await garantirPrecoPagarNoFormulario();
+        }
+      }
     });
 
     const pgPrev = qs("#pg-prev");
@@ -1243,7 +1881,13 @@ async function apiDelete(id) {
         : { tipo: null, chave: (qs("#sellerPix")?.value || "").trim() || null, erro: "" };
 
       const errosSeller = [];
-      if (ownerTipo === "base") {
+      const papelSel = papelFormAtual();
+      if (ownerTipo === "base" && !papelSel) {
+        errosSeller.push("Escolha se o cliente é Seller ou Base.");
+      }
+      const exigeSeller = ownerTipo === "base" && papelSel !== "base_parceira";
+      const baseComCnpj = papelSel === "base_parceira" && !!cnpjDig;
+      if (exigeSeller || baseComCnpj) {
         const ot = (k) => (typeof window.ownerTerm === "function" ? window.ownerTerm(k) : k);
         if (!cnpjDig) errosSeller.push(ot("cnpj_obrigatorio_entidade"));
         if (cepDig.length !== 8) errosSeller.push(ot("cep_obrigatorio_entidade"));
@@ -1272,8 +1916,28 @@ async function apiDelete(id) {
           baseIdForSeller = created?.id_base || null;
         }
 
-        // Atualiza CNPJ/endereço do Seller para este owner/base (um registro por base)
-        if (OWNER_INFO && OWNER_INFO.id_owner && baseIdForSeller != null) {
+        if (
+          baseIdForSeller != null &&
+          payload.papel === "base_parceira" &&
+          payload.entrega_pedidos
+        ) {
+          try {
+            await salvarPrecoPagar(baseIdForSeller);
+          } catch (errPagar) {
+            toast(errPagar.message || "Cliente salvo, mas falhou o preço a pagar.", false);
+            formModal.hide();
+            await listarBases();
+            return;
+          }
+        }
+
+        // Atualiza CNPJ/endereço do Seller; Base parceira só grava se houver CNPJ/endereço.
+        const deveSalvarSellerDados =
+          OWNER_INFO &&
+          OWNER_INFO.id_owner &&
+          baseIdForSeller != null &&
+          (exigeSeller || baseComCnpj || pix.chave || (qs("#sellerPix")?.value || "").trim());
+        if (deveSalvarSellerDados) {
           const bodySeller = {
             base_id: baseIdForSeller,
             cnpj: cnpjDig || null,
@@ -1301,6 +1965,13 @@ async function apiDelete(id) {
               : (typeof window.ownerTerm === "function" ? window.ownerTerm("falha_salvar_dados") : "Falha ao salvar dados da Base.");
             if (window.PixChave && /chave PIX|CPF inválido|CNPJ inválido|Celular inválido|E-mail inválido|Chave aleatória/.test(msg)) {
               PixChave.mostrarErro(qs("#sellerPix"), "#sellerPixErro", msg);
+            }
+            // Seller novo: se CNPJ/endereço falhar, o cliente não permanece gravado.
+            if (!id && exigeSeller && baseIdForSeller != null) {
+              try {
+                await http(`${API_BASES}${encodeURIComponent(baseIdForSeller)}`, { method: "DELETE" });
+              } catch (_) {}
+              await listarBases();
             }
             toast(msg, false);
             return;

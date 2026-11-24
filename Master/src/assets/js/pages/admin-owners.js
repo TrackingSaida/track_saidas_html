@@ -234,7 +234,7 @@ function syncTipoOwner() {
     const base = isOwnerBase();
     document.querySelectorAll("#oc-owner .of-req-base").forEach((el) => el.classList.toggle("d-none", !base));
     document.getElementById("ownerEnderecoHelp").textContent = base
-        ? "Base (Seller) exige CNPJ e endereço completo. Usados no demonstrativo de cobrança e na mensagem ao Owner."
+        ? "Owner Base: menu Clientes com papéis Seller e Base. CNPJ e endereço do Owner vão ao demonstrativo de cobrança."
         : "Opcionais para Subbase. Usados no demonstrativo de cobrança e na mensagem ao Owner; campo vazio sai em branco.";
 }
 
@@ -301,11 +301,23 @@ async function carregarCobrancaOwner(idOwner, seq) {
         if (!r.ok || seq !== OWNER_EDIT_SEQ) return;
         const c = await r.json();
         if (seq !== OWNER_EDIT_SEQ) return;
+        const fmt = (v) => Number(v).toLocaleString("pt-BR", {
+            style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 4
+        });
         if (c.preco_vigente !== null && c.preco_vigente !== undefined) {
-            const n = Number(c.preco_vigente);
-            preco.textContent = n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 4 });
+            preco.textContent = `Bases: ${fmt(c.preco_vigente)}`;
         } else {
-            preco.textContent = "Sem preço cadastrado";
+            preco.textContent = "Bases: sem preço cadastrado";
+        }
+        const linhaSellers = document.getElementById("ownerPrecoSellersLinha");
+        if (linhaSellers) {
+            if (c.dois_precos && c.preco_vigente_sellers != null) {
+                linhaSellers.textContent = `Sellers: ${fmt(c.preco_vigente_sellers)}`;
+            } else if (c.dois_precos) {
+                linhaSellers.textContent = "Sellers: sem preço cadastrado";
+            } else {
+                linhaSellers.textContent = "Sellers: usa preço de Bases";
+            }
         }
         const cfg = c.config || {};
         modelo.textContent = `${cfg.modelo_label || ""}${cfg.confirmado ? "" : " (a confirmar)"} · ${cfg.periodicidade === "mensal" ? "Mensal" : "Quinzenal"}`;
@@ -421,7 +433,7 @@ function renderTable() {
         `;
     })()}
 </td>
-
+            <td class="small">${escapeHtml(textoParceriaLista(o.criado_em))}</td>
             <td>R$ ${Number(o.valor).toFixed(2)}</td>
             <td>${o.ignorar_coleta ? "Sem coleta" : o.modo_operacao === "coleta_manual" ? "Manual" : o.modo_operacao === "ambos" ? "Leitura e manual" : "Leitura"}</td>
             <td>${o.ignorar_coleta ? "Não" : "Sim"}</td>
@@ -637,6 +649,57 @@ async function readApiError(resp, fallback) {
     return fallback || "Não foi possível concluir a operação. Tente novamente.";
 }
 
+function formatarDataLongaPt(iso) {
+    if (!iso) return "";
+    const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
+    if (!y || !m || !d) return "";
+    const meses = [
+        "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+        "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+    ];
+    return `${d} de ${meses[m - 1]} de ${y}`;
+}
+
+function textoParceria(criadoEm, hoje) {
+    if (!criadoEm) return null;
+    const [y, m, d] = String(criadoEm).slice(0, 10).split("-").map(Number);
+    if (!y || !m || !d) return null;
+    const ref = hoje || new Date();
+    const anos = ref.getFullYear() - y - (
+        (ref.getMonth() + 1 < m || (ref.getMonth() + 1 === m && ref.getDate() < d)) ? 1 : 0
+    );
+    if (anos >= 1 && (ref.getMonth() + 1) === m) {
+        return anos === 1 ? "1 ano de parceria" : `${anos} anos de parceria`;
+    }
+    return `Parceiro desde ${formatarDataLongaPt(criadoEm)}`;
+}
+
+function textoParceriaLista(criadoEm) {
+    if (!criadoEm) return "Data de parceria não registrada";
+    return textoParceria(criadoEm) || `Parceiro desde ${formatarDataLongaPt(criadoEm)}`;
+}
+
+function preencherParceria(o) {
+    const textoEl = document.getElementById("ownerParceriaTexto");
+    const campoEl = document.getElementById("ownerParceriaCampo");
+    const input = document.getElementById("ownerCriadoEm");
+    if (!textoEl || !campoEl || !input) return;
+    const criado = o.criado_em || null;
+    if (criado) {
+        textoEl.textContent = textoParceria(criado) || `Parceiro desde ${formatarDataLongaPt(criado)}`;
+        textoEl.classList.remove("d-none");
+        campoEl.classList.add("d-none");
+        input.value = String(criado).slice(0, 10);
+        input.disabled = true;
+    } else {
+        textoEl.textContent = "Data de parceria não registrada";
+        textoEl.classList.remove("d-none");
+        campoEl.classList.remove("d-none");
+        input.disabled = false;
+        input.value = "";
+    }
+}
+
 function openEdit(o) {
     document.getElementById("ownerId").value = o.id_owner;
     document.getElementById("ownerSubBase").value = o.sub_base;
@@ -646,6 +709,7 @@ function openEdit(o) {
     document.getElementById("ownerEmail").value = o.email;
     document.getElementById("ownerContato").value = maskCellphone(o.contato || "");
     document.getElementById("ownerValor").value = Number(o.valor).toFixed(2);
+    preencherParceria(o);
 
     document.getElementById("ownerColetaHabilitadaToggle").checked = !o.ignorar_coleta;
     document.getElementById("ownerBloquearSaidaSemColetaToggle").checked = !!o.bloquear_saida_sem_coleta;
@@ -711,6 +775,10 @@ document.getElementById("formOwner").addEventListener("submit", async (ev) => {
         ativo: document.getElementById("ownerAtivoToggle").checked,
         tipo_owner: (document.getElementById("ownerTipo").value || "subbase").toLowerCase()
     };
+    const criadoInput = document.getElementById("ownerCriadoEm");
+    if (criadoInput && !criadoInput.disabled && criadoInput.value) {
+        body.criado_em = criadoInput.value;
+    }
 
     try {
         const resp = await fetch(`${API}/${id}`, {

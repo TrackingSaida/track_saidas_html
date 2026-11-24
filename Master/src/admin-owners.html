@@ -58,6 +58,7 @@
                                     <th>Username</th>
                                     <th>E-mail</th>
                                     <th>Contato</th>
+                                    <th>Parceria</th>
                                     <th>Valor (R$)</th>
                                     <th>Modo</th>
                                     <th>Controle de coleta</th>
@@ -147,9 +148,9 @@
                     <label class="form-label" for="ownerTipo">Tipo do owner</label>
                     <select id="ownerTipo" class="form-select" aria-describedby="ownerTipoHelp">
                       <option value="subbase">Subbase</option>
-                      <option value="base">Base (Seller)</option>
+                      <option value="base">Base</option>
                     </select>
-                    <div class="form-text" id="ownerTipoHelp">Base mostra &quot;Seller&quot; no menu e exige CNPJ e endereço.</div>
+                    <div class="form-text" id="ownerTipoHelp">Base mostra &quot;Clientes&quot; no menu (papéis Seller e Base). Cadastro de Clientes com CNPJ conforme o papel.</div>
                   </div>
                   <div class="col-md-6">
                     <label class="form-label" for="ownerUsername">Username <span class="text-danger">*</span></label>
@@ -160,6 +161,14 @@
                     <label class="form-label" for="ownerNomeFantasia">Nome fantasia</label>
                     <input type="text" id="ownerNomeFantasia" class="form-control" placeholder="Ex.: MBI LOG Transportes">
                     <div class="form-text">Aparece em relatórios, etiquetas e no demonstrativo de cobrança.</div>
+                  </div>
+                  <div class="col-12">
+                    <div id="ownerParceriaTexto" class="alert alert-light border py-2 px-3 mb-0 d-none" role="status"></div>
+                    <div id="ownerParceriaCampo" class="d-none">
+                      <label class="form-label" for="ownerCriadoEm">Data de parceria</label>
+                      <input type="date" id="ownerCriadoEm" class="form-control" style="max-width: 14rem;">
+                      <div class="form-text">Data de parceria não registrada. Informe uma vez; depois não pode alterar.</div>
+                    </div>
                   </div>
                 </div>
                 <div class="of-rows mt-3">
@@ -321,6 +330,7 @@
                   <div>
                     <div class="of-label">Preço por pacote na cobrança</div>
                     <div class="of-value" id="ownerPrecoVigente">—</div>
+                    <div class="of-row-desc small text-muted" id="ownerPrecoSellersLinha"></div>
                     <div class="of-row-desc" id="ownerModeloCobranca"></div>
                   </div>
                   <a class="btn btn-sm btn-soft-primary" id="ownerLinkCobranca" href="tracking-cobranca-owners.html">
