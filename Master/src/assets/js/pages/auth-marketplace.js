@@ -92,14 +92,21 @@
     return fallback;
   }
 
-  async function gerarAuthUrl(platform, subBase) {
+  async function gerarAuthUrl(platform, subBase, opts) {
     var p = plat(platform);
     if (!p) throw new Error("Plataforma inválida.");
+    var options = opts || {};
+    var idBase = options.id_base != null && options.id_base !== "" ? Number(options.id_base) : null;
+    if (idBase != null && (!Number.isFinite(idBase) || idBase <= 0)) {
+      throw new Error("Seller inválido para o link de autenticação.");
+    }
     var base = apiBase();
     var sb = String(subBase || "").trim();
     if (p.key === "ml") {
       if (!sb) throw new Error("Sub-base não definida. Ajuste o cadastro do usuário.");
-      var res = await fetch(base + "/ml-int/connect?state=" + encodeURIComponent(sb), {
+      var q = new URLSearchParams({ state: sb });
+      if (idBase != null) q.set("id_base", String(idBase));
+      var res = await fetch(base + "/ml-int/connect?" + q.toString(), {
         credentials: "include",
       });
       if (!res.ok) {
@@ -110,8 +117,22 @@
       if (!url) throw new Error("Link não retornado pela API.");
       return url;
     }
+    var stateVal = sb;
+    if (idBase != null) {
+      if (!sb) throw new Error("Sub-base não definida. Ajuste o cadastro do usuário.");
+      var stRes = await fetch(
+        base + "/shopee/oauth-state?state=" + encodeURIComponent(sb) + "&id_base=" + encodeURIComponent(String(idBase)),
+        { credentials: "include" }
+      );
+      if (!stRes.ok) {
+        throw new Error(mensagemDoDetalhe(await lerErroDetalhe(stRes), "Erro ao preparar link da Shopee."));
+      }
+      var stData = await stRes.json();
+      stateVal = stData.state || "";
+      if (!stateVal) throw new Error("State OAuth não retornado pela API.");
+    }
     var params = new URLSearchParams({ redirect: "1" });
-    if (sb) params.set("state", sb);
+    if (stateVal) params.set("state", stateVal);
     return new URL(base + "/shopee/auth-url?" + params.toString(), global.location.href).href;
   }
 
@@ -143,7 +164,13 @@
   async function gerarECopiar(platform, subBase, opts) {
     var options = opts || {};
     if (options.context) setPendingSellerContext(options.context);
-    var url = await gerarAuthUrl(platform, subBase);
+    var idBase =
+      options.id_base != null
+        ? options.id_base
+        : options.context && options.context.id_base != null
+          ? options.context.id_base
+          : null;
+    var url = await gerarAuthUrl(platform, subBase, { id_base: idBase });
     await copiarTexto(url);
     return url;
   }

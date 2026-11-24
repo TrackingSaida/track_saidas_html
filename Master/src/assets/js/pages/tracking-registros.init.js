@@ -430,6 +430,7 @@ function augmentEntregadoresFromRows(rows){
   const acoesSelecionadas = (f.acaoToggles || []).filter(el => el.checked).map(el => el.value);
   const tamanho     = f.tamanho?.value || "";
   const localizar   = (f.localizar?.value || "").trim();
+  const regiaoRaw   = (document.getElementById("flt-regiao")?.value || "").replace(/\D/g, "").slice(0, 3);
   const sort        = f.sort?.value || "-ts";
 
   // Envio direto YYYY-MM-DD do input (evita timezone com Date/toISOString)
@@ -451,6 +452,7 @@ function augmentEntregadoresFromRows(rows){
     status: statusSelecionados,
     acao: acoesSelecionadas,
     localizar: localizar || undefined,
+    regiao: regiaoRaw.length === 3 ? regiaoRaw : undefined,
     sort,
     limit: parseInt(f.pageSize?.value || "200", 10)
   };
@@ -946,7 +948,11 @@ function augmentEntregadoresFromRows(rows){
           <tr data-id="${attr(rid)}" class="${rowClass}">
             <td class="reg-col-chk"><input type="checkbox" class="rowchk form-check-input" aria-label="Selecionar ${attr(r.codigo_exibicao || r.codigo)}" /></td>
             <td class="reg-col-pacote">
-              <span class="reg-codigo">${escapeHtml(r.codigo_exibicao || r.codigo || "-")}</span>
+              <span class="reg-codigo">${escapeHtml(r.codigo_exibicao || r.codigo || "-")}</span>${
+                r.regiao
+                  ? ' <span class="reg-regiao-badge" title="Região (CEP)">' + escapeHtml(r.regiao) + "</span>"
+                  : ""
+              }
               <div class="reg-linha2">${servicoBadgeHtml(r.servico)}${chipTamanho(r, podeTamanho)}</div>
             </td>
             <td class="reg-col-situacao">
@@ -2111,10 +2117,16 @@ function setupPagerEvents() {
       var destNome = (d.dest_nome && String(d.dest_nome).trim()) ? d.dest_nome.trim() : "";
       var temEndereco = endParts.length > 0 || (d.endereco_formatado && String(d.endereco_formatado).trim());
       var destinoBlock = "";
-      if (destNome || temEndereco || destContato) {
+      if (destNome || temEndereco || destContato || d.regiao) {
+        var regiaoBadge = d.regiao
+          ? '<p class="pedido-dest-regiao"><span class="reg-regiao-badge reg-regiao-badge--lg" title="Região (3 dígitos do CEP)">' +
+            escapeHtml(d.regiao) +
+            "</span> <span class=\"text-muted small\">Região</span></p>"
+          : "";
         destinoBlock =
           '<div class="pedido-section">' +
             '<p class="section-title">Destinatário</p>' +
+            regiaoBadge +
             (destNome ? '<p class="pedido-dest-nome">' + escapeHtml(destNome) + "</p>" : "") +
             (temEndereco ? '<p class="pedido-dest-endereco">' + escapeHtml(enderecoCompleto) + "</p>" : "") +
             (destContato ? '<p class="pedido-dest-sub">Telefone: ' + escapeHtml(destContato) + "</p>" : "") +
@@ -3426,6 +3438,7 @@ function setupPagerEvents() {
     if (!filtrosContadorEl) return;
     let n = 0;
     if ((document.getElementById("flt-base")?.value || "").trim()) n++;
+    if (((document.getElementById("flt-regiao")?.value || "").replace(/\D/g, "").length) === 3) n++;
     if ((f.entregador?.value || "").trim()) n++;
     var ativosServico = (f.servicoToggles || []).filter(el => el.checked).length;
     var ativosStatus = (f.statusToggles || []).filter(el => el.checked).length;
@@ -3465,6 +3478,8 @@ function setupPagerEvents() {
       const fltBase = document.getElementById("flt-base");
       if (fltBase) fltBase.value = "";
       if (f.entregador) f.entregador.value = "";
+      var fltRegiao = document.getElementById("flt-regiao");
+      if (fltRegiao) fltRegiao.value = "";
       limparFiltrosSelecao();
       if (f.tamanho) f.tamanho.value = "";
       if (datePickerInstance && datePickerInstance.applyPreset) {
@@ -3492,6 +3507,14 @@ function setupPagerEvents() {
       });
     });
     if (f.tamanho) f.tamanho.addEventListener("change", atualizarContadorFiltros);
+    var fltRegiao = document.getElementById("flt-regiao");
+    if (fltRegiao) {
+      fltRegiao.addEventListener("input", function () {
+        var digits = String(fltRegiao.value || "").replace(/\D/g, "").slice(0, 3);
+        if (fltRegiao.value !== digits) fltRegiao.value = digits;
+        atualizarContadorFiltros();
+      });
+    }
   }
 
   function limparFiltrosSelecao(){

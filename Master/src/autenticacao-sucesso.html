@@ -253,6 +253,8 @@
       var subBase = params.get("sub_base");
       var nomeFantasia = params.get("nome_fantasia");
       var sellerName = params.get("seller_name");
+      var vinculado = params.get("vinculado");
+      var baseNome = params.get("base_nome");
       var erro = params.get("erro");
 
       var transportadoraNome = null;
@@ -291,6 +293,16 @@
         if (sellerNameDecoded && sellerNameWrap && sellerNameEl) {
           sellerNameEl.textContent = sellerNameDecoded;
           sellerNameWrap.style.display = "block";
+        }
+        var baseNomeDecoded = null;
+        if (baseNome) try { baseNomeDecoded = decodeURIComponent(baseNome); } catch (e) { baseNomeDecoded = baseNome; }
+        if (vinculado === "1" && baseNomeDecoded) {
+          msgEl.innerHTML = msgEl.innerHTML +
+            " A conta foi associada automaticamente ao seller <strong>" +
+            baseNomeDecoded.replace(/</g, "&lt;") + "</strong>.";
+        } else if (vinculado === "0") {
+          msgEl.innerHTML = msgEl.innerHTML +
+            " A autorização foi concluída, mas o vínculo automático com o seller não foi possível. Peça à transportadora para associar a conta na tela de Autenticação.";
         }
       }
 
