@@ -391,15 +391,52 @@ function mostrarErroRelatorio(texto) {
   else alert(texto);
 }
 
+async function escolherTipoPdfFechamento() {
+  if (!window.Swal) return "resumido";
+  const html = `
+    <div style="text-align:left;margin-top:8px">
+      <label style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid #d8d8d8;border-radius:8px;margin-bottom:8px;cursor:pointer">
+        <input type="radio" name="tipo-pdf-fechamento" value="resumido" checked style="margin-top:3px">
+        <span>
+          <strong style="display:block;font-size:14px">Resumido</strong>
+          <span style="display:block;font-size:12px;color:#5c5c5c;margin-top:2px">Totais por dia e serviço (visão atual).</span>
+        </span>
+      </label>
+      <label style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid #d8d8d8;border-radius:8px;cursor:pointer">
+        <input type="radio" name="tipo-pdf-fechamento" value="detalhado" style="margin-top:3px">
+        <span>
+          <strong style="display:block;font-size:14px">Detalhado</strong>
+          <span style="display:block;font-size:12px;color:#5c5c5c;margin-top:2px">Extrato com data, código e serviço de cada pacote.</span>
+        </span>
+      </label>
+    </div>`;
+  const r = await window.Swal.fire({
+    title: "Gerar PDF",
+    html,
+    showCancelButton: true,
+    confirmButtonText: "Gerar",
+    cancelButtonText: "Cancelar",
+    focusConfirm: false,
+    preConfirm: () => {
+      const el = document.querySelector('input[name="tipo-pdf-fechamento"]:checked');
+      return el ? el.value : "resumido";
+    },
+  });
+  if (!r.isConfirmed) return null;
+  return r.value === "detalhado" ? "detalhado" : "resumido";
+}
+
 async function gerarPdfFechamentoBases(idFechamento) {
   if (gerandoPdfFechamento) return;
   const api = (window.TRACK_API_URL || "").replace(/\/+$/, "");
   if (!api || !idFechamento) return;
+  const tipo = await escolherTipoPdfFechamento();
+  if (!tipo) return;
   gerandoPdfFechamento = true;
   erroRelatorioMostrado = false;
   avisoGerandoRelatorio();
   try {
-    await montarPdfFechamentoBases(idFechamento, api);
+    await montarPdfFechamentoBases(idFechamento, api, { tipo });
   } catch (err) {
     mostrarErroRelatorio((err && err.message) || "Não foi possível gerar o relatório.");
   } finally {
@@ -409,7 +446,12 @@ async function gerarPdfFechamentoBases(idFechamento) {
   }
 }
 
-async function montarPdfFechamentoBases(idFechamento, api) {
+async function montarPdfFechamentoBases(idFechamento, api, opts) {
+  const tipo = opts && opts.tipo === "detalhado" ? "detalhado" : "resumido";
+  if (tipo === "detalhado") {
+    await montarPdfFechamentoDetalhado(idFechamento, api);
+    return;
+  }
   const res = await fetch(`${api}/coletas/fechamentos/${idFechamento}`, { credentials: "include" });
   if (!res.ok) {
     mostrarErroRelatorio("Fechamento não encontrado.");
@@ -975,5 +1017,654 @@ async function montarPdfFechamentoBases(idFechamento, api) {
   doc.save(nomeArq);
 }
 
+async function montarPdfFechamentoDetalhado(idFechamento, api) {
+  const res = await fetch(`${api}/coletas/fechamentos/${idFechamento}/extrato`, { credentials: "include" });
+  if (!res.ok) {
+    mostrarErroRelatorio(res.status === 404 ? "Fechamento não encontrado." : "Não foi possível carregar o extrato.");
+    return;
+  }
+  const extrato = await res.json();
+  const avisoDiv = extrato.divergencia && extrato.divergencia.mensagem
+    ? String(extrato.divergencia.mensagem)
+    : "";
+  if (avisoDiv && window.Swal) {
+    encerrarAvisoRelatorio();
+    const conf = await window.Swal.fire({
+      icon: "info",
+      title: "Conferência do extrato",
+      text: avisoDiv,
+      showCancelButton: true,
+      confirmButtonText: "Gerar mesmo assim",
+      cancelButtonText: "Cancelar",
+    });
+    if (!conf.isConfirmed) return;
+    avisoGerandoRelatorio();
+  }
+  const base = extrato.base || "";
+  const de = extrato.periodo_inicio || "";
+  const ate = extrato.periodo_fim || "";
+  const itens = extrato.itens || [];
+  const linhas = Array.isArray(extrato.linhas) ? extrato.linhas : [];
+  const canceladosLinhas = Array.isArray(extrato.cancelados) ? extrato.cancelados : [];
+  const pacotesGLinhas = Array.isArray(extrato.pacotes_g) ? extrato.pacotes_g : [];
+  const precoShopee = Number(extrato.precos?.shopee ?? 0);
+  const precoFlex = Number(extrato.precos?.ml ?? 0);
+  const precoAvulso = Number(extrato.precos?.avulso ?? 0);
+
+  const basesRes = await fetch(`${api}/base/`, { credentials: "include" });
+  const bases = await basesRes.json().catch(() => []);
+  const baseObj = Array.isArray(bases) ? bases.find((b) => String(b.base || "").toUpperCase() === String(base || "").toUpperCase()) : null;
+  const pShopee = precoShopee || Number(baseObj?.shopee ?? 0);
+  const pFlex = precoFlex || Number(baseObj?.ml ?? 0);
+  const pAvulso = precoAvulso || Number(baseObj?.avulso ?? 0);
+
+  function isoParaBr(dataISO) {
+    if (!dataISO) return "-";
+    const [ano, mes, dia] = String(dataISO).split("-");
+    return ano && mes && dia ? `${dia}/${mes}/${ano}` : dataISO;
+  }
+
+  function periodoAmigavel(deIso, ateIso) {
+    const meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+    const a = String(deIso || "").split("-");
+    const b = String(ateIso || "").split("-");
+    if (a.length < 3 || b.length < 3) return `${isoParaBr(deIso)} a ${isoParaBr(ateIso)}`;
+    const ya = Number(a[0]);
+    const yb = Number(b[0]);
+    const ma = Number(a[1]);
+    const mb = Number(b[1]);
+    const da = Number(a[2]);
+    const db = Number(b[2]);
+    if (!ya || !yb || !ma || !mb || !da || !db) return `${isoParaBr(deIso)} a ${isoParaBr(ateIso)}`;
+    if (ya === yb && ma === mb && meses[ma - 1]) return `${da} a ${db} de ${meses[ma - 1]} de ${ya}`;
+    if (ya === yb && meses[ma - 1] && meses[mb - 1]) return `${da} de ${meses[ma - 1]} a ${db} de ${meses[mb - 1]} de ${ya}`;
+    return `${isoParaBr(deIso)} a ${isoParaBr(ateIso)}`;
+  }
+
+  function formatarCnpjPdf(cnpj) {
+    if (cnpj == null || cnpj === "") return "";
+    try {
+      const s = String(cnpj);
+      const digits = s.replace(/\D/g, "");
+      if (digits.length === 14) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+      return s;
+    } catch (_) {
+      return String(cnpj);
+    }
+  }
+
+  const tabelaBruta = itens.map((r) => {
+    const s = r.shopee ?? 0;
+    const m = r.mercado_livre ?? 0;
+    const a = r.avulso ?? 0;
+    return { data: r.data, shopee: s, flex: m, avulso: a, total: s + m + a, valor: s * pShopee + m * pFlex + a * pAvulso };
+  });
+
+  const totaisFech = extrato.totais_fechamento || {};
+  const totaisExt = extrato.totais_extrato || {};
+  const qtdShopee = Number(totaisFech.shopee ?? tabelaBruta.reduce((a, b) => a + b.shopee, 0));
+  const qtdMl = Number(totaisFech.ml ?? tabelaBruta.reduce((a, b) => a + b.flex, 0));
+  const qtdAvulso = Number(totaisFech.avulso ?? tabelaBruta.reduce((a, b) => a + b.avulso, 0));
+  const qtdColetas = Number(totaisFech.total ?? qtdShopee + qtdMl + qtdAvulso);
+  const totalCancQtd = Number(extrato.totais_cancelados_fechamento?.total ?? 0);
+
+  const valorBrutoFech = Number(extrato.valor_bruto ?? 0);
+  const valorCancelFech = Number(extrato.valor_cancelados ?? 0);
+  const valorAdicao = Number(extrato.valor_adicao ?? 0);
+  const valorSubtracao = Number(extrato.valor_subtracao ?? 0);
+  const valorFinalFech = Number(extrato.valor_final ?? valorBrutoFech - valorCancelFech + valorAdicao - valorSubtracao);
+
+  let ajusteGTotal = Number(extrato.ajuste_g_valor ?? 0);
+  if (ajusteGTotal === 0 && extrato.motivo_adicao) {
+    const rotulosG = String(extrato.motivo_adicao)
+      .split(" | ")
+      .map((p) => p.trim().match(/^\[Pacotes G\].*;\s*Valor:\s*R\$\s*([\d.,]+)\s*$/))
+      .filter(Boolean);
+    if (rotulosG.length) {
+      ajusteGTotal = rotulosG.reduce((acc, m) => acc + (parseFloat(m[1].replace(",", ".")) || 0), 0);
+    } else if (String(extrato.motivo_adicao).toLowerCase().includes("pacotes g")) {
+      ajusteGTotal = Number(extrato.valor_adicao ?? 0);
+    }
+  }
+  const totalG = Number(extrato.total_pacotes_g ?? pacotesGLinhas.length) || 0;
+  const totalGShopee = Number(extrato.total_g_shopee ?? 0);
+  const totalGMercado = Number(extrato.total_g_ml ?? 0);
+  const totalGAvulso = Number(extrato.total_g_avulso ?? 0);
+  const valorUnitarioG = totalG > 0 && ajusteGTotal !== 0 ? ajusteGTotal / totalG : 0;
+  const temCancelados = canceladosLinhas.length > 0 || totalCancQtd > 0;
+  const temPacotesG = pacotesGLinhas.length > 0 || totalG > 0 || ajusteGTotal !== 0;
+  const divInfo = extrato.divergencia || {};
+  const temAviso = Boolean(divInfo.mensagem) || Boolean(divInfo.divergente) || Number(extrato.totais_sem_codigo?.total || 0) > 0;
+
+  const marca = await carregarMarcaFechamento(api);
+  const emitidoPor = String(extrato.emitido_por || marca.nome || "ROTEVO").trim();
+  const slogan = String(marca.slogan || "").trim();
+  const seller = extrato.seller_info || null;
+  const nomeEmpresa = seller && seller.nome_base ? seller.nome_base : base;
+  const cnpjVal = seller && seller.cnpj ? formatarCnpjPdf(seller.cnpj) : null;
+  const enderecoVal = seller && seller.endereco_completo ? seller.endereco_completo : null;
+  const pixVal = seller && seller.chave_pix ? String(seller.chave_pix).trim() : "";
+  const pixTipo = seller && seller.chave_pix_tipo ? String(seller.chave_pix_tipo).trim() : "";
+  const fmtVal = (v) => {
+    const n = Number(v) || 0;
+    const neg = n < 0;
+    const partes = Math.abs(n).toFixed(2).split(".");
+    const mil = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return `${neg ? "-" : ""}R$ ${mil},${partes[1]}`;
+  };
+  const statusKey = String(extrato.status || "").toUpperCase();
+  const statusLabel = statusKey === "RECEBIDO" ? "Recebido" : statusKey === "REAJUSTADO" ? "Reajustado" : "A receber";
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW = 210;
+  const margin = 12;
+  const faixaH = 22;
+  const ink = [27, 27, 27];
+  const muted = [109, 109, 109];
+  const zeroCor = [154, 154, 154];
+
+  function desenharFaixa() {
+    doc.setFillColor(27, 27, 27);
+    doc.rect(0, 0, pageW, faixaH, "F");
+    let x = margin;
+    if (marca.logoDataUrl && marca.logoW && marca.logoH) {
+      const maxW = 28;
+      const maxH = 12;
+      const aspect = marca.logoW / marca.logoH;
+      let dw;
+      let dh;
+      if (maxW / maxH > aspect) {
+        dh = maxH;
+        dw = maxH * aspect;
+      } else {
+        dw = maxW;
+        dh = maxW / aspect;
+      }
+      const pad = 1.1;
+      const chipW = dw + pad * 2;
+      const chipH = dh + pad * 2;
+      const chipY = (faixaH - chipH) / 2;
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(x, chipY, chipW, chipH, 1.2, 1.2, "F");
+      const jpeg = /image\/jpe?g/i.test(String(marca.logoDataUrl));
+      try {
+        doc.addImage(marca.logoDataUrl, jpeg ? "JPEG" : "PNG", x + pad, chipY + pad, dw, dh);
+      } catch (_) {}
+      x += chipW + 3;
+    }
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(doc.splitTextToSize(emitidoPor, 86)[0], x, 9);
+    if (slogan) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(220, 220, 220);
+      doc.text(doc.splitTextToSize(slogan, 86)[0], x, 14);
+    }
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Fechamento de coletas", pageW - margin, 8, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(`${periodoAmigavel(de, ate)} · Extrato`, pageW - margin, 13, { align: "right" });
+    const chip = statusLabel.toUpperCase();
+    doc.setFontSize(7);
+    const chipW = doc.getTextWidth(chip) + 4;
+    const chipX = pageW - margin - chipW;
+    const chipY = 15.4;
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(chipX, chipY, chipW, 4, 0.8, 0.8, "S");
+    doc.text(chip, chipX + chipW / 2, chipY + 2.7, { align: "center" });
+    doc.setTextColor(ink[0], ink[1], ink[2]);
+  }
+
+  function estiloTabela(bodyLen, opcoes) {
+    const destacarUltima = !opcoes || opcoes.destacarUltima !== false;
+    const destacarSubtotais = !!(opcoes && opcoes.destacarSubtotais);
+    const columnStyles = Object.assign({ 0: { halign: "left" } }, (opcoes && opcoes.columnStyles) || {});
+    return {
+      theme: "plain",
+      styles: { font: "helvetica", fontSize: 8, halign: "right", textColor: ink, cellPadding: 1.15 },
+      headStyles: {
+        fontStyle: "bold",
+        fontSize: 7,
+        textColor: [58, 58, 58],
+        fillColor: [255, 255, 255],
+        halign: "right",
+      },
+      columnStyles,
+      margin: { left: margin, right: margin, top: faixaH + 6, bottom: 16 },
+      didParseCell(data) {
+        const coluna = columnStyles[data.column.index];
+        if (data.section === "head" && coluna && coluna.halign) data.cell.styles.halign = coluna.halign;
+        if (data.section === "body" && (data.cell.raw === 0 || data.cell.raw === "0")) {
+          data.cell.styles.textColor = zeroCor;
+        }
+        if (destacarUltima && data.section === "body" && data.row.index === bodyLen - 1) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.textColor = ink;
+        }
+        if (destacarSubtotais && data.section === "body") {
+          const raw = data.row.raw;
+          const col2 = Array.isArray(raw) ? String(raw[2] || "") : "";
+          const col1 = Array.isArray(raw) ? String(raw[1] || "") : "";
+          const isSub = col2 === "Subtotal do dia";
+          const isPeriodo = col1 === "Período";
+          if (isSub || isPeriodo) {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.font = "helvetica";
+            data.cell.styles.textColor = ink;
+            data.cell.styles.fillColor = isPeriodo ? [232, 232, 232] : [246, 245, 243];
+          }
+        }
+      },
+      willDrawCell(data) {
+        if (data.section === "head") {
+          doc.setDrawColor(27, 27, 27);
+          doc.setLineWidth(0.35);
+        }
+      },
+      didDrawCell(data) {
+        if (data.section === "head") {
+          doc.setDrawColor(27, 27, 27);
+          doc.setLineWidth(0.4);
+          doc.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height);
+        }
+        if (destacarSubtotais && data.section === "body") {
+          const raw = data.row.raw;
+          const col2 = Array.isArray(raw) ? String(raw[2] || "") : "";
+          if (col2 === "Subtotal do dia" && data.column.index === 0) {
+            doc.setDrawColor(180, 180, 180);
+            doc.setLineWidth(0.25);
+            doc.line(margin, data.cell.y, pageW - margin, data.cell.y);
+          }
+        }
+      },
+      didDrawPage(data) {
+        if (data.pageNumber > 1) desenharFaixa();
+      },
+    };
+  }
+
+  desenharFaixa();
+
+  let y = faixaH + 8;
+  const cardW = 54;
+  const cardX = pageW - margin - cardW;
+  const pixExibicao = pixVal && window.PixChave ? PixChave.formatar(pixTipo, pixVal) : pixVal;
+  const rotuloTipo = pixVal && window.PixChave ? PixChave.rotulo(pixTipo) : "";
+  let linhasChave = [];
+  if (pixVal) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    const textoChave = pixExibicao || pixVal;
+    const larguraChave = cardW - 8;
+    const cabe = (ls) => ls.every((linha) => doc.getTextWidth(linha) <= larguraChave);
+    if (doc.getTextWidth(textoChave) <= larguraChave) {
+      linhasChave = [textoChave];
+    } else if (pixTipo === "email" && textoChave.includes("@")) {
+      const arroba = textoChave.lastIndexOf("@");
+      linhasChave = [textoChave.slice(0, arroba + 1), textoChave.slice(arroba + 1)];
+    } else if (pixTipo === "aleatoria" && textoChave.split("-").length === 5) {
+      const grupos = textoChave.split("-");
+      linhasChave = [grupos.slice(0, 4).join("-"), grupos[4]];
+    }
+    if (!linhasChave.length || !cabe(linhasChave)) {
+      linhasChave = doc.splitTextToSize(textoChave, larguraChave).slice(0, 3);
+    }
+  }
+  const cardH = pixVal ? 25 + (rotuloTipo ? 3.6 : 0) + linhasChave.length * 3.6 + 3 : 22;
+  doc.setDrawColor(230, 230, 230);
+  doc.setFillColor(255, 255, 255);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(cardX, y, cardW, cardH, 4, 4, "S");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(muted[0], muted[1], muted[2]);
+  doc.text("TOTAL A RECEBER", cardX + cardW - 3, y + 6, { align: "right" });
+  doc.setTextColor(ink[0], ink[1], ink[2]);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.text(fmtVal(valorFinalFech), cardX + cardW - 3, y + 13, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(muted[0], muted[1], muted[2]);
+  doc.text(`${qtdColetas} coletas no período`, cardX + cardW - 3, y + 18, { align: "right" });
+  if (pixVal) {
+    const direita = cardX + cardW - 3;
+    doc.setDrawColor(230, 230, 230);
+    doc.setLineWidth(0.2);
+    doc.line(cardX + 3, y + 21, direita, y + 21);
+    let py = y + 25;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(ink[0], ink[1], ink[2]);
+    doc.text("Pague no PIX", direita, py, { align: "right" });
+    if (rotuloTipo) {
+      py += 3.6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(muted[0], muted[1], muted[2]);
+      doc.text(rotuloTipo, direita, py, { align: "right" });
+    }
+    py += 3.8;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(ink[0], ink[1], ink[2]);
+    doc.text(linhasChave, direita, py, { align: "right" });
+  }
+
+  const termoBase = typeof window.ownerTerm === "function" ? window.ownerTerm("base") : "Base";
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(muted[0], muted[1], muted[2]);
+  doc.text(String(termoBase).toUpperCase(), margin, y + 4);
+  doc.setTextColor(ink[0], ink[1], ink[2]);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text(String(nomeEmpresa || base || "—"), margin, y + 9);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(58, 58, 58);
+  let infoY = y + 13;
+  if (cnpjVal) {
+    doc.text(`CNPJ ${cnpjVal}`, margin, infoY);
+    infoY += 4;
+  }
+  if (enderecoVal) {
+    const linhasEnd = doc.splitTextToSize(enderecoVal, cardX - margin - 4);
+    doc.text(linhasEnd.slice(0, 3), margin, infoY);
+    infoY += 4 * Math.min(linhasEnd.length, 3);
+  }
+  y = Math.max(y + cardH, infoY) + 6;
+
+  doc.setFontSize(7);
+  doc.setTextColor(muted[0], muted[1], muted[2]);
+  const kpis = [
+    ["SHOPEE", String(qtdShopee)],
+    ["MERCADO LIVRE", String(qtdMl)],
+    ["AVULSO", String(qtdAvulso)],
+    ["CANCELADOS", String(totalCancQtd)],
+  ];
+  const kpiW = (pageW - margin * 2) / 4;
+  kpis.forEach((par, i) => {
+    const x = margin + i * kpiW;
+    if (i) {
+      doc.setDrawColor(233, 233, 233);
+      doc.setLineWidth(0.2);
+      doc.line(x, y - 3, x, y + 6);
+    }
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(muted[0], muted[1], muted[2]);
+    doc.text(par[0], x + (i ? 2 : 0), y);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(par[1] === "0" ? zeroCor[0] : ink[0], par[1] === "0" ? zeroCor[1] : ink[1], par[1] === "0" ? zeroCor[2] : ink[2]);
+    doc.text(par[1], x + (i ? 2 : 0), y + 5);
+  });
+  y += 10;
+
+  if (temAviso) {
+    const avisoTxt =
+      divInfo.mensagem ||
+      `Este extrato lista ${Number(totaisExt.total || 0)} pacotes. O fechamento cobra ${qtdColetas}.`;
+    const avisoLinhas = doc.splitTextToSize(avisoTxt, pageW - margin * 2 - 4);
+    const avisoH = 6 + avisoLinhas.length * 3.6;
+    doc.setFillColor(246, 245, 243);
+    doc.setDrawColor(219, 218, 215);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, y - 2, pageW - margin * 2, avisoH, 2, 2, "FD");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(58, 58, 58);
+    doc.text(avisoLinhas, margin + 2, y + 2.5);
+    y += avisoH + 4;
+  }
+
+  doc.setFillColor(27, 27, 27);
+  doc.rect(margin, y, pageW - margin * 2, 8, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("EXTRATO DE PACOTES", margin + 3, y + 5.2);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.text(`${Number(totaisExt.total || 0)} pacotes`, pageW - margin - 3, y + 5.2, { align: "right" });
+  y += 11;
+  doc.setTextColor(ink[0], ink[1], ink[2]);
+
+  const qtdExtratoPacotes = linhas.reduce((acc, l) => acc + (Number(l.quantidade) || 0), 0);
+  const porDia = {};
+  linhas.forEach((l) => {
+    const dia = String(l.data || "");
+    if (!porDia[dia]) porDia[dia] = [];
+    porDia[dia].push(l);
+  });
+  const corpoExtrato = [];
+  let seq = 0;
+  Object.keys(porDia)
+    .sort()
+    .forEach((dia) => {
+      const doDia = porDia[dia];
+      let qS = 0;
+      let qM = 0;
+      let qA = 0;
+      let qDia = 0;
+      doDia.forEach((l) => {
+        seq += 1;
+        const q = Number(l.quantidade) || 1;
+        qDia += q;
+        const tipo = String(l.servico_tipo || "").toLowerCase();
+        if (tipo === "shopee") qS += q;
+        else if (tipo === "ml") qM += q;
+        else qA += q;
+        corpoExtrato.push([
+          String(seq),
+          isoParaBr(l.data),
+          String(l.codigo || "—"),
+          String(l.servico || "—"),
+          q,
+        ]);
+      });
+      const partesSrv = [];
+      if (qS) partesSrv.push(`Shopee ${qS}`);
+      if (qM) partesSrv.push(`ML ${qM}`);
+      if (qA) partesSrv.push(`Avulso ${qA}`);
+      corpoExtrato.push([
+        "",
+        isoParaBr(dia),
+        "Subtotal do dia",
+        partesSrv.join(" · ") || "—",
+        qDia,
+      ]);
+    });
+  corpoExtrato.push(["", "Período", `${linhas.length} linhas`, "", qtdExtratoPacotes]);
+
+  doc.autoTable(
+    Object.assign(
+      {
+        startY: y,
+        head: [["#", "Data", "Código / identificação", "Serviço", "Qtd"]],
+        body: corpoExtrato,
+      },
+      estiloTabela(corpoExtrato.length, {
+        destacarSubtotais: true,
+        columnStyles: {
+          0: { halign: "right", cellWidth: 12 },
+          1: { halign: "left", cellWidth: 22 },
+          2: { halign: "left", fontSize: 7.5 },
+          3: { halign: "left", cellWidth: 30 },
+          4: { halign: "right", cellWidth: 14 },
+        },
+      })
+    )
+  );
+
+  let yAfter = doc.lastAutoTable.finalY + 8;
+
+  if (temCancelados) {
+    if (yAfter > 250) {
+      doc.addPage();
+      desenharFaixa();
+      yAfter = faixaH + 8;
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(ink[0], ink[1], ink[2]);
+    doc.text("Cancelados", margin, yAfter);
+    const corpoCanc = canceladosLinhas.map((l, idx) => [
+      String(idx + 1),
+      isoParaBr(l.data),
+      String(l.codigo || "—"),
+      String(l.servico || "—"),
+      Number(l.quantidade) || 1,
+    ]);
+    const totCancLinhas = canceladosLinhas.reduce((a, l) => a + (Number(l.quantidade) || 0), 0);
+    corpoCanc.push(["", "Total", "", "", totCancLinhas]);
+    doc.autoTable(
+      Object.assign(
+        {
+          startY: yAfter + 3,
+          head: [["#", "Data", "Código", "Serviço", "Qtd"]],
+          body: corpoCanc.length ? corpoCanc : [["—", "—", "Sem códigos listados", "—", totalCancQtd]],
+        },
+        estiloTabela(Math.max(corpoCanc.length, 1), {
+          columnStyles: {
+            0: { halign: "right", cellWidth: 12 },
+            1: { halign: "left", cellWidth: 24 },
+            2: { halign: "left", font: "courier", fontSize: 7.5 },
+            3: { halign: "left", cellWidth: 32 },
+            4: { halign: "right", cellWidth: 14 },
+          },
+        })
+      )
+    );
+    yAfter = doc.lastAutoTable.finalY + 8;
+  }
+
+  if (temPacotesG) {
+    if (yAfter > 250) {
+      doc.addPage();
+      desenharFaixa();
+      yAfter = faixaH + 8;
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(ink[0], ink[1], ink[2]);
+    doc.text("Pacotes grandes", margin, yAfter);
+    if (pacotesGLinhas.length) {
+      const corpoGCod = pacotesGLinhas.map((l, idx) => [
+        String(idx + 1),
+        isoParaBr(l.data),
+        String(l.codigo || "—"),
+        String(l.servico || "—"),
+        1,
+      ]);
+      doc.autoTable(
+        Object.assign(
+          {
+            startY: yAfter + 3,
+            head: [["#", "Data", "Código", "Serviço", "Qtd"]],
+            body: corpoGCod,
+          },
+          estiloTabela(corpoGCod.length, {
+            destacarUltima: false,
+            columnStyles: {
+              0: { halign: "right", cellWidth: 12 },
+              1: { halign: "left", cellWidth: 24 },
+              2: { halign: "left", font: "courier", fontSize: 7.5 },
+              3: { halign: "left", cellWidth: 32 },
+              4: { halign: "right", cellWidth: 14 },
+            },
+          })
+        )
+      );
+      yAfter = doc.lastAutoTable.finalY + 4;
+    }
+    const fmtG = (v) => (valorUnitarioG ? fmtVal(v) : "—");
+    const corpoG = [
+      ["Shopee", totalGShopee, fmtG(valorUnitarioG), fmtG(valorUnitarioG * totalGShopee)],
+      ["Mercado Livre", totalGMercado, fmtG(valorUnitarioG), fmtG(valorUnitarioG * totalGMercado)],
+      ["Avulso", totalGAvulso, fmtG(valorUnitarioG), fmtG(valorUnitarioG * totalGAvulso)],
+      ["Total", totalG, fmtG(valorUnitarioG), valorUnitarioG ? fmtVal(ajusteGTotal) : "—"],
+    ];
+    doc.autoTable(
+      Object.assign(
+        {
+          startY: yAfter,
+          head: [["Serviço", "Quantidade", "Valor unitário", "Valor total"]],
+          body: corpoG,
+        },
+        estiloTabela(corpoG.length)
+      )
+    );
+    yAfter = doc.lastAutoTable.finalY + 8;
+  }
+
+  if (yAfter > 250) {
+    doc.addPage();
+    desenharFaixa();
+    yAfter = faixaH + 8;
+  }
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(ink[0], ink[1], ink[2]);
+  doc.text("Composição", margin, yAfter);
+  doc.text("Aceite", margin + 108, yAfter);
+  const linhasComp = [
+    ["Valor bruto", fmtVal(valorBrutoFech)],
+    ["Cancelados", fmtVal(valorCancelFech)],
+  ];
+  if (valorAdicao) linhasComp.push(["Acréscimos", `+${fmtVal(valorAdicao)}`]);
+  if (valorSubtracao) linhasComp.push(["Descontos", `-${fmtVal(Math.abs(valorSubtracao))}`]);
+  if (!valorAdicao && !valorSubtracao) linhasComp.push(["Ajustes", fmtVal(0)]);
+  linhasComp.push(["Total a receber", fmtVal(valorFinalFech)]);
+  let cy = yAfter + 6;
+  doc.setFontSize(9);
+  linhasComp.forEach((par, i) => {
+    const ultimo = i === linhasComp.length - 1;
+    if (ultimo) {
+      doc.setDrawColor(27, 27, 27);
+      doc.setLineWidth(0.3);
+      doc.line(margin, cy - 3, margin + 96, cy - 3);
+      doc.setFont("helvetica", "bold");
+    } else {
+      doc.setFont("helvetica", "normal");
+    }
+    doc.text(par[0], margin, cy);
+    doc.text(par[1], margin + 96, cy, { align: "right" });
+    cy += 5;
+  });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(58, 58, 58);
+  const aceite = doc.splitTextToSize(
+    "Em caso de divergência, comunicar em até 48 horas. Após esse prazo, o relatório é considerado aceito.",
+    78
+  );
+  doc.text(aceite, margin + 108, yAfter + 6);
+
+  const rodapeY = Math.max(cy + 6, yAfter + 22);
+  doc.setDrawColor(233, 233, 233);
+  doc.setLineWidth(0.2);
+  doc.line(margin, rodapeY, pageW - margin, rodapeY);
+  doc.setFontSize(7.5);
+  doc.setTextColor(muted[0], muted[1], muted[2]);
+  doc.text(`Extrato detalhado · Período ${isoParaBr(de)} a ${isoParaBr(ate)} · ${statusLabel}`, margin, rodapeY + 5);
+  doc.text(`Emitido por ${emitidoPor} · via ROTEVO`, pageW - margin, rodapeY + 5, { align: "right" });
+
+  const dIni = String(de || "").split("-");
+  const dFim = String(ate || "").split("-");
+  const ddIni = dIni.length >= 3 ? dIni[2] : "01";
+  const ddFim = dFim.length >= 3 ? dFim[2] : "01";
+  const mm = dFim.length >= 2 ? dFim[1] : dIni.length >= 2 ? dIni[1] : "01";
+  const baseNome = String(base || "base").replace(/\s+/g, "_");
+  doc.save(`fechamento_extrato_${baseNome}_${ddIni}_a_${ddFim}_${mm}.pdf`);
+}
 
 window.gerarPdfFechamentoBases = gerarPdfFechamentoBases;
