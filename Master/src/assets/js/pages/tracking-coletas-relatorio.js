@@ -1224,6 +1224,7 @@ async function montarPdfFechamentoDetalhado(idFechamento, api) {
 
   function estiloTabela(bodyLen, opcoes) {
     const destacarUltima = !opcoes || opcoes.destacarUltima !== false;
+    const destacarSubtotais = !!(opcoes && opcoes.destacarSubtotais);
     const columnStyles = Object.assign({ 0: { halign: "left" } }, (opcoes && opcoes.columnStyles) || {});
     return {
       theme: "plain",
@@ -1247,6 +1248,19 @@ async function montarPdfFechamentoDetalhado(idFechamento, api) {
           data.cell.styles.fontStyle = "bold";
           data.cell.styles.textColor = ink;
         }
+        if (destacarSubtotais && data.section === "body") {
+          const raw = data.row.raw;
+          const col2 = Array.isArray(raw) ? String(raw[2] || "") : "";
+          const col1 = Array.isArray(raw) ? String(raw[1] || "") : "";
+          const isSub = col2 === "Subtotal do dia";
+          const isPeriodo = col1 === "Período";
+          if (isSub || isPeriodo) {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.font = "helvetica";
+            data.cell.styles.textColor = ink;
+            data.cell.styles.fillColor = isPeriodo ? [232, 232, 232] : [246, 245, 243];
+          }
+        }
       },
       willDrawCell(data) {
         if (data.section === "head") {
@@ -1259,6 +1273,15 @@ async function montarPdfFechamentoDetalhado(idFechamento, api) {
           doc.setDrawColor(27, 27, 27);
           doc.setLineWidth(0.4);
           doc.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height);
+        }
+        if (destacarSubtotais && data.section === "body") {
+          const raw = data.row.raw;
+          const col2 = Array.isArray(raw) ? String(raw[2] || "") : "";
+          if (col2 === "Subtotal do dia" && data.column.index === 0) {
+            doc.setDrawColor(180, 180, 180);
+            doc.setLineWidth(0.25);
+            doc.line(margin, data.cell.y, pageW - margin, data.cell.y);
+          }
         }
       },
       didDrawPage(data) {
@@ -1466,15 +1489,16 @@ async function montarPdfFechamentoDetalhado(idFechamento, api) {
     Object.assign(
       {
         startY: y,
-        head: [["#", "Data", "Código", "Serviço", "Qtd"]],
+        head: [["#", "Data", "Código / identificação", "Serviço", "Qtd"]],
         body: corpoExtrato,
       },
       estiloTabela(corpoExtrato.length, {
+        destacarSubtotais: true,
         columnStyles: {
           0: { halign: "right", cellWidth: 12 },
-          1: { halign: "left", cellWidth: 24 },
-          2: { halign: "left", font: "courier", fontSize: 7.5 },
-          3: { halign: "left", cellWidth: 32 },
+          1: { halign: "left", cellWidth: 22 },
+          2: { halign: "left", fontSize: 7.5 },
+          3: { halign: "left", cellWidth: 30 },
           4: { halign: "right", cellWidth: 14 },
         },
       })
